@@ -441,3 +441,20 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Multi-select in CommitGraph uses `selectedHashes` Set<string> alongside single `selectedHash`
   - Ctrl+click toggles individual commits, Shift+click selects range between last selected and clicked
 ---
+## 2026-03-16 15:24 - US-022
+- Implemented: Reset (Soft, Mixed, Hard) — dialog accessible from commit graph context menu with mode selection, clear explanations, hard reset requires typing HARD to confirm, success/error feedback
+- Files modified:
+  - `src/main/git-service.ts` - Added `reset()` method using `git reset --soft/--mixed/--hard <hash>`
+  - `src/main/git-ipc.ts` - Added `git:reset` IPC handler
+  - `src/preload/index.ts` - Added `reset` to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with reset method
+  - `src/renderer/src/components/CommitGraph.tsx` - Wired reset context menu action to open ResetDialog, added resetTarget state
+  - `src/renderer/src/styles/global.css` - Added comprehensive ResetDialog styles (overlay, mode cards, hard confirm, error/success)
+- Files created:
+  - `src/renderer/src/components/ResetDialog.tsx` - Reset dialog with mode selection (soft/mixed/hard), mode descriptions, hard reset confirmation input, auto-close on success
+- **Learnings for future iterations:**
+  - `git reset --soft/--mixed/--hard <hash>` is straightforward — no special parsing needed
+  - ResetDialog follows the same modal overlay pattern as MergeDialog/CloneDialog (z-index: 3000)
+  - Hard reset confirmation uses exact string match "HARD" for safety
+  - Context menu action wiring: set state in handleContextAction, render dialog conditionally in JSX
+---
