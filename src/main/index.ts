@@ -3,6 +3,7 @@ import { join } from 'path'
 import { readFile, writeFile } from 'fs'
 import { watch as chokidarWatch, type FSWatcher } from 'chokidar'
 import Store from 'electron-store'
+import { autoUpdater } from 'electron-updater'
 import { registerGitIpcHandlers } from './git-ipc'
 import { gitService } from './git-service'
 import { registerTerminalIpcHandlers, killAllTerminals } from './terminal-manager'
@@ -144,6 +145,48 @@ app.whenReady().then(async () => {
 
   createWindow()
 
+  // ─── Auto-Updater Setup ──────────────────────────────────────────────────
+  if (!isDev) {
+    autoUpdater.autoDownload = true
+    autoUpdater.autoInstallOnAppQuit = true
+    autoUpdater.logger = {
+      info: (msg: unknown) => console.log('[AutoUpdater]', msg),
+      warn: (msg: unknown) => console.warn('[AutoUpdater]', msg),
+      error: (msg: unknown) => console.error('[AutoUpdater]', msg),
+      debug: (msg: unknown) => console.log('[AutoUpdater:debug]', msg)
+    }
+
+    autoUpdater.on('update-available', (info) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('updater:update-available', {
+          version: info.version,
+          releaseDate: info.releaseDate
+        })
+      }
+    })
+
+    autoUpdater.on('update-downloaded', (info) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('updater:update-downloaded', {
+          version: info.version
+        })
+      }
+    })
+
+    autoUpdater.on('error', (err) => {
+      console.error('[AutoUpdater] Error:', err.message)
+    })
+
+    // Check for updates after a brief delay
+    setTimeout(() => {
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        console.error('[AutoUpdater] Check failed:', err)
+      })
+    }, 5000)
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
@@ -239,6 +282,27 @@ ipcMain.handle('watcher:stop', async () => {
     activeWatcher = null
   }
   return { success: true }
+})
+
+// ─── Auto-Updater IPC ─────────────────────────────────────────────────────
+
+ipcMain.handle('updater:checkForUpdates', async () => {
+  if (isDev) return { success: false, error: 'Auto-update disabled in development' }
+  try {
+    const result = await autoUpdater.checkForUpdates()
+    return {
+      success: true,
+      data: result
+        ? { version: result.updateInfo.version, releaseDate: result.updateInfo.releaseDate }
+        : null
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Update check failed' }
+  }
+})
+
+ipcMain.handle('updater:quitAndInstall', () => {
+  autoUpdater.quitAndInstall()
 })
 
 // ─── Auto-Fetch IPC ────────────────────────────────────────────────────────
