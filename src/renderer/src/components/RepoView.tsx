@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { CommitGraph } from './CommitGraph'
 
 interface RepoViewProps {
   repoPath: string
@@ -32,7 +33,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
       if (statusResult.success && statusResult.data) {
         const data = statusResult.data
         setStatus({
-          branch: data.branch?.head || 'unknown',
+          branch: data.branch?.head || data.branch || 'unknown',
           staged: Array.isArray(data.staged) ? data.staged.length : 0,
           unstaged: Array.isArray(data.unstaged) ? data.unstaged.length : 0,
           untracked: Array.isArray(data.untracked) ? data.untracked.length : 0
@@ -132,22 +133,8 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
             </div>
           </div>
 
-          {branches.length > 0 && (
-            <div className="repo-view-branches">
-              <h3>Branches ({branches.length})</h3>
-              <ul className="repo-view-branch-list">
-                {branches.map((branch) => (
-                  <li
-                    key={branch.name}
-                    className={`repo-view-branch-item${branch.current ? ' repo-view-branch-current' : ''}`}
-                  >
-                    {branch.current && <span className="repo-view-branch-indicator">&#x25CF;</span>}
-                    {branch.name}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* Commit Graph */}
+          <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} />
         </div>
       )}
     </div>

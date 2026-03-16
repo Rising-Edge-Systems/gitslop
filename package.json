@@ -24,12 +24,14 @@
     "electron-store": "^11.0.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-resizable-panels": "^4.7.3"
+    "react-resizable-panels": "^4.7.3",
+    "react-window": "^2.2.7"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/react-window": "^1.8.8",
     "@vitejs/plugin-react": "^4.7.0",
     "electron": "^41.0.2",
     "electron-vite": "^4.0.1",
