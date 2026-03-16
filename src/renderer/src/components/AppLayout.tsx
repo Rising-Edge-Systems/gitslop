@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import {
   Group,
   Panel,
@@ -9,6 +9,7 @@ import { Toolbar } from './Toolbar'
 import { Sidebar } from './Sidebar'
 import { MainContent } from './MainContent'
 import { TerminalPanel } from './Terminal'
+import { SearchPalette } from './SearchPalette'
 import { useLayoutState } from '../hooks/useLayoutState'
 
 interface AppLayoutProps {
@@ -25,6 +26,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
     toggleBottomPanel,
     toggleSidebar
   } = useLayoutState()
+
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const handleSidebarResize = useCallback(
     (panelSize: PanelSize) => {
@@ -53,14 +56,38 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
         e.preventDefault()
         toggleBottomPanel()
       }
+      // Ctrl+K to open search palette
+      if (e.ctrlKey && e.key === 'k') {
+        e.preventDefault()
+        if (currentRepo) {
+          setSearchOpen(true)
+        }
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [toggleSidebar, toggleBottomPanel])
+  }, [toggleSidebar, toggleBottomPanel, currentRepo])
 
   return (
     <div className="app-layout">
       <Toolbar currentRepo={currentRepo} />
+
+      {/* Search Palette (Ctrl+K) */}
+      {searchOpen && currentRepo && (
+        <SearchPalette
+          currentRepo={currentRepo}
+          onClose={() => setSearchOpen(false)}
+          onSelectCommit={(_hash) => {
+            // TODO: scroll graph to commit — will be wired once graph exposes scroll API
+          }}
+          onSelectFile={(_filePath) => {
+            // TODO: open file in editor — will be wired once editor supports programmatic open
+          }}
+          onCheckoutBranch={() => {
+            // Branch was checked out — status will auto-refresh via file watcher
+          }}
+        />
+      )}
       <div className="app-body">
         <Group orientation="horizontal" id="gitslop-horizontal">
           {layout.sidebarVisible && (
