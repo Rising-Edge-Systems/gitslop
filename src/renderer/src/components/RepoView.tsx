@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { BlameView } from './BlameView'
 import { CodeEditor } from './CodeEditor'
 import { CommitDialog } from './CommitDialog'
 import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from './CommitFilterBar'
@@ -31,6 +32,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
   const [showConflictResolver, setShowConflictResolver] = useState(false)
   const [hasConflicts, setHasConflicts] = useState(false)
   const [showEditor, setShowEditor] = useState(false)
+  const [blameFilePath, setBlameFilePath] = useState<string | null>(null)
   const [commitFilters, setCommitFilters] = useState<CommitFilters>(EMPTY_FILTERS)
   const [fileHistoryPath, setFileHistoryPath] = useState<string | undefined>(undefined)
 
@@ -92,6 +94,18 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
     }
     window.addEventListener('editor:open-file', handler)
     return () => window.removeEventListener('editor:open-file', handler)
+  }, [])
+
+  // Listen for blame open events
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const detail = (e as CustomEvent<{ filePath: string }>).detail
+      if (detail?.filePath) {
+        setBlameFilePath(detail.filePath)
+      }
+    }
+    window.addEventListener('blame:open', handler)
+    return () => window.removeEventListener('blame:open', handler)
   }, [])
 
   // Listen for "show history for file" events (from context menus)
@@ -226,6 +240,23 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
             stagedCount={status?.staged ?? 0}
             onCommitDone={loadRepoData}
           />
+
+          {/* Blame View */}
+          {blameFilePath && (
+            <div className="blame-view-panel">
+              <BlameView
+                repoPath={repoPath}
+                filePath={blameFilePath}
+                onClose={() => setBlameFilePath(null)}
+                onCommitClick={(hash) => {
+                  // Dispatch event to scroll graph to this commit
+                  window.dispatchEvent(
+                    new CustomEvent('graph:scroll-to-commit', { detail: { hash } })
+                  )
+                }}
+              />
+            </div>
+          )}
 
           {/* Editor Toggle + Panel */}
           <div className="editor-toggle-bar">

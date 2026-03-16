@@ -1090,6 +1090,20 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Blame ──────────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:blame',
+    async (_event, repoPath: string, filePath: string) => {
+      try {
+        const data = await gitService.blame(repoPath, filePath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {

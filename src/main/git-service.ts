@@ -2281,6 +2281,108 @@ export class GitService {
     return null
   }
 
+  /**
+   * Get blame annotations for a file.
+   * Uses git blame --porcelain for structured output.
+   */
+  async blame(
+    repoPath: string,
+    filePath: string
+  ): Promise<{
+    lines: {
+      hash: string
+      shortHash: string
+      author: string
+      authorEmail: string
+      authorDate: string
+      summary: string
+      lineNumber: number
+      content: string
+    }[]
+  }> {
+    const result = await this.exec(
+      ['blame', '--porcelain', filePath],
+      repoPath
+    )
+    const stdout = result.stdout
+    const lines: {
+      hash: string
+      shortHash: string
+      author: string
+      authorEmail: string
+      authorDate: string
+      summary: string
+      lineNumber: number
+      content: string
+    }[] = []
+
+    const rawLines = stdout.split('\n')
+    let i = 0
+    while (i < rawLines.length) {
+      const headerLine = rawLines[i]
+      if (!headerLine) {
+        i++
+        continue
+      }
+
+      // Header: <hash> <orig-line> <final-line> [<num-lines>]
+      const headerMatch = headerLine.match(/^([0-9a-f]{40})\s+(\d+)\s+(\d+)/)
+      if (!headerMatch) {
+        i++
+        continue
+      }
+
+      const hash = headerMatch[1]
+      const finalLine = parseInt(headerMatch[3], 10)
+
+      // Parse key-value pairs until we hit the content line (starts with \t)
+      let author = ''
+      let authorEmail = ''
+      let authorTime = ''
+      let summary = ''
+      i++
+
+      while (i < rawLines.length && !rawLines[i].startsWith('\t')) {
+        const line = rawLines[i]
+        if (line.startsWith('author ')) {
+          author = line.slice(7)
+        } else if (line.startsWith('author-mail ')) {
+          authorEmail = line.slice(12).replace(/[<>]/g, '')
+        } else if (line.startsWith('author-time ')) {
+          authorTime = line.slice(12)
+        } else if (line.startsWith('summary ')) {
+          summary = line.slice(8)
+        }
+        i++
+      }
+
+      // Content line (starts with \t)
+      let content = ''
+      if (i < rawLines.length && rawLines[i].startsWith('\t')) {
+        content = rawLines[i].slice(1)
+        i++
+      }
+
+      // Convert author-time (unix timestamp) to ISO date string
+      const authorDate = authorTime
+        ? new Date(parseInt(authorTime, 10) * 1000).toISOString()
+        : ''
+
+      lines.push({
+        hash,
+        shortHash: hash.slice(0, 7),
+        author,
+        authorEmail,
+        authorDate,
+        summary,
+        lineNumber: finalLine,
+        content
+      })
+    }
+
+    return { lines }
+  }
+
   private createError(message: string, code: GitErrorCode, stderr?: string): GitError {
     return { message, code, stderr }
   }

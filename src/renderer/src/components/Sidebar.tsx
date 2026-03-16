@@ -1824,7 +1824,14 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
 
       {/* File Tree Tab */}
       {activeTab === 'files' && (
-        <FileTree currentRepo={currentRepo} />
+        <FileTree
+          currentRepo={currentRepo}
+          onShowBlame={(filePath) => {
+            window.dispatchEvent(
+              new CustomEvent('blame:open', { detail: { filePath } })
+            )
+          }}
+        />
       )}
 
       {/* Git Tab */}

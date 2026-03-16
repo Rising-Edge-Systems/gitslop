@@ -244,6 +244,8 @@ const electronAPI = {
       ipcRenderer.invoke('git:resolveConflictFileWith', repoPath, filePath, choice),
     getActiveOperation: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getActiveOperation', repoPath),
+    blame: (repoPath: string, filePath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:blame', repoPath, filePath),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

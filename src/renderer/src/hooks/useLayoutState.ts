@@ -148,6 +148,7 @@ declare global {
         resolveConflictFile: (repoPath: string, filePath: string, content: string) => Promise<GitServiceResult>
         resolveConflictFileWith: (repoPath: string, filePath: string, choice: 'ours' | 'theirs') => Promise<GitServiceResult>
         getActiveOperation: (repoPath: string) => Promise<GitServiceResult>
+        blame: (repoPath: string, filePath: string) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
