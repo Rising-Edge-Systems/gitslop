@@ -376,7 +376,7 @@
         "Typecheck passes"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": "Use git cherry-pick. Use git cherry-pick --abort for abort."
     },
     {

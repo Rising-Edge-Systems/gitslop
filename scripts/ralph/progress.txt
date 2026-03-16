@@ -424,3 +424,20 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - `git branch -r --contains HEAD` checks if HEAD is reachable from any remote (published commits check)
   - RebaseDialog follows same pattern as MergeDialog — standalone component with `currentRepo`, `preselectedBranch`, `onClose`, `onRebaseComplete` props
 ---
+## 2026-03-16 15:18 - US-021
+- Implemented: Cherry-pick feature — single and batch cherry-pick from commit graph context menu, multi-select with Ctrl/Shift+click, conflict detection with continue/abort, success notification with new commit hash
+- Files modified:
+  - `src/main/git-service.ts` - Added `cherryPick()`, `cherryPickAbort()`, `cherryPickContinue()`, `isCherryPicking()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:cherryPick`, `git:cherryPickAbort`, `git:cherryPickContinue`, `git:isCherryPicking`
+  - `src/preload/index.ts` - Added cherryPick, cherryPickAbort, cherryPickContinue, isCherryPicking to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new cherry-pick methods
+  - `src/renderer/src/components/CommitGraph.tsx` - Added multi-select support (Ctrl+click, Shift+click), wired cherry-pick context menu action, cherry-pick notification UI (success/conflict/picking states), abort/continue/dismiss buttons
+  - `src/renderer/src/styles/global.css` - Added cherry-pick notification styles (positioned overlay, conflict file list, action buttons)
+- **Learnings for future iterations:**
+  - `git cherry-pick` accepts multiple hashes for batch cherry-picking
+  - CHERRY_PICK_HEAD file in .git dir indicates a cherry-pick is in progress
+  - Cherry-pick --continue doesn't need GIT_EDITOR env var (unlike rebase --continue)
+  - `exec()` method in GitService doesn't support `env` option — use `spawn` directly if you need custom env vars
+  - Multi-select in CommitGraph uses `selectedHashes` Set<string> alongside single `selectedHash`
+  - Ctrl+click toggles individual commits, Shift+click selects range between last selected and clicked
+---
