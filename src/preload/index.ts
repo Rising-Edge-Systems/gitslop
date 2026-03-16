@@ -123,6 +123,14 @@ const electronAPI = {
       ipcRenderer.invoke('git:deleteRemoteBranch', repoPath, remoteName, branchName),
     checkoutRemoteBranch: (repoPath: string, remoteName: string, branchName: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:checkoutRemoteBranch', repoPath, remoteName, branchName),
+    stageFiles: (repoPath: string, filePaths: string[]): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stageFiles', repoPath, filePaths),
+    unstageFiles: (repoPath: string, filePaths: string[]): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:unstageFiles', repoPath, filePaths),
+    stageAll: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stageAll', repoPath),
+    unstageAll: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:unstageAll', repoPath),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

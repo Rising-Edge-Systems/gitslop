@@ -878,6 +878,48 @@ export class GitService {
     )
   }
 
+  /**
+   * Stage specific files (git add).
+   */
+  async stageFiles(
+    repoPath: string,
+    filePaths: string[],
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['add', '--', ...filePaths], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Unstage specific files (git restore --staged).
+   */
+  async unstageFiles(
+    repoPath: string,
+    filePaths: string[],
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['restore', '--staged', '--', ...filePaths], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Stage all changes (git add -A).
+   */
+  async stageAll(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['add', '-A'], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Unstage all staged changes (git reset HEAD).
+   */
+  async unstageAll(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['reset', 'HEAD'], repoPath, { signal: options?.signal })
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   private parseLogOutput(output: string, separator: string, recordEnd: string): GitCommit[] {

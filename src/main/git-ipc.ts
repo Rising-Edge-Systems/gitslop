@@ -467,6 +467,56 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Stage Files ──────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:stageFiles',
+    async (_event, repoPath: string, filePaths: string[]) => {
+      try {
+        await gitService.stageFiles(repoPath, filePaths)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Unstage Files ────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:unstageFiles',
+    async (_event, repoPath: string, filePaths: string[]) => {
+      try {
+        await gitService.unstageFiles(repoPath, filePaths)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Stage All ────────────────────────────────────────────────────────────
+
+  ipcMain.handle('git:stageAll', async (_event, repoPath: string) => {
+    try {
+      await gitService.stageAll(repoPath)
+      return { success: true }
+    } catch (err) {
+      return { success: false, ...formatError(err) }
+    }
+  })
+
+  // ─── Unstage All ──────────────────────────────────────────────────────────
+
+  ipcMain.handle('git:unstageAll', async (_event, repoPath: string) => {
+    try {
+      await gitService.unstageAll(repoPath)
+      return { success: true }
+    } catch (err) {
+      return { success: false, ...formatError(err) }
+    }
+  })
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {

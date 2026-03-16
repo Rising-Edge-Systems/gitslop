@@ -82,6 +82,10 @@ declare global {
         fetch: (repoPath: string, remoteName?: string) => Promise<GitServiceResult>
         deleteRemoteBranch: (repoPath: string, remoteName: string, branchName: string) => Promise<GitServiceResult>
         checkoutRemoteBranch: (repoPath: string, remoteName: string, branchName: string) => Promise<GitServiceResult>
+        stageFiles: (repoPath: string, filePaths: string[]) => Promise<GitServiceResult>
+        unstageFiles: (repoPath: string, filePaths: string[]) => Promise<GitServiceResult>
+        stageAll: (repoPath: string) => Promise<GitServiceResult>
+        unstageAll: (repoPath: string) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
