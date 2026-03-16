@@ -109,3 +109,21 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - `git status --porcelain=v2 --branch -u` gives machine-parseable status with branch info
   - `git log --format` with custom separators (<<<SEP>>>) gives structured commit data
 ---
+
+## 2026-03-16 14:02 - US-005
+- Implemented: Open & Init repositories with proper repo view, titlebar repo path display, and fixed "Init from Error" flow
+- Files changed/created:
+  - `src/renderer/src/components/RepoView.tsx` - New repo view component showing branch, status summary, branch list
+  - `src/renderer/src/components/TitleBar.tsx` - Added repoPath prop, displays repo name and path in titlebar
+  - `src/renderer/src/components/MainContent.tsx` - Added onCloseRepo prop, uses RepoView instead of placeholder
+  - `src/renderer/src/components/AppLayout.tsx` - Passes onCloseRepo through to MainContent
+  - `src/renderer/src/components/WelcomeScreen.tsx` - Fixed "Init from Error" to use stored errorPath instead of re-opening picker
+  - `src/renderer/src/App.tsx` - Added handleCloseRepo, passes repoPath to TitleBar
+  - `src/renderer/src/styles/global.css` - Added titlebar repo display styles, full RepoView styles, spin animation
+- **Learnings for future iterations:**
+  - TitleBar accepts optional `repoPath` prop to show current repo in titlebar
+  - RepoView component loads status and branches via git IPC on mount
+  - MainContent now requires `onCloseRepo` prop for returning to welcome screen
+  - CSS `:has()` selector used for conditional centering (welcome screen vs repo view)
+  - WelcomeScreen stores `errorPath` separately from error message to enable "Init Here" on the same path
+---

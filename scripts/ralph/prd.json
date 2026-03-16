@@ -92,7 +92,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-004 (git service) and US-003 (welcome screen). Use git rev-parse --git-dir to verify a folder is a repo."
     },
     {
