@@ -408,7 +408,7 @@
         "Typecheck passes"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": "Use git revert. Use git revert -m <parent> for merge commits."
     },
     {

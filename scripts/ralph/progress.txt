@@ -458,3 +458,20 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Hard reset confirmation uses exact string match "HARD" for safety
   - Context menu action wiring: set state in handleContextAction, render dialog conditionally in JSX
 ---
+## 2026-03-16 15:28 - US-023
+- Implemented: Revert Commit — right-click commit in graph to revert, merge commit parent selection, conflict resolution with continue/abort, success notification with new commit hash
+- Files modified:
+  - `src/main/git-service.ts` - Added `revert()`, `revertAbort()`, `revertContinue()`, `isReverting()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:revert`, `git:revertAbort`, `git:revertContinue`, `git:isReverting`
+  - `src/preload/index.ts` - Added revert, revertAbort, revertContinue, isReverting to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new revert methods
+  - `src/renderer/src/components/CommitGraph.tsx` - Wired revert context menu action, added RevertState type, revert/abort/continue handlers, revert notification UI with merge commit parent selection
+  - `src/renderer/src/styles/global.css` - Added comprehensive revert notification styles (reverting/success/conflict/merge-prompt states, parent selection buttons, conflict file list)
+- **Learnings for future iterations:**
+  - `git revert --no-edit <hash>` creates a revert commit without opening editor
+  - `git revert -m <parent-number> <hash>` is needed for merge commits (parent 1 or 2)
+  - REVERT_HEAD file in .git dir indicates a revert is in progress
+  - `exec()` method in GitService doesn't support `env` option — can't pass GIT_EDITOR=true for revert --continue
+  - Revert notification UI follows same pattern as cherry-pick notification (positioned overlay in commit-graph-wrapper)
+  - RevertState includes 'merge-prompt' status for handling merge commit parent selection
+---
