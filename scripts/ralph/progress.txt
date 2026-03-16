@@ -475,3 +475,32 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Revert notification UI follows same pattern as cherry-pick notification (positioned overlay in commit-graph-wrapper)
   - RevertState includes 'merge-prompt' status for handling merge commit parent selection
 ---
+## 2026-03-16 15:33 - US-024
+- Implemented: Merge Conflict Resolution Tool — visual 3-way conflict resolver with ours/theirs panes, editable result pane, per-conflict and per-file resolution, navigation, and operation continue/abort
+- Files created:
+  - `src/renderer/src/components/ConflictResolver.tsx` - Full conflict resolution component with:
+    - File list sidebar showing all conflicted files with resolved/unresolved status
+    - Ours (left) and Theirs (right) read-only panes showing each side's content
+    - Editable Result (bottom) textarea for manual editing
+    - Conflict marker parser for navigation and per-block resolution
+    - Accept Ours / Accept Theirs / Accept Both buttons per conflict block
+    - Next Conflict / Previous Conflict navigation with counter
+    - Accept All Ours / Accept All Theirs for entire file
+    - Mark as Resolved button (disabled when conflict markers remain)
+    - Continue operation / Abort operation footer
+    - Auto-detects active operation (merge/rebase/cherry-pick/revert)
+- Files modified:
+  - `src/main/git-service.ts` - Added `getConflictContent()` (reads ours/theirs/base via git show :stage:file), `resolveConflictFile()` (write + git add), `resolveConflictFileWith()` (checkout --ours/--theirs + add), `getActiveOperation()` (detects merge/rebase/cherry-pick/revert)
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:getConflictContent`, `git:resolveConflictFile`, `git:resolveConflictFileWith`, `git:getActiveOperation`
+  - `src/preload/index.ts` - Added getConflictContent, resolveConflictFile, resolveConflictFileWith, getActiveOperation to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new conflict resolution methods
+  - `src/renderer/src/components/RepoView.tsx` - Added conflict detection on load, conflict banner, ConflictResolver overlay integration
+  - `src/renderer/src/styles/global.css` - Added comprehensive ConflictResolver styles (overlay, file list, 3-pane layout, navigation, conflict buttons, result editor, footer)
+- **Learnings for future iterations:**
+  - `git show :1:file` = base, `:2:file` = ours, `:3:file` = theirs for conflict content
+  - `git checkout --ours/--theirs file` + `git add file` resolves a file with one side
+  - Conflict markers: `<<<<<<<` (ours start), `|||||||` (base, optional), `=======` (separator), `>>>>>>>` (theirs end)
+  - ConflictResolver is a fixed-position overlay (z-index: 4000) — highest z-index in the app
+  - RepoView checks for conflicted files on load and shows banner + auto-opens resolver
+  - `getActiveOperation()` checks all operation status methods in parallel to determine what's in progress
+---

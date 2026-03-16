@@ -428,7 +428,7 @@
         "Typecheck passes"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": "Use Monaco editor for all three panes. Parse conflict markers from files. Use git checkout --ours/--theirs for bulk resolution. Use git add to mark resolved."
     },
     {
