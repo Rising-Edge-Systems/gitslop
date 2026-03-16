@@ -360,7 +360,7 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "Interactive rebase is complex. Use GIT_SEQUENCE_EDITOR env var to control rebase-todo. Use git rebase --continue/--abort/--skip."
     },
     {

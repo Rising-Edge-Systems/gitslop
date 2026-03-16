@@ -405,3 +405,22 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Merge strategies: no args (auto), `--no-ff` (always merge commit), `--ff-only` (fail if not FF)
   - Sidebar handleMerge now opens MergeDialog instead of calling git:exec directly
 ---
+## 2026-03-16 15:12 - US-020
+- Implemented: Rebase feature — standard rebase, interactive rebase with commit action editor, conflict resolution with continue/abort/skip, progress indicator, published commits warning
+- Files created:
+  - `src/renderer/src/components/RebaseDialog.tsx` - Full rebase dialog with branch picker, preview, interactive commit list (pick/squash/edit/drop/reword/fixup), conflict state with continue/abort/skip
+- Files modified:
+  - `src/main/git-service.ts` - Added `getRebasePreview()`, `rebase()`, `rebaseInteractive()`, `rebaseContinue()`, `rebaseAbort()`, `rebaseSkip()`, `isRebasing()`, `getRebaseProgress()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for all rebase operations
+  - `src/preload/index.ts` - Added rebasePreview, rebase, rebaseInteractive, rebaseContinue, rebaseAbort, rebaseSkip, isRebasing, rebaseProgress to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with all new rebase methods
+  - `src/renderer/src/components/Sidebar.tsx` - Replaced placeholder rebase handler with RebaseDialog integration (preselected branch from context menu)
+  - `src/renderer/src/styles/global.css` - Added rebase dialog styles (preview, interactive commit list, conflict section, published warning, progress indicator)
+- **Learnings for future iterations:**
+  - Interactive rebase uses `GIT_SEQUENCE_EDITOR` env var with a sed script to modify rebase-todo file
+  - `rebaseContinue` needs `GIT_EDITOR=true` env var to auto-accept commit messages
+  - Rebase progress can be read from `.git/rebase-merge/msgnum` and `end` files (interactive) or `.git/rebase-apply/next` and `last` (non-interactive)
+  - `git rev-list --oneline branch..HEAD` lists commits that will be replayed during rebase
+  - `git branch -r --contains HEAD` checks if HEAD is reachable from any remote (published commits check)
+  - RebaseDialog follows same pattern as MergeDialog — standalone component with `currentRepo`, `preselectedBranch`, `onClose`, `onRebaseComplete` props
+---
