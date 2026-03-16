@@ -1213,6 +1213,107 @@ export class GitService {
     }
   }
 
+  // ─── Cherry-Pick ──────────────────────────────────────────────────────────────
+
+  /**
+   * Cherry-pick one or more commits onto the current branch.
+   */
+  async cherryPick(
+    repoPath: string,
+    hashes: string[],
+    options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; newHash?: string; conflicts?: string[] }> {
+    const args = ['cherry-pick', ...hashes]
+
+    try {
+      const result = await this.exec(args, repoPath, { signal: options?.signal })
+      const output = (result.stdout + '\n' + result.stderr).trim()
+
+      // Try to get the new commit hash after cherry-pick
+      let newHash: string | undefined
+      try {
+        const headResult = await this.exec(['rev-parse', 'HEAD'], repoPath)
+        newHash = headResult.stdout.trim()
+      } catch {
+        // Non-critical
+      }
+
+      return { success: true, message: output || 'Cherry-pick successful', newHash }
+    } catch (err) {
+      const gitErr = err as GitError
+      const stderr = gitErr.stderr || gitErr.message || ''
+      if (
+        stderr.includes('CONFLICT') ||
+        stderr.includes('conflict') ||
+        stderr.includes('cherry-pick is now empty') ||
+        stderr.includes('could not apply')
+      ) {
+        const conflicts = await this.getConflictedFiles(repoPath)
+        return {
+          success: false,
+          message: 'Cherry-pick resulted in conflicts. Resolve conflicts and continue.',
+          conflicts
+        }
+      }
+      throw err
+    }
+  }
+
+  /**
+   * Abort an in-progress cherry-pick.
+   */
+  async cherryPickAbort(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['cherry-pick', '--abort'], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Continue cherry-pick after resolving conflicts.
+   */
+  async cherryPickContinue(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; conflicts?: string[] }> {
+    try {
+      const result = await this.exec(
+        ['cherry-pick', '--continue'],
+        repoPath,
+        { signal: options?.signal }
+      )
+      const output = (result.stdout + '\n' + result.stderr).trim()
+      return { success: true, message: output || 'Cherry-pick continued successfully' }
+    } catch (err) {
+      const gitErr = err as GitError
+      const stderr = gitErr.stderr || gitErr.message || ''
+      if (stderr.includes('CONFLICT') || stderr.includes('conflict') || stderr.includes('could not apply')) {
+        const conflicts = await this.getConflictedFiles(repoPath)
+        return {
+          success: false,
+          message: 'More conflicts encountered. Resolve and continue.',
+          conflicts
+        }
+      }
+      throw err
+    }
+  }
+
+  /**
+   * Check if a cherry-pick is currently in progress.
+   */
+  async isCherryPicking(repoPath: string): Promise<boolean> {
+    try {
+      const { existsSync } = await import('fs')
+      const { join } = await import('path')
+      const gitDir = (await this.exec(['rev-parse', '--git-dir'], repoPath)).stdout.trim()
+      const cherryPickHeadPath = join(repoPath, gitDir, 'CHERRY_PICK_HEAD')
+      return existsSync(cherryPickHeadPath)
+    } catch {
+      return false
+    }
+  }
+
   // ─── Rebase ─────────────────────────────────────────────────────────────────
 
   /**

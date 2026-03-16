@@ -4063,3 +4063,128 @@ body {
   font-style: italic;
   line-height: 1.4;
 }
+
+/* ─── Cherry-Pick Notification ─────────────────────────────────────────────── */
+
+.cherry-pick-notification {
+  position: absolute;
+  top: 40px;
+  right: 8px;
+  z-index: 1500;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-width: 280px;
+  max-width: 400px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.cherry-pick-picking {
+  border-color: var(--accent);
+}
+
+.cherry-pick-success {
+  border-color: #a6e3a1;
+}
+
+.cherry-pick-conflict {
+  border-color: #fab387;
+}
+
+.cherry-pick-notification-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.cherry-pick-message {
+  flex: 1;
+}
+
+.cherry-pick-new-hash {
+  font-size: 12px;
+  color: #a6e3a1;
+  margin-bottom: 8px;
+}
+
+.cherry-pick-new-hash code {
+  font-family: var(--font-mono);
+  background: rgba(166, 227, 161, 0.15);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.cherry-pick-conflicts {
+  margin-bottom: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.cherry-pick-conflicts-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fab387;
+  margin-bottom: 4px;
+}
+
+.cherry-pick-conflict-file {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  padding: 2px 0;
+}
+
+.cherry-pick-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.cherry-pick-btn {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cherry-pick-btn:hover {
+  background: var(--border);
+}
+
+.cherry-pick-btn-continue {
+  background: rgba(137, 180, 250, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cherry-pick-btn-continue:hover {
+  background: rgba(137, 180, 250, 0.3);
+}
+
+.cherry-pick-btn-abort {
+  background: rgba(243, 139, 168, 0.15);
+  border-color: #f38ba8;
+  color: #f38ba8;
+}
+
+.cherry-pick-btn-abort:hover {
+  background: rgba(243, 139, 168, 0.25);
+}
+
+.cherry-pick-btn-dismiss {
+  background: rgba(166, 227, 161, 0.15);
+  border-color: #a6e3a1;
+  color: #a6e3a1;
+}
+
+.cherry-pick-btn-dismiss:hover {
+  background: rgba(166, 227, 161, 0.25);
+}

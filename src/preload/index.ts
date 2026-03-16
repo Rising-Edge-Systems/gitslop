@@ -190,6 +190,14 @@ const electronAPI = {
       ipcRenderer.invoke('git:isMerging', repoPath),
     getConflictedFiles: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getConflictedFiles', repoPath),
+    cherryPick: (repoPath: string, hashes: string[]): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:cherryPick', repoPath, hashes),
+    cherryPickAbort: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:cherryPickAbort', repoPath),
+    cherryPickContinue: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:cherryPickContinue', repoPath),
+    isCherryPicking: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:isCherryPicking', repoPath),
     rebasePreview: (repoPath: string, ontoBranch: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:rebasePreview', repoPath, ontoBranch),
     rebase: (repoPath: string, ontoBranch: string): Promise<GitServiceResult> =>

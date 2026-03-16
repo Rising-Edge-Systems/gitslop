@@ -792,6 +792,56 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Cherry-Pick ─────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:cherryPick',
+    async (_event, repoPath: string, hashes: string[]) => {
+      try {
+        const result = await gitService.cherryPick(repoPath, hashes)
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:cherryPickAbort',
+    async (_event, repoPath: string) => {
+      try {
+        await gitService.cherryPickAbort(repoPath)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:cherryPickContinue',
+    async (_event, repoPath: string) => {
+      try {
+        const result = await gitService.cherryPickContinue(repoPath)
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:isCherryPicking',
+    async (_event, repoPath: string) => {
+      try {
+        const data = await gitService.isCherryPicking(repoPath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Rebase Preview ────────────────────────────────────────────────────────
 
   ipcMain.handle(

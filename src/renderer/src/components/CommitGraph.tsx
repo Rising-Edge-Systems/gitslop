@@ -38,6 +38,13 @@ export interface CommitDetail {
   refs: ParsedRef[]
 }
 
+interface CherryPickState {
+  status: 'idle' | 'picking' | 'success' | 'conflict'
+  message: string
+  newHash?: string
+  conflicts?: string[]
+}
+
 interface CommitGraphProps {
   repoPath: string
   onRefresh?: () => void
@@ -344,6 +351,7 @@ interface CommitRowProps {
   nodes: GraphNode[]
   graphWidth: number
   selectedHash: string | null
+  selectedHashes: Set<string>
   onRowClick: (index: number, event: React.MouseEvent) => void
   onRowContextMenu: (index: number, event: React.MouseEvent) => void
 }
@@ -353,10 +361,10 @@ function CommitRowComponent(props: {
   index: number
   style: React.CSSProperties
 } & CommitRowProps): React.ReactElement {
-  const { index, style, nodes, graphWidth, selectedHash, onRowClick, onRowContextMenu } = props
+  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, onRowClick, onRowContextMenu } = props
   const node = nodes[index]
   const { commit, refs } = node
-  const isSelected = commit.hash === selectedHash
+  const isSelected = commit.hash === selectedHash || selectedHashes.has(commit.hash)
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     onRowClick(index, e)
@@ -416,11 +424,12 @@ function CommitRowComponent(props: {
 
 interface CommitContextMenuProps {
   state: ContextMenuState
+  multiSelectCount: number
   onClose: () => void
   onAction: (action: string, commit: GitCommit) => void
 }
 
-function CommitContextMenu({ state, onClose, onAction }: CommitContextMenuProps): React.JSX.Element {
+function CommitContextMenu({ state, multiSelectCount, onClose, onAction }: CommitContextMenuProps): React.JSX.Element {
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -441,15 +450,19 @@ function CommitContextMenu({ state, onClose, onAction }: CommitContextMenuProps)
   }, [onClose])
 
   // Adjust position if near edge of window
-  const style: React.CSSProperties = {
+  const menuStyle: React.CSSProperties = {
     position: 'fixed',
     left: state.x,
     top: state.y,
     zIndex: 2000
   }
 
+  const cherryPickLabel = multiSelectCount > 1
+    ? `Cherry-pick ${multiSelectCount} commits`
+    : 'Cherry-pick'
+
   const items = [
-    { label: 'Cherry-pick', action: 'cherry-pick', icon: '\u{1F352}' },
+    { label: cherryPickLabel, action: 'cherry-pick', icon: '\u{1F352}' },
     { label: 'Revert', action: 'revert', icon: '\u21A9' },
     { label: 'Reset current branch to here', action: 'reset', icon: '\u23EA' },
     { label: '---', action: '', icon: '' },
@@ -460,7 +473,7 @@ function CommitContextMenu({ state, onClose, onAction }: CommitContextMenuProps)
   ]
 
   return (
-    <div className="commit-ctx-menu" ref={menuRef} style={style}>
+    <div className="commit-ctx-menu" ref={menuRef} style={menuStyle}>
       {items.map((item, idx) => {
         if (item.label === '---') {
           return <div key={idx} className="commit-ctx-menu-separator" />
@@ -667,6 +680,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
   const [commitDetail, setCommitDetail] = useState<CommitDetail | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set())
+  const [cherryPickState, setCherryPickState] = useState<CherryPickState>({ status: 'idle', message: '' })
 
   // Load commits
   const loadCommits = useCallback(async () => {
@@ -746,23 +761,57 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
     }
   }, [repoPath, onCommitSelect])
 
-  // Handle row click (select commit)
-  const handleRowClick = useCallback((index: number, _event: React.MouseEvent) => {
+  // Handle row click (select commit, Ctrl+click for multi-select)
+  const handleRowClick = useCallback((index: number, event: React.MouseEvent) => {
     const node = nodes[index]
     if (!node) return
 
-    if (selectedHash === node.commit.hash) {
-      // Clicking same commit deselects
-      setSelectedIndex(-1)
-      setSelectedHash(null)
-      setCommitDetail(null)
-      onCommitSelect?.(null)
-    } else {
+    if (event.ctrlKey || event.metaKey) {
+      // Multi-select toggle
+      setSelectedHashes((prev) => {
+        const next = new Set(prev)
+        if (next.has(node.commit.hash)) {
+          next.delete(node.commit.hash)
+        } else {
+          next.add(node.commit.hash)
+        }
+        // Also include the primary selected hash if it's the first multi-select
+        if (selectedHash && !next.has(selectedHash) && prev.size === 0) {
+          next.add(selectedHash)
+        }
+        if (next.size > 0) {
+          next.add(node.commit.hash)
+        }
+        return next
+      })
       setSelectedIndex(index)
       setSelectedHash(node.commit.hash)
       loadCommitDetail(node.commit.hash, node.refs)
+    } else if (event.shiftKey && selectedIndex >= 0) {
+      // Range select
+      const start = Math.min(selectedIndex, index)
+      const end = Math.max(selectedIndex, index)
+      const rangeHashes = new Set<string>()
+      for (let i = start; i <= end; i++) {
+        if (nodes[i]) rangeHashes.add(nodes[i].commit.hash)
+      }
+      setSelectedHashes(rangeHashes)
+      loadCommitDetail(node.commit.hash, node.refs)
+    } else {
+      // Normal single click
+      setSelectedHashes(new Set())
+      if (selectedHash === node.commit.hash) {
+        setSelectedIndex(-1)
+        setSelectedHash(null)
+        setCommitDetail(null)
+        onCommitSelect?.(null)
+      } else {
+        setSelectedIndex(index)
+        setSelectedHash(node.commit.hash)
+        loadCommitDetail(node.commit.hash, node.refs)
+      }
     }
-  }, [nodes, selectedHash, loadCommitDetail, onCommitSelect])
+  }, [nodes, selectedHash, selectedIndex, loadCommitDetail, onCommitSelect])
 
   // Handle right-click context menu
   const handleRowContextMenu = useCallback((index: number, event: React.MouseEvent) => {
@@ -783,7 +832,80 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
     })
   }, [nodes, loadCommitDetail])
 
-  // Handle context menu actions (placeholders)
+  // Cherry-pick handler
+  const handleCherryPick = useCallback(async (hashes: string[]) => {
+    if (hashes.length === 0) return
+    setCherryPickState({ status: 'picking', message: `Cherry-picking ${hashes.length} commit${hashes.length > 1 ? 's' : ''}...` })
+
+    try {
+      const result = await window.electronAPI.git.cherryPick(repoPath, hashes)
+      if (result.success && result.data?.success) {
+        setCherryPickState({
+          status: 'success',
+          message: `Cherry-pick successful!`,
+          newHash: result.data.newHash
+        })
+        setSelectedHashes(new Set())
+        loadCommits()
+      } else if (result.data?.conflicts && result.data.conflicts.length > 0) {
+        setCherryPickState({
+          status: 'conflict',
+          message: result.data?.message || 'Cherry-pick resulted in conflicts.',
+          conflicts: result.data.conflicts
+        })
+      } else {
+        setCherryPickState({
+          status: 'conflict',
+          message: result.error || result.data?.message || 'Cherry-pick failed.',
+          conflicts: result.data?.conflicts || []
+        })
+      }
+    } catch (err) {
+      setCherryPickState({
+        status: 'conflict',
+        message: err instanceof Error ? err.message : 'Cherry-pick failed.',
+        conflicts: []
+      })
+    }
+  }, [repoPath, loadCommits])
+
+  const handleCherryPickAbort = useCallback(async () => {
+    try {
+      await window.electronAPI.git.cherryPickAbort(repoPath)
+      setCherryPickState({ status: 'idle', message: '' })
+      loadCommits()
+    } catch {
+      // Ignore abort errors
+      setCherryPickState({ status: 'idle', message: '' })
+    }
+  }, [repoPath, loadCommits])
+
+  const handleCherryPickContinue = useCallback(async () => {
+    setCherryPickState((prev) => ({ ...prev, status: 'picking', message: 'Continuing cherry-pick...' }))
+    try {
+      const result = await window.electronAPI.git.cherryPickContinue(repoPath)
+      if (result.success && result.data?.success) {
+        setCherryPickState({
+          status: 'success',
+          message: 'Cherry-pick completed successfully!'
+        })
+        loadCommits()
+      } else {
+        setCherryPickState({
+          status: 'conflict',
+          message: result.data?.message || result.error || 'More conflicts.',
+          conflicts: result.data?.conflicts || []
+        })
+      }
+    } catch (err) {
+      setCherryPickState({
+        status: 'conflict',
+        message: err instanceof Error ? err.message : 'Continue failed.'
+      })
+    }
+  }, [repoPath, loadCommits])
+
+  // Handle context menu actions
   const handleContextAction = useCallback((action: string, commit: GitCommit) => {
     switch (action) {
       case 'copy-sha':
@@ -791,7 +913,14 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
           // Clipboard write failed silently
         })
         break
-      case 'cherry-pick':
+      case 'cherry-pick': {
+        // Use multi-selected hashes if any, otherwise just the right-clicked commit
+        const hashes = selectedHashes.size > 0
+          ? Array.from(selectedHashes)
+          : [commit.hash]
+        handleCherryPick(hashes)
+        break
+      }
       case 'revert':
       case 'reset':
       case 'create-branch':
@@ -800,7 +929,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
         console.log(`Action: ${action} on commit ${commit.shortHash}`)
         break
     }
-  }, [])
+  }, [selectedHashes, handleCherryPick])
 
   // Keyboard navigation
   useEffect(() => {
@@ -875,9 +1004,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
     nodes,
     graphWidth,
     selectedHash,
+    selectedHashes,
     onRowClick: handleRowClick,
     onRowContextMenu: handleRowContextMenu
-  }), [nodes, graphWidth, selectedHash, handleRowClick, handleRowContextMenu])
+  }), [nodes, graphWidth, selectedHash, selectedHashes, handleRowClick, handleRowContextMenu])
 
   if (loading && commits.length === 0) {
     return (
@@ -959,9 +1089,60 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
         {contextMenu && (
           <CommitContextMenu
             state={contextMenu}
+            multiSelectCount={selectedHashes.size > 0 ? selectedHashes.size : 1}
             onClose={() => setContextMenu(null)}
             onAction={handleContextAction}
           />
+        )}
+
+        {/* Cherry-pick notification */}
+        {cherryPickState.status !== 'idle' && (
+          <div className={`cherry-pick-notification cherry-pick-${cherryPickState.status}`}>
+            <div className="cherry-pick-notification-content">
+              {cherryPickState.status === 'picking' && (
+                <span className="repo-view-spinner">&#x21BB;</span>
+              )}
+              {cherryPickState.status === 'success' && <span>&#x2714;</span>}
+              {cherryPickState.status === 'conflict' && <span>&#x26A0;</span>}
+              <span className="cherry-pick-message">{cherryPickState.message}</span>
+            </div>
+
+            {cherryPickState.status === 'success' && cherryPickState.newHash && (
+              <div className="cherry-pick-new-hash">
+                New commit: <code>{cherryPickState.newHash.substring(0, 7)}</code>
+              </div>
+            )}
+
+            {cherryPickState.status === 'conflict' && cherryPickState.conflicts && cherryPickState.conflicts.length > 0 && (
+              <div className="cherry-pick-conflicts">
+                <div className="cherry-pick-conflicts-title">Conflicted files:</div>
+                {cherryPickState.conflicts.map((f, i) => (
+                  <div key={i} className="cherry-pick-conflict-file">{f}</div>
+                ))}
+              </div>
+            )}
+
+            <div className="cherry-pick-actions">
+              {cherryPickState.status === 'conflict' && (
+                <>
+                  <button className="cherry-pick-btn cherry-pick-btn-continue" onClick={handleCherryPickContinue}>
+                    Continue
+                  </button>
+                  <button className="cherry-pick-btn cherry-pick-btn-abort" onClick={handleCherryPickAbort}>
+                    Abort Cherry-pick
+                  </button>
+                </>
+              )}
+              {cherryPickState.status === 'success' && (
+                <button
+                  className="cherry-pick-btn cherry-pick-btn-dismiss"
+                  onClick={() => setCherryPickState({ status: 'idle', message: '' })}
+                >
+                  Dismiss
+                </button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

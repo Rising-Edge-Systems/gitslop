@@ -115,6 +115,10 @@ declare global {
         mergeAbort: (repoPath: string) => Promise<GitServiceResult>
         isMerging: (repoPath: string) => Promise<GitServiceResult>
         getConflictedFiles: (repoPath: string) => Promise<GitServiceResult>
+        cherryPick: (repoPath: string, hashes: string[]) => Promise<GitServiceResult>
+        cherryPickAbort: (repoPath: string) => Promise<GitServiceResult>
+        cherryPickContinue: (repoPath: string) => Promise<GitServiceResult>
+        isCherryPicking: (repoPath: string) => Promise<GitServiceResult>
         rebasePreview: (repoPath: string, ontoBranch: string) => Promise<GitServiceResult>
         rebase: (repoPath: string, ontoBranch: string) => Promise<GitServiceResult>
         rebaseInteractive: (
