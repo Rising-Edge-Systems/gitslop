@@ -268,7 +268,7 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "Use git apply --cached with patch data for partial staging. Generate patches from selected hunks/lines."
     },
     {

@@ -300,3 +300,21 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Multi-select uses Set<string> with keys like "staged:path" or "unstaged:path" to distinguish sections
   - Keyboard shortcuts S (stage) and U (unstage) work when the status panel has focus
 ---
+## 2026-03-16 14:47 - US-015
+- Implemented: Hunk & Line Staging — per-hunk stage/unstage buttons in diff viewer, individual line selection with checkboxes, line-level staging/unstaging via git apply --cached
+- Files changed:
+  - `src/main/git-service.ts` - Added `stageHunk()`, `unstageHunk()`, and private `applyPatch()` methods using `spawn` to pipe patch data to `git apply --cached`
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:stageHunk`, `git:unstageHunk`
+  - `src/preload/index.ts` - Added stageHunk, unstageHunk to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with stageHunk/unstageHunk
+  - `src/renderer/src/components/StatusPanel.tsx` - Added HunkDiffViewer component with diff parser, hunk-level and line-level staging UI (parseDiff, buildHunkPatch, buildLinesPatch helpers)
+  - `src/renderer/src/styles/global.css` - Added comprehensive hunk diff viewer styles (hunk blocks, line selection, checkboxes, action buttons)
+- **Learnings for future iterations:**
+  - `git apply --cached --unidiff-zero --whitespace=nowarn -` reads patch from stdin; use `spawn` and pipe patch to stdin
+  - For unstaging hunks, use `git apply --cached --reverse` with the same patch
+  - Diff parsing: file header lines (diff --git, index, ---, +++) must be preserved in patches
+  - Line-level staging requires rebuilding the hunk: unselected added lines are dropped, unselected removed lines become context
+  - `--unidiff-zero` allows applying patches with zero context lines (important for line-level staging)
+  - HunkDiffViewer is a child of StatusPanel, receives operationInProgress state from parent
+  - Line selection supports Shift+click for range selection within a hunk
+---
