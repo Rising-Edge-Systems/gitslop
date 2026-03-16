@@ -127,3 +127,22 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - CSS `:has()` selector used for conditional centering (welcome screen vs repo view)
   - WelcomeScreen stores `errorPath` separately from error message to enable "Init Here" on the same path
 ---
+
+## 2026-03-16 14:06 - US-006
+- Implemented: Clone Repository Dialog with progress reporting, cancellation, and error handling
+- Files created:
+  - `src/renderer/src/components/CloneDialog.tsx` - Modal dialog with URL, destination, name fields; progress bar; cancel support
+- Files modified:
+  - `src/main/git-service.ts` - Added `clone()` method using `spawn` for real-time progress, `CloneProgress` type, `parseCloneProgress()`
+  - `src/main/git-ipc.ts` - Added `git:clone` IPC handler with progress events via `BrowserWindow.webContents.send`
+  - `src/preload/index.ts` - Added `clone()` and `onCloneProgress()` to electronAPI
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window type with clone/onCloneProgress methods
+  - `src/renderer/src/components/WelcomeScreen.tsx` - Replaced placeholder with CloneDialog integration
+  - `src/renderer/src/styles/global.css` - Added full clone dialog styles (overlay, form, progress bar, buttons)
+- **Learnings for future iterations:**
+  - Use `spawn` (not `execFile`) for commands needing real-time progress output
+  - Clone progress sent via IPC events (`git:clone-progress`) from main to renderer using `BrowserWindow.webContents.send`
+  - Git clone progress comes on stderr, not stdout; parse with regex for phase/percent/count
+  - Clone dialog is rendered as a modal overlay with fixed positioning and z-index: 1000
+  - `operationIdRef` tracks the active clone operation for progress matching and cancellation
+---
