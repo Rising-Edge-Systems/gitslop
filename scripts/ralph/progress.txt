@@ -212,3 +212,20 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Search filter only appears when there are >5 branches to avoid clutter
   - `confirm()` is used for delete confirmations — simple but works in Electron
 ---
+
+## 2026-03-16 14:27 - US-010
+- Implemented: Remote branches sidebar with expandable remotes, remote branch listing, context menus, Add/Edit/Remove remote dialogs, fetch, checkout remote branch, delete remote branch
+- Files changed:
+  - `src/main/git-service.ts` - Added `getRemoteBranches()`, `addRemote()`, `editRemoteUrl()`, `removeRemote()`, `fetch()`, `deleteRemoteBranch()`, `checkoutRemoteBranch()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for all new remote operations
+  - `src/preload/index.ts` - Added all new remote IPC methods to electronAPI
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new remote methods
+  - `src/renderer/src/components/Sidebar.tsx` - Added full RemotesSection component with expandable remotes, remote branch listing, context menus (fetch/edit/remove for remotes, checkout/fetch/delete for branches), Add/Edit remote dialogs
+  - `src/renderer/src/styles/global.css` - Added sidebar remote list, remote group, remote item, remote branch item styles
+- **Learnings for future iterations:**
+  - Remote branches use `git branch -r --format` to get structured data, filtering out HEAD entries
+  - `checkoutRemoteBranch` uses `git checkout -b <branch> <remote>/<branch>` to create a local tracking branch
+  - RemotesSection is a separate component from the main Sidebar, receives `currentRepo` and `onBranchesChanged` props
+  - Remote context menus reuse the same `branch-ctx-menu` CSS classes from the branch context menu
+  - Dialog components reuse the `branch-dialog-*` CSS classes for consistency
+---
