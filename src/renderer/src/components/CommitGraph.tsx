@@ -31,9 +31,23 @@ interface ParsedRef {
   type: 'head' | 'branch' | 'remote' | 'tag'
 }
 
+export interface CommitDetail {
+  commit: GitCommit
+  files: string[]
+  refs: ParsedRef[]
+}
+
 interface CommitGraphProps {
   repoPath: string
   onRefresh?: () => void
+  onCommitSelect?: (detail: CommitDetail | null) => void
+}
+
+interface ContextMenuState {
+  x: number
+  y: number
+  commit: GitCommit
+  refs: ParsedRef[]
 }
 
 // ─── Colors for branch lanes ──────────────────────────────────────────────────
@@ -189,6 +203,22 @@ function getRelativeTime(dateStr: string): string {
   }
 }
 
+function formatDate(dateStr: string): string {
+  if (!dateStr) return ''
+  try {
+    const date = new Date(dateStr)
+    return date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch {
+    return dateStr
+  }
+}
+
 // ─── Graph Canvas Renderer ────────────────────────────────────────────────────
 
 interface GraphCanvasProps {
@@ -312,6 +342,9 @@ function GraphCanvas({
 interface CommitRowProps {
   nodes: GraphNode[]
   graphWidth: number
+  selectedHash: string | null
+  onRowClick: (index: number, event: React.MouseEvent) => void
+  onRowContextMenu: (index: number, event: React.MouseEvent) => void
 }
 
 function CommitRowComponent(props: {
@@ -319,12 +352,27 @@ function CommitRowComponent(props: {
   index: number
   style: React.CSSProperties
 } & CommitRowProps): React.ReactElement {
-  const { index, style, nodes, graphWidth } = props
+  const { index, style, nodes, graphWidth, selectedHash, onRowClick, onRowContextMenu } = props
   const node = nodes[index]
   const { commit, refs } = node
+  const isSelected = commit.hash === selectedHash
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    onRowClick(index, e)
+  }, [index, onRowClick])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    onRowContextMenu(index, e)
+  }, [index, onRowContextMenu])
 
   return (
-    <div className="commit-graph-row" style={style}>
+    <div
+      className={`commit-graph-row${isSelected ? ' commit-graph-row-selected' : ''}`}
+      style={style}
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      data-index={index}
+    >
       {/* Graph space (transparent — canvas draws underneath) */}
       <div className="commit-graph-lane" style={{ minWidth: graphWidth, width: graphWidth }} />
 
@@ -363,9 +411,202 @@ function CommitRowComponent(props: {
   )
 }
 
+// ─── Context Menu Component ──────────────────────────────────────────────────
+
+interface CommitContextMenuProps {
+  state: ContextMenuState
+  onClose: () => void
+  onAction: (action: string, commit: GitCommit) => void
+}
+
+function CommitContextMenu({ state, onClose, onAction }: CommitContextMenuProps): React.JSX.Element {
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+    const handleEscape = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [onClose])
+
+  // Adjust position if near edge of window
+  const style: React.CSSProperties = {
+    position: 'fixed',
+    left: state.x,
+    top: state.y,
+    zIndex: 2000
+  }
+
+  const items = [
+    { label: 'Cherry-pick', action: 'cherry-pick', icon: '\u{1F352}' },
+    { label: 'Revert', action: 'revert', icon: '\u21A9' },
+    { label: 'Reset current branch to here', action: 'reset', icon: '\u23EA' },
+    { label: '---', action: '', icon: '' },
+    { label: 'Create branch here...', action: 'create-branch', icon: '\u{1F33F}' },
+    { label: 'Create tag here...', action: 'create-tag', icon: '\u{1F3F7}' },
+    { label: '---', action: '', icon: '' },
+    { label: 'Copy SHA', action: 'copy-sha', icon: '\u{1F4CB}' },
+  ]
+
+  return (
+    <div className="commit-ctx-menu" ref={menuRef} style={style}>
+      {items.map((item, idx) => {
+        if (item.label === '---') {
+          return <div key={idx} className="commit-ctx-menu-separator" />
+        }
+        return (
+          <button
+            key={idx}
+            className="commit-ctx-menu-item"
+            onClick={() => {
+              onAction(item.action, state.commit)
+              onClose()
+            }}
+          >
+            <span className="commit-ctx-menu-icon">{item.icon}</span>
+            <span className="commit-ctx-menu-label">{item.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Commit Detail Panel ─────────────────────────────────────────────────────
+
+interface CommitDetailPanelProps {
+  detail: CommitDetail
+  repoPath: string
+  onClose: () => void
+  onFileDoubleClick?: (filePath: string) => void
+}
+
+function CommitDetailPanel({ detail, onClose, onFileDoubleClick }: CommitDetailPanelProps): React.JSX.Element {
+  const { commit, files, refs } = detail
+
+  const handleFileDoubleClick = useCallback((filePath: string) => {
+    onFileDoubleClick?.(filePath)
+  }, [onFileDoubleClick])
+
+  return (
+    <div className="commit-detail-panel">
+      <div className="commit-detail-header">
+        <h3 className="commit-detail-title">Commit Details</h3>
+        <button className="commit-detail-close" onClick={onClose} title="Close">&#x2715;</button>
+      </div>
+
+      <div className="commit-detail-body">
+        {/* Subject */}
+        <div className="commit-detail-subject">{commit.subject}</div>
+
+        {/* Body (full message beyond subject) */}
+        {commit.body && commit.body.trim() && (
+          <div className="commit-detail-body-text">{commit.body.trim()}</div>
+        )}
+
+        {/* Refs */}
+        {refs.length > 0 && (
+          <div className="commit-detail-refs">
+            {refs.map((ref, idx) => (
+              <span key={idx} className={`commit-graph-ref commit-graph-ref-${ref.type}`}>
+                {ref.name}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Metadata */}
+        <div className="commit-detail-meta">
+          <div className="commit-detail-meta-row">
+            <span className="commit-detail-meta-label">Hash</span>
+            <span className="commit-detail-meta-value commit-detail-hash" title="Click to copy">
+              <code>{commit.hash}</code>
+            </span>
+          </div>
+          <div className="commit-detail-meta-row">
+            <span className="commit-detail-meta-label">Author</span>
+            <span className="commit-detail-meta-value">
+              {commit.authorName} &lt;{commit.authorEmail}&gt;
+            </span>
+          </div>
+          <div className="commit-detail-meta-row">
+            <span className="commit-detail-meta-label">Date</span>
+            <span className="commit-detail-meta-value">{formatDate(commit.authorDate)}</span>
+          </div>
+          {commit.committerName !== commit.authorName && (
+            <div className="commit-detail-meta-row">
+              <span className="commit-detail-meta-label">Committer</span>
+              <span className="commit-detail-meta-value">
+                {commit.committerName} &lt;{commit.committerEmail}&gt;
+              </span>
+            </div>
+          )}
+          <div className="commit-detail-meta-row">
+            <span className="commit-detail-meta-label">Parents</span>
+            <span className="commit-detail-meta-value">
+              {commit.parentHashes.length > 0
+                ? commit.parentHashes.map((h) => h.substring(0, 7)).join(', ')
+                : 'None (root commit)'}
+            </span>
+          </div>
+        </div>
+
+        {/* Changed files */}
+        <div className="commit-detail-files">
+          <div className="commit-detail-files-header">
+            Changed Files <span className="commit-detail-files-count">{files.length}</span>
+          </div>
+          <div className="commit-detail-files-list">
+            {files.map((file, idx) => (
+              <div
+                key={idx}
+                className="commit-detail-file-item"
+                onDoubleClick={() => handleFileDoubleClick(file)}
+                title={`Double-click to view diff: ${file}`}
+              >
+                <span className="commit-detail-file-icon">{getFileIcon(file)}</span>
+                <span className="commit-detail-file-name">{file}</span>
+              </div>
+            ))}
+            {files.length === 0 && (
+              <div className="commit-detail-files-empty">No changed files</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function getFileIcon(filePath: string): string {
+  const ext = filePath.split('.').pop()?.toLowerCase() || ''
+  const iconMap: Record<string, string> = {
+    ts: '\u{1F1F9}', tsx: '\u{1F1F9}',
+    js: '\u{1F1EF}', jsx: '\u{1F1EF}',
+    json: '{}',
+    css: '\u{1F3A8}', scss: '\u{1F3A8}', less: '\u{1F3A8}',
+    html: '\u{1F310}',
+    md: '\u{1F4DD}',
+    py: '\u{1F40D}',
+    rs: '\u{1F980}',
+    go: '\u{1F439}',
+  }
+  return iconMap[ext] || '\u{1F4C4}'
+}
+
 // ─── Main CommitGraph Component ───────────────────────────────────────────────
 
-export function CommitGraph({ repoPath, onRefresh }: CommitGraphProps): React.JSX.Element {
+export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraphProps): React.JSX.Element {
   const [commits, setCommits] = useState<GitCommit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -374,9 +615,11 @@ export function CommitGraph({ repoPath, onRefresh }: CommitGraphProps): React.JS
   const containerRef = useRef<HTMLDivElement>(null)
   const [listRef, setListRef] = useListCallbackRef()
   const [containerHeight, setContainerHeight] = useState(400)
-
-  // Suppress unused variable warning for listRef imperative API
-  void listRef
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1)
+  const [selectedHash, setSelectedHash] = useState<string | null>(null)
+  const [commitDetail, setCommitDetail] = useState<CommitDetail | null>(null)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
 
   // Load commits
   const loadCommits = useCallback(async () => {
@@ -435,6 +678,129 @@ export function CommitGraph({ repoPath, onRefresh }: CommitGraphProps): React.JS
 
   const graphWidth = Math.max(GRAPH_MIN_WIDTH, GRAPH_LEFT_PAD + maxColumns * GRAPH_COL_WIDTH + GRAPH_LEFT_PAD)
 
+  // Load commit detail when selected
+  const loadCommitDetail = useCallback(async (hash: string, refs: ParsedRef[]) => {
+    setLoadingDetail(true)
+    try {
+      const result = await window.electronAPI.git.showCommit(repoPath, hash)
+      if (result.success && result.data) {
+        const detail: CommitDetail = {
+          commit: result.data.commit as GitCommit,
+          files: result.data.files as string[],
+          refs
+        }
+        setCommitDetail(detail)
+        onCommitSelect?.(detail)
+      }
+    } catch {
+      // Silently fail — detail panel won't show
+    } finally {
+      setLoadingDetail(false)
+    }
+  }, [repoPath, onCommitSelect])
+
+  // Handle row click (select commit)
+  const handleRowClick = useCallback((index: number, _event: React.MouseEvent) => {
+    const node = nodes[index]
+    if (!node) return
+
+    if (selectedHash === node.commit.hash) {
+      // Clicking same commit deselects
+      setSelectedIndex(-1)
+      setSelectedHash(null)
+      setCommitDetail(null)
+      onCommitSelect?.(null)
+    } else {
+      setSelectedIndex(index)
+      setSelectedHash(node.commit.hash)
+      loadCommitDetail(node.commit.hash, node.refs)
+    }
+  }, [nodes, selectedHash, loadCommitDetail, onCommitSelect])
+
+  // Handle right-click context menu
+  const handleRowContextMenu = useCallback((index: number, event: React.MouseEvent) => {
+    event.preventDefault()
+    const node = nodes[index]
+    if (!node) return
+
+    // Also select the commit
+    setSelectedIndex(index)
+    setSelectedHash(node.commit.hash)
+    loadCommitDetail(node.commit.hash, node.refs)
+
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      commit: node.commit,
+      refs: node.refs
+    })
+  }, [nodes, loadCommitDetail])
+
+  // Handle context menu actions (placeholders)
+  const handleContextAction = useCallback((action: string, commit: GitCommit) => {
+    switch (action) {
+      case 'copy-sha':
+        navigator.clipboard.writeText(commit.hash).catch(() => {
+          // Clipboard write failed silently
+        })
+        break
+      case 'cherry-pick':
+      case 'revert':
+      case 'reset':
+      case 'create-branch':
+      case 'create-tag':
+        // Placeholder — these will be implemented in future stories
+        console.log(`Action: ${action} on commit ${commit.shortHash}`)
+        break
+    }
+  }, [])
+
+  // Keyboard navigation
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (nodes.length === 0) return
+
+      let newIndex = selectedIndex
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault()
+          newIndex = selectedIndex < 0 ? 0 : Math.min(selectedIndex + 1, nodes.length - 1)
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          newIndex = selectedIndex < 0 ? 0 : Math.max(selectedIndex - 1, 0)
+          break
+        case 'Escape':
+          setSelectedIndex(-1)
+          setSelectedHash(null)
+          setCommitDetail(null)
+          onCommitSelect?.(null)
+          return
+        default:
+          return
+      }
+
+      if (newIndex !== selectedIndex && newIndex >= 0) {
+        const node = nodes[newIndex]
+        setSelectedIndex(newIndex)
+        setSelectedHash(node.commit.hash)
+        loadCommitDetail(node.commit.hash, node.refs)
+
+        // Scroll into view if needed
+        if (listRef) {
+          listRef.scrollToRow({ index: newIndex, align: 'smart' })
+        }
+      }
+    }
+
+    container.addEventListener('keydown', handleKeyDown)
+    return () => container.removeEventListener('keydown', handleKeyDown)
+  }, [nodes, selectedIndex, listRef, loadCommitDetail, onCommitSelect])
+
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
     const target = event.currentTarget
     setScrollOffset(target.scrollTop)
@@ -451,10 +817,20 @@ export function CommitGraph({ repoPath, onRefresh }: CommitGraphProps): React.JS
     onRefresh?.()
   }, [loadCommits, onRefresh])
 
+  const handleCloseDetail = useCallback(() => {
+    setSelectedIndex(-1)
+    setSelectedHash(null)
+    setCommitDetail(null)
+    onCommitSelect?.(null)
+  }, [onCommitSelect])
+
   const rowProps = useMemo(() => ({
     nodes,
-    graphWidth
-  }), [nodes, graphWidth])
+    graphWidth,
+    selectedHash,
+    onRowClick: handleRowClick,
+    onRowContextMenu: handleRowContextMenu
+  }), [nodes, graphWidth, selectedHash, handleRowClick, handleRowContextMenu])
 
   if (loading && commits.length === 0) {
     return (
@@ -491,39 +867,80 @@ export function CommitGraph({ repoPath, onRefresh }: CommitGraphProps): React.JS
   const viewportHeight = Math.max(100, containerHeight - 40)
 
   return (
-    <div className="commit-graph-container" ref={containerRef}>
-      <div className="commit-graph-header">
-        <h3 className="commit-graph-title">
-          Commit Graph
-          <span className="commit-graph-count">{commits.length.toLocaleString()} commits</span>
-        </h3>
-        <button className="commit-graph-refresh" onClick={handleRefresh} title="Refresh">
-          &#x21BB;
-        </button>
+    <div className="commit-graph-wrapper">
+      <div
+        className="commit-graph-container"
+        ref={containerRef}
+        tabIndex={0}
+        role="listbox"
+        aria-label="Commit graph"
+      >
+        <div className="commit-graph-header">
+          <h3 className="commit-graph-title">
+            Commit Graph
+            <span className="commit-graph-count">{commits.length.toLocaleString()} commits</span>
+          </h3>
+          <button className="commit-graph-refresh" onClick={handleRefresh} title="Refresh">
+            &#x21BB;
+          </button>
+        </div>
+
+        <div className="commit-graph-viewport" onScroll={handleScroll}>
+          <GraphCanvas
+            nodes={nodes}
+            maxColumns={maxColumns}
+            height={viewportHeight}
+            scrollOffset={scrollOffset}
+            visibleStartIndex={visibleRange.start}
+            visibleStopIndex={visibleRange.stop}
+          />
+
+          <List<CommitRowProps>
+            listRef={setListRef}
+            rowComponent={CommitRowComponent}
+            rowCount={nodes.length}
+            rowHeight={ROW_HEIGHT}
+            rowProps={rowProps}
+            overscanCount={10}
+            onRowsRendered={handleRowsRendered}
+            className="commit-graph-list"
+            style={{ height: viewportHeight }}
+          />
+        </div>
+
+        {/* Context menu */}
+        {contextMenu && (
+          <CommitContextMenu
+            state={contextMenu}
+            onClose={() => setContextMenu(null)}
+            onAction={handleContextAction}
+          />
+        )}
       </div>
 
-      <div className="commit-graph-viewport" onScroll={handleScroll}>
-        <GraphCanvas
-          nodes={nodes}
-          maxColumns={maxColumns}
-          height={viewportHeight}
-          scrollOffset={scrollOffset}
-          visibleStartIndex={visibleRange.start}
-          visibleStopIndex={visibleRange.stop}
-        />
-
-        <List<CommitRowProps>
-          listRef={setListRef}
-          rowComponent={CommitRowComponent}
-          rowCount={nodes.length}
-          rowHeight={ROW_HEIGHT}
-          rowProps={rowProps}
-          overscanCount={10}
-          onRowsRendered={handleRowsRendered}
-          className="commit-graph-list"
-          style={{ height: viewportHeight }}
-        />
-      </div>
+      {/* Commit detail panel */}
+      {(commitDetail || loadingDetail) && (
+        <div className="commit-detail-wrapper">
+          {loadingDetail && !commitDetail ? (
+            <div className="commit-detail-panel">
+              <div className="commit-detail-header">
+                <h3 className="commit-detail-title">Commit Details</h3>
+                <button className="commit-detail-close" onClick={handleCloseDetail}>&#x2715;</button>
+              </div>
+              <div className="commit-detail-loading">
+                <span className="repo-view-spinner">&#x21BB;</span>
+                Loading...
+              </div>
+            </div>
+          ) : commitDetail ? (
+            <CommitDetailPanel
+              detail={commitDetail}
+              repoPath={repoPath}
+              onClose={handleCloseDetail}
+            />
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }
