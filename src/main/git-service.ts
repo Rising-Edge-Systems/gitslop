@@ -2459,6 +2459,153 @@ export class GitService {
     return { message, code, stderr }
   }
 
+  // ─── Submodules ─────────────────────────────────────────────────────────────
+
+  /**
+   * List submodules with their status.
+   */
+  async getSubmodules(repoPath: string): Promise<{
+    name: string
+    path: string
+    url: string
+    status: 'initialized' | 'uninitialized' | 'dirty' | 'out-of-date'
+    hash: string
+    describe: string
+  }[]> {
+    // First check if .gitmodules exists
+    const { existsSync } = await import('fs')
+    const { join } = await import('path')
+    if (!existsSync(join(repoPath, '.gitmodules'))) {
+      return []
+    }
+
+    // Get submodule config info
+    const submodules: {
+      name: string
+      path: string
+      url: string
+      status: 'initialized' | 'uninitialized' | 'dirty' | 'out-of-date'
+      hash: string
+      describe: string
+    }[] = []
+
+    // Parse .gitmodules for name/path/url
+    let configOutput: string
+    try {
+      const result = await this.exec(
+        ['config', '--file', '.gitmodules', '--list'],
+        repoPath
+      )
+      configOutput = result.stdout
+    } catch {
+      return []
+    }
+
+    const moduleMap = new Map<string, { path: string; url: string }>()
+    for (const line of configOutput.split('\n')) {
+      const match = line.match(/^submodule\.(.+?)\.(path|url)=(.+)$/)
+      if (match) {
+        const [, name, key, value] = match
+        if (!moduleMap.has(name)) {
+          moduleMap.set(name, { path: '', url: '' })
+        }
+        const entry = moduleMap.get(name)!
+        if (key === 'path') entry.path = value
+        if (key === 'url') entry.url = value
+      }
+    }
+
+    // Get submodule status
+    let statusOutput: string
+    try {
+      const result = await this.exec(['submodule', 'status'], repoPath)
+      statusOutput = result.stdout
+    } catch {
+      statusOutput = ''
+    }
+
+    // Parse status output: each line is [+-U ]<hash> <path> (<describe>)
+    const statusMap = new Map<string, { status: string; hash: string; describe: string }>()
+    for (const line of statusOutput.split('\n')) {
+      if (!line.trim()) continue
+      // Format: [+-U ]<40-char hash> <path> (<describe>)
+      const statusMatch = line.match(/^([+-U ]?)([0-9a-f]+)\s+(\S+)(?:\s+\((.+)\))?$/)
+      if (statusMatch) {
+        const [, prefix, hash, path, describe] = statusMatch
+        statusMap.set(path, {
+          status: prefix,
+          hash: hash,
+          describe: describe || ''
+        })
+      }
+    }
+
+    for (const [name, config] of moduleMap) {
+      const statusInfo = statusMap.get(config.path)
+      let status: 'initialized' | 'uninitialized' | 'dirty' | 'out-of-date' = 'uninitialized'
+      let hash = ''
+      let describe = ''
+
+      if (statusInfo) {
+        hash = statusInfo.hash
+        describe = statusInfo.describe
+        switch (statusInfo.status) {
+          case '-':
+            status = 'uninitialized'
+            break
+          case '+':
+            status = 'out-of-date'
+            break
+          case 'U':
+            status = 'dirty'
+            break
+          default:
+            status = 'initialized'
+            break
+        }
+      }
+
+      // Also check if the submodule working tree is dirty
+      if (status === 'initialized') {
+        try {
+          const dirtyResult = await this.exec(
+            ['diff', '--quiet', '--ignore-submodules=none', '--', config.path],
+            repoPath
+          )
+          // If diff exits non-zero, the submodule is dirty
+          void dirtyResult
+        } catch {
+          status = 'dirty'
+        }
+      }
+
+      submodules.push({
+        name,
+        path: config.path,
+        url: config.url,
+        status,
+        hash,
+        describe
+      })
+    }
+
+    return submodules
+  }
+
+  /**
+   * Initialize a submodule.
+   */
+  async submoduleInit(repoPath: string, submodulePath: string): Promise<void> {
+    await this.exec(['submodule', 'init', submodulePath], repoPath)
+  }
+
+  /**
+   * Update a submodule (fetch and checkout correct commit).
+   */
+  async submoduleUpdate(repoPath: string, submodulePath: string): Promise<void> {
+    await this.exec(['submodule', 'update', '--init', submodulePath], repoPath)
+  }
+
   private emptyCommit(): GitCommit {
     return {
       hash: '', shortHash: '', parentHashes: [],

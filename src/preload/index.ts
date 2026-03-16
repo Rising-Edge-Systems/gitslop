@@ -262,6 +262,12 @@ const electronAPI = {
       maxCount?: number
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:fileLog', repoPath, filePath, maxCount),
+    getSubmodules: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getSubmodules', repoPath),
+    submoduleInit: (repoPath: string, submodulePath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:submoduleInit', repoPath, submodulePath),
+    submoduleUpdate: (repoPath: string, submodulePath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:submoduleUpdate', repoPath, submodulePath),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

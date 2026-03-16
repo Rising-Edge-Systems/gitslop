@@ -153,6 +153,9 @@ declare global {
         discardFiles: (repoPath: string, filePaths: string[], opts?: { untracked?: boolean }) => Promise<GitServiceResult>
         discardHunk: (repoPath: string, patch: string) => Promise<GitServiceResult>
         fileLog: (repoPath: string, filePath: string, maxCount?: number) => Promise<GitServiceResult>
+        getSubmodules: (repoPath: string) => Promise<GitServiceResult>
+        submoduleInit: (repoPath: string, submodulePath: string) => Promise<GitServiceResult>
+        submoduleUpdate: (repoPath: string, submodulePath: string) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void

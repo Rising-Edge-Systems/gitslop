@@ -1652,6 +1652,238 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
   )
 }
 
+// ─── SubmodulesSection ──────────────────────────────────────────────────────
+
+interface SubmodulesSectionProps {
+  currentRepo: string | null
+}
+
+interface GitSubmodule {
+  name: string
+  path: string
+  url: string
+  status: 'initialized' | 'uninitialized' | 'dirty' | 'out-of-date'
+  hash: string
+  describe: string
+}
+
+interface SubmoduleContextMenuState {
+  x: number
+  y: number
+  submodule: GitSubmodule
+}
+
+function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.Element | null {
+  const [submodules, setSubmodules] = useState<GitSubmodule[]>([])
+  const [contextMenu, setContextMenu] = useState<SubmoduleContextMenuState | null>(null)
+  const [loading, setLoading] = useState(false)
+  const contextMenuRef = useRef<HTMLDivElement>(null)
+
+  const loadSubmodules = useCallback(async () => {
+    if (!currentRepo) {
+      setSubmodules([])
+      return
+    }
+    try {
+      const result = await window.electronAPI.git.getSubmodules(currentRepo)
+      if (result.success) {
+        setSubmodules(result.data)
+      }
+    } catch {
+      // Silently fail
+    }
+  }, [currentRepo])
+
+  useEffect(() => {
+    loadSubmodules()
+    const interval = setInterval(loadSubmodules, 10000)
+    return () => clearInterval(interval)
+  }, [loadSubmodules])
+
+  // Close context menu on click outside / Escape
+  useEffect(() => {
+    if (!contextMenu) return
+    const handleClick = (e: MouseEvent): void => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null)
+      }
+    }
+    const handleEsc = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setContextMenu(null)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [contextMenu])
+
+  const handleInitUpdate = useCallback(
+    async (submodule: GitSubmodule) => {
+      if (!currentRepo) return
+      setLoading(true)
+      try {
+        if (submodule.status === 'uninitialized') {
+          await window.electronAPI.git.submoduleInit(currentRepo, submodule.path)
+        }
+        await window.electronAPI.git.submoduleUpdate(currentRepo, submodule.path)
+        await loadSubmodules()
+      } catch {
+        // Silently fail
+      } finally {
+        setLoading(false)
+      }
+    },
+    [currentRepo, loadSubmodules]
+  )
+
+  const handleOpenInNewWindow = useCallback(
+    async (submodule: GitSubmodule) => {
+      if (!currentRepo) return
+      // Build the submodule absolute path
+      const separator = currentRepo.includes('\\') ? '\\' : '/'
+      const subPath = currentRepo.endsWith(separator)
+        ? currentRepo + submodule.path
+        : currentRepo + separator + submodule.path
+
+      // Ensure submodule is initialized before opening
+      try {
+        await window.electronAPI.git.submoduleUpdate(currentRepo, submodule.path)
+      } catch {
+        // ignore
+      }
+
+      // Trigger a custom event that App can listen to for opening the submodule repo
+      window.dispatchEvent(
+        new CustomEvent('open-repo', { detail: { path: subPath } })
+      )
+    },
+    [currentRepo]
+  )
+
+  const statusIcon = (status: GitSubmodule['status']): string => {
+    switch (status) {
+      case 'initialized':
+        return '✓'
+      case 'uninitialized':
+        return '○'
+      case 'dirty':
+        return '●'
+      case 'out-of-date':
+        return '↓'
+      default:
+        return '?'
+    }
+  }
+
+  const statusColor = (status: GitSubmodule['status']): string => {
+    switch (status) {
+      case 'initialized':
+        return 'var(--success)'
+      case 'uninitialized':
+        return 'var(--text-muted)'
+      case 'dirty':
+        return 'var(--warning)'
+      case 'out-of-date':
+        return 'var(--info)'
+      default:
+        return 'var(--text-muted)'
+    }
+  }
+
+  // Don't show section if no submodules
+  if (submodules.length === 0) return null
+
+  return (
+    <>
+      <SidebarSection title="Submodules" icon="📦" defaultOpen={true} count={submodules.length}>
+        <div className="sidebar-list">
+          {submodules.map((sm) => (
+            <div
+              key={sm.path}
+              className="sidebar-list-item sidebar-submodule-item"
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setContextMenu({ x: e.clientX, y: e.clientY, submodule: sm })
+              }}
+              title={`${sm.path}\nURL: ${sm.url}\nStatus: ${sm.status}${sm.hash ? '\nCommit: ' + sm.hash.slice(0, 8) : ''}`}
+            >
+              <span
+                className="sidebar-submodule-status"
+                style={{ color: statusColor(sm.status) }}
+              >
+                {statusIcon(sm.status)}
+              </span>
+              <span className="sidebar-submodule-name">{sm.path}</span>
+              <span className="sidebar-submodule-badge" data-status={sm.status}>
+                {sm.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      </SidebarSection>
+
+      {/* Submodule Context Menu */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          className="branch-ctx-menu"
+          style={{
+            position: 'fixed',
+            left: contextMenu.x,
+            top: contextMenu.y,
+            zIndex: 2000
+          }}
+        >
+          {(contextMenu.submodule.status === 'uninitialized' ||
+            contextMenu.submodule.status === 'out-of-date') && (
+            <button
+              className="branch-ctx-menu-item"
+              disabled={loading}
+              onClick={() => {
+                handleInitUpdate(contextMenu.submodule)
+                setContextMenu(null)
+              }}
+            >
+              <span className="branch-ctx-menu-icon">⬇</span>
+              <span className="branch-ctx-menu-label">
+                {contextMenu.submodule.status === 'uninitialized'
+                  ? 'Init & Update'
+                  : 'Update'}
+              </span>
+            </button>
+          )}
+          {contextMenu.submodule.status !== 'uninitialized' && (
+            <button
+              className="branch-ctx-menu-item"
+              disabled={loading}
+              onClick={() => {
+                handleInitUpdate(contextMenu.submodule)
+                setContextMenu(null)
+              }}
+            >
+              <span className="branch-ctx-menu-icon">🔄</span>
+              <span className="branch-ctx-menu-label">Update</span>
+            </button>
+          )}
+          <div className="branch-ctx-menu-separator" />
+          <button
+            className="branch-ctx-menu-item"
+            onClick={() => {
+              handleOpenInNewWindow(contextMenu.submodule)
+              setContextMenu(null)
+            }}
+          >
+            <span className="branch-ctx-menu-icon">↗</span>
+            <span className="branch-ctx-menu-label">Open as Repository</span>
+          </button>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ─── Sidebar (main export) ──────────────────────────────────────────────────
 
 export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
@@ -1970,6 +2202,8 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
       <TagsSection currentRepo={currentRepo} />
 
       <StashesSection currentRepo={currentRepo} />
+
+      <SubmodulesSection currentRepo={currentRepo} />
       </>
       )}
 

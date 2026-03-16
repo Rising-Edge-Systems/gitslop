@@ -2626,6 +2626,67 @@ body.theme-transitioning *::after {
   tab-size: 4;
 }
 
+/* ─── Submodules Section ─────────────────────────────────────────────────── */
+
+.sidebar-submodule-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.sidebar-submodule-item:hover {
+  background: var(--bg-hover);
+}
+
+.sidebar-submodule-status {
+  font-size: 11px;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.sidebar-submodule-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.sidebar-submodule-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  text-transform: capitalize;
+}
+
+.sidebar-submodule-badge[data-status="initialized"] {
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
+}
+
+.sidebar-submodule-badge[data-status="dirty"] {
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning);
+}
+
+.sidebar-submodule-badge[data-status="out-of-date"] {
+  background: color-mix(in srgb, var(--info) 20%, transparent);
+  color: var(--info);
+}
+
+.sidebar-submodule-badge[data-status="uninitialized"] {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
 /* ─── Status Panel ──────────────────────────────────────────────────────────── */
 
 .status-panel {

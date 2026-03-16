@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { TitleBar } from './components/TitleBar'
 import { AppLayout } from './components/AppLayout'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -23,6 +23,18 @@ function App(): React.JSX.Element {
   const handleCloseRepo = useCallback(() => {
     setCurrentRepo(null)
   }, [])
+
+  // Listen for 'open-repo' custom events (e.g., from submodule "Open as Repository")
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const customEvent = e as CustomEvent<{ path: string }>
+      if (customEvent.detail?.path) {
+        handleRepoOpen(customEvent.detail.path)
+      }
+    }
+    window.addEventListener('open-repo', handler)
+    return () => window.removeEventListener('open-repo', handler)
+  }, [handleRepoOpen])
 
   return (
     <div className="app">

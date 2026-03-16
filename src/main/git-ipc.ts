@@ -1163,6 +1163,41 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Submodules ─────────────────────────────────────────────────────────────
+
+  ipcMain.handle('git:getSubmodules', async (_event, repoPath: string) => {
+    try {
+      const data = await gitService.getSubmodules(repoPath)
+      return { success: true, data }
+    } catch (err) {
+      return { success: false, ...formatError(err) }
+    }
+  })
+
+  ipcMain.handle(
+    'git:submoduleInit',
+    async (_event, repoPath: string, submodulePath: string) => {
+      try {
+        await gitService.submoduleInit(repoPath, submodulePath)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:submoduleUpdate',
+    async (_event, repoPath: string, submodulePath: string) => {
+      try {
+        await gitService.submoduleUpdate(repoPath, submodulePath)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Generic exec (for operations not yet wrapped) ───────────────────────
 
   ipcMain.handle(
