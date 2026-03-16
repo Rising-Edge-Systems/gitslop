@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+build/
+
+# Electron
+release/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Ralph temp files
+scripts/ralph/.ralph-*
+scripts/ralph/.last-branch
+scripts/ralph/progress.txt
+scripts/ralph/archive/
