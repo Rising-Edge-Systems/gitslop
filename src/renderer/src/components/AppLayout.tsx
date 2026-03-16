@@ -14,9 +14,10 @@ import { useLayoutState } from '../hooks/useLayoutState'
 interface AppLayoutProps {
   currentRepo: string | null
   onRepoOpen: (repoPath: string) => void
+  onCloseRepo: () => void
 }
 
-export function AppLayout({ currentRepo, onRepoOpen }: AppLayoutProps): React.JSX.Element {
+export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutProps): React.JSX.Element {
   const {
     layout,
     setSidebarSize,
@@ -79,7 +80,7 @@ export function AppLayout({ currentRepo, onRepoOpen }: AppLayoutProps): React.JS
           <Panel id="center" minSize={30}>
             <Group orientation="vertical" id="gitslop-vertical">
               <Panel id="main" minSize={20}>
-                <MainContent currentRepo={currentRepo} onRepoOpen={onRepoOpen} />
+                <MainContent currentRepo={currentRepo} onRepoOpen={onRepoOpen} onCloseRepo={onCloseRepo} />
               </Panel>
               {layout.bottomPanelVisible && (
                 <>

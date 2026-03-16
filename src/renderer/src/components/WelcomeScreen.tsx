@@ -8,6 +8,7 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Element {
   const [recentRepos, setRecentRepos] = useState<RecentRepo[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [errorPath, setErrorPath] = useState<string | null>(null)
 
   useEffect(() => {
     window.electronAPI.repos.getRecent().then(setRecentRepos).catch(() => {
@@ -17,6 +18,7 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
 
   const handleOpenRepo = useCallback(async () => {
     setError(null)
+    setErrorPath(null)
     const dirPath = await window.electronAPI.dialog.openDirectory()
     if (!dirPath) return
 
@@ -27,6 +29,7 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
       setRecentRepos(updated)
       onRepoOpen(dirPath)
     } else {
+      setErrorPath(dirPath)
       setError(`"${dirPath}" is not a git repository. Would you like to initialize one?`)
     }
   }, [onRepoOpen])
@@ -48,10 +51,19 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
   }, [onRepoOpen])
 
   const handleInitFromError = useCallback(async () => {
-    // Re-open picker for init (or use the path from the error)
+    if (!errorPath) return
     setError(null)
-    await handleInitRepo()
-  }, [handleInitRepo])
+    const result = await window.electronAPI.git.init(errorPath)
+    if (result.success) {
+      const name = errorPath.split(/[/\\]/).pop() || errorPath
+      const updated = await window.electronAPI.repos.addRecent(errorPath, name)
+      setRecentRepos(updated)
+      setErrorPath(null)
+      onRepoOpen(errorPath)
+    } else {
+      setError(result.error || 'Failed to initialize repository')
+    }
+  }, [errorPath, onRepoOpen])
 
   const handleCloneRepo = useCallback(() => {
     // Placeholder — clone dialog will be implemented in US-006

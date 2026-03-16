@@ -1,12 +1,14 @@
 import React from 'react'
 import { WelcomeScreen } from './WelcomeScreen'
+import { RepoView } from './RepoView'
 
 interface MainContentProps {
   currentRepo: string | null
   onRepoOpen: (repoPath: string) => void
+  onCloseRepo: () => void
 }
 
-export function MainContent({ currentRepo, onRepoOpen }: MainContentProps): React.JSX.Element {
+export function MainContent({ currentRepo, onRepoOpen, onCloseRepo }: MainContentProps): React.JSX.Element {
   if (!currentRepo) {
     return (
       <div className="main-content">
@@ -17,9 +19,7 @@ export function MainContent({ currentRepo, onRepoOpen }: MainContentProps): Reac
 
   return (
     <div className="main-content">
-      <div className="repo-view-placeholder">
-        <p>Repository: {currentRepo}</p>
-      </div>
+      <RepoView repoPath={currentRepo} onCloseRepo={onCloseRepo} />
     </div>
   )
 }

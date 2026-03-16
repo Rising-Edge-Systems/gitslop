@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react'
 
-export function TitleBar(): React.JSX.Element {
+interface TitleBarProps {
+  repoPath?: string | null
+}
+
+export function TitleBar({ repoPath }: TitleBarProps): React.JSX.Element {
   const [isMaximized, setIsMaximized] = useState(false)
 
   useEffect(() => {
@@ -28,6 +32,13 @@ export function TitleBar(): React.JSX.Element {
         <div className="titlebar-brand">
           <span className="titlebar-icon">&#9673;</span>
           <span className="titlebar-title">GitSlop</span>
+          {repoPath && (
+            <span className="titlebar-repo" title={repoPath}>
+              <span className="titlebar-repo-separator">—</span>
+              <span className="titlebar-repo-name">{repoPath.split(/[/\\]/).pop()}</span>
+              <span className="titlebar-repo-path">{repoPath}</span>
+            </span>
+          )}
         </div>
       </div>
       <div className="titlebar-controls">

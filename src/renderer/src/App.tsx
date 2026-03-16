@@ -9,10 +9,14 @@ function App(): React.JSX.Element {
     setCurrentRepo(repoPath)
   }, [])
 
+  const handleCloseRepo = useCallback(() => {
+    setCurrentRepo(null)
+  }, [])
+
   return (
     <div className="app">
-      <TitleBar />
-      <AppLayout currentRepo={currentRepo} onRepoOpen={handleRepoOpen} />
+      <TitleBar repoPath={currentRepo} />
+      <AppLayout currentRepo={currentRepo} onRepoOpen={handleRepoOpen} onCloseRepo={handleCloseRepo} />
     </div>
   )
 }
