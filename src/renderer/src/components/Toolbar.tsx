@@ -46,9 +46,10 @@ type ActiveOperation = {
 
 interface ToolbarProps {
   currentRepo: string | null
+  onOpenSettings?: () => void
 }
 
-export function Toolbar({ currentRepo }: ToolbarProps): React.JSX.Element {
+export function Toolbar({ currentRepo, onOpenSettings }: ToolbarProps): React.JSX.Element {
   const [stashDialog, setStashDialog] = useState<StashDialogState>({
     open: false,
     message: '',
@@ -456,7 +457,7 @@ export function Toolbar({ currentRepo }: ToolbarProps): React.JSX.Element {
       )}
 
       <div className="toolbar-group">
-        <button className="toolbar-btn" title="Settings (Ctrl+,)">
+        <button className="toolbar-btn" title="Settings (Ctrl+,)" onClick={onOpenSettings}>
           <span className="toolbar-btn-icon">⚙</span>
         </button>
       </div>

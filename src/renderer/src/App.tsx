@@ -1,11 +1,20 @@
-import React, { useCallback, useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { TitleBar } from './components/TitleBar'
 import { AppLayout } from './components/AppLayout'
-import { useTheme } from './hooks/useTheme'
+import { SettingsPanel } from './components/SettingsPanel'
+import { useSettings } from './hooks/useSettings'
 
 function App(): React.JSX.Element {
   const [currentRepo, setCurrentRepo] = useState<string | null>(null)
-  const { theme, toggleTheme } = useTheme()
+  const {
+    settings,
+    updateSettings,
+    resetSettings,
+    settingsOpen,
+    openSettings,
+    closeSettings,
+    toggleTheme
+  } = useSettings()
 
   const handleRepoOpen = useCallback((repoPath: string) => {
     setCurrentRepo(repoPath)
@@ -17,8 +26,22 @@ function App(): React.JSX.Element {
 
   return (
     <div className="app">
-      <TitleBar repoPath={currentRepo} theme={theme} onToggleTheme={toggleTheme} />
-      <AppLayout currentRepo={currentRepo} onRepoOpen={handleRepoOpen} onCloseRepo={handleCloseRepo} />
+      <TitleBar repoPath={currentRepo} theme={settings.theme} onToggleTheme={toggleTheme} />
+      <AppLayout
+        currentRepo={currentRepo}
+        onRepoOpen={handleRepoOpen}
+        onCloseRepo={handleCloseRepo}
+        onOpenSettings={openSettings}
+        settings={settings}
+      />
+      {settingsOpen && (
+        <SettingsPanel
+          settings={settings}
+          onUpdate={updateSettings}
+          onReset={resetSettings}
+          onClose={closeSettings}
+        />
+      )}
     </div>
   )
 }

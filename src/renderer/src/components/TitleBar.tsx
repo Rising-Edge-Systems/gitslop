@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import type { Theme } from '../hooks/useTheme'
+import type { Theme } from '../hooks/useSettings'
 
 interface TitleBarProps {
   repoPath?: string | null

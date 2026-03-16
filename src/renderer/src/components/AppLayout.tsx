@@ -23,9 +23,11 @@ interface AppLayoutProps {
   currentRepo: string | null
   onRepoOpen: (repoPath: string) => void
   onCloseRepo: () => void
+  onOpenSettings: () => void
+  settings: { sidebarPosition: 'left' | 'right' }
 }
 
-export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutProps): React.JSX.Element {
+export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings, settings: appSettings }: AppLayoutProps): React.JSX.Element {
   const {
     layout,
     setSidebarSize,
@@ -102,7 +104,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
 
   return (
     <div className="app-layout">
-      <Toolbar currentRepo={currentRepo} />
+      <Toolbar currentRepo={currentRepo} onOpenSettings={onOpenSettings} />
 
       {/* Search Palette (Ctrl+K) */}
       {searchOpen && currentRepo && (
@@ -128,7 +130,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
 
       <div className="app-body">
         <Group orientation="horizontal" id="gitslop-horizontal">
-          {layout.sidebarVisible && (
+          {layout.sidebarVisible && appSettings.sidebarPosition === 'left' && (
             <>
               <Panel
                 id="sidebar"
@@ -163,6 +165,20 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
               )}
             </Group>
           </Panel>
+          {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && (
+            <>
+              <Separator className="resize-handle resize-handle-horizontal" />
+              <Panel
+                id="sidebar"
+                defaultSize={layout.sidebarSize}
+                minSize={12}
+                maxSize={40}
+                onResize={handleSidebarResize}
+              >
+                <Sidebar currentRepo={currentRepo} />
+              </Panel>
+            </>
+          )}
         </Group>
       </div>
     </div>
