@@ -229,3 +229,19 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Remote context menus reuse the same `branch-ctx-menu` CSS classes from the branch context menu
   - Dialog components reuse the `branch-dialog-*` CSS classes for consistency
 ---
+## 2026-03-16 14:30 - US-011
+- Implemented: Tags sidebar with full list, search/filter, right-click context menu (delete/push), new tag dialog (lightweight & annotated), relative date display
+- Files changed:
+  - `src/main/git-service.ts` - Added `createTag()`, `deleteTag()`, `pushTag()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:createTag`, `git:deleteTag`, `git:pushTag`
+  - `src/preload/index.ts` - Added createTag, deleteTag, pushTag to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new tag methods
+  - `src/renderer/src/components/Sidebar.tsx` - Added TagsSection component replacing placeholder (search filter, context menu, new tag dialog with message textarea for annotated tags)
+  - `src/renderer/src/styles/global.css` - Added tag sidebar item styles (sidebar-tag-item, sidebar-tag-name, sidebar-tag-date, sidebar-tag-icon)
+- **Learnings for future iterations:**
+  - TagsSection follows same pattern as RemotesSection — separate component with its own state, receives `currentRepo` prop
+  - Tags reuse `branch-ctx-menu` and `branch-dialog-*` CSS classes for context menus and dialogs
+  - `git tag -a <name> -m <message>` creates annotated tags; without `-a`/`-m` creates lightweight
+  - Tags auto-refresh every 5 seconds (same pattern as branches and remotes)
+  - Search filter only appears when there are >5 tags to avoid clutter
+---
