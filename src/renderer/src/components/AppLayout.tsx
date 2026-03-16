@@ -72,7 +72,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
                 maxSize={40}
                 onResize={handleSidebarResize}
               >
-                <Sidebar />
+                <Sidebar currentRepo={currentRepo} />
               </Panel>
               <Separator className="resize-handle resize-handle-horizontal" />
             </>

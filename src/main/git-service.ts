@@ -608,6 +608,57 @@ export class GitService {
     })
   }
 
+  /**
+   * Checkout a branch.
+   */
+  async checkout(repoPath: string, branchName: string, options?: { signal?: AbortSignal }): Promise<void> {
+    await this.exec(['checkout', branchName], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Create a new branch.
+   */
+  async createBranch(
+    repoPath: string,
+    branchName: string,
+    baseBranch?: string,
+    options?: { signal?: AbortSignal; checkout?: boolean }
+  ): Promise<void> {
+    if (options?.checkout) {
+      const args = ['checkout', '-b', branchName]
+      if (baseBranch) args.push(baseBranch)
+      await this.exec(args, repoPath, { signal: options?.signal })
+    } else {
+      const args = ['branch', branchName]
+      if (baseBranch) args.push(baseBranch)
+      await this.exec(args, repoPath, { signal: options?.signal })
+    }
+  }
+
+  /**
+   * Delete a branch.
+   */
+  async deleteBranch(
+    repoPath: string,
+    branchName: string,
+    options?: { signal?: AbortSignal; force?: boolean }
+  ): Promise<void> {
+    const flag = options?.force ? '-D' : '-d'
+    await this.exec(['branch', flag, branchName], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Rename a branch.
+   */
+  async renameBranch(
+    repoPath: string,
+    oldName: string,
+    newName: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['branch', '-m', oldName, newName], repoPath, { signal: options?.signal })
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   private parseLogOutput(output: string, separator: string, recordEnd: string): GitCommit[] {

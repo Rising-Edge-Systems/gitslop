@@ -64,6 +64,27 @@ const electronAPI = {
       ipcRenderer.invoke('git:cancelOperation', operationId),
     exec: (args: string[], repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:exec', args, repoPath),
+    checkout: (repoPath: string, branchName: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:checkout', repoPath, branchName),
+    createBranch: (
+      repoPath: string,
+      branchName: string,
+      baseBranch?: string,
+      opts?: { checkout?: boolean }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:createBranch', repoPath, branchName, baseBranch, opts),
+    deleteBranch: (
+      repoPath: string,
+      branchName: string,
+      opts?: { force?: boolean }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:deleteBranch', repoPath, branchName, opts),
+    renameBranch: (
+      repoPath: string,
+      oldName: string,
+      newName: string
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:renameBranch', repoPath, oldName, newName),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

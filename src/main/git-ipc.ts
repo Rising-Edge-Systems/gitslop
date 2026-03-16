@@ -186,6 +186,67 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Checkout ──────────────────────────────────────────────────────────
+
+  ipcMain.handle('git:checkout', async (_event, repoPath: string, branchName: string) => {
+    try {
+      await gitService.checkout(repoPath, branchName)
+      return { success: true }
+    } catch (err) {
+      return { success: false, ...formatError(err) }
+    }
+  })
+
+  // ─── Create Branch ────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:createBranch',
+    async (
+      _event,
+      repoPath: string,
+      branchName: string,
+      baseBranch?: string,
+      opts?: { checkout?: boolean }
+    ) => {
+      try {
+        await gitService.createBranch(repoPath, branchName, baseBranch, {
+          checkout: opts?.checkout
+        })
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Delete Branch ────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:deleteBranch',
+    async (_event, repoPath: string, branchName: string, opts?: { force?: boolean }) => {
+      try {
+        await gitService.deleteBranch(repoPath, branchName, { force: opts?.force })
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Rename Branch ────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:renameBranch',
+    async (_event, repoPath: string, oldName: string, newName: string) => {
+      try {
+        await gitService.renameBranch(repoPath, oldName, newName)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {

@@ -301,6 +301,419 @@ body {
   font-style: italic;
 }
 
+/* Sidebar Section Header Row (with action button) */
+.sidebar-section-header-row {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-section-header-row .sidebar-section-header {
+  flex: 1;
+}
+
+.sidebar-section-action {
+  padding-right: 8px;
+}
+
+.sidebar-section-add-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-section-add-btn:hover {
+  background-color: var(--border);
+  color: var(--accent);
+}
+
+.sidebar-section-count {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background-color: var(--bg-tertiary);
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+/* Sidebar Branch Search */
+.sidebar-search-box {
+  position: relative;
+  padding: 4px 10px;
+}
+
+.sidebar-search-input {
+  width: 100%;
+  padding: 5px 24px 5px 8px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-family);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.sidebar-search-input:focus {
+  border-color: var(--accent);
+}
+
+.sidebar-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.sidebar-search-clear {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color 0.15s ease;
+}
+
+.sidebar-search-clear:hover {
+  color: var(--text-primary);
+}
+
+/* Sidebar Branch List */
+.sidebar-branch-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sidebar-branch-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 16px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  user-select: none;
+}
+
+.sidebar-branch-item:hover {
+  background-color: rgba(137, 180, 250, 0.06);
+}
+
+.sidebar-branch-item-current {
+  background-color: rgba(137, 180, 250, 0.08);
+}
+
+.sidebar-branch-item-current .sidebar-branch-name {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sidebar-branch-indicator {
+  font-size: 7px;
+  color: var(--accent);
+  width: 10px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.sidebar-branch-name {
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-branch-tracking {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sidebar-branch-ahead {
+  font-size: 10px;
+  color: #a6e3a1;
+}
+
+.sidebar-branch-behind {
+  font-size: 10px;
+  color: #f38ba8;
+}
+
+/* Branch Context Menu */
+.branch-ctx-menu {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  min-width: 200px;
+  padding: 4px;
+  overflow: hidden;
+}
+
+.branch-ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-family);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
+  text-align: left;
+}
+
+.branch-ctx-menu-item:hover {
+  background-color: rgba(137, 180, 250, 0.1);
+  color: var(--accent);
+}
+
+.branch-ctx-menu-item-danger:hover {
+  background-color: rgba(243, 139, 168, 0.1);
+  color: #f38ba8;
+}
+
+.branch-ctx-menu-icon {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.branch-ctx-menu-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-ctx-menu-separator {
+  height: 1px;
+  background-color: var(--border);
+  margin: 4px 8px;
+}
+
+/* Branch Dialog (New / Rename) */
+.branch-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.branch-dialog {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+}
+
+.branch-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.branch-dialog-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.branch-dialog-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.branch-dialog-close:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.branch-dialog-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.branch-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.branch-dialog-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.branch-dialog-input {
+  padding: 8px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color 0.15s ease;
+  width: 100%;
+}
+
+.branch-dialog-input:focus {
+  border-color: var(--accent);
+}
+
+.branch-dialog-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.branch-dialog-input::placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-family);
+}
+
+.branch-dialog-select {
+  padding: 8px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-family);
+  outline: none;
+  transition: border-color 0.15s ease;
+  width: 100%;
+  cursor: pointer;
+}
+
+.branch-dialog-select:focus {
+  border-color: var(--accent);
+}
+
+.branch-dialog-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.branch-dialog-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.branch-dialog-checkbox-label input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
+.branch-dialog-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #f38ba8;
+}
+
+.branch-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.branch-dialog-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-family);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.branch-dialog-btn-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.branch-dialog-btn-cancel:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.branch-dialog-btn-create {
+  background-color: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg-tertiary);
+}
+
+.branch-dialog-btn-create:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.branch-dialog-btn-create:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Main Content */
 .main-content {
   height: 100%;
