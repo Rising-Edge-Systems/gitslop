@@ -642,7 +642,7 @@
         "Typecheck passes"
       ],
       "priority": 36,
-      "passes": false,
+      "passes": true,
       "notes": "Create a reusable ContextMenu component. Wire up to existing action handlers from earlier stories."
     },
     {

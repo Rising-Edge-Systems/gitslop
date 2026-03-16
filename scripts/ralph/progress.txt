@@ -712,3 +712,20 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Auto-fetch delay of 5s before first fetch prevents unnecessary immediate fetch on repo open
   - The `autoFetchInterval` setting already existed in useSettings (default: 5 minutes, 0 = disabled)
 ---
+
+## 2026-03-16 - US-036
+- Implemented comprehensive context menus throughout the application
+- Created reusable ContextMenu component (src/renderer/src/components/ContextMenu.tsx)
+- Added file context menus in StatusPanel: stage, unstage, discard changes, open in editor, show history
+- Added "Checkout tag" option to tag context menu in Sidebar
+- Fixed stash context menu styling to use proper icons and branch-ctx-menu-item pattern
+- Added keyboard shortcut hints to context menu items (e.g., Push shows Ctrl+Shift+P, Copy SHA shows Ctrl+C, Stage shows S, Unstage shows U)
+- Added discardFiles and fileLog IPC handlers (git-service, git-ipc, preload)
+- Added CSS for shortcut hints (.branch-ctx-menu-shortcut, .commit-ctx-menu-shortcut) and disabled state
+- Files changed: ContextMenu.tsx (new), StatusPanel.tsx, Sidebar.tsx, CommitGraph.tsx, git-service.ts, git-ipc.ts, preload/index.ts, useLayoutState.ts, global.css
+- **Learnings for future iterations:**
+  - The app uses `window.dispatchEvent(new CustomEvent(...))` pattern for cross-component communication (e.g., `editor:open-file`, `commit-filter:file-history`, `blame:open`)
+  - `openFileInEditor(filePath)` from CodeEditor.tsx is the standard way to open a file in the built-in editor
+  - Context menus use the `.branch-ctx-menu` / `.commit-ctx-menu` CSS classes with position:fixed and z-index:2000
+  - The Window type declaration in useLayoutState.ts must be updated when new IPC methods are added to the preload
+---
