@@ -325,7 +325,7 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Use git push --progress, git pull --progress, git fetch --all --progress. Parse stderr for progress."
     },
     {

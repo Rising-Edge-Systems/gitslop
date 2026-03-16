@@ -366,3 +366,21 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Commit output format is `[branch hash] message` — parse with regex to get new commit hash
   - `push()` method added to GitService for Commit & Push convenience button
 ---
+## 2026-03-16 15:01 - US-018
+- Implemented: Push, Pull, Fetch operations with progress indicators, dialogs, keyboard shortcuts, and full error handling
+- Files changed:
+  - `src/main/git-service.ts` - Added `pull()`, `fetchWithProgress()`, `hasUpstream()`, `getCurrentBranch()` methods; enhanced `push()` with force/setUpstream options; added `execWithProgress()` and `parseGitProgress()` private helpers; added `GitOperationProgress` type
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:pull`, `git:fetchWithProgress`, `git:hasUpstream`, `git:getCurrentBranch`; enhanced `git:push` handler with options and progress events
+  - `src/preload/index.ts` - Added pull, fetchWithProgress, hasUpstream, getCurrentBranch, onOperationProgress to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new push/pull/fetch methods and onOperationProgress
+  - `src/renderer/src/components/Toolbar.tsx` - Full rewrite: wired up Push/Pull/Fetch buttons with proper functionality, added force push confirmation dialog, set upstream dialog, pull strategy dialog (merge vs rebase), progress indicators with spinner, toast notifications, keyboard shortcuts (Ctrl+Shift+P/L/F)
+  - `src/renderer/src/styles/global.css` - Added toolbar progress bar, spinner animation, notification toasts, force push warning, pull strategy radio options, upstream dialog styles
+- **Learnings for future iterations:**
+  - `execWithProgress()` is a reusable helper for any git command that needs real-time progress via `spawn`
+  - Git progress comes on stderr; parse with regex for "Phase: NN% (current/total)" pattern
+  - `git rev-parse --abbrev-ref --symbolic-full-name @{upstream}` checks if branch has tracking upstream
+  - Push with `-u remote branch` sets upstream tracking
+  - Toolbar buttons use `onContextMenu` for right-click alternative actions (force push, pull strategy)
+  - `onOperationProgress` IPC event sends `{ operationId, operation, phase, percent, current, total }`
+  - Toast notifications use fixed positioning at top-right with auto-dismiss after 4 seconds
+---
