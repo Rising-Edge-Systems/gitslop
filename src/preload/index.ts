@@ -131,6 +131,10 @@ const electronAPI = {
       ipcRenderer.invoke('git:stageAll', repoPath),
     unstageAll: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:unstageAll', repoPath),
+    stageHunk: (repoPath: string, patch: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stageHunk', repoPath, patch),
+    unstageHunk: (repoPath: string, patch: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:unstageHunk', repoPath, patch),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

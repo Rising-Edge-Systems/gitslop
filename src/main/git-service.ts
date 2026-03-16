@@ -920,6 +920,96 @@ export class GitService {
     await this.exec(['reset', 'HEAD'], repoPath, { signal: options?.signal })
   }
 
+  /**
+   * Stage a hunk by applying a patch to the index.
+   * The patch must be a valid unified diff patch string.
+   */
+  async stageHunk(
+    repoPath: string,
+    patch: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    return this.applyPatch(repoPath, patch, { cached: true, signal: options?.signal })
+  }
+
+  /**
+   * Unstage a hunk by reverse-applying a patch from the index.
+   */
+  async unstageHunk(
+    repoPath: string,
+    patch: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    return this.applyPatch(repoPath, patch, { cached: true, reverse: true, signal: options?.signal })
+  }
+
+  /**
+   * Apply a patch string via git apply.
+   */
+  private async applyPatch(
+    repoPath: string,
+    patch: string,
+    options?: { cached?: boolean; reverse?: boolean; signal?: AbortSignal }
+  ): Promise<void> {
+    const signal = options?.signal
+
+    if (signal?.aborted) {
+      throw this.createError('Operation cancelled', GitErrorCode.Cancelled)
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const args = ['apply']
+      if (options?.cached) args.push('--cached')
+      if (options?.reverse) args.push('--reverse')
+      args.push('--unidiff-zero', '--whitespace=nowarn', '-')
+
+      const child = spawn('git', args, {
+        cwd: repoPath,
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+
+      let stderr = ''
+      child.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString()
+      })
+
+      child.on('close', (code) => {
+        if (signal?.aborted) {
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+          return
+        }
+        if (code === 0) {
+          resolve()
+        } else {
+          reject(this.createError(
+            stderr || 'Failed to apply patch',
+            GitErrorCode.CommandFailed,
+            stderr
+          ))
+        }
+      })
+
+      child.on('error', (err) => {
+        reject(this.classifyError(
+          err as Error & { code?: string | number | null },
+          stderr
+        ))
+      })
+
+      if (signal) {
+        const onAbort = (): void => {
+          child.kill('SIGTERM')
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+        }
+        signal.addEventListener('abort', onAbort, { once: true })
+      }
+
+      // Write patch to stdin and close
+      child.stdin?.write(patch)
+      child.stdin?.end()
+    })
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   private parseLogOutput(output: string, separator: string, recordEnd: string): GitCommit[] {

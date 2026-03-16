@@ -549,11 +549,14 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
         </div>
       )}
 
-      {/* Diff Viewer */}
+      {/* Diff Viewer with Hunk/Line Staging */}
       {selectedFile && (
         <div className="status-diff-viewer">
           <div className="status-diff-header">
-            <span className="status-diff-filename">{selectedFile.path}</span>
+            <span className="status-diff-filename">
+              {selectedFile.staged ? '(Staged) ' : ''}
+              {selectedFile.path}
+            </span>
             <button
               className="status-diff-close"
               onClick={() => {
@@ -569,13 +572,402 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
             {diffLoading ? (
               <div className="status-diff-loading">Loading diff...</div>
             ) : diffContent ? (
-              <pre className="status-diff-pre">{diffContent}</pre>
+              <HunkDiffViewer
+                diffContent={diffContent}
+                filePath={selectedFile.path}
+                staged={selectedFile.staged}
+                isUntracked={selectedFile.isUntracked}
+                repoPath={repoPath}
+                onOperationDone={() => {
+                  loadStatus()
+                  onRefresh?.()
+                }}
+                operationInProgress={operationInProgress}
+                setOperationInProgress={setOperationInProgress}
+              />
             ) : (
               <div className="status-diff-empty">No changes to display</div>
             )}
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Diff Hunk Parser & Viewer ───────────────────────────────────────────────
+
+interface DiffHunk {
+  header: string // e.g. "@@ -10,5 +10,7 @@"
+  lines: DiffLine[]
+}
+
+interface DiffLine {
+  type: 'context' | 'added' | 'removed'
+  content: string // full line including +/-/space prefix
+  oldLineNum: number | null
+  newLineNum: number | null
+}
+
+interface FileHeader {
+  lines: string[] // "diff --git ...", "index ...", "--- a/...", "+++ b/..."
+}
+
+function parseDiff(diffText: string): { fileHeader: FileHeader; hunks: DiffHunk[] } {
+  const allLines = diffText.split('\n')
+  const fileHeaderLines: string[] = []
+  const hunks: DiffHunk[] = []
+  let currentHunk: DiffHunk | null = null
+  let oldLine = 0
+  let newLine = 0
+  let inHeader = true
+
+  for (const line of allLines) {
+    if (line.startsWith('@@')) {
+      inHeader = false
+      // Parse hunk header: @@ -oldStart,oldCount +newStart,newCount @@
+      const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+      oldLine = match ? parseInt(match[1], 10) : 1
+      newLine = match ? parseInt(match[2], 10) : 1
+      currentHunk = { header: line, lines: [] }
+      hunks.push(currentHunk)
+    } else if (inHeader) {
+      fileHeaderLines.push(line)
+    } else if (currentHunk) {
+      if (line.startsWith('+')) {
+        currentHunk.lines.push({ type: 'added', content: line, oldLineNum: null, newLineNum: newLine })
+        newLine++
+      } else if (line.startsWith('-')) {
+        currentHunk.lines.push({ type: 'removed', content: line, oldLineNum: oldLine, newLineNum: null })
+        oldLine++
+      } else if (line.startsWith('\\')) {
+        // "\ No newline at end of file" — keep in hunk but don't count
+        currentHunk.lines.push({ type: 'context', content: line, oldLineNum: null, newLineNum: null })
+      } else {
+        // Context line (starts with space or is empty)
+        currentHunk.lines.push({ type: 'context', content: line, oldLineNum: oldLine, newLineNum: newLine })
+        oldLine++
+        newLine++
+      }
+    }
+  }
+
+  return { fileHeader: { lines: fileHeaderLines }, hunks }
+}
+
+/**
+ * Build a patch string for a single hunk suitable for `git apply --cached`.
+ */
+function buildHunkPatch(fileHeader: FileHeader, hunk: DiffHunk): string {
+  const headerStr = fileHeader.lines.join('\n')
+  const hunkLines = [hunk.header, ...hunk.lines.map((l) => l.content)].join('\n')
+  return headerStr + '\n' + hunkLines + '\n'
+}
+
+/**
+ * Build a patch for selected lines within a hunk.
+ * For staging: keep selected added lines, convert unselected added lines to context, keep all removed lines or only selected ones.
+ * For unstaging (reverse): similar but inverted.
+ */
+function buildLinesPatch(
+  fileHeader: FileHeader,
+  hunk: DiffHunk,
+  selectedLineIndices: Set<number>,
+  forStaging: boolean
+): string {
+  // We need to rebuild the hunk with only the selected lines as changes
+  // Unselected added lines → removed from patch (not included)
+  // Unselected removed lines → converted to context lines
+  const newHunkLines: string[] = []
+  let oldCount = 0
+  let newCount = 0
+
+  // Parse the original header to get the start lines
+  const headerMatch = hunk.header.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)/)
+  const oldStart = headerMatch ? parseInt(headerMatch[1], 10) : 1
+  const newStart = headerMatch ? parseInt(headerMatch[2], 10) : 1
+  const headerSuffix = headerMatch ? headerMatch[3] : ''
+
+  for (let i = 0; i < hunk.lines.length; i++) {
+    const line = hunk.lines[i]
+    const isSelected = selectedLineIndices.has(i)
+
+    if (line.content.startsWith('\\')) {
+      // "No newline" marker — include as-is
+      newHunkLines.push(line.content)
+      continue
+    }
+
+    if (line.type === 'context') {
+      newHunkLines.push(line.content)
+      oldCount++
+      newCount++
+    } else if (line.type === 'added') {
+      if (isSelected) {
+        // Keep as added
+        newHunkLines.push(line.content)
+        newCount++
+      }
+      // If not selected, just skip it (don't add it)
+    } else if (line.type === 'removed') {
+      if (isSelected) {
+        // Keep as removed
+        newHunkLines.push(line.content)
+        oldCount++
+      } else {
+        // Convert to context (keep the line but as unchanged)
+        newHunkLines.push(' ' + line.content.substring(1))
+        oldCount++
+        newCount++
+      }
+    }
+  }
+
+  if (newHunkLines.length === 0) return ''
+
+  const newHeader = `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@${headerSuffix}`
+  const headerStr = fileHeader.lines.join('\n')
+  return headerStr + '\n' + newHeader + '\n' + newHunkLines.join('\n') + '\n'
+}
+
+interface HunkDiffViewerProps {
+  diffContent: string
+  filePath: string
+  staged: boolean
+  isUntracked: boolean
+  repoPath: string
+  onOperationDone: () => void
+  operationInProgress: boolean
+  setOperationInProgress: (v: boolean) => void
+}
+
+function HunkDiffViewer({
+  diffContent,
+  filePath,
+  staged,
+  isUntracked,
+  repoPath,
+  onOperationDone,
+  operationInProgress,
+  setOperationInProgress
+}: HunkDiffViewerProps): React.JSX.Element {
+  const [selectedLines, setSelectedLines] = useState<Map<number, Set<number>>>(new Map()) // hunkIdx → set of line indices
+
+  const { fileHeader, hunks } = React.useMemo(() => parseDiff(diffContent), [diffContent])
+
+  // Reset selections when diff changes
+  useEffect(() => {
+    setSelectedLines(new Map())
+  }, [diffContent])
+
+  const hasValidHeader = fileHeader.lines.some((l) => l.startsWith('diff --git'))
+
+  const toggleLineSelection = useCallback((hunkIdx: number, lineIdx: number, e: React.MouseEvent) => {
+    setSelectedLines((prev) => {
+      const next = new Map(prev)
+      const hunkSet = new Set(next.get(hunkIdx) || [])
+
+      if (e.shiftKey && hunkSet.size > 0) {
+        // Range select from last selected to this one
+        const arr = Array.from(hunkSet).sort((a, b) => a - b)
+        const lastSelected = arr[arr.length - 1]
+        const start = Math.min(lastSelected, lineIdx)
+        const end = Math.max(lastSelected, lineIdx)
+        for (let i = start; i <= end; i++) {
+          const line = hunks[hunkIdx].lines[i]
+          if (line && line.type !== 'context' && !line.content.startsWith('\\')) {
+            hunkSet.add(i)
+          }
+        }
+      } else {
+        if (hunkSet.has(lineIdx)) {
+          hunkSet.delete(lineIdx)
+        } else {
+          hunkSet.add(lineIdx)
+        }
+      }
+
+      if (hunkSet.size === 0) {
+        next.delete(hunkIdx)
+      } else {
+        next.set(hunkIdx, hunkSet)
+      }
+      return next
+    })
+  }, [hunks])
+
+  const handleStageHunk = useCallback(
+    async (hunkIdx: number) => {
+      if (operationInProgress || !hasValidHeader) return
+      setOperationInProgress(true)
+      try {
+        const patch = buildHunkPatch(fileHeader, hunks[hunkIdx])
+        const result = await window.electronAPI.git.stageHunk(repoPath, patch)
+        if (result.success) {
+          onOperationDone()
+        }
+      } finally {
+        setOperationInProgress(false)
+      }
+    },
+    [operationInProgress, hasValidHeader, fileHeader, hunks, repoPath, onOperationDone, setOperationInProgress]
+  )
+
+  const handleUnstageHunk = useCallback(
+    async (hunkIdx: number) => {
+      if (operationInProgress || !hasValidHeader) return
+      setOperationInProgress(true)
+      try {
+        const patch = buildHunkPatch(fileHeader, hunks[hunkIdx])
+        const result = await window.electronAPI.git.unstageHunk(repoPath, patch)
+        if (result.success) {
+          onOperationDone()
+        }
+      } finally {
+        setOperationInProgress(false)
+      }
+    },
+    [operationInProgress, hasValidHeader, fileHeader, hunks, repoPath, onOperationDone, setOperationInProgress]
+  )
+
+  const handleStageSelectedLines = useCallback(
+    async (hunkIdx: number) => {
+      if (operationInProgress || !hasValidHeader) return
+      const lineIndices = selectedLines.get(hunkIdx)
+      if (!lineIndices || lineIndices.size === 0) return
+
+      setOperationInProgress(true)
+      try {
+        const patch = buildLinesPatch(fileHeader, hunks[hunkIdx], lineIndices, true)
+        if (!patch) return
+        const result = await window.electronAPI.git.stageHunk(repoPath, patch)
+        if (result.success) {
+          onOperationDone()
+          setSelectedLines(new Map())
+        }
+      } finally {
+        setOperationInProgress(false)
+      }
+    },
+    [operationInProgress, hasValidHeader, selectedLines, fileHeader, hunks, repoPath, onOperationDone, setOperationInProgress]
+  )
+
+  const handleUnstageSelectedLines = useCallback(
+    async (hunkIdx: number) => {
+      if (operationInProgress || !hasValidHeader) return
+      const lineIndices = selectedLines.get(hunkIdx)
+      if (!lineIndices || lineIndices.size === 0) return
+
+      setOperationInProgress(true)
+      try {
+        const patch = buildLinesPatch(fileHeader, hunks[hunkIdx], lineIndices, false)
+        if (!patch) return
+        const result = await window.electronAPI.git.unstageHunk(repoPath, patch)
+        if (result.success) {
+          onOperationDone()
+          setSelectedLines(new Map())
+        }
+      } finally {
+        setOperationInProgress(false)
+      }
+    },
+    [operationInProgress, hasValidHeader, selectedLines, fileHeader, hunks, repoPath, onOperationDone, setOperationInProgress]
+  )
+
+  // If it's not a parseable diff (e.g. untracked file placeholder text), show raw
+  if (hunks.length === 0 || !hasValidHeader) {
+    return <pre className="status-diff-pre">{diffContent}</pre>
+  }
+
+  return (
+    <div className="hunk-diff-viewer">
+      {hunks.map((hunk, hunkIdx) => {
+        const hunkSelectedLines = selectedLines.get(hunkIdx)
+        const hasSelection = hunkSelectedLines && hunkSelectedLines.size > 0
+        return (
+          <div key={hunkIdx} className="hunk-block">
+            <div className="hunk-header">
+              <span className="hunk-header-text">{hunk.header}</span>
+              <div className="hunk-actions">
+                {hasSelection && !staged && (
+                  <button
+                    className="hunk-action-btn hunk-stage-lines"
+                    onClick={() => handleStageSelectedLines(hunkIdx)}
+                    disabled={operationInProgress}
+                    title={`Stage ${hunkSelectedLines!.size} selected line(s)`}
+                  >
+                    + Stage Lines ({hunkSelectedLines!.size})
+                  </button>
+                )}
+                {hasSelection && staged && (
+                  <button
+                    className="hunk-action-btn hunk-unstage-lines"
+                    onClick={() => handleUnstageSelectedLines(hunkIdx)}
+                    disabled={operationInProgress}
+                    title={`Unstage ${hunkSelectedLines!.size} selected line(s)`}
+                  >
+                    − Unstage Lines ({hunkSelectedLines!.size})
+                  </button>
+                )}
+                {!staged && !isUntracked && (
+                  <button
+                    className="hunk-action-btn hunk-stage"
+                    onClick={() => handleStageHunk(hunkIdx)}
+                    disabled={operationInProgress}
+                    title="Stage this hunk"
+                  >
+                    + Stage Hunk
+                  </button>
+                )}
+                {staged && (
+                  <button
+                    className="hunk-action-btn hunk-unstage"
+                    onClick={() => handleUnstageHunk(hunkIdx)}
+                    disabled={operationInProgress}
+                    title="Unstage this hunk"
+                  >
+                    − Unstage Hunk
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="hunk-lines">
+              {hunk.lines.map((line, lineIdx) => {
+                const isSelectable = line.type !== 'context' && !line.content.startsWith('\\')
+                const isSelected = hunkSelectedLines?.has(lineIdx) ?? false
+                return (
+                  <div
+                    key={lineIdx}
+                    className={[
+                      'hunk-line',
+                      `hunk-line-${line.type}`,
+                      isSelected ? 'hunk-line-selected' : '',
+                      isSelectable ? 'hunk-line-selectable' : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={isSelectable ? (e) => toggleLineSelection(hunkIdx, lineIdx, e) : undefined}
+                  >
+                    <span className="hunk-line-num hunk-line-num-old">
+                      {line.oldLineNum ?? ''}
+                    </span>
+                    <span className="hunk-line-num hunk-line-num-new">
+                      {line.newLineNum ?? ''}
+                    </span>
+                    {isSelectable && (
+                      <span className={`hunk-line-checkbox ${isSelected ? 'checked' : ''}`}>
+                        {isSelected ? '☑' : '☐'}
+                      </span>
+                    )}
+                    {!isSelectable && <span className="hunk-line-checkbox-spacer" />}
+                    <span className="hunk-line-content">{line.content}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

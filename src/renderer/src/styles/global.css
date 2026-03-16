@@ -2660,3 +2660,183 @@ body {
   white-space: pre;
   tab-size: 4;
 }
+
+/* ─── Hunk Diff Viewer (US-015) ─────────────────────────────────────────── */
+
+.hunk-diff-viewer {
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+.hunk-block {
+  border-bottom: 1px solid var(--border);
+}
+
+.hunk-block:last-child {
+  border-bottom: none;
+}
+
+.hunk-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: rgba(137, 180, 250, 0.08);
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.hunk-header-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.hunk-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.hunk-action-btn {
+  padding: 2px 8px;
+  border: none;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: var(--font-family);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.hunk-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hunk-action-btn.hunk-stage,
+.hunk-action-btn.hunk-stage-lines {
+  background: rgba(166, 227, 161, 0.15);
+  color: #a6e3a1;
+}
+
+.hunk-action-btn.hunk-stage:hover:not(:disabled),
+.hunk-action-btn.hunk-stage-lines:hover:not(:disabled) {
+  background: rgba(166, 227, 161, 0.3);
+}
+
+.hunk-action-btn.hunk-unstage,
+.hunk-action-btn.hunk-unstage-lines {
+  background: rgba(243, 139, 168, 0.15);
+  color: #f38ba8;
+}
+
+.hunk-action-btn.hunk-unstage:hover:not(:disabled),
+.hunk-action-btn.hunk-unstage-lines:hover:not(:disabled) {
+  background: rgba(243, 139, 168, 0.3);
+}
+
+.hunk-lines {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.hunk-line {
+  display: flex;
+  align-items: stretch;
+  min-height: 18px;
+}
+
+.hunk-line-selectable {
+  cursor: pointer;
+}
+
+.hunk-line-selectable:hover {
+  background: rgba(137, 180, 250, 0.08);
+}
+
+.hunk-line-selected {
+  background: rgba(137, 180, 250, 0.15) !important;
+}
+
+.hunk-line-added {
+  background: rgba(166, 227, 161, 0.08);
+}
+
+.hunk-line-removed {
+  background: rgba(243, 139, 168, 0.08);
+}
+
+.hunk-line-added.hunk-line-selected {
+  background: rgba(166, 227, 161, 0.25) !important;
+}
+
+.hunk-line-removed.hunk-line-selected {
+  background: rgba(243, 139, 168, 0.25) !important;
+}
+
+.hunk-line-num {
+  display: inline-block;
+  width: 40px;
+  min-width: 40px;
+  text-align: right;
+  padding: 0 6px 0 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  user-select: none;
+  border-right: 1px solid var(--border);
+}
+
+.hunk-line-num-new {
+  margin-right: 4px;
+}
+
+.hunk-line-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  min-width: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.hunk-line-checkbox.checked {
+  color: var(--accent);
+}
+
+.hunk-line-checkbox-spacer {
+  display: inline-block;
+  width: 20px;
+  min-width: 20px;
+}
+
+.hunk-line-content {
+  flex: 1;
+  white-space: pre;
+  tab-size: 4;
+  padding-left: 4px;
+  overflow: hidden;
+}
+
+.hunk-line-added .hunk-line-content {
+  color: #a6e3a1;
+}
+
+.hunk-line-removed .hunk-line-content {
+  color: #f38ba8;
+}
+
+.hunk-line-context .hunk-line-content {
+  color: var(--text-secondary);
+}

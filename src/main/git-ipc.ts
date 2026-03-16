@@ -517,6 +517,34 @@ export function registerGitIpcHandlers(): void {
     }
   })
 
+  // ─── Stage Hunk (partial staging) ──────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:stageHunk',
+    async (_event, repoPath: string, patch: string) => {
+      try {
+        await gitService.stageHunk(repoPath, patch)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Unstage Hunk (partial unstaging) ────────────────────────────────────
+
+  ipcMain.handle(
+    'git:unstageHunk',
+    async (_event, repoPath: string, patch: string) => {
+      try {
+        await gitService.unstageHunk(repoPath, patch)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {
