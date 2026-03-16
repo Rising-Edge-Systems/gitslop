@@ -21,6 +21,7 @@ export interface AppSettings {
   // Git
   defaultPullStrategy: 'merge' | 'rebase'
   signCommits: boolean
+  gpgKeyId: string
   autoStashOnPull: boolean
   defaultBranchName: string
 
@@ -45,6 +46,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // Git
   defaultPullStrategy: 'merge',
   signCommits: false,
+  gpgKeyId: '',
   autoStashOnPull: false,
   defaultBranchName: 'main',
 

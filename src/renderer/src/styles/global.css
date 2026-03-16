@@ -1931,6 +1931,31 @@ body.theme-transitioning *::after {
   border: 1px solid rgba(249, 226, 175, 0.3);
 }
 
+.commit-graph-signature {
+  font-size: 12px;
+  padding: 0 4px;
+  margin-right: 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.commit-graph-signature-good {
+  color: var(--success, #a6e3a1);
+}
+
+.commit-graph-signature-bad {
+  color: var(--error, #f38ba8);
+}
+
+.commit-graph-signature-untrusted,
+.commit-graph-signature-expired,
+.commit-graph-signature-expired-key,
+.commit-graph-signature-revoked,
+.commit-graph-signature-error {
+  color: var(--warning, #f9e2af);
+}
+
 .commit-graph-message {
   font-size: 13px;
   color: var(--text-primary);

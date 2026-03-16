@@ -5,6 +5,15 @@ import {
   defineShortcut,
   type ShortcutDefinition
 } from '../hooks/useKeyboardShortcuts'
+import { DEFAULT_SETTINGS, type AppSettings } from '../hooks/useSettings'
+
+function getAppSettings(): AppSettings {
+  try {
+    const stored = localStorage.getItem('gitslop-settings')
+    if (stored) return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
+  } catch { /* ignore */ }
+  return { ...DEFAULT_SETTINGS }
+}
 
 interface CommitDialogProps {
   repoPath: string
@@ -20,6 +29,7 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
   const [bodyExpanded, setBodyExpanded] = useState(false)
   const [amend, setAmend] = useState(false)
   const [signoff, setSignoff] = useState(false)
+  const [gpgSign, setGpgSign] = useState(() => getAppSettings().signCommits)
   const [committing, setCommitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -72,9 +82,12 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
 
     try {
       const message = buildMessage()
+      const appSettings = getAppSettings()
       const result = await window.electronAPI.git.commit(repoPath, message, {
         amend,
-        signoff
+        signoff,
+        gpgSign,
+        gpgKeyId: gpgSign && appSettings.gpgKeyId ? appSettings.gpgKeyId : undefined
       })
 
       if (result.success) {
@@ -105,7 +118,7 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
     } finally {
       setCommitting(false)
     }
-  }, [canCommit, buildMessage, repoPath, amend, signoff, onCommitDone])
+  }, [canCommit, buildMessage, repoPath, amend, signoff, gpgSign, onCommitDone])
 
   // Global Ctrl+Enter shortcut — scoped to commit panel focus
   const stableCommit = useShortcutHandler(() => {
@@ -203,6 +216,15 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
             disabled={committing}
           />
           Sign-off
+        </label>
+        <label className="commit-dialog-option" title="Sign this commit with GPG key">
+          <input
+            type="checkbox"
+            checked={gpgSign}
+            onChange={(e) => setGpgSign(e.target.checked)}
+            disabled={committing}
+          />
+          GPG Sign
         </label>
       </div>
 

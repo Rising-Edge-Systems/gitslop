@@ -572,12 +572,14 @@ export function registerGitIpcHandlers(): void {
       _event,
       repoPath: string,
       message: string,
-      opts?: { amend?: boolean; signoff?: boolean }
+      opts?: { amend?: boolean; signoff?: boolean; gpgSign?: boolean; gpgKeyId?: string }
     ) => {
       try {
         const result = await gitService.commit(repoPath, message, {
           amend: opts?.amend,
-          signoff: opts?.signoff
+          signoff: opts?.signoff,
+          gpgSign: opts?.gpgSign,
+          gpgKeyId: opts?.gpgKeyId
         })
         return { success: true, data: result }
       } catch (err) {
@@ -1191,6 +1193,38 @@ export function registerGitIpcHandlers(): void {
     async (_event, repoPath: string, submodulePath: string) => {
       try {
         await gitService.submoduleUpdate(repoPath, submodulePath)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── GPG Keys ──────────────────────────────────────────────────────────────
+
+  ipcMain.handle('git:getAvailableGpgKeys', async () => {
+    try {
+      const data = await gitService.getAvailableGpgKeys()
+      return { success: true, data }
+    } catch (err) {
+      return { success: false, ...formatError(err) }
+    }
+  })
+
+  ipcMain.handle('git:getGitSigningKey', async (_event, repoPath: string) => {
+    try {
+      const data = await gitService.getGitSigningKey(repoPath)
+      return { success: true, data }
+    } catch (err) {
+      return { success: false, ...formatError(err) }
+    }
+  })
+
+  ipcMain.handle(
+    'git:setGitSigningKey',
+    async (_event, repoPath: string, keyId: string) => {
+      try {
+        await gitService.setGitSigningKey(repoPath, keyId)
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }

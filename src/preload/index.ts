@@ -144,7 +144,7 @@ const electronAPI = {
     commit: (
       repoPath: string,
       message: string,
-      opts?: { amend?: boolean; signoff?: boolean }
+      opts?: { amend?: boolean; signoff?: boolean; gpgSign?: boolean; gpgKeyId?: string }
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:commit', repoPath, message, opts),
     getLastCommitMessage: (repoPath: string): Promise<GitServiceResult> =>
@@ -268,6 +268,12 @@ const electronAPI = {
       ipcRenderer.invoke('git:submoduleInit', repoPath, submodulePath),
     submoduleUpdate: (repoPath: string, submodulePath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:submoduleUpdate', repoPath, submodulePath),
+    getAvailableGpgKeys: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getAvailableGpgKeys'),
+    getGitSigningKey: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getGitSigningKey', repoPath),
+    setGitSigningKey: (repoPath: string, keyId: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:setGitSigningKey', repoPath, keyId),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

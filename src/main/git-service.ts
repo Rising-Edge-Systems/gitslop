@@ -44,6 +44,8 @@ export interface GitVersion {
   supported: boolean
 }
 
+export type SignatureStatus = 'good' | 'bad' | 'untrusted' | 'expired' | 'expired-key' | 'revoked' | 'error' | 'none'
+
 export interface GitCommit {
   hash: string
   shortHash: string
@@ -57,6 +59,15 @@ export interface GitCommit {
   subject: string
   body: string
   refs: string
+  signatureStatus: SignatureStatus
+  signer: string
+  signingKey: string
+}
+
+export interface GpgKey {
+  keyId: string
+  uid: string
+  fingerprint: string
 }
 
 export interface GitBranch {
@@ -166,6 +177,22 @@ class CommandQueue {
       this.running.set(repoPath, false)
       this.processNext(repoPath)
     }
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function parseSignatureStatus(code: string): SignatureStatus {
+  switch (code.trim()) {
+    case 'G': return 'good'
+    case 'B': return 'bad'
+    case 'U': return 'untrusted'
+    case 'X': return 'expired'
+    case 'Y': return 'expired-key'
+    case 'R': return 'revoked'
+    case 'E': return 'error'
+    case 'N':
+    default: return 'none'
   }
 }
 
@@ -322,7 +349,10 @@ export class GitService {
       '%cI',   // committer date ISO
       '%s',    // subject
       '%b',    // body
-      '%D'     // refs
+      '%D',    // refs
+      '%G?',   // signature status
+      '%GS',   // signer
+      '%GK'    // signing key
     ].join(SEPARATOR)
 
     const args = ['log', `--format=${format}${RECORD_END}`]
@@ -526,7 +556,8 @@ export class GitService {
     const SEPARATOR = '<<<SEP>>>'
     const format = [
       '%H', '%h', '%P', '%an', '%ae', '%aI',
-      '%cn', '%ce', '%cI', '%s', '%b', '%D'
+      '%cn', '%ce', '%cI', '%s', '%b', '%D',
+      '%G?', '%GS', '%GK'
     ].join(SEPARATOR)
 
     const result = await this.exec(
@@ -985,11 +1016,18 @@ export class GitService {
   async commit(
     repoPath: string,
     message: string,
-    options?: { amend?: boolean; signoff?: boolean; signal?: AbortSignal }
+    options?: { amend?: boolean; signoff?: boolean; gpgSign?: boolean; gpgKeyId?: string; signal?: AbortSignal }
   ): Promise<{ hash: string; subject: string }> {
     const args = ['commit', '-m', message]
     if (options?.amend) args.push('--amend')
     if (options?.signoff) args.push('--signoff')
+    if (options?.gpgSign) {
+      if (options.gpgKeyId) {
+        args.push(`--gpg-sign=${options.gpgKeyId}`)
+      } else {
+        args.push('-S')
+      }
+    }
     const result = await this.exec(args, repoPath, { signal: options?.signal })
     // Parse the output to get the new commit hash
     // Output typically looks like: "[branch abc1234] commit message"
@@ -1881,7 +1919,10 @@ export class GitService {
         commitDate: parts[8] || '',
         subject: parts[9] || '',
         body: parts[10] || '',
-        refs: parts[11] || ''
+        refs: parts[11] || '',
+        signatureStatus: parseSignatureStatus(parts[12] || ''),
+        signer: parts[13] || '',
+        signingKey: parts[14] || ''
       }
     })
   }
@@ -2426,7 +2467,7 @@ export class GitService {
       [
         'log',
         `--max-count=${maxCount}`,
-        '--format=%H%x00%h%x00%P%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%b%x00%D',
+        '--format=%H%x00%h%x00%P%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%b%x00%D%x00%G?%x00%GS%x00%GK',
         '--',
         filePath
       ],
@@ -2448,7 +2489,10 @@ export class GitService {
           commitDate: parts[8],
           subject: parts[9],
           body: parts[10] || '',
-          refs: parts[11] || ''
+          refs: parts[11] || '',
+          signatureStatus: parseSignatureStatus(parts[12] || ''),
+          signer: parts[13] || '',
+          signingKey: parts[14] || ''
         })
       }
     }
@@ -2611,7 +2655,81 @@ export class GitService {
       hash: '', shortHash: '', parentHashes: [],
       authorName: '', authorEmail: '', authorDate: '',
       committerName: '', committerEmail: '', commitDate: '',
-      subject: '', body: '', refs: ''
+      subject: '', body: '', refs: '',
+      signatureStatus: 'none', signer: '', signingKey: ''
+    }
+  }
+
+  /**
+   * List available GPG secret keys for commit signing.
+   */
+  async getAvailableGpgKeys(): Promise<GpgKey[]> {
+    try {
+      const { execFile: execFileCb } = await import('child_process')
+      return new Promise((resolve) => {
+        execFileCb(
+          'gpg',
+          ['--list-secret-keys', '--with-colons'],
+          { timeout: 5000 },
+          (error, stdout) => {
+            if (error || !stdout) {
+              resolve([])
+              return
+            }
+            const keys: GpgKey[] = []
+            let currentFingerprint = ''
+            let currentKeyId = ''
+            const lines = stdout.split('\n')
+            for (const line of lines) {
+              const fields = line.split(':')
+              if (fields[0] === 'sec') {
+                currentKeyId = fields[4] || ''
+              } else if (fields[0] === 'fpr' && !currentFingerprint && currentKeyId) {
+                currentFingerprint = fields[9] || ''
+              } else if (fields[0] === 'uid' && currentKeyId) {
+                keys.push({
+                  keyId: currentKeyId,
+                  uid: fields[9] || '',
+                  fingerprint: currentFingerprint
+                })
+                currentKeyId = ''
+                currentFingerprint = ''
+              }
+            }
+            resolve(keys)
+          }
+        )
+      })
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Get the user's configured GPG signing key from git config.
+   */
+  async getGitSigningKey(repoPath: string): Promise<string> {
+    try {
+      const result = await this.exec(['config', '--get', 'user.signingKey'], repoPath)
+      return result.stdout.trim()
+    } catch {
+      // Not set
+      return ''
+    }
+  }
+
+  /**
+   * Set the GPG signing key in git config (local to repo).
+   */
+  async setGitSigningKey(repoPath: string, keyId: string): Promise<void> {
+    if (keyId) {
+      await this.exec(['config', 'user.signingKey', keyId], repoPath)
+    } else {
+      try {
+        await this.exec(['config', '--unset', 'user.signingKey'], repoPath)
+      } catch {
+        // Ignore if not set
+      }
     }
   }
 }

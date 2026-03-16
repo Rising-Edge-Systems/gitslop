@@ -234,6 +234,12 @@ function AppearanceSection({
 
 /* ─── Git Section ─────────────────────────────────────────────────────────── */
 
+interface GpgKeyOption {
+  keyId: string
+  uid: string
+  fingerprint: string
+}
+
 function GitSection({
   settings,
   onUpdate
@@ -241,6 +247,30 @@ function GitSection({
   settings: AppSettings
   onUpdate: (partial: Partial<AppSettings>) => void
 }): React.JSX.Element {
+  const [gpgKeys, setGpgKeys] = useState<GpgKeyOption[]>([])
+  const [gpgKeysLoading, setGpgKeysLoading] = useState(false)
+  const [gpgKeysError, setGpgKeysError] = useState<string | null>(null)
+
+  // Load GPG keys when sign commits is enabled
+  useEffect(() => {
+    if (settings.signCommits) {
+      setGpgKeysLoading(true)
+      setGpgKeysError(null)
+      window.electronAPI.git.getAvailableGpgKeys().then((result) => {
+        if (result.success && Array.isArray(result.data)) {
+          setGpgKeys(result.data as GpgKeyOption[])
+          if (result.data.length === 0) {
+            setGpgKeysError('No GPG keys found. Install GPG and generate a key first.')
+          }
+        } else {
+          setGpgKeysError('Could not list GPG keys. Is GPG installed?')
+          setGpgKeys([])
+        }
+        setGpgKeysLoading(false)
+      })
+    }
+  }, [settings.signCommits])
+
   return (
     <div className="settings-section">
       <h3 className="settings-section-title">Git</h3>
@@ -262,6 +292,29 @@ function GitSection({
           onChange={(checked) => onUpdate({ signCommits: checked })}
         />
       </SettingsRow>
+
+      {settings.signCommits && (
+        <SettingsRow label="GPG Signing Key" description="Select which GPG key to use for signing commits">
+          {gpgKeysLoading ? (
+            <span className="settings-row-desc">Loading GPG keys...</span>
+          ) : gpgKeysError ? (
+            <span className="settings-row-desc" style={{ color: 'var(--color-error, #f44)' }}>{gpgKeysError}</span>
+          ) : (
+            <select
+              className="settings-select"
+              value={settings.gpgKeyId}
+              onChange={(e) => onUpdate({ gpgKeyId: e.target.value })}
+            >
+              <option value="">Default (from git config)</option>
+              {gpgKeys.map((key) => (
+                <option key={key.keyId} value={key.keyId}>
+                  {key.uid} ({key.keyId.slice(-8)})
+                </option>
+              ))}
+            </select>
+          )}
+        </SettingsRow>
+      )}
 
       <SettingsRow label="Auto-Stash on Pull" description="Automatically stash changes before pulling and re-apply after">
         <SettingsToggle

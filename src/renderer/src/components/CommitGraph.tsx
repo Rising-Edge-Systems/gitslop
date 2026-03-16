@@ -5,6 +5,8 @@ import { ResetDialog } from './ResetDialog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type SignatureStatus = 'good' | 'bad' | 'untrusted' | 'expired' | 'expired-key' | 'revoked' | 'error' | 'none'
+
 interface GitCommit {
   hash: string
   shortHash: string
@@ -18,6 +20,9 @@ interface GitCommit {
   subject: string
   body: string
   refs: string
+  signatureStatus: SignatureStatus
+  signer: string
+  signingKey: string
 }
 
 interface GraphNode {
@@ -423,6 +428,18 @@ function CommitRowComponent(props: {
           </span>
         )}
 
+        {commit.signatureStatus && commit.signatureStatus !== 'none' && (
+          <span
+            className={`commit-graph-signature commit-graph-signature-${commit.signatureStatus}`}
+            title={`GPG: ${commit.signatureStatus}${commit.signer ? ` by ${commit.signer}` : ''}`}
+          >
+            {commit.signatureStatus === 'good' ? '\u2714' :
+             commit.signatureStatus === 'bad' ? '\u2718' :
+             commit.signatureStatus === 'untrusted' ? '\u26A0' :
+             '\u26A0'}
+          </span>
+        )}
+
         <span className="commit-graph-message" title={commit.subject}>
           {commit.subject}
         </span>
@@ -618,6 +635,21 @@ function CommitDetailPanel({ detail, repoPath, onClose, onFileDoubleClick }: Com
                 : 'None (root commit)'}
             </span>
           </div>
+          {commit.signatureStatus && commit.signatureStatus !== 'none' && (
+            <div className="commit-detail-meta-row">
+              <span className="commit-detail-meta-label">Signature</span>
+              <span className={`commit-detail-meta-value commit-graph-signature-${commit.signatureStatus}`}>
+                {commit.signatureStatus === 'good' ? '\u2714 Valid' :
+                 commit.signatureStatus === 'bad' ? '\u2718 Invalid' :
+                 commit.signatureStatus === 'untrusted' ? '\u26A0 Untrusted' :
+                 commit.signatureStatus === 'expired' ? '\u26A0 Expired' :
+                 commit.signatureStatus === 'expired-key' ? '\u26A0 Expired Key' :
+                 commit.signatureStatus === 'revoked' ? '\u26A0 Revoked' :
+                 '\u26A0 Error'}
+                {commit.signer && ` \u2014 ${commit.signer}`}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Changed files */}

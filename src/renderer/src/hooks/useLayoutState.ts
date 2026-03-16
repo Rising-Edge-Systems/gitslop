@@ -92,7 +92,7 @@ declare global {
         commit: (
           repoPath: string,
           message: string,
-          opts?: { amend?: boolean; signoff?: boolean }
+          opts?: { amend?: boolean; signoff?: boolean; gpgSign?: boolean; gpgKeyId?: string }
         ) => Promise<GitServiceResult>
         getLastCommitMessage: (repoPath: string) => Promise<GitServiceResult>
         push: (
@@ -156,6 +156,9 @@ declare global {
         getSubmodules: (repoPath: string) => Promise<GitServiceResult>
         submoduleInit: (repoPath: string, submodulePath: string) => Promise<GitServiceResult>
         submoduleUpdate: (repoPath: string, submodulePath: string) => Promise<GitServiceResult>
+        getAvailableGpgKeys: () => Promise<GitServiceResult>
+        getGitSigningKey: (repoPath: string) => Promise<GitServiceResult>
+        setGitSigningKey: (repoPath: string, keyId: string) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
