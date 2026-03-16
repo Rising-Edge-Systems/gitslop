@@ -652,6 +652,68 @@ export class GitService {
   }
 
   /**
+   * Create a stash.
+   */
+  async stashSave(
+    repoPath: string,
+    options?: { message?: string; includeUntracked?: boolean; signal?: AbortSignal }
+  ): Promise<void> {
+    const args = ['stash', 'push']
+    if (options?.includeUntracked) args.push('--include-untracked')
+    if (options?.message) args.push('-m', options.message)
+    await this.exec(args, repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Apply a stash.
+   */
+  async stashApply(
+    repoPath: string,
+    index: number,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['stash', 'apply', `stash@{${index}}`], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Pop a stash (apply and drop).
+   */
+  async stashPop(
+    repoPath: string,
+    index: number,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['stash', 'pop', `stash@{${index}}`], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Drop a stash.
+   */
+  async stashDrop(
+    repoPath: string,
+    index: number,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['stash', 'drop', `stash@{${index}}`], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Show diff for a stash.
+   */
+  async stashShow(
+    repoPath: string,
+    index: number,
+    options?: { signal?: AbortSignal }
+  ): Promise<string> {
+    const result = await this.exec(
+      ['stash', 'show', '-p', `stash@{${index}}`],
+      repoPath,
+      { signal: options?.signal }
+    )
+    return result.stdout
+  }
+
+  /**
    * Checkout a branch.
    */
   async checkout(repoPath: string, branchName: string, options?: { signal?: AbortSignal }): Promise<void> {

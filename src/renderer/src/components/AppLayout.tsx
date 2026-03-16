@@ -60,7 +60,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
 
   return (
     <div className="app-layout">
-      <Toolbar />
+      <Toolbar currentRepo={currentRepo} />
       <div className="app-body">
         <Group orientation="horizontal" id="gitslop-horizontal">
           {layout.sidebarVisible && (

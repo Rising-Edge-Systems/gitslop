@@ -45,6 +45,14 @@ declare global {
         deleteTag: (repoPath: string, name: string) => Promise<GitServiceResult>
         pushTag: (repoPath: string, tagName: string, remoteName?: string) => Promise<GitServiceResult>
         getStashes: (repoPath: string) => Promise<GitServiceResult>
+        stashSave: (
+          repoPath: string,
+          opts?: { message?: string; includeUntracked?: boolean }
+        ) => Promise<GitServiceResult>
+        stashApply: (repoPath: string, index: number) => Promise<GitServiceResult>
+        stashPop: (repoPath: string, index: number) => Promise<GitServiceResult>
+        stashDrop: (repoPath: string, index: number) => Promise<GitServiceResult>
+        stashShow: (repoPath: string, index: number) => Promise<GitServiceResult>
         getStatus: (repoPath: string) => Promise<GitServiceResult>
         diff: (repoPath: string, filePath?: string, opts?: { staged?: boolean }) => Promise<GitServiceResult>
         showCommit: (repoPath: string, hash: string) => Promise<GitServiceResult>

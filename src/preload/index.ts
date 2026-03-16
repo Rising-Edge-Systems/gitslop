@@ -62,6 +62,19 @@ const electronAPI = {
       ipcRenderer.invoke('git:pushTag', repoPath, tagName, remoteName),
     getStashes: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getStashes', repoPath),
+    stashSave: (
+      repoPath: string,
+      opts?: { message?: string; includeUntracked?: boolean }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stashSave', repoPath, opts),
+    stashApply: (repoPath: string, index: number): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stashApply', repoPath, index),
+    stashPop: (repoPath: string, index: number): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stashPop', repoPath, index),
+    stashDrop: (repoPath: string, index: number): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stashDrop', repoPath, index),
+    stashShow: (repoPath: string, index: number): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stashShow', repoPath, index),
     getStatus: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getStatus', repoPath),
     diff: (

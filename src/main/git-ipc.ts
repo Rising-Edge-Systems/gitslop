@@ -169,6 +169,83 @@ export function registerGitIpcHandlers(): void {
     }
   })
 
+  // ─── Stash Save ─────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:stashSave',
+    async (
+      _event,
+      repoPath: string,
+      opts?: { message?: string; includeUntracked?: boolean }
+    ) => {
+      try {
+        await gitService.stashSave(repoPath, {
+          message: opts?.message,
+          includeUntracked: opts?.includeUntracked
+        })
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Stash Apply ────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:stashApply',
+    async (_event, repoPath: string, index: number) => {
+      try {
+        await gitService.stashApply(repoPath, index)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Stash Pop ──────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:stashPop',
+    async (_event, repoPath: string, index: number) => {
+      try {
+        await gitService.stashPop(repoPath, index)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Stash Drop ─────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:stashDrop',
+    async (_event, repoPath: string, index: number) => {
+      try {
+        await gitService.stashDrop(repoPath, index)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Stash Show ─────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:stashShow',
+    async (_event, repoPath: string, index: number) => {
+      try {
+        const diff = await gitService.stashShow(repoPath, index)
+        return { success: true, data: diff }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Status ──────────────────────────────────────────────────────────────
 
   ipcMain.handle('git:getStatus', async (_event, repoPath: string) => {

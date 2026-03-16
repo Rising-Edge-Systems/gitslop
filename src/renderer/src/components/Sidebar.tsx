@@ -1266,6 +1266,341 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
   )
 }
 
+// ─── StashesSection ─────────────────────────────────────────────────────────
+
+interface StashesSectionProps {
+  currentRepo: string | null
+}
+
+interface GitStash {
+  index: number
+  message: string
+  hash: string
+  date: string
+}
+
+interface StashContextMenuState {
+  x: number
+  y: number
+  stash: GitStash
+}
+
+interface StashDialogState {
+  open: boolean
+  message: string
+  includeUntracked: boolean
+  loading: boolean
+  error: string | null
+}
+
+function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element {
+  const [stashes, setStashes] = useState<GitStash[]>([])
+  const [contextMenu, setContextMenu] = useState<StashContextMenuState | null>(null)
+  const [selectedStash, setSelectedStash] = useState<GitStash | null>(null)
+  const [stashDiff, setStashDiff] = useState<string | null>(null)
+  const [stashDialog, setStashDialog] = useState<StashDialogState>({
+    open: false,
+    message: '',
+    includeUntracked: false,
+    loading: false,
+    error: null
+  })
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const loadStashes = useCallback(async () => {
+    if (!currentRepo) {
+      setStashes([])
+      return
+    }
+    try {
+      const result = await window.electronAPI.git.getStashes(currentRepo)
+      if (result.success && result.data) {
+        setStashes(result.data)
+      }
+    } catch {
+      // ignore
+    }
+  }, [currentRepo])
+
+  useEffect(() => {
+    loadStashes()
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(loadStashes, 5000)
+    return () => {
+      clearInterval(interval)
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
+    }
+  }, [loadStashes])
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenu) return
+    const handler = (): void => setContextMenu(null)
+    window.addEventListener('click', handler)
+    return () => window.removeEventListener('click', handler)
+  }, [contextMenu])
+
+  const handleStashClick = useCallback(
+    async (stash: GitStash) => {
+      if (!currentRepo) return
+      setSelectedStash(stash)
+      setStashDiff(null)
+      try {
+        const result = await window.electronAPI.git.stashShow(currentRepo, stash.index)
+        if (result.success && result.data) {
+          setStashDiff(result.data)
+        } else {
+          setStashDiff('Failed to load stash diff')
+        }
+      } catch {
+        setStashDiff('Failed to load stash diff')
+      }
+    },
+    [currentRepo]
+  )
+
+  const handleStashContextMenu = useCallback((e: React.MouseEvent, stash: GitStash) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY, stash })
+  }, [])
+
+  const handleApply = useCallback(
+    async (index: number) => {
+      if (!currentRepo) return
+      const result = await window.electronAPI.git.stashApply(currentRepo, index)
+      if (!result.success) {
+        alert(`Failed to apply stash: ${result.error}`)
+      }
+      loadStashes()
+      setContextMenu(null)
+    },
+    [currentRepo, loadStashes]
+  )
+
+  const handlePop = useCallback(
+    async (index: number) => {
+      if (!currentRepo) return
+      const result = await window.electronAPI.git.stashPop(currentRepo, index)
+      if (!result.success) {
+        alert(`Failed to pop stash: ${result.error}`)
+      }
+      loadStashes()
+      setContextMenu(null)
+    },
+    [currentRepo, loadStashes]
+  )
+
+  const handleDrop = useCallback(
+    async (index: number) => {
+      if (!currentRepo) return
+      if (!confirm(`Drop stash@{${index}}? This cannot be undone.`)) return
+      const result = await window.electronAPI.git.stashDrop(currentRepo, index)
+      if (!result.success) {
+        alert(`Failed to drop stash: ${result.error}`)
+      }
+      if (selectedStash?.index === index) {
+        setSelectedStash(null)
+        setStashDiff(null)
+      }
+      loadStashes()
+      setContextMenu(null)
+    },
+    [currentRepo, loadStashes, selectedStash]
+  )
+
+  const openStashDialog = useCallback(() => {
+    setStashDialog({
+      open: true,
+      message: '',
+      includeUntracked: false,
+      loading: false,
+      error: null
+    })
+  }, [])
+
+  const closeStashDialog = useCallback(() => {
+    setStashDialog((prev) => ({ ...prev, open: false }))
+  }, [])
+
+  const handleStashSave = useCallback(async () => {
+    if (!currentRepo) return
+    setStashDialog((prev) => ({ ...prev, loading: true, error: null }))
+    try {
+      const result = await window.electronAPI.git.stashSave(currentRepo, {
+        message: stashDialog.message || undefined,
+        includeUntracked: stashDialog.includeUntracked
+      })
+      if (result.success) {
+        closeStashDialog()
+        loadStashes()
+      } else {
+        setStashDialog((prev) => ({ ...prev, loading: false, error: result.error || 'Failed to stash' }))
+      }
+    } catch {
+      setStashDialog((prev) => ({ ...prev, loading: false, error: 'Failed to stash' }))
+    }
+  }, [currentRepo, stashDialog.message, stashDialog.includeUntracked, closeStashDialog, loadStashes])
+
+  const formatRelativeDate = useCallback((dateStr: string) => {
+    if (!dateStr) return ''
+    try {
+      const date = new Date(dateStr)
+      const now = new Date()
+      const diffMs = now.getTime() - date.getTime()
+      const diffMins = Math.floor(diffMs / 60000)
+      if (diffMins < 1) return 'just now'
+      if (diffMins < 60) return `${diffMins}m ago`
+      const diffHours = Math.floor(diffMins / 60)
+      if (diffHours < 24) return `${diffHours}h ago`
+      const diffDays = Math.floor(diffHours / 24)
+      if (diffDays < 30) return `${diffDays}d ago`
+      const diffMonths = Math.floor(diffDays / 30)
+      return `${diffMonths}mo ago`
+    } catch {
+      return ''
+    }
+  }, [])
+
+  return (
+    <>
+      <SidebarSection
+        title="Stashes"
+        icon="&#128230;"
+        defaultOpen={false}
+        count={stashes.length}
+        headerAction={
+          currentRepo ? (
+            <button
+              className="sidebar-section-action-btn"
+              title="Stash changes"
+              onClick={(e) => {
+                e.stopPropagation()
+                openStashDialog()
+              }}
+            >
+              +
+            </button>
+          ) : undefined
+        }
+      >
+        {!currentRepo ? (
+          <div className="sidebar-placeholder">No repository open</div>
+        ) : stashes.length === 0 ? (
+          <div className="sidebar-placeholder">No stashes</div>
+        ) : (
+          <div className="sidebar-stash-list">
+            {stashes.map((stash) => (
+              <div
+                key={stash.hash}
+                className={`sidebar-stash-item ${selectedStash?.index === stash.index ? 'selected' : ''}`}
+                onClick={() => handleStashClick(stash)}
+                onContextMenu={(e) => handleStashContextMenu(e, stash)}
+                title={`stash@{${stash.index}}: ${stash.message}`}
+              >
+                <span className="sidebar-stash-icon">&#128230;</span>
+                <div className="sidebar-stash-info">
+                  <span className="sidebar-stash-message">
+                    {stash.message || `stash@{${stash.index}}`}
+                  </span>
+                  <span className="sidebar-stash-date">
+                    {formatRelativeDate(stash.date)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </SidebarSection>
+
+      {/* Stash Diff Viewer */}
+      {selectedStash && stashDiff !== null && (
+        <div className="stash-diff-overlay" onClick={() => { setSelectedStash(null); setStashDiff(null) }}>
+          <div className="stash-diff-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="stash-diff-header">
+              <span>stash@&#123;{selectedStash.index}&#125;: {selectedStash.message}</span>
+              <button className="stash-diff-close" onClick={() => { setSelectedStash(null); setStashDiff(null) }}>✕</button>
+            </div>
+            <pre className="stash-diff-content">{stashDiff}</pre>
+          </div>
+        </div>
+      )}
+
+      {/* Stash Context Menu */}
+      {contextMenu && (
+        <div
+          className="branch-ctx-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button onClick={() => handleApply(contextMenu.stash.index)}>Apply</button>
+          <button onClick={() => handlePop(contextMenu.stash.index)}>Pop</button>
+          <div className="branch-ctx-divider" />
+          <button className="branch-ctx-danger" onClick={() => handleDrop(contextMenu.stash.index)}>Drop</button>
+        </div>
+      )}
+
+      {/* Stash Save Dialog */}
+      {stashDialog.open && (
+        <div className="branch-dialog-overlay" onClick={closeStashDialog}>
+          <div className="branch-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="branch-dialog-title">Stash Changes</div>
+
+            {stashDialog.error && (
+              <div className="branch-dialog-error">{stashDialog.error}</div>
+            )}
+
+            <label className="branch-dialog-label">
+              Message (optional)
+              <input
+                className="branch-dialog-input"
+                type="text"
+                value={stashDialog.message}
+                onChange={(e) =>
+                  setStashDialog((prev) => ({ ...prev, message: e.target.value }))
+                }
+                placeholder="Stash message..."
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !stashDialog.loading) handleStashSave()
+                  if (e.key === 'Escape') closeStashDialog()
+                }}
+              />
+            </label>
+
+            <label className="stash-dialog-checkbox">
+              <input
+                type="checkbox"
+                checked={stashDialog.includeUntracked}
+                onChange={(e) =>
+                  setStashDialog((prev) => ({ ...prev, includeUntracked: e.target.checked }))
+                }
+              />
+              Include untracked files
+            </label>
+
+            <div className="branch-dialog-actions">
+              <button
+                className="branch-dialog-btn branch-dialog-btn-secondary"
+                onClick={closeStashDialog}
+              >
+                Cancel
+              </button>
+              <button
+                className="branch-dialog-btn branch-dialog-btn-primary"
+                onClick={handleStashSave}
+                disabled={stashDialog.loading}
+              >
+                {stashDialog.loading ? 'Stashing...' : 'Stash'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ─── Sidebar (main export) ──────────────────────────────────────────────────
 
 export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
@@ -1551,11 +1886,7 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
 
       <TagsSection currentRepo={currentRepo} />
 
-      <SidebarSection title="Stashes" icon="&#128230;" defaultOpen={false}>
-        <div className="sidebar-placeholder">
-          {currentRepo ? 'Stashes shown here' : 'No repository open'}
-        </div>
-      </SidebarSection>
+      <StashesSection currentRepo={currentRepo} />
 
       {/* Context Menu */}
       {contextMenu && (

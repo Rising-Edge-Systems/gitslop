@@ -2125,3 +2125,138 @@ body {
     font-size: 10px;
   }
 }
+
+/* ─── Stash Sidebar ───────────────────────────────────────────────────────── */
+
+.sidebar-stash-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-stash-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: background-color 0.1s;
+}
+
+.sidebar-stash-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.sidebar-stash-item.selected {
+  background-color: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.sidebar-stash-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.sidebar-stash-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar-stash-message {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+
+.sidebar-stash-date {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+/* ─── Stash Dialog Checkbox ───────────────────────────────────────────────── */
+
+.stash-dialog-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.stash-dialog-checkbox input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ─── Stash Diff Viewer ───────────────────────────────────────────────────── */
+
+.stash-diff-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stash-diff-panel {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 80%;
+  max-width: 900px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.stash-diff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stash-diff-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.stash-diff-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.stash-diff-content {
+  padding: 12px 16px;
+  overflow: auto;
+  flex: 1;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre;
+  margin: 0;
+  tab-size: 4;
+}
