@@ -19,6 +19,12 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
 - `react-resizable-panels` v4.7+ uses `Group`, `Panel`, `Separator` (not `PanelGroup`/`PanelResizeHandle`)
 - `react-resizable-panels` v4 `onResize` callback receives `PanelSize` object with `.asPercentage` and `.inPixels`
 - Layout state persisted via `localStorage` with key `gitslop-layout-state`
+- GitService singleton in `src/main/git-service.ts` — all git operations go through it
+- Git IPC handlers registered via `registerGitIpcHandlers()` in `src/main/git-ipc.ts`
+- All git IPC results use `{ success: boolean, data?, error?, code? }` pattern (GitServiceResult)
+- vitest is configured; run `npm test` — no config file needed for Node.js tests
+- Test files go in `__tests__/` subdirectories next to source files
+- `execFile` callback stdout/stderr can be `string | Buffer` — always use `?.toString() ?? ''`
 ---
 
 ## 2026-03-16 13:10 - US-001
@@ -80,4 +86,26 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Recent repos stored as array of {path, name, lastOpened} in electron-store
   - `execFile` from child_process is used for git commands (promisified)
   - Clone dialog is a placeholder — will be implemented in US-006
+---
+
+## 2026-03-16 13:55 - US-004
+- Implemented: Git CLI wrapper service with command queue, cancellation, structured output, error classification, and version detection
+- Files created:
+  - `src/main/git-service.ts` - GitService class with queue, AbortController, structured parsers for log/branches/remotes/tags/stashes/status/diff
+  - `src/main/git-ipc.ts` - IPC handlers bridging GitService to renderer (registerGitIpcHandlers)
+  - `src/main/__tests__/git-service.test.ts` - 27 tests covering version detection, repo ops, log, branches, remotes, tags, stashes, status, diff, error handling, cancellation, queue
+- Files modified:
+  - `src/main/index.ts` - Replaced inline git handlers with git-ipc module registration, added version check on startup
+  - `src/preload/index.ts` - Added GitServiceResult type and all new git IPC methods
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with all new git methods
+  - `package.json` - Added vitest, test script
+- **Learnings for future iterations:**
+  - vitest works out of the box with no config needed for Node.js tests
+  - execFile callback gives `string | Buffer` for stdout/stderr — always call `.toString()` with null safety
+  - ExecFileException's `code` field is `string | number | null | undefined`, not just `string | undefined`
+  - `registerGitIpcHandlers()` removes old handlers before re-registering to avoid conflicts with US-003 handlers
+  - GitService uses a per-repo command queue (Map<repoPath, QueueItem[]>) to prevent concurrent git operations
+  - All IPC git results use `{ success, data?, error?, code? }` pattern (GitServiceResult)
+  - `git status --porcelain=v2 --branch -u` gives machine-parseable status with branch info
+  - `git log --format` with custom separators (<<<SEP>>>) gives structured commit data
 ---
