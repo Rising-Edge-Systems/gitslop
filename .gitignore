@@ -5,6 +5,7 @@ node_modules/
 dist/
 out/
 build/
+*.tsbuildinfo
 
 # Electron
 release/
@@ -12,6 +13,7 @@ release/
 # Environment
 .env
 .env.local
+.venv
 
 # IDE
 .vscode/

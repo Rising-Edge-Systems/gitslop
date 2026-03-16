@@ -1,0 +1,36 @@
+{
+  "name": "gitslop",
+  "version": "1.0.0",
+  "description": "A free, open-source, cross-platform GUI git client",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "preview": "electron-vite preview"
+  },
+  "keywords": [
+    "git",
+    "electron",
+    "react",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^41.0.2",
+    "electron-vite": "^4.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.1"
+  }
+}
