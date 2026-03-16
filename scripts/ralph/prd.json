@@ -538,7 +538,7 @@
         "Typecheck passes"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": "Use git blame --porcelain for structured blame data."
     },
     {

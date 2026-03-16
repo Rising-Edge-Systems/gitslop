@@ -595,3 +595,21 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Sidebar now has a tab system — future sidebar features should consider which tab they belong to
   - File tree auto-refreshes via the `onRepoChanged` watcher callback
 ---
+
+## 2026-03-16 16:02 - US-030
+- Implemented: Git Blame View with porcelain blame parsing, blame gutter, tooltips, age/author color modes, and integration with FileTree context menu
+- Files changed/created:
+  - `src/main/git-service.ts` - Added `blame()` method using `git blame --porcelain`
+  - `src/main/git-ipc.ts` - Added `git:blame` IPC handler
+  - `src/preload/index.ts` - Added `blame` API to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Added `blame` to Window.electronAPI type
+  - `src/renderer/src/components/BlameView.tsx` - New blame view component with gutter, tooltips, color modes
+  - `src/renderer/src/components/RepoView.tsx` - Integrated BlameView panel with blame:open event listener
+  - `src/renderer/src/components/Sidebar.tsx` - Wired FileTree onShowBlame to dispatch blame:open event
+  - `src/renderer/src/styles/global.css` - Added blame view CSS styles
+- **Learnings for future iterations:**
+  - `git blame --porcelain` outputs structured data: header line (hash orig-line final-line), key-value pairs, then content line starting with \t
+  - Blame events use custom DOM events (`blame:open`) similar to `editor:open-file` pattern
+  - FileTree already had `onShowBlame` prop but wasn't wired up in Sidebar
+  - The `openBlameView()` helper function in BlameView.tsx dispatches the event for other components
+---
