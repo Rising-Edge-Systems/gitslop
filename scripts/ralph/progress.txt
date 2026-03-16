@@ -384,3 +384,24 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - `onOperationProgress` IPC event sends `{ operationId, operation, phase, percent, current, total }`
   - Toast notifications use fixed positioning at top-right with auto-dismiss after 4 seconds
 ---
+## 2026-03-16 15:06 - US-019
+- Implemented: Merge feature — merge dialog accessible from toolbar and sidebar branch context menu, with branch picker, merge preview (commit count + fast-forward detection), configurable strategy (auto/no-ff/ff-only), conflict detection with file listing, merge abort
+- Files created:
+  - `src/renderer/src/components/MergeDialog.tsx` - Full merge dialog with branch selection, preview, strategy options, conflict state with abort button
+- Files modified:
+  - `src/main/git-service.ts` - Added `getMergePreview()`, `merge()`, `mergeAbort()`, `isMerging()`, `getConflictedFiles()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:mergePreview`, `git:merge`, `git:mergeAbort`, `git:isMerging`, `git:getConflictedFiles`
+  - `src/preload/index.ts` - Added mergePreview, merge, mergeAbort, isMerging, getConflictedFiles to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new merge methods
+  - `src/renderer/src/components/Toolbar.tsx` - Wired Merge toolbar button to open MergeDialog
+  - `src/renderer/src/components/Sidebar.tsx` - Replaced placeholder merge handler with MergeDialog integration (preselected branch from context menu)
+  - `src/renderer/src/styles/global.css` - Added merge dialog, merge preview, merge strategy, merge conflict section styles
+- **Learnings for future iterations:**
+  - `git rev-list --count HEAD..branch` counts commits that would be merged
+  - `git merge-base HEAD branch` compared to HEAD hash determines if fast-forward is possible
+  - `git diff --name-only --diff-filter=U` lists conflicted files
+  - MERGE_HEAD file in .git dir indicates a merge is in progress
+  - MergeDialog is a standalone reusable component — receives `currentRepo`, `preselectedBranch`, `onClose`, `onMergeComplete` props
+  - Merge strategies: no args (auto), `--no-ff` (always merge commit), `--ff-only` (fail if not FF)
+  - Sidebar handleMerge now opens MergeDialog instead of calling git:exec directly
+---

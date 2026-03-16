@@ -343,7 +343,7 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "Use git merge. Use git rev-list --count to preview merge size. Use git merge --abort for abort."
     },
     {
