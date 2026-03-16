@@ -140,6 +140,20 @@ const electronAPI = {
       }
     }
   },
+  watcher: {
+    start: (repoPath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('watcher:start', repoPath),
+    stop: (): Promise<{ success: boolean }> => ipcRenderer.invoke('watcher:stop')
+  },
+  onRepoChanged: (callback: () => void): (() => void) => {
+    const handler = (): void => {
+      callback()
+    }
+    ipcRenderer.on('repo:changed', handler)
+    return () => {
+      ipcRenderer.removeListener('repo:changed', handler)
+    }
+  },
   repos: {
     getRecent: (): Promise<RecentRepo[]> => ipcRenderer.invoke('repos:getRecent'),
     addRecent: (repoPath: string, repoName: string): Promise<RecentRepo[]> =>

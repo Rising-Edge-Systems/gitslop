@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { CommitGraph } from './CommitGraph'
+import { StatusPanel } from './StatusPanel'
 
 interface RepoViewProps {
   repoPath: string
@@ -59,7 +60,12 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
 
   useEffect(() => {
     loadRepoData()
-  }, [loadRepoData])
+    // Start file watcher for this repo
+    window.electronAPI.watcher.start(repoPath)
+    return () => {
+      window.electronAPI.watcher.stop()
+    }
+  }, [loadRepoData, repoPath])
 
   const repoName = repoPath.split(/[/\\]/).pop() || repoPath
   const currentBranch = branches.find((b) => b.current)?.name || status?.branch || '—'
@@ -132,6 +138,9 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
               </div>
             </div>
           </div>
+
+          {/* Status Panel */}
+          <StatusPanel repoPath={repoPath} onRefresh={loadRepoData} />
 
           {/* Commit Graph */}
           <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} />

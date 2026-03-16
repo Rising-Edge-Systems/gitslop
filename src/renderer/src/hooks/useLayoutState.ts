@@ -87,6 +87,11 @@ declare global {
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
         ) => () => void
       }
+      watcher: {
+        start: (repoPath: string) => Promise<{ success: boolean; error?: string }>
+        stop: () => Promise<{ success: boolean }>
+      }
+      onRepoChanged: (callback: () => void) => () => void
       repos: {
         getRecent: () => Promise<RecentRepo[]>
         addRecent: (repoPath: string, repoName: string) => Promise<RecentRepo[]>

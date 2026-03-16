@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'path'
+import { watch, FSWatcher } from 'fs'
 import Store from 'electron-store'
 import { registerGitIpcHandlers } from './git-ipc'
 import { gitService } from './git-service'
@@ -145,7 +146,57 @@ app.whenReady().then(async () => {
   })
 })
 
+// ─── File Watcher for repo changes ──────────────────────────────────────────
+
+let activeWatcher: FSWatcher | null = null
+let watchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+ipcMain.handle('watcher:start', (_event, repoPath: string) => {
+  // Stop previous watcher if any
+  if (activeWatcher) {
+    activeWatcher.close()
+    activeWatcher = null
+  }
+
+  try {
+    activeWatcher = watch(repoPath, { recursive: true }, (_eventType, filename) => {
+      // Ignore .git directory internal changes (except refs which indicate branch/tag changes)
+      const fname = filename?.toString() ?? ''
+      if (fname.startsWith('.git') && !fname.startsWith('.git/refs') && !fname.startsWith('.git\\refs')) {
+        return
+      }
+
+      // Debounce notifications
+      if (watchDebounceTimer) {
+        clearTimeout(watchDebounceTimer)
+      }
+      watchDebounceTimer = setTimeout(() => {
+        const win = BrowserWindow.getAllWindows()[0]
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('repo:changed')
+        }
+      }, 300)
+    })
+
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Watch failed' }
+  }
+})
+
+ipcMain.handle('watcher:stop', () => {
+  if (activeWatcher) {
+    activeWatcher.close()
+    activeWatcher = null
+  }
+  return { success: true }
+})
+
 app.on('window-all-closed', () => {
+  if (activeWatcher) {
+    activeWatcher.close()
+    activeWatcher = null
+  }
   if (process.platform !== 'darwin') {
     app.quit()
   }
