@@ -32,7 +32,9 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
 - Git branch operations (checkout, create, delete, rename) available via `window.electronAPI.git.checkout/createBranch/deleteBranch/renameBranch`
 - File watcher: `watcher:start`/`watcher:stop` IPC in main, `repo:changed` event to renderer, `onRepoChanged` callback in preload
 - New IPC APIs: add to preload, then update Window.electronAPI type in `useLayoutState.ts`
-- Theme: `data-theme` attribute on `<html>`, `useTheme` hook in `src/renderer/src/hooks/useTheme.ts`, persisted in localStorage `gitslop-theme`
+- Theme: `data-theme` attribute on `<html>`, managed by `useSettings` hook, persisted in localStorage `gitslop-settings`
+- App settings managed centrally via `useSettings` hook in `src/renderer/src/hooks/useSettings.ts` — stores all preferences in `gitslop-settings` localStorage key
+- `useTheme` hook still exists but is **unused** — theme is now managed by `useSettings`
 - All colors should use CSS custom properties — semantic vars: `--success`, `--error`, `--warning`, `--info`, `--purple`, `--orange`, `--btn-primary-*`, `--btn-danger-*`
 ---
 
@@ -654,4 +656,24 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - `useSyncExternalStore` used in KeyboardShortcutsPanel to reactively display registry contents
   - Shortcut categories: General, Git, Navigation, Editor, View — displayed in that order
   - Special key handling: '?' requires custom matching since it inherently requires Shift on most keyboards
+---
+
+## 2026-03-16 16:20 - US-033
+- Implemented: Full Settings & Preferences Panel with 5 sections (General, Appearance, Git, Editor, Keybindings)
+- Files created:
+  - `src/renderer/src/hooks/useSettings.ts` - Settings hook with localStorage persistence, keyboard shortcut (Ctrl+,), and theme management
+  - `src/renderer/src/components/SettingsPanel.tsx` - Settings modal with nav sidebar and section content areas
+- Files changed:
+  - `src/renderer/src/App.tsx` - Replaced useTheme with useSettings, added SettingsPanel rendering
+  - `src/renderer/src/components/AppLayout.tsx` - Added onOpenSettings prop, sidebar position support (left/right)
+  - `src/renderer/src/components/Toolbar.tsx` - Wired Settings button to onOpenSettings callback
+  - `src/renderer/src/components/TitleBar.tsx` - Updated Theme type import from useSettings
+  - `src/renderer/src/styles/global.css` - Added all settings panel styles (overlay, nav, rows, toggles, keybindings)
+- **Learnings for future iterations:**
+  - Settings are now stored in localStorage under `gitslop-settings` key — replaces the old `gitslop-theme` key for theme
+  - `useSettings` hook manages all settings centrally and replaces `useTheme` (which is now unused but still exists)
+  - Theme toggle shortcut (Ctrl+Shift+T) is now registered in useSettings instead of useTheme
+  - Settings apply immediately via `applySettings()` which sets CSS custom properties and data-theme attribute
+  - Sidebar position setting controls whether sidebar renders before or after center panel in the Group
+  - SettingsPanel uses dynamic import for keyboard shortcuts registry to avoid circular deps
 ---

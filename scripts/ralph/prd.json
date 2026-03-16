@@ -590,7 +590,7 @@
         "Typecheck passes"
       ],
       "priority": 33,
-      "passes": false,
+      "passes": true,
       "notes": "Use electron-store for persistence. Settings UI as a full-page view or modal."
     },
     {
