@@ -129,7 +129,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Most complex UI story. Use react-window or react-virtuoso for virtualisation. Consider Canvas for graph lines (SVG may be too slow for large repos). Use git log --format to get structured data."
     },
     {

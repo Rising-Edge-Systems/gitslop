@@ -25,6 +25,9 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
 - vitest is configured; run `npm test` — no config file needed for Node.js tests
 - Test files go in `__tests__/` subdirectories next to source files
 - `execFile` callback stdout/stderr can be `string | Buffer` — always use `?.toString() ?? ''`
+- `react-window` v2 uses `List` (not `FixedSizeList`); API: `rowComponent` + `rowProps`, not children render
+- `react-window` v2 `rowComponent` receives `{ ariaAttributes, index, style } & RowProps`
+- `useListCallbackRef` hook for imperative List API in react-window v2
 ---
 
 ## 2026-03-16 13:10 - US-001
@@ -145,4 +148,31 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Git clone progress comes on stderr, not stdout; parse with regex for phase/percent/count
   - Clone dialog is rendered as a modal overlay with fixed positioning and z-index: 1000
   - `operationIdRef` tracks the active clone operation for progress matching and cancellation
+---
+
+## 2026-03-16 14:13 - US-007
+- Implemented: Visual commit graph with Canvas rendering, virtualized scrolling, branch labels, and auto-refresh
+- Files created:
+  - `src/renderer/src/components/CommitGraph.tsx` - Full commit graph component with:
+    - Graph layout algorithm computing lane positions for branches/merges
+    - Canvas-based line rendering (bezier curves for merges, straight lines for linear history)
+    - react-window v2 `List` for virtualized scrolling (handles 100k+ commits)
+    - Colored branch lanes (10-color Catppuccin palette)
+    - Branch/tag/remote/HEAD ref badges on commits
+    - Merge commit visual distinction (hollow circles)
+    - HEAD commits highlighted with white ring
+    - Auto-refresh every 5 seconds
+    - ResizeObserver for dynamic container height
+- Files modified:
+  - `src/renderer/src/components/RepoView.tsx` - Integrated CommitGraph below status summary
+  - `src/renderer/src/styles/global.css` - Added comprehensive commit graph styles (rows, refs, canvas, viewport)
+  - `package.json` - Added react-window dependency
+- **Learnings for future iterations:**
+  - react-window v2 (latest) uses `List` not `FixedSizeList`; API is `rowComponent` + `rowProps` (not children render function)
+  - react-window v2 `rowComponent` receives `{ ariaAttributes, index, style } & RowProps`
+  - `useListCallbackRef` hook replaces `useRef<List>()` for imperative List API access
+  - `onRowsRendered` gives `(visibleRows, allRows)` where each has `{ startIndex, stopIndex }`
+  - Canvas graph is rendered as absolute overlay, list rows have transparent graph lane space
+  - Graph layout: activeLanes array tracks which hashes are "running" in each column
+  - repo-view-content needs `flex: 1; min-height: 0; overflow: hidden` for graph to fill available space
 ---
