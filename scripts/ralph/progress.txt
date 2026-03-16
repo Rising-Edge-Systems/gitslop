@@ -1,0 +1,83 @@
+# Ralph Progress Log
+Started: Mon Mar 16 01:03:27 PM EDT 2026
+---
+
+## Codebase Patterns
+- Use `electron-vite` v4 with `vite` v6 (v5+ has peer dep conflicts with electron-vite v5)
+- Project uses separate tsconfigs: `tsconfig.node.json` (main+preload), `tsconfig.web.json` (renderer)
+- Run `npm run typecheck` to check both node and web TypeScript
+- electron-vite v4 doesn't export `is` from `electron-vite/node`; use `!app.isPackaged` instead for dev detection
+- Build output goes to `out/` directory (electron-vite default)
+- NVM must be sourced before using node: `export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"`
+- Custom titlebar with frameless window; IPC channels prefixed with `window:`, `dialog:`, `git:`, `repos:`
+- Global `Window` interface with `electronAPI` is declared in `src/renderer/src/hooks/useLayoutState.ts` (single declaration)
+- electron-store used in main process for persisting recent repos (schema typed with `Store<StoreSchema>`)
+- `RecentRepo` type exported from `useLayoutState.ts` for renderer use
+- CSS uses custom properties (CSS variables) defined in `:root` in `src/renderer/src/styles/global.css`
+- React components go in `src/renderer/src/components/`
+- Custom hooks go in `src/renderer/src/hooks/`
+- `react-resizable-panels` v4.7+ uses `Group`, `Panel`, `Separator` (not `PanelGroup`/`PanelResizeHandle`)
+- `react-resizable-panels` v4 `onResize` callback receives `PanelSize` object with `.asPercentage` and `.inPixels`
+- Layout state persisted via `localStorage` with key `gitslop-layout-state`
+---
+
+## 2026-03-16 13:10 - US-001
+- Implemented: Full Electron + React + TypeScript scaffold with electron-vite
+- Files created:
+  - `package.json` - Project config with dev/build/typecheck scripts
+  - `electron-vite.config.ts` - Build configuration for main, preload, renderer
+  - `tsconfig.json`, `tsconfig.node.json`, `tsconfig.web.json` - TypeScript configs (strict mode)
+  - `src/main/index.ts` - Main process: frameless window, IPC for window controls
+  - `src/preload/index.ts` - Preload: contextBridge with typed electronAPI
+  - `src/renderer/index.html` - Entry HTML with CSP
+  - `src/renderer/src/main.tsx` - React entry point
+  - `src/renderer/src/App.tsx` - Root component with TitleBar
+  - `src/renderer/src/components/TitleBar.tsx` - Custom titlebar with min/max/close
+  - `src/renderer/src/styles/global.css` - Dark theme with CSS custom properties
+- **Learnings for future iterations:**
+  - electron-vite v4 is required for vite v6 compatibility (v5 needs vite 7+/8+ which has conflicts)
+  - `is.dev` from electron-vite/node doesn't exist in v4; use `!app.isPackaged` instead
+  - Must source NVM in every bash command since shell state doesn't persist
+  - electron-vite outputs to `out/` by default (main, preload, renderer subdirs)
+  - Renderer root is at `src/renderer/` and its build output needs `../../out/renderer` path
+---
+
+## 2026-03-16 13:25 - US-002
+- Implemented: Application layout with sidebar, toolbar, main content, and bottom panel
+- Files changed/created:
+  - `src/renderer/src/App.tsx` - Updated to use AppLayout
+  - `src/renderer/src/components/AppLayout.tsx` - Main layout with react-resizable-panels (Group/Panel/Separator)
+  - `src/renderer/src/components/Toolbar.tsx` - Top toolbar with Pull, Push, Fetch, Branch, Merge, Stash, Settings buttons
+  - `src/renderer/src/components/Sidebar.tsx` - Left sidebar with collapsible Branches, Remotes, Tags, Stashes sections
+  - `src/renderer/src/components/BottomPanel.tsx` - Toggleable bottom panel (terminal placeholder)
+  - `src/renderer/src/components/MainContent.tsx` - Center content area (welcome placeholder)
+  - `src/renderer/src/hooks/useLayoutState.ts` - Layout state management with localStorage persistence
+  - `src/renderer/src/styles/global.css` - All new layout CSS styles
+  - `package.json` - Added react-resizable-panels, electron-store dependencies
+- **Learnings for future iterations:**
+  - react-resizable-panels v4.7 uses `Group`/`Separator` not `PanelGroup`/`PanelResizeHandle`
+  - `onResize` in v4 receives `PanelSize` object (not bare number), use `.asPercentage`
+  - No `order` prop on Panels in v4; ordering is by DOM position
+  - Layout persistence uses localStorage (simpler than electron-store for renderer-side state)
+  - Ctrl+B toggles sidebar, Ctrl+` toggles bottom panel
+---
+
+## 2026-03-16 13:40 - US-003
+- Implemented: Welcome screen with Open/Clone/Init buttons, recent repos list with persistence
+- Files changed/created:
+  - `src/main/index.ts` - Added IPC handlers for dialog:openDirectory, git:isRepo, git:init, repos:getRecent/addRecent/removeRecent
+  - `src/preload/index.ts` - Added dialog, git, repos APIs to electronAPI bridge
+  - `src/renderer/src/components/WelcomeScreen.tsx` - New welcome screen component with action buttons and recent repos
+  - `src/renderer/src/components/MainContent.tsx` - Now accepts currentRepo/onRepoOpen props, shows WelcomeScreen when no repo open
+  - `src/renderer/src/components/AppLayout.tsx` - Passes currentRepo/onRepoOpen to MainContent
+  - `src/renderer/src/App.tsx` - Manages currentRepo state, passes to AppLayout
+  - `src/renderer/src/hooks/useLayoutState.ts` - Now contains global Window/electronAPI type declaration (moved from TitleBar)
+  - `src/renderer/src/components/TitleBar.tsx` - Removed duplicate Window declaration
+  - `src/renderer/src/styles/global.css` - Added welcome screen styles (hero, actions, recent repos, error banner)
+- **Learnings for future iterations:**
+  - Global `Window` electronAPI declaration lives in `useLayoutState.ts` — add new IPC APIs there
+  - electron-store is used in main process only; renderer uses IPC to access stored data
+  - Recent repos stored as array of {path, name, lastOpened} in electron-store
+  - `execFile` from child_process is used for git commands (promisified)
+  - Clone dialog is a placeholder — will be implemented in US-006
+---
