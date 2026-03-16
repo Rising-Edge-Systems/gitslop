@@ -547,3 +547,18 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Terminal tabs use `disposed` flag to prevent double-dispose on cleanup
   - Catppuccin Mocha colors used for xterm theme to match app's dark theme
 ---
+
+## 2026-03-16 - US-027
+- Implemented: Global search palette (Ctrl+K) with command-palette style UI
+- Files changed/created:
+  - `src/renderer/src/components/SearchPalette.tsx` - New search palette component with commit/file/branch/tag search
+  - `src/renderer/src/components/AppLayout.tsx` - Added Ctrl+K shortcut and SearchPalette rendering
+  - `src/renderer/src/styles/global.css` - Added search palette styles
+- **Learnings for future iterations:**
+  - `git:exec` IPC can be used for search operations (git log --grep, git ls-files) without adding dedicated service methods
+  - Use `%x00` (null byte) as delimiter in git log --format for reliable parsing
+  - Search uses `git log --grep` for commit message search, `--author` for author search, and SHA prefix matching
+  - File search uses `git ls-files` and client-side filtering
+  - Branch/tag search reuses existing `getBranches`/`getTags` IPC methods with client-side filtering
+  - Search is debounced at 150ms for responsiveness
+---

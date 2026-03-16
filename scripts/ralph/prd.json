@@ -485,7 +485,7 @@
         "Typecheck passes"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": "Use git log --grep for commit search, git ls-files for file search. Consider cmdk library for command palette UI."
     },
     {
