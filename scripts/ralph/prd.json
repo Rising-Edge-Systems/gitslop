@@ -306,7 +306,7 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Use git commit -m for basic commit. Use git commit --amend for amend. Use git log -1 --format=%B to pre-fill amend message."
     },
     {

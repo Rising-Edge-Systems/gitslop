@@ -348,3 +348,21 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - `git show --format= --patch <hash> -- <file>` gets the diff of a specific file in a commit
   - DiffViewerWithStaging wraps HunkDiffViewer (staging controls) and DiffViewer (enhanced view) with a tab bar toggle
 ---
+## 2026-03-16 14:57 - US-017
+- Implemented: Commit Dialog with subject line + expandable body, char count indicator, Commit & Commit & Push buttons, amend checkbox, sign-off checkbox, Ctrl+Enter shortcut
+- Files created:
+  - `src/renderer/src/components/CommitDialog.tsx` - Full commit dialog component with subject/body inputs, amend pre-fill, sign-off, Commit & Push, keyboard shortcut
+- Files modified:
+  - `src/main/git-service.ts` - Added `commit()`, `getLastCommitMessage()`, `push()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:commit`, `git:getLastCommitMessage`, `git:push`
+  - `src/preload/index.ts` - Added commit, getLastCommitMessage, push to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new commit/push methods
+  - `src/renderer/src/components/RepoView.tsx` - Integrated CommitDialog between StatusPanel and CommitGraph
+  - `src/renderer/src/styles/global.css` - Added comprehensive CommitDialog styles
+- **Learnings for future iterations:**
+  - `git commit -m` for basic commit, `--amend` for amend, `--signoff` for sign-off
+  - `git log -1 --format=%B` gets the full last commit message for amend pre-fill
+  - CommitDialog is a standalone component that receives `stagedCount` from parent to control button state
+  - Commit output format is `[branch hash] message` — parse with regex to get new commit hash
+  - `push()` method added to GitService for Commit & Push convenience button
+---
