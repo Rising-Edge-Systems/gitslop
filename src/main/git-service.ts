@@ -958,6 +958,54 @@ export class GitService {
   }
 
   /**
+   * Commit staged changes.
+   */
+  async commit(
+    repoPath: string,
+    message: string,
+    options?: { amend?: boolean; signoff?: boolean; signal?: AbortSignal }
+  ): Promise<{ hash: string; subject: string }> {
+    const args = ['commit', '-m', message]
+    if (options?.amend) args.push('--amend')
+    if (options?.signoff) args.push('--signoff')
+    const result = await this.exec(args, repoPath, { signal: options?.signal })
+    // Parse the output to get the new commit hash
+    // Output typically looks like: "[branch abc1234] commit message"
+    const match = result.stdout.match(/\[[\w/.-]+ ([a-f0-9]+)\]/)
+    const hash = match ? match[1] : ''
+    return { hash, subject: message.split('\n')[0] }
+  }
+
+  /**
+   * Get the last commit message (for amend pre-fill).
+   */
+  async getLastCommitMessage(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<string> {
+    try {
+      const result = await this.exec(
+        ['log', '-1', '--format=%B'],
+        repoPath,
+        { signal: options?.signal }
+      )
+      return result.stdout.trim()
+    } catch {
+      return ''
+    }
+  }
+
+  /**
+   * Push current branch to its tracking remote.
+   */
+  async push(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['push'], repoPath, { signal: options?.signal })
+  }
+
+  /**
    * Apply a patch string via git apply.
    */
   private async applyPatch(

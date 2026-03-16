@@ -141,6 +141,16 @@ const electronAPI = {
       ipcRenderer.invoke('git:stageHunk', repoPath, patch),
     unstageHunk: (repoPath: string, patch: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:unstageHunk', repoPath, patch),
+    commit: (
+      repoPath: string,
+      message: string,
+      opts?: { amend?: boolean; signoff?: boolean }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:commit', repoPath, message, opts),
+    getLastCommitMessage: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getLastCommitMessage', repoPath),
+    push: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:push', repoPath),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

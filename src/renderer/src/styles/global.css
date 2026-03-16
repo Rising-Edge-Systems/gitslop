@@ -3348,3 +3348,185 @@ body {
 .commit-detail-diff .diff-sbs-view {
   max-height: 400px;
 }
+
+/* ─── Commit Dialog ─────────────────────────────────────────────────────── */
+
+.commit-dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.commit-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.commit-dialog-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.commit-dialog-error {
+  background: rgba(255, 85, 85, 0.15);
+  color: #ff5555;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.commit-dialog-success {
+  background: rgba(80, 250, 123, 0.15);
+  color: #50fa7b;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.commit-dialog-subject-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.commit-dialog-subject {
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.commit-dialog-subject:focus {
+  border-color: var(--accent);
+}
+
+.commit-dialog-subject.over-limit {
+  border-color: #ff9500;
+}
+
+.commit-dialog-char-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  min-width: 50px;
+  text-align: right;
+}
+
+.commit-dialog-char-count.over-limit {
+  color: #ff9500;
+}
+
+.commit-dialog-expand-body {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 6px;
+}
+
+.commit-dialog-expand-body:hover {
+  color: var(--text-primary);
+}
+
+.commit-dialog-body {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+  min-height: 60px;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.commit-dialog-body:focus {
+  border-color: var(--accent);
+}
+
+.commit-dialog-options {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.commit-dialog-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.commit-dialog-option input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.commit-dialog-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.commit-dialog-btn {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.commit-dialog-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.commit-dialog-btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.commit-dialog-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.commit-dialog-btn-secondary {
+  background: var(--bg-tertiary, var(--bg-primary));
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.commit-dialog-btn-secondary:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.commit-dialog-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  font-style: italic;
+}

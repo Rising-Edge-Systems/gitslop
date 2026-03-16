@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { CommitDialog } from './CommitDialog'
 import { CommitGraph } from './CommitGraph'
 import { StatusPanel } from './StatusPanel'
 
@@ -141,6 +142,13 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
 
           {/* Status Panel */}
           <StatusPanel repoPath={repoPath} onRefresh={loadRepoData} />
+
+          {/* Commit Dialog */}
+          <CommitDialog
+            repoPath={repoPath}
+            stagedCount={status?.staged ?? 0}
+            onCommitDone={loadRepoData}
+          />
 
           {/* Commit Graph */}
           <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} />

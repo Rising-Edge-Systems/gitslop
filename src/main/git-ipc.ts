@@ -559,6 +559,56 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Commit ──────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:commit',
+    async (
+      _event,
+      repoPath: string,
+      message: string,
+      opts?: { amend?: boolean; signoff?: boolean }
+    ) => {
+      try {
+        const result = await gitService.commit(repoPath, message, {
+          amend: opts?.amend,
+          signoff: opts?.signoff
+        })
+        return { success: true, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Get Last Commit Message ──────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:getLastCommitMessage',
+    async (_event, repoPath: string) => {
+      try {
+        const message = await gitService.getLastCommitMessage(repoPath)
+        return { success: true, data: message }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Push ──────────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:push',
+    async (_event, repoPath: string) => {
+      try {
+        await gitService.push(repoPath)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {

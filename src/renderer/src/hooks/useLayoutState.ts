@@ -89,6 +89,13 @@ declare global {
         unstageAll: (repoPath: string) => Promise<GitServiceResult>
         stageHunk: (repoPath: string, patch: string) => Promise<GitServiceResult>
         unstageHunk: (repoPath: string, patch: string) => Promise<GitServiceResult>
+        commit: (
+          repoPath: string,
+          message: string,
+          opts?: { amend?: boolean; signoff?: boolean }
+        ) => Promise<GitServiceResult>
+        getLastCommitMessage: (repoPath: string) => Promise<GitServiceResult>
+        push: (repoPath: string) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
