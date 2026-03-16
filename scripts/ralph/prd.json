@@ -658,7 +658,7 @@
         "Typecheck passes"
       ],
       "priority": 37,
-      "passes": false,
+      "passes": true,
       "notes": "Use git checkout -- <file> for tracked files. Use rm for untracked files. Use git apply --reverse for hunk discard."
     },
     {

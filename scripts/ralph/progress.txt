@@ -729,3 +729,19 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Context menus use the `.branch-ctx-menu` / `.commit-ctx-menu` CSS classes with position:fixed and z-index:2000
   - The Window type declaration in useLayoutState.ts must be updated when new IPC methods are added to the preload
 ---
+
+## 2026-03-16 - US-037
+- Implemented Discard Changes feature: per-file discard (already existed), Discard All Changes button, and per-hunk discard from diff viewer
+- Added `discardHunk()` to git-service.ts using `git apply --reverse` to remove hunks from working directory
+- Added `git:discardHunk` IPC handler in git-ipc.ts and exposed via preload
+- Added "Discard All Changes" button to StatusPanel header (discards tracked file changes + deletes untracked files)
+- Added "Discard Hunk" button per hunk in HunkDiffViewer for unstaged tracked files
+- Added danger-styled CSS for discard buttons (red color theme matching existing danger patterns)
+- All confirmations clearly state irreversibility
+- Files changed: git-service.ts, git-ipc.ts, preload/index.ts, StatusPanel.tsx, useLayoutState.ts, global.css
+- **Learnings for future iterations:**
+  - Hunk discard uses `git apply --reverse` without `--cached` to apply to working directory (vs index)
+  - The existing `applyPatch` private method supports both `cached` and `reverse` flags
+  - StatusPanel.tsx contains both the status list and the HunkDiffViewer sub-component
+  - Type definitions for electronAPI.git are in useLayoutState.ts
+---
