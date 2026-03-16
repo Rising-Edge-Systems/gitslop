@@ -1,7 +1,27 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'path'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+import Store from 'electron-store'
 
+const execFileAsync = promisify(execFile)
 const isDev = !app.isPackaged
+
+interface RecentRepo {
+  path: string
+  name: string
+  lastOpened: string
+}
+
+interface StoreSchema {
+  recentRepos: RecentRepo[]
+}
+
+const store = new Store<StoreSchema>({
+  defaults: {
+    recentRepos: []
+  }
+})
 
 let mainWindow: BrowserWindow | null = null
 
@@ -59,6 +79,64 @@ ipcMain.handle('window:close', () => {
 
 ipcMain.handle('window:isMaximized', () => {
   return mainWindow?.isMaximized() ?? false
+})
+
+// Dialog IPC handlers
+ipcMain.handle('dialog:openDirectory', async () => {
+  if (!mainWindow) return null
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  return result.filePaths[0]
+})
+
+// Git IPC handlers
+ipcMain.handle('git:isRepo', async (_event, dirPath: string) => {
+  try {
+    await execFileAsync('git', ['rev-parse', '--git-dir'], { cwd: dirPath })
+    return true
+  } catch {
+    return false
+  }
+})
+
+ipcMain.handle('git:init', async (_event, dirPath: string) => {
+  try {
+    await execFileAsync('git', ['init'], { cwd: dirPath })
+    return { success: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to initialize repository'
+    return { success: false, error: message }
+  }
+})
+
+// Recent repos IPC handlers
+ipcMain.handle('repos:getRecent', () => {
+  return store.get('recentRepos', [])
+})
+
+ipcMain.handle('repos:addRecent', (_event, repoPath: string, repoName: string) => {
+  const recentRepos = store.get('recentRepos', [])
+  // Remove existing entry with same path
+  const filtered = recentRepos.filter((r: RecentRepo) => r.path !== repoPath)
+  // Add to front
+  filtered.unshift({
+    path: repoPath,
+    name: repoName,
+    lastOpened: new Date().toISOString()
+  })
+  // Keep max 20 entries
+  const trimmed = filtered.slice(0, 20)
+  store.set('recentRepos', trimmed)
+  return trimmed
+})
+
+ipcMain.handle('repos:removeRecent', (_event, repoPath: string) => {
+  const recentRepos = store.get('recentRepos', [])
+  const filtered = recentRepos.filter((r: RecentRepo) => r.path !== repoPath)
+  store.set('recentRepos', filtered)
+  return filtered
 })
 
 app.whenReady().then(() => {

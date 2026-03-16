@@ -1,19 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
 
-declare global {
-  interface Window {
-    electronAPI: {
-      window: {
-        minimize: () => Promise<void>
-        maximize: () => Promise<void>
-        close: () => Promise<void>
-        isMaximized: () => Promise<boolean>
-        onMaximizeChange: (callback: (isMaximized: boolean) => void) => () => void
-      }
-    }
-  }
-}
-
 export function TitleBar(): React.JSX.Element {
   const [isMaximized, setIsMaximized] = useState(false)
 

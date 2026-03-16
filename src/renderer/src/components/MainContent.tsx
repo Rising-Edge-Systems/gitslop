@@ -1,11 +1,24 @@
 import React from 'react'
+import { WelcomeScreen } from './WelcomeScreen'
 
-export function MainContent(): React.JSX.Element {
+interface MainContentProps {
+  currentRepo: string | null
+  onRepoOpen: (repoPath: string) => void
+}
+
+export function MainContent({ currentRepo, onRepoOpen }: MainContentProps): React.JSX.Element {
+  if (!currentRepo) {
+    return (
+      <div className="main-content">
+        <WelcomeScreen onRepoOpen={onRepoOpen} />
+      </div>
+    )
+  }
+
   return (
     <div className="main-content">
-      <div className="welcome">
-        <h1>GitSlop</h1>
-        <p>A powerful, open-source Git client</p>
+      <div className="repo-view-placeholder">
+        <p>Repository: {currentRepo}</p>
       </div>
     </div>
   )

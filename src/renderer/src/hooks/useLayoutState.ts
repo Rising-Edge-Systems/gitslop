@@ -1,5 +1,37 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 
+export interface RecentRepo {
+  path: string
+  name: string
+  lastOpened: string
+}
+
+declare global {
+  interface Window {
+    electronAPI: {
+      window: {
+        minimize: () => Promise<void>
+        maximize: () => Promise<void>
+        close: () => Promise<void>
+        isMaximized: () => Promise<boolean>
+        onMaximizeChange: (callback: (isMaximized: boolean) => void) => () => void
+      }
+      dialog: {
+        openDirectory: () => Promise<string | null>
+      }
+      git: {
+        isRepo: (dirPath: string) => Promise<boolean>
+        init: (dirPath: string) => Promise<{ success: boolean; error?: string }>
+      }
+      repos: {
+        getRecent: () => Promise<RecentRepo[]>
+        addRecent: (repoPath: string, repoName: string) => Promise<RecentRepo[]>
+        removeRecent: (repoPath: string) => Promise<RecentRepo[]>
+      }
+    }
+  }
+}
+
 export interface LayoutState {
   sidebarSize: number
   bottomPanelSize: number
