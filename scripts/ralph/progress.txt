@@ -245,3 +245,21 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Tags auto-refresh every 5 seconds (same pattern as branches and remotes)
   - Search filter only appears when there are >5 tags to avoid clutter
 ---
+## 2026-03-16 14:33 - US-012
+- Implemented: Stash sidebar with full list, click-to-view-diff, right-click context menu (apply/pop/drop), stash save dialog (with message and include-untracked options), toolbar stash button
+- Files changed:
+  - `src/main/git-service.ts` - Added `stashSave()`, `stashApply()`, `stashPop()`, `stashDrop()`, `stashShow()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:stashSave`, `git:stashApply`, `git:stashPop`, `git:stashDrop`, `git:stashShow`
+  - `src/preload/index.ts` - Added stashSave, stashApply, stashPop, stashDrop, stashShow to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new stash methods
+  - `src/renderer/src/components/Sidebar.tsx` - Added StashesSection component replacing placeholder (stash list, context menu, diff viewer, save dialog)
+  - `src/renderer/src/components/Toolbar.tsx` - Added currentRepo prop, stash button opens save dialog
+  - `src/renderer/src/components/AppLayout.tsx` - Pass currentRepo to Toolbar
+  - `src/renderer/src/styles/global.css` - Added stash sidebar, stash diff viewer, stash dialog checkbox styles
+- **Learnings for future iterations:**
+  - StashesSection follows same pattern as TagsSection/RemotesSection — separate component with its own state, receives `currentRepo` prop
+  - Stash operations use `git stash push` (not `git stash save` which is deprecated)
+  - Stash show uses `git stash show -p stash@{N}` for full diff output
+  - Toolbar now accepts `currentRepo` prop — needed for any toolbar action that invokes git commands
+  - Stash diff viewer is shown as a modal overlay (same pattern as clone dialog)
+---
