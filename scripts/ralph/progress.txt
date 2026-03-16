@@ -32,6 +32,8 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
 - Git branch operations (checkout, create, delete, rename) available via `window.electronAPI.git.checkout/createBranch/deleteBranch/renameBranch`
 - File watcher: `watcher:start`/`watcher:stop` IPC in main, `repo:changed` event to renderer, `onRepoChanged` callback in preload
 - New IPC APIs: add to preload, then update Window.electronAPI type in `useLayoutState.ts`
+- Theme: `data-theme` attribute on `<html>`, `useTheme` hook in `src/renderer/src/hooks/useTheme.ts`, persisted in localStorage `gitslop-theme`
+- All colors should use CSS custom properties — semantic vars: `--success`, `--error`, `--warning`, `--info`, `--purple`, `--orange`, `--btn-primary-*`, `--btn-danger-*`
 ---
 
 ## 2026-03-16 13:10 - US-001
