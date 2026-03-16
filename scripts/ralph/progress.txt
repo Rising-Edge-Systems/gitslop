@@ -613,3 +613,22 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - FileTree already had `onShowBlame` prop but wasn't wired up in Sidebar
   - The `openBlameView()` helper function in BlameView.tsx dispatches the event for other components
 ---
+
+## 2026-03-16 - US-031
+- Implemented dark/light theme system with CSS custom properties design token system
+- Created `useTheme` hook with localStorage persistence, keyboard shortcut (Ctrl+Shift+T), and smooth transitions
+- Added comprehensive light theme (Catppuccin Latte-inspired) alongside existing dark theme (Catppuccin Mocha)
+- Added theme toggle button (sun/moon icon) in titlebar
+- Replaced 100+ hardcoded hex color values with CSS custom property variables for full theme coverage
+- Files changed:
+  - `src/renderer/src/hooks/useTheme.ts` - New theme hook with persistence, toggle, keyboard shortcut
+  - `src/renderer/src/styles/global.css` - Added light theme variables, semantic color tokens, transition CSS, replaced hardcoded colors
+  - `src/renderer/src/App.tsx` - Wired useTheme hook
+  - `src/renderer/src/components/TitleBar.tsx` - Added theme toggle button
+- **Learnings for future iterations:**
+  - Theme is controlled via `data-theme` attribute on `<html>` element
+  - All colors should use CSS variables — avoid hardcoding hex values
+  - Smooth theme transition uses `.theme-transitioning` class on body (removed after 300ms)
+  - Theme preference stored in localStorage with key `gitslop-theme`
+  - Semantic color variables: `--success`, `--error`, `--warning`, `--info`, `--purple`, `--orange`, `--btn-primary-*`, `--btn-danger-*`
+---

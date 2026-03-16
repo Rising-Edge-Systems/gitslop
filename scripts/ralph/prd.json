@@ -555,7 +555,7 @@
         "Typecheck passes"
       ],
       "priority": 31,
-      "passes": false,
+      "passes": true,
       "notes": "Use CSS custom properties for theming. Define a design token system. Consider VS Code's color palette as inspiration."
     },
     {
