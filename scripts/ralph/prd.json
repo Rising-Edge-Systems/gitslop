@@ -164,7 +164,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Use git branch -vv --format for structured branch data including tracking info."
     },
     {

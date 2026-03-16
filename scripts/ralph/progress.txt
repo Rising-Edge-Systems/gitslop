@@ -28,6 +28,8 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
 - `react-window` v2 uses `List` (not `FixedSizeList`); API: `rowComponent` + `rowProps`, not children render
 - `react-window` v2 `rowComponent` receives `{ ariaAttributes, index, style } & RowProps`
 - `useListCallbackRef` hook for imperative List API in react-window v2
+- `Sidebar` component accepts `currentRepo` prop; each sidebar section loads its own data when repo is set
+- Git branch operations (checkout, create, delete, rename) available via `window.electronAPI.git.checkout/createBranch/deleteBranch/renameBranch`
 ---
 
 ## 2026-03-16 13:10 - US-001
@@ -190,4 +192,23 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - `onCommitSelect` callback prop allows parent to react to selection changes
   - Detail panel loads via `git:showCommit` IPC which returns commit metadata + changed files list
   - `useCallback` on row click/context handlers is important — they're passed as rowProps to react-window
+---
+
+## 2026-03-16 14:23 - US-009
+- Implemented: Branch sidebar with full list & management — search/filter, double-click checkout, right-click context menu, new branch dialog, rename dialog, ahead/behind tracking
+- Files changed:
+  - `src/main/git-service.ts` - Added `checkout()`, `createBranch()`, `deleteBranch()`, `renameBranch()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:checkout`, `git:createBranch`, `git:deleteBranch`, `git:renameBranch`
+  - `src/preload/index.ts` - Added checkout, createBranch, deleteBranch, renameBranch to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new git branch methods
+  - `src/renderer/src/components/Sidebar.tsx` - Full rewrite: branches from git, search filter, context menu, new branch dialog, rename dialog
+  - `src/renderer/src/components/AppLayout.tsx` - Pass currentRepo to Sidebar
+  - `src/renderer/src/styles/global.css` - Added branch sidebar styles (search, items, context menu, dialogs)
+- **Learnings for future iterations:**
+  - Sidebar now accepts `currentRepo` prop — all sidebar sections need it to load data
+  - SidebarSection component supports `count` and `headerAction` props for enhanced headers
+  - Branch context menu actions for merge/rebase are placeholders using `git:exec` — will be proper in US-019/US-020
+  - Sidebar auto-refreshes branches every 5 seconds (same pattern as CommitGraph)
+  - Search filter only appears when there are >5 branches to avoid clutter
+  - `confirm()` is used for delete confirmations — simple but works in Electron
 ---
