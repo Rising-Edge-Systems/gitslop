@@ -562,3 +562,22 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Branch/tag search reuses existing `getBranches`/`getTags` IPC methods with client-side filtering
   - Search is debounced at 150ms for responsiveness
 ---
+
+## 2026-03-16 15:52 - US-028
+- Implemented: Commit history filtering with collapsible filter bar above the commit graph
+- Files changed/created:
+  - `src/main/git-service.ts` - Extended `log()` options with author, since, until, grep, path filters
+  - `src/main/git-ipc.ts` - Updated IPC handler to pass filter options through
+  - `src/preload/index.ts` - Updated git.log type signature with new filter options
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI.git.log type
+  - `src/renderer/src/components/CommitFilterBar.tsx` - NEW: Collapsible filter bar with author, message, date range, file path inputs; removable filter chips; clear all
+  - `src/renderer/src/components/CommitGraph.tsx` - Added `filters` prop and `CommitLogFilters` export; passes filters to git.log call
+  - `src/renderer/src/components/RepoView.tsx` - Wires CommitFilterBar state to CommitGraph; listens for commit-filter:file-history custom event
+  - `src/renderer/src/styles/global.css` - Added all commit filter bar styles (chips, form, toggle, badges)
+- **Learnings for future iterations:**
+  - Git log supports `--author`, `--since`, `--until`, `--grep`, `-- <path>` flags for filtering
+  - `-- <path>` must come last in git log args
+  - `--regexp-ignore-case` makes grep case-insensitive
+  - Custom events (CustomEvent) can be used to communicate between unrelated components (e.g., context menu → filter bar)
+  - CommitGraph now exports `CommitLogFilters` type for use by parent components
+---

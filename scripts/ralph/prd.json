@@ -503,7 +503,7 @@
         "Typecheck passes"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": "Use git log --author, --since/--until, -- <path>, --grep flags for filtering."
     },
     {
