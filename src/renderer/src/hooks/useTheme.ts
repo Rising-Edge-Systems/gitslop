@@ -1,4 +1,10 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useMemo } from 'react'
+import {
+  useKeyboardShortcuts,
+  useShortcutHandler,
+  defineShortcut,
+  type ShortcutDefinition
+} from './useKeyboardShortcuts'
 
 export type Theme = 'dark' | 'light'
 
@@ -54,17 +60,24 @@ export function useTheme(): {
     setTheme(theme === 'dark' ? 'light' : 'dark')
   }, [theme, setTheme])
 
-  // Keyboard shortcut: Ctrl+Shift+T to toggle theme
-  useEffect(() => {
-    const handler = (e: KeyboardEvent): void => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'T') {
-        e.preventDefault()
-        toggleTheme()
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [toggleTheme])
+  // Register theme toggle shortcut centrally
+  const stableToggle = useShortcutHandler(toggleTheme)
+
+  const themeShortcuts: ShortcutDefinition[] = useMemo(
+    () => [
+      defineShortcut(
+        'toggle-theme',
+        'Toggle Dark/Light Theme',
+        'View',
+        'Ctrl+Shift+T',
+        { ctrl: true, shift: true, key: 'T' },
+        stableToggle
+      )
+    ],
+    [stableToggle]
+  )
+
+  useKeyboardShortcuts(themeShortcuts)
 
   return { theme, toggleTheme, setTheme }
 }

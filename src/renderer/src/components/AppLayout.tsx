@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import {
   Group,
   Panel,
@@ -10,7 +10,14 @@ import { Sidebar } from './Sidebar'
 import { MainContent } from './MainContent'
 import { TerminalPanel } from './Terminal'
 import { SearchPalette } from './SearchPalette'
+import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel'
 import { useLayoutState } from '../hooks/useLayoutState'
+import {
+  useKeyboardShortcuts,
+  useShortcutHandler,
+  defineShortcut,
+  type ShortcutDefinition
+} from '../hooks/useKeyboardShortcuts'
 
 interface AppLayoutProps {
   currentRepo: string | null
@@ -28,6 +35,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
   } = useLayoutState()
 
   const [searchOpen, setSearchOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   const handleSidebarResize = useCallback(
     (panelSize: PanelSize) => {
@@ -43,30 +51,54 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
     [setBottomPanelSize]
   )
 
-  // Keyboard shortcuts
-  React.useEffect(() => {
-    const handler = (e: KeyboardEvent): void => {
-      // Ctrl+B to toggle sidebar
-      if (e.ctrlKey && e.key === 'b') {
-        e.preventDefault()
-        toggleSidebar()
-      }
-      // Ctrl+` to toggle bottom panel
-      if (e.ctrlKey && e.key === '`') {
-        e.preventDefault()
-        toggleBottomPanel()
-      }
-      // Ctrl+K to open search palette
-      if (e.ctrlKey && e.key === 'k') {
-        e.preventDefault()
-        if (currentRepo) {
-          setSearchOpen(true)
-        }
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [toggleSidebar, toggleBottomPanel, currentRepo])
+  // Stable handler refs for shortcuts
+  const handleToggleSidebar = useShortcutHandler(toggleSidebar)
+  const handleToggleTerminal = useShortcutHandler(toggleBottomPanel)
+  const handleOpenSearch = useShortcutHandler(() => {
+    if (currentRepo) setSearchOpen(true)
+  })
+  const handleOpenShortcuts = useShortcutHandler(() => setShortcutsOpen(true))
+
+  // Register navigation/view shortcuts centrally
+  const shortcuts: ShortcutDefinition[] = useMemo(
+    () => [
+      defineShortcut(
+        'toggle-sidebar',
+        'Toggle Sidebar',
+        'View',
+        'Ctrl+B',
+        { ctrl: true, key: 'b' },
+        handleToggleSidebar
+      ),
+      defineShortcut(
+        'toggle-terminal',
+        'Toggle Terminal',
+        'View',
+        'Ctrl+`',
+        { ctrl: true, key: '`' },
+        handleToggleTerminal
+      ),
+      defineShortcut(
+        'open-search',
+        'Search (Command Palette)',
+        'Navigation',
+        'Ctrl+K',
+        { ctrl: true, key: 'k' },
+        handleOpenSearch
+      ),
+      defineShortcut(
+        'show-shortcuts',
+        'Show Keyboard Shortcuts',
+        'General',
+        'Ctrl+?',
+        { ctrl: true, key: '?' },
+        handleOpenShortcuts
+      )
+    ],
+    [handleToggleSidebar, handleToggleTerminal, handleOpenSearch, handleOpenShortcuts]
+  )
+
+  useKeyboardShortcuts(shortcuts)
 
   return (
     <div className="app-layout">
@@ -88,6 +120,12 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
           }}
         />
       )}
+
+      {/* Keyboard Shortcuts Panel (Ctrl+?) */}
+      {shortcutsOpen && (
+        <KeyboardShortcutsPanel onClose={() => setShortcutsOpen(false)} />
+      )}
+
       <div className="app-body">
         <Group orientation="horizontal" id="gitslop-horizontal">
           {layout.sidebarVisible && (

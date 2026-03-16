@@ -1,6 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
+import {
+  useKeyboardShortcuts,
+  useShortcutHandler,
+  defineShortcut,
+  type ShortcutDefinition
+} from '../hooks/useKeyboardShortcuts'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -187,19 +193,25 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
     }
   }, [activeTab, activeTabIndex, onFileSaved])
 
-  // ─── Keyboard shortcuts ──────────────────────────────────────────────────
+  // ─── Keyboard shortcuts (central registry) ──────────────────────────────
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent): void => {
-      // Ctrl+S to save
-      if (e.ctrlKey && e.key === 's' && !e.shiftKey && !e.altKey) {
-        e.preventDefault()
-        saveActiveFile()
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [saveActiveFile])
+  const stableSave = useShortcutHandler(saveActiveFile)
+
+  const editorShortcuts: ShortcutDefinition[] = useMemo(
+    () => [
+      defineShortcut(
+        'save-file',
+        'Save File',
+        'Editor',
+        'Ctrl+S',
+        { ctrl: true, key: 's' },
+        stableSave
+      )
+    ],
+    [stableSave]
+  )
+
+  useKeyboardShortcuts(editorShortcuts)
 
   // ─── Monaco editor mount ─────────────────────────────────────────────────
 

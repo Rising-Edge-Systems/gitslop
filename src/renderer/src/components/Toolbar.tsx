@@ -1,5 +1,11 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { MergeDialog } from './MergeDialog'
+import {
+  useKeyboardShortcuts,
+  useShortcutHandler,
+  defineShortcut,
+  type ShortcutDefinition
+} from '../hooks/useKeyboardShortcuts'
 
 interface StashDialogState {
   open: boolean
@@ -293,30 +299,56 @@ export function Toolbar({ currentRepo }: ToolbarProps): React.JSX.Element {
     }
   }, [currentRepo, stashDialog.message, stashDialog.includeUntracked, closeStashDialog])
 
-  // ─── Keyboard Shortcuts ────────────────────────────────────────────────────
+  // ─── Keyboard Shortcuts (Central Registry) ──────────────────────────────
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent): void => {
-      if (!currentRepo) return
-      // Ctrl+Shift+P → Push
-      if (e.ctrlKey && e.shiftKey && e.key === 'P') {
-        e.preventDefault()
-        handlePush()
-      }
-      // Ctrl+Shift+L → Pull
-      if (e.ctrlKey && e.shiftKey && e.key === 'L') {
-        e.preventDefault()
-        handlePull()
-      }
-      // Ctrl+Shift+F → Fetch
-      if (e.ctrlKey && e.shiftKey && e.key === 'F') {
-        e.preventDefault()
-        handleFetch()
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [currentRepo, handlePush, handlePull, handleFetch])
+  const stablePush = useShortcutHandler(handlePush)
+  const stablePull = useShortcutHandler(handlePull)
+  const stableFetch = useShortcutHandler(handleFetch)
+  const stableStash = useShortcutHandler(openStashDialog)
+
+  const gitShortcuts: ShortcutDefinition[] = useMemo(
+    () => [
+      defineShortcut(
+        'push',
+        'Push',
+        'Git',
+        'Ctrl+Shift+P',
+        { ctrl: true, shift: true, key: 'P' },
+        stablePush,
+        !!currentRepo
+      ),
+      defineShortcut(
+        'pull',
+        'Pull',
+        'Git',
+        'Ctrl+Shift+L',
+        { ctrl: true, shift: true, key: 'L' },
+        stablePull,
+        !!currentRepo
+      ),
+      defineShortcut(
+        'fetch',
+        'Fetch',
+        'Git',
+        'Ctrl+Shift+F',
+        { ctrl: true, shift: true, key: 'F' },
+        stableFetch,
+        !!currentRepo
+      ),
+      defineShortcut(
+        'stash',
+        'Stash Changes',
+        'Git',
+        'Ctrl+Shift+S',
+        { ctrl: true, shift: true, key: 'S' },
+        stableStash,
+        !!currentRepo
+      )
+    ],
+    [stablePush, stablePull, stableFetch, stableStash, currentRepo]
+  )
+
+  useKeyboardShortcuts(gitShortcuts)
 
   const isOperationActive = (type: string): boolean => activeOp?.type === type
 

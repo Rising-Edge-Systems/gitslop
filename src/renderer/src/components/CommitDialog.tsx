@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useKeyboardShortcuts,
+  useShortcutHandler,
+  defineShortcut,
+  type ShortcutDefinition
+} from '../hooks/useKeyboardShortcuts'
 
 interface CommitDialogProps {
   repoPath: string
@@ -101,23 +107,30 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
     }
   }, [canCommit, buildMessage, repoPath, amend, signoff, onCommitDone])
 
-  // Global Ctrl+Enter shortcut
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        // Only trigger if our commit dialog inputs have focus
-        const active = document.activeElement
-        const panel = document.querySelector('.commit-dialog')
-        if (panel?.contains(active) && canCommit) {
-          e.preventDefault()
-          handleCommit(false)
-        }
-      }
+  // Global Ctrl+Enter shortcut — scoped to commit panel focus
+  const stableCommit = useShortcutHandler(() => {
+    const active = document.activeElement
+    const panel = document.querySelector('.commit-dialog')
+    if (panel?.contains(active) && canCommit) {
+      handleCommit(false)
     }
+  })
 
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [canCommit, handleCommit])
+  const commitShortcuts: ShortcutDefinition[] = useMemo(
+    () => [
+      defineShortcut(
+        'commit',
+        'Commit Staged Changes',
+        'Git',
+        'Ctrl+Enter',
+        { ctrl: true, key: 'Enter' },
+        stableCommit
+      )
+    ],
+    [stableCommit]
+  )
+
+  useKeyboardShortcuts(commitShortcuts)
 
   const subjectLength = subject.length
   const subjectOverLimit = subjectLength > SUBJECT_WARN_LENGTH
