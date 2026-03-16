@@ -297,7 +297,16 @@ export class GitService {
    */
   async log(
     repoPath: string,
-    options?: { maxCount?: number; all?: boolean; signal?: AbortSignal }
+    options?: {
+      maxCount?: number
+      all?: boolean
+      signal?: AbortSignal
+      author?: string
+      since?: string
+      until?: string
+      grep?: string
+      path?: string
+    }
   ): Promise<GitCommit[]> {
     const SEPARATOR = '<<<SEP>>>'
     const RECORD_END = '<<<END>>>'
@@ -319,6 +328,12 @@ export class GitService {
     const args = ['log', `--format=${format}${RECORD_END}`]
     if (options?.all) args.push('--all')
     if (options?.maxCount) args.push(`-n`, `${options.maxCount}`)
+    if (options?.author) args.push(`--author=${options.author}`)
+    if (options?.since) args.push(`--since=${options.since}`)
+    if (options?.until) args.push(`--until=${options.until}`)
+    if (options?.grep) args.push(`--grep=${options.grep}`, '--regexp-ignore-case')
+    // -- <path> must come last
+    if (options?.path) args.push('--', options.path)
 
     try {
       const result = await this.exec(args, repoPath, { signal: options?.signal })

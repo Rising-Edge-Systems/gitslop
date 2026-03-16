@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { CodeEditor } from './CodeEditor'
 import { CommitDialog } from './CommitDialog'
-import { CommitGraph } from './CommitGraph'
+import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from './CommitFilterBar'
+import { CommitGraph, CommitLogFilters } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
 import { StatusPanel } from './StatusPanel'
 
@@ -30,6 +31,8 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
   const [showConflictResolver, setShowConflictResolver] = useState(false)
   const [hasConflicts, setHasConflicts] = useState(false)
   const [showEditor, setShowEditor] = useState(false)
+  const [commitFilters, setCommitFilters] = useState<CommitFilters>(EMPTY_FILTERS)
+  const [fileHistoryPath, setFileHistoryPath] = useState<string | undefined>(undefined)
 
   const loadRepoData = useCallback(async () => {
     setLoading(true)
@@ -90,6 +93,30 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
     window.addEventListener('editor:open-file', handler)
     return () => window.removeEventListener('editor:open-file', handler)
   }, [])
+
+  // Listen for "show history for file" events (from context menus)
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const detail = (e as CustomEvent<{ path: string }>).detail
+      if (detail?.path) {
+        setFileHistoryPath(detail.path)
+        setCommitFilters((prev) => ({ ...prev, path: detail.path }))
+      }
+    }
+    window.addEventListener('commit-filter:file-history', handler)
+    return () => window.removeEventListener('commit-filter:file-history', handler)
+  }, [])
+
+  // Convert CommitFilters to CommitLogFilters (only non-empty values)
+  const graphFilters: CommitLogFilters | undefined = hasActiveFilters(commitFilters)
+    ? {
+        ...(commitFilters.author ? { author: commitFilters.author } : {}),
+        ...(commitFilters.since ? { since: commitFilters.since } : {}),
+        ...(commitFilters.until ? { until: commitFilters.until } : {}),
+        ...(commitFilters.grep ? { grep: commitFilters.grep } : {}),
+        ...(commitFilters.path ? { path: commitFilters.path } : {})
+      }
+    : undefined
 
   const repoName = repoPath.split(/[/\\]/).pop() || repoPath
   const currentBranch = branches.find((b) => b.current)?.name || status?.branch || '—'
@@ -216,8 +243,15 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
             </div>
           )}
 
+          {/* Commit History Filters */}
+          <CommitFilterBar
+            filters={commitFilters}
+            onFiltersChange={setCommitFilters}
+            filePath={fileHistoryPath}
+          />
+
           {/* Commit Graph */}
-          <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} />
+          <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} filters={graphFilters} />
         </div>
       )}
     </div>

@@ -55,10 +55,19 @@ interface RevertState {
   parentCount?: number
 }
 
+export interface CommitLogFilters {
+  author?: string
+  since?: string
+  until?: string
+  grep?: string
+  path?: string
+}
+
 interface CommitGraphProps {
   repoPath: string
   onRefresh?: () => void
   onCommitSelect?: (detail: CommitDetail | null) => void
+  filters?: CommitLogFilters
 }
 
 interface ContextMenuState {
@@ -676,7 +685,7 @@ function getFileIcon(filePath: string): string {
 
 // ─── Main CommitGraph Component ───────────────────────────────────────────────
 
-export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraphProps): React.JSX.Element {
+export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: CommitGraphProps): React.JSX.Element {
   const [commits, setCommits] = useState<GitCommit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -700,7 +709,14 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
     setLoading(true)
     setError(null)
     try {
-      const result = await window.electronAPI.git.log(repoPath, { all: true })
+      const logOpts: { all: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string } = { all: true }
+      if (filters?.author) logOpts.author = filters.author
+      if (filters?.since) logOpts.since = filters.since
+      if (filters?.until) logOpts.until = filters.until
+      if (filters?.grep) logOpts.grep = filters.grep
+      if (filters?.path) logOpts.path = filters.path
+
+      const result = await window.electronAPI.git.log(repoPath, logOpts)
       if (result.success && Array.isArray(result.data)) {
         setCommits(result.data as GitCommit[])
       } else {
@@ -714,7 +730,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
     } finally {
       setLoading(false)
     }
-  }, [repoPath])
+  }, [repoPath, filters])
 
   useEffect(() => {
     loadCommits()

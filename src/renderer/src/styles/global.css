@@ -5691,3 +5691,240 @@ body {
   gap: 8px;
   justify-content: center;
 }
+
+/* ─── Commit Filter Bar ──────────────────────────────────────────────────────── */
+
+.commit-filter-bar {
+  margin: 0 0 4px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.commit-filter-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  flex-wrap: wrap;
+}
+
+.commit-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--font-family);
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.commit-filter-toggle:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.commit-filter-toggle.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.commit-filter-icon {
+  font-size: 8px;
+  transition: transform 0.2s;
+}
+
+.commit-filter-toggle.expanded .commit-filter-icon {
+  transform: rotate(180deg);
+}
+
+.commit-filter-badge {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  text-align: center;
+  line-height: 16px;
+}
+
+.commit-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.commit-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-primary);
+  max-width: 220px;
+}
+
+.commit-filter-chip-label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.commit-filter-chip-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+.commit-filter-chip-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.commit-filter-chip-remove:hover {
+  color: var(--close-hover);
+}
+
+.commit-filter-clear-all {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: var(--font-family);
+  padding: 2px 4px;
+}
+
+.commit-filter-clear-all:hover {
+  text-decoration: underline;
+}
+
+.commit-filter-indicator {
+  font-size: 11px;
+  color: var(--accent);
+  font-style: italic;
+  margin-left: auto;
+}
+
+.commit-filter-form {
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.commit-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.commit-filter-row-dates {
+  display: flex;
+  gap: 12px;
+}
+
+.commit-filter-date-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.commit-filter-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 60px;
+  font-weight: 500;
+}
+
+.commit-filter-input {
+  flex: 1;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-family);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.commit-filter-input:focus {
+  border-color: var(--accent);
+}
+
+.commit-filter-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Date inputs styling */
+.commit-filter-input[type="date"] {
+  color-scheme: dark;
+}
+
+.commit-filter-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+.commit-filter-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.commit-filter-apply {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 4px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.commit-filter-apply:hover {
+  background: var(--accent-hover);
+}
+
+.commit-filter-clear {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-family: var(--font-family);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.commit-filter-clear:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
