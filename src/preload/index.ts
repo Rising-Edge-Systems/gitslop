@@ -85,6 +85,20 @@ const electronAPI = {
       newName: string
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:renameBranch', repoPath, oldName, newName),
+    getRemoteBranches: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getRemoteBranches', repoPath),
+    addRemote: (repoPath: string, name: string, url: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:addRemote', repoPath, name, url),
+    editRemoteUrl: (repoPath: string, name: string, newUrl: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:editRemoteUrl', repoPath, name, newUrl),
+    removeRemote: (repoPath: string, name: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:removeRemote', repoPath, name),
+    fetch: (repoPath: string, remoteName?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:fetch', repoPath, remoteName),
+    deleteRemoteBranch: (repoPath: string, remoteName: string, branchName: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:deleteRemoteBranch', repoPath, remoteName, branchName),
+    checkoutRemoteBranch: (repoPath: string, remoteName: string, branchName: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:checkoutRemoteBranch', repoPath, remoteName, branchName),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

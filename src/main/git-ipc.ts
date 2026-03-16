@@ -247,6 +247,101 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Remote Branches ─────────────────────────────────────────────────────
+
+  ipcMain.handle('git:getRemoteBranches', async (_event, repoPath: string) => {
+    try {
+      const branches = await gitService.getRemoteBranches(repoPath)
+      return { success: true, data: branches }
+    } catch (err) {
+      return { success: false, ...formatError(err) }
+    }
+  })
+
+  // ─── Add Remote ─────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:addRemote',
+    async (_event, repoPath: string, name: string, url: string) => {
+      try {
+        await gitService.addRemote(repoPath, name, url)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Edit Remote URL ───────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:editRemoteUrl',
+    async (_event, repoPath: string, name: string, newUrl: string) => {
+      try {
+        await gitService.editRemoteUrl(repoPath, name, newUrl)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Remove Remote ────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:removeRemote',
+    async (_event, repoPath: string, name: string) => {
+      try {
+        await gitService.removeRemote(repoPath, name)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Fetch ────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:fetch',
+    async (_event, repoPath: string, remoteName?: string) => {
+      try {
+        await gitService.fetch(repoPath, remoteName)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Delete Remote Branch ─────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:deleteRemoteBranch',
+    async (_event, repoPath: string, remoteName: string, branchName: string) => {
+      try {
+        await gitService.deleteRemoteBranch(repoPath, remoteName, branchName)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Checkout Remote Branch ───────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:checkoutRemoteBranch',
+    async (_event, repoPath: string, remoteName: string, branchName: string) => {
+      try {
+        await gitService.checkoutRemoteBranch(repoPath, remoteName, branchName)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {

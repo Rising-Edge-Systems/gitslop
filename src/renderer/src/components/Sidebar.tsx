@@ -395,6 +395,534 @@ function RenameDialog({ oldName, onClose, onSubmit }: RenameDialogProps): React.
   )
 }
 
+// ─── Remote Types ───────────────────────────────────────────────────────────
+
+interface GitRemote {
+  name: string
+  fetchUrl: string
+  pushUrl: string
+}
+
+interface RemoteBranch {
+  remote: string
+  branch: string
+  hash: string
+}
+
+interface RemoteContextMenuState {
+  x: number
+  y: number
+  remote: GitRemote
+}
+
+interface RemoteBranchContextMenuState {
+  x: number
+  y: number
+  remote: string
+  branch: string
+}
+
+interface AddRemoteDialogState {
+  open: boolean
+  name: string
+  url: string
+  error: string | null
+  loading: boolean
+}
+
+interface EditRemoteDialogState {
+  open: boolean
+  name: string
+  url: string
+  error: string | null
+  loading: boolean
+}
+
+// ─── RemotesSection ─────────────────────────────────────────────────────────
+
+interface RemotesSectionProps {
+  currentRepo: string | null
+  onBranchesChanged: () => void
+}
+
+function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps): React.JSX.Element {
+  const [remotes, setRemotes] = useState<GitRemote[]>([])
+  const [remoteBranches, setRemoteBranches] = useState<RemoteBranch[]>([])
+  const [expandedRemotes, setExpandedRemotes] = useState<Set<string>>(new Set())
+  const [remoteContextMenu, setRemoteContextMenu] = useState<RemoteContextMenuState | null>(null)
+  const [remoteBranchContextMenu, setRemoteBranchContextMenu] = useState<RemoteBranchContextMenuState | null>(null)
+  const [addRemoteDialog, setAddRemoteDialog] = useState<AddRemoteDialogState>({
+    open: false, name: '', url: '', error: null, loading: false
+  })
+  const [editRemoteDialog, setEditRemoteDialog] = useState<EditRemoteDialogState>({
+    open: false, name: '', url: '', error: null, loading: false
+  })
+
+  const loadRemotes = useCallback(async () => {
+    if (!currentRepo) {
+      setRemotes([])
+      setRemoteBranches([])
+      return
+    }
+    try {
+      const [remotesResult, branchesResult] = await Promise.all([
+        window.electronAPI.git.getRemotes(currentRepo),
+        window.electronAPI.git.getRemoteBranches(currentRepo)
+      ])
+      if (remotesResult.success && Array.isArray(remotesResult.data)) {
+        setRemotes(remotesResult.data as GitRemote[])
+      }
+      if (branchesResult.success && Array.isArray(branchesResult.data)) {
+        setRemoteBranches(branchesResult.data as RemoteBranch[])
+      }
+    } catch {
+      // ignore
+    }
+  }, [currentRepo])
+
+  useEffect(() => {
+    loadRemotes()
+  }, [loadRemotes])
+
+  // Auto-refresh every 5 seconds
+  useEffect(() => {
+    if (!currentRepo) return
+    const interval = setInterval(loadRemotes, 5000)
+    return () => clearInterval(interval)
+  }, [currentRepo, loadRemotes])
+
+  const toggleRemote = useCallback((name: string) => {
+    setExpandedRemotes((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }, [])
+
+  const handleCheckoutRemoteBranch = useCallback(
+    async (remoteName: string, branchName: string) => {
+      if (!currentRepo) return
+      const result = await window.electronAPI.git.checkoutRemoteBranch(currentRepo, remoteName, branchName)
+      if (result.success) {
+        onBranchesChanged()
+      }
+    },
+    [currentRepo, onBranchesChanged]
+  )
+
+  const handleDeleteRemoteBranch = useCallback(
+    async (remoteName: string, branchName: string) => {
+      if (!currentRepo) return
+      const confirmed = confirm(`Delete remote branch "${remoteName}/${branchName}"?\n\nThis will remove the branch from the remote.`)
+      if (!confirmed) return
+      const result = await window.electronAPI.git.deleteRemoteBranch(currentRepo, remoteName, branchName)
+      if (result.success) {
+        await loadRemotes()
+      }
+    },
+    [currentRepo, loadRemotes]
+  )
+
+  const handleFetchRemote = useCallback(
+    async (remoteName?: string) => {
+      if (!currentRepo) return
+      await window.electronAPI.git.fetch(currentRepo, remoteName)
+      await loadRemotes()
+      onBranchesChanged()
+    },
+    [currentRepo, loadRemotes, onBranchesChanged]
+  )
+
+  const handleRemoveRemote = useCallback(
+    async (remoteName: string) => {
+      if (!currentRepo) return
+      const confirmed = confirm(`Remove remote "${remoteName}"?`)
+      if (!confirmed) return
+      const result = await window.electronAPI.git.removeRemote(currentRepo, remoteName)
+      if (result.success) {
+        await loadRemotes()
+      }
+    },
+    [currentRepo, loadRemotes]
+  )
+
+  const handleAddRemoteSubmit = useCallback(async () => {
+    if (!currentRepo || !addRemoteDialog.name.trim() || !addRemoteDialog.url.trim()) return
+    setAddRemoteDialog((prev) => ({ ...prev, loading: true, error: null }))
+    try {
+      const result = await window.electronAPI.git.addRemote(
+        currentRepo,
+        addRemoteDialog.name.trim(),
+        addRemoteDialog.url.trim()
+      )
+      if (result.success) {
+        setAddRemoteDialog({ open: false, name: '', url: '', error: null, loading: false })
+        await loadRemotes()
+      } else {
+        setAddRemoteDialog((prev) => ({ ...prev, error: result.error || 'Failed to add remote', loading: false }))
+      }
+    } catch (err) {
+      setAddRemoteDialog((prev) => ({
+        ...prev,
+        error: err instanceof Error ? err.message : 'Failed to add remote',
+        loading: false
+      }))
+    }
+  }, [currentRepo, addRemoteDialog.name, addRemoteDialog.url, loadRemotes])
+
+  const handleEditRemoteSubmit = useCallback(async () => {
+    if (!currentRepo || !editRemoteDialog.name || !editRemoteDialog.url.trim()) return
+    setEditRemoteDialog((prev) => ({ ...prev, loading: true, error: null }))
+    try {
+      const result = await window.electronAPI.git.editRemoteUrl(
+        currentRepo,
+        editRemoteDialog.name,
+        editRemoteDialog.url.trim()
+      )
+      if (result.success) {
+        setEditRemoteDialog({ open: false, name: '', url: '', error: null, loading: false })
+        await loadRemotes()
+      } else {
+        setEditRemoteDialog((prev) => ({ ...prev, error: result.error || 'Failed to edit remote', loading: false }))
+      }
+    } catch (err) {
+      setEditRemoteDialog((prev) => ({
+        ...prev,
+        error: err instanceof Error ? err.message : 'Failed to edit remote',
+        loading: false
+      }))
+    }
+  }, [currentRepo, editRemoteDialog.name, editRemoteDialog.url, loadRemotes])
+
+  const openEditRemote = useCallback((remote: GitRemote) => {
+    setEditRemoteDialog({
+      open: true,
+      name: remote.name,
+      url: remote.fetchUrl || remote.pushUrl,
+      error: null,
+      loading: false
+    })
+  }, [])
+
+  const branchesByRemote = useCallback(
+    (remoteName: string) => remoteBranches.filter((b) => b.remote === remoteName),
+    [remoteBranches]
+  )
+
+  return (
+    <>
+      <SidebarSection
+        title="Remotes"
+        icon="&#9729;"
+        defaultOpen={false}
+        count={remotes.length}
+        headerAction={
+          currentRepo ? (
+            <button
+              className="sidebar-section-add-btn"
+              onClick={() => setAddRemoteDialog({ open: true, name: '', url: '', error: null, loading: false })}
+              title="Add Remote"
+            >
+              +
+            </button>
+          ) : undefined
+        }
+      >
+        {!currentRepo ? (
+          <div className="sidebar-placeholder">No repository open</div>
+        ) : remotes.length === 0 ? (
+          <div className="sidebar-placeholder">No remotes configured</div>
+        ) : (
+          <div className="sidebar-remote-list">
+            {remotes.map((remote) => {
+              const isExpanded = expandedRemotes.has(remote.name)
+              const branches = branchesByRemote(remote.name)
+              return (
+                <div key={remote.name} className="sidebar-remote-group">
+                  <div
+                    className="sidebar-remote-item"
+                    onClick={() => toggleRemote(remote.name)}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      setRemoteContextMenu({ x: e.clientX, y: e.clientY, remote })
+                    }}
+                    title={`${remote.name}\nFetch: ${remote.fetchUrl}\nPush: ${remote.pushUrl}`}
+                  >
+                    <span className={`sidebar-section-chevron ${isExpanded ? 'open' : ''}`}>&#9654;</span>
+                    <span className="sidebar-remote-name">{remote.name}</span>
+                    <span className="sidebar-section-count">{branches.length}</span>
+                  </div>
+                  {isExpanded && (
+                    <div className="sidebar-remote-branches">
+                      {branches.length === 0 ? (
+                        <div className="sidebar-placeholder" style={{ paddingLeft: '28px' }}>No branches</div>
+                      ) : (
+                        branches.map((rb) => (
+                          <div
+                            key={`${rb.remote}/${rb.branch}`}
+                            className="sidebar-remote-branch-item"
+                            onDoubleClick={() => handleCheckoutRemoteBranch(rb.remote, rb.branch)}
+                            onContextMenu={(e) => {
+                              e.preventDefault()
+                              setRemoteBranchContextMenu({ x: e.clientX, y: e.clientY, remote: rb.remote, branch: rb.branch })
+                            }}
+                            title={`${rb.remote}/${rb.branch} (${rb.hash})`}
+                          >
+                            <span className="sidebar-remote-branch-name">{rb.branch}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </SidebarSection>
+
+      {/* Remote context menu */}
+      {remoteContextMenu && (
+        <RemoteContextMenu
+          state={remoteContextMenu}
+          onClose={() => setRemoteContextMenu(null)}
+          onFetch={(name) => { handleFetchRemote(name); setRemoteContextMenu(null) }}
+          onEdit={(remote) => { openEditRemote(remote); setRemoteContextMenu(null) }}
+          onRemove={(name) => { handleRemoveRemote(name); setRemoteContextMenu(null) }}
+        />
+      )}
+
+      {/* Remote branch context menu */}
+      {remoteBranchContextMenu && (
+        <RemoteBranchContextMenu
+          state={remoteBranchContextMenu}
+          onClose={() => setRemoteBranchContextMenu(null)}
+          onCheckout={(r, b) => { handleCheckoutRemoteBranch(r, b); setRemoteBranchContextMenu(null) }}
+          onDelete={(r, b) => { handleDeleteRemoteBranch(r, b); setRemoteBranchContextMenu(null) }}
+          onFetch={(r) => { handleFetchRemote(r); setRemoteBranchContextMenu(null) }}
+        />
+      )}
+
+      {/* Add Remote Dialog */}
+      {addRemoteDialog.open && (
+        <div className="branch-dialog-overlay" onClick={() => setAddRemoteDialog((p) => ({ ...p, open: false }))}>
+          <div
+            className="branch-dialog"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setAddRemoteDialog((p) => ({ ...p, open: false }))
+              if (e.key === 'Enter' && addRemoteDialog.name.trim() && addRemoteDialog.url.trim()) handleAddRemoteSubmit()
+            }}
+          >
+            <div className="branch-dialog-header">
+              <h3 className="branch-dialog-title">Add Remote</h3>
+              <button className="branch-dialog-close" onClick={() => setAddRemoteDialog((p) => ({ ...p, open: false }))}>
+                &#10005;
+              </button>
+            </div>
+            <div className="branch-dialog-body">
+              <div className="branch-dialog-field">
+                <label className="branch-dialog-label">Remote Name</label>
+                <input
+                  type="text"
+                  className="branch-dialog-input"
+                  placeholder="origin"
+                  value={addRemoteDialog.name}
+                  onChange={(e) => setAddRemoteDialog((p) => ({ ...p, name: e.target.value }))}
+                  disabled={addRemoteDialog.loading}
+                  autoFocus
+                />
+              </div>
+              <div className="branch-dialog-field">
+                <label className="branch-dialog-label">URL</label>
+                <input
+                  type="text"
+                  className="branch-dialog-input"
+                  placeholder="https://github.com/user/repo.git"
+                  value={addRemoteDialog.url}
+                  onChange={(e) => setAddRemoteDialog((p) => ({ ...p, url: e.target.value }))}
+                  disabled={addRemoteDialog.loading}
+                />
+              </div>
+              {addRemoteDialog.error && (
+                <div className="branch-dialog-error">
+                  <span>&#9888;</span> {addRemoteDialog.error}
+                </div>
+              )}
+            </div>
+            <div className="branch-dialog-footer">
+              <button className="branch-dialog-btn branch-dialog-btn-cancel" onClick={() => setAddRemoteDialog((p) => ({ ...p, open: false }))}>
+                Cancel
+              </button>
+              <button
+                className="branch-dialog-btn branch-dialog-btn-create"
+                disabled={!addRemoteDialog.name.trim() || !addRemoteDialog.url.trim() || addRemoteDialog.loading}
+                onClick={handleAddRemoteSubmit}
+              >
+                {addRemoteDialog.loading ? 'Adding...' : 'Add Remote'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Remote Dialog */}
+      {editRemoteDialog.open && (
+        <div className="branch-dialog-overlay" onClick={() => setEditRemoteDialog((p) => ({ ...p, open: false }))}>
+          <div
+            className="branch-dialog"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setEditRemoteDialog((p) => ({ ...p, open: false }))
+              if (e.key === 'Enter' && editRemoteDialog.url.trim()) handleEditRemoteSubmit()
+            }}
+          >
+            <div className="branch-dialog-header">
+              <h3 className="branch-dialog-title">Edit Remote: {editRemoteDialog.name}</h3>
+              <button className="branch-dialog-close" onClick={() => setEditRemoteDialog((p) => ({ ...p, open: false }))}>
+                &#10005;
+              </button>
+            </div>
+            <div className="branch-dialog-body">
+              <div className="branch-dialog-field">
+                <label className="branch-dialog-label">URL</label>
+                <input
+                  type="text"
+                  className="branch-dialog-input"
+                  value={editRemoteDialog.url}
+                  onChange={(e) => setEditRemoteDialog((p) => ({ ...p, url: e.target.value }))}
+                  disabled={editRemoteDialog.loading}
+                  autoFocus
+                />
+              </div>
+              {editRemoteDialog.error && (
+                <div className="branch-dialog-error">
+                  <span>&#9888;</span> {editRemoteDialog.error}
+                </div>
+              )}
+            </div>
+            <div className="branch-dialog-footer">
+              <button className="branch-dialog-btn branch-dialog-btn-cancel" onClick={() => setEditRemoteDialog((p) => ({ ...p, open: false }))}>
+                Cancel
+              </button>
+              <button
+                className="branch-dialog-btn branch-dialog-btn-create"
+                disabled={!editRemoteDialog.url.trim() || editRemoteDialog.loading}
+                onClick={handleEditRemoteSubmit}
+              >
+                {editRemoteDialog.loading ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ─── RemoteContextMenu ──────────────────────────────────────────────────────
+
+interface RemoteContextMenuProps {
+  state: RemoteContextMenuState
+  onClose: () => void
+  onFetch: (name: string) => void
+  onEdit: (remote: GitRemote) => void
+  onRemove: (name: string) => void
+}
+
+function RemoteContextMenu({ state, onClose, onFetch, onEdit, onRemove }: RemoteContextMenuProps): React.JSX.Element {
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
+    }
+    const handleEsc = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      ref={menuRef}
+      className="branch-ctx-menu"
+      style={{ position: 'fixed', left: state.x, top: state.y, zIndex: 2000 }}
+    >
+      <button className="branch-ctx-menu-item" onClick={() => onFetch(state.remote.name)}>
+        <span className="branch-ctx-menu-icon">&#8635;</span>
+        <span className="branch-ctx-menu-label">Fetch</span>
+      </button>
+      <button className="branch-ctx-menu-item" onClick={() => onEdit(state.remote)}>
+        <span className="branch-ctx-menu-icon">&#9998;</span>
+        <span className="branch-ctx-menu-label">Edit URL</span>
+      </button>
+      <div className="branch-ctx-menu-separator" />
+      <button className="branch-ctx-menu-item branch-ctx-menu-item-danger" onClick={() => onRemove(state.remote.name)}>
+        <span className="branch-ctx-menu-icon">&#128465;</span>
+        <span className="branch-ctx-menu-label">Remove</span>
+      </button>
+    </div>
+  )
+}
+
+// ─── RemoteBranchContextMenu ────────────────────────────────────────────────
+
+interface RemoteBranchContextMenuProps {
+  state: RemoteBranchContextMenuState
+  onClose: () => void
+  onCheckout: (remote: string, branch: string) => void
+  onDelete: (remote: string, branch: string) => void
+  onFetch: (remote: string) => void
+}
+
+function RemoteBranchContextMenu({ state, onClose, onCheckout, onDelete, onFetch }: RemoteBranchContextMenuProps): React.JSX.Element {
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
+    }
+    const handleEsc = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      ref={menuRef}
+      className="branch-ctx-menu"
+      style={{ position: 'fixed', left: state.x, top: state.y, zIndex: 2000 }}
+    >
+      <button className="branch-ctx-menu-item" onClick={() => onCheckout(state.remote, state.branch)}>
+        <span className="branch-ctx-menu-icon">&#10140;</span>
+        <span className="branch-ctx-menu-label">Checkout as local branch</span>
+      </button>
+      <button className="branch-ctx-menu-item" onClick={() => onFetch(state.remote)}>
+        <span className="branch-ctx-menu-icon">&#8635;</span>
+        <span className="branch-ctx-menu-label">Fetch</span>
+      </button>
+      <div className="branch-ctx-menu-separator" />
+      <button className="branch-ctx-menu-item branch-ctx-menu-item-danger" onClick={() => onDelete(state.remote, state.branch)}>
+        <span className="branch-ctx-menu-icon">&#128465;</span>
+        <span className="branch-ctx-menu-label">Delete remote branch</span>
+      </button>
+    </div>
+  )
+}
+
 // ─── Sidebar (main export) ──────────────────────────────────────────────────
 
 export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
@@ -676,11 +1204,7 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
         )}
       </SidebarSection>
 
-      <SidebarSection title="Remotes" icon="&#9729;" defaultOpen={false}>
-        <div className="sidebar-placeholder">
-          {currentRepo ? 'Remotes shown here' : 'No repository open'}
-        </div>
-      </SidebarSection>
+      <RemotesSection currentRepo={currentRepo} onBranchesChanged={loadBranches} />
 
       <SidebarSection title="Tags" icon="&#127991;" defaultOpen={false}>
         <div className="sidebar-placeholder">

@@ -659,6 +659,120 @@ export class GitService {
     await this.exec(['branch', '-m', oldName, newName], repoPath, { signal: options?.signal })
   }
 
+  /**
+   * Get remote branches.
+   */
+  async getRemoteBranches(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ remote: string; branch: string; hash: string }[]> {
+    try {
+      const format = '%(refname:short)|||%(objectname:short)'
+      const result = await this.exec(
+        ['branch', '-r', '--format', format],
+        repoPath,
+        { signal: options?.signal }
+      )
+
+      return result.stdout
+        .split('\n')
+        .filter((line) => line.trim() && !line.includes('/HEAD'))
+        .map((line) => {
+          const parts = line.split('|||')
+          const fullName = parts[0]
+          const slashIndex = fullName.indexOf('/')
+          return {
+            remote: fullName.substring(0, slashIndex),
+            branch: fullName.substring(slashIndex + 1),
+            hash: parts[1] || ''
+          }
+        })
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Add a remote.
+   */
+  async addRemote(
+    repoPath: string,
+    name: string,
+    url: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['remote', 'add', name, url], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Edit a remote URL.
+   */
+  async editRemoteUrl(
+    repoPath: string,
+    name: string,
+    newUrl: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['remote', 'set-url', name, newUrl], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Remove a remote.
+   */
+  async removeRemote(
+    repoPath: string,
+    name: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['remote', 'remove', name], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Fetch from a specific remote or all remotes.
+   */
+  async fetch(
+    repoPath: string,
+    remoteName?: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    const args = ['fetch']
+    if (remoteName) {
+      args.push(remoteName)
+    } else {
+      args.push('--all')
+    }
+    await this.exec(args, repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Delete a remote branch.
+   */
+  async deleteRemoteBranch(
+    repoPath: string,
+    remoteName: string,
+    branchName: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['push', remoteName, '--delete', branchName], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Checkout a remote branch as a local tracking branch.
+   */
+  async checkoutRemoteBranch(
+    repoPath: string,
+    remoteName: string,
+    branchName: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    // git checkout -b <branch> <remote>/<branch>  (creates local tracking branch)
+    await this.exec(
+      ['checkout', '-b', branchName, `${remoteName}/${branchName}`],
+      repoPath,
+      { signal: options?.signal }
+    )
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   private parseLogOutput(output: string, separator: string, recordEnd: string): GitCommit[] {
