@@ -115,6 +115,18 @@ declare global {
         mergeAbort: (repoPath: string) => Promise<GitServiceResult>
         isMerging: (repoPath: string) => Promise<GitServiceResult>
         getConflictedFiles: (repoPath: string) => Promise<GitServiceResult>
+        rebasePreview: (repoPath: string, ontoBranch: string) => Promise<GitServiceResult>
+        rebase: (repoPath: string, ontoBranch: string) => Promise<GitServiceResult>
+        rebaseInteractive: (
+          repoPath: string,
+          ontoBranch: string,
+          actions: { hash: string; action: 'pick' | 'squash' | 'edit' | 'drop' | 'reword' | 'fixup' }[]
+        ) => Promise<GitServiceResult>
+        rebaseContinue: (repoPath: string) => Promise<GitServiceResult>
+        rebaseAbort: (repoPath: string) => Promise<GitServiceResult>
+        rebaseSkip: (repoPath: string) => Promise<GitServiceResult>
+        isRebasing: (repoPath: string) => Promise<GitServiceResult>
+        rebaseProgress: (repoPath: string) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void

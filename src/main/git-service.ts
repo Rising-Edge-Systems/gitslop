@@ -1213,6 +1213,341 @@ export class GitService {
     }
   }
 
+  // ─── Rebase ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Get a preview of how many commits will be rebased onto a target branch.
+   */
+  async getRebasePreview(
+    repoPath: string,
+    ontoBranch: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ commitCount: number; commits: { hash: string; subject: string }[]; isPublished: boolean }> {
+    // Count commits on current branch that are not in onto branch
+    const result = await this.exec(
+      ['rev-list', '--oneline', `${ontoBranch}..HEAD`],
+      repoPath,
+      { signal: options?.signal }
+    )
+    const lines = result.stdout.trim().split('\n').filter((l) => l.trim())
+    const commits = lines.map((line) => {
+      const spaceIndex = line.indexOf(' ')
+      return {
+        hash: spaceIndex >= 0 ? line.substring(0, spaceIndex) : line,
+        subject: spaceIndex >= 0 ? line.substring(spaceIndex + 1) : ''
+      }
+    })
+
+    // Check if any of these commits have been pushed (are reachable from any remote)
+    let isPublished = false
+    try {
+      const remotesResult = await this.exec(
+        ['branch', '-r', '--contains', 'HEAD'],
+        repoPath,
+        { signal: options?.signal }
+      )
+      isPublished = remotesResult.stdout.trim().length > 0
+    } catch {
+      // Ignore — can't determine published status
+    }
+
+    return { commitCount: commits.length, commits, isPublished }
+  }
+
+  /**
+   * Perform a rebase of the current branch onto a target branch.
+   */
+  async rebase(
+    repoPath: string,
+    ontoBranch: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; conflicts?: string[] }> {
+    try {
+      const result = await this.exec(
+        ['rebase', ontoBranch],
+        repoPath,
+        { signal: options?.signal }
+      )
+      const output = (result.stdout + '\n' + result.stderr).trim()
+      return { success: true, message: output || 'Rebase successful' }
+    } catch (err) {
+      const gitErr = err as GitError
+      const stderr = gitErr.stderr || gitErr.message || ''
+      if (stderr.includes('CONFLICT') || stderr.includes('conflict') || stderr.includes('Could not apply')) {
+        const conflicts = await this.getConflictedFiles(repoPath)
+        return {
+          success: false,
+          message: 'Rebase resulted in conflicts. Resolve conflicts and continue.',
+          conflicts
+        }
+      }
+      throw err
+    }
+  }
+
+  /**
+   * Perform an interactive rebase using GIT_SEQUENCE_EDITOR to pre-set actions.
+   * `actions` is an array mapping commit hashes to actions (pick/squash/edit/drop/reword/fixup).
+   */
+  async rebaseInteractive(
+    repoPath: string,
+    ontoBranch: string,
+    actions: { hash: string; action: 'pick' | 'squash' | 'edit' | 'drop' | 'reword' | 'fixup' }[],
+    options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; conflicts?: string[] }> {
+    const signal = options?.signal
+
+    if (signal?.aborted) {
+      throw this.createError('Operation cancelled', GitErrorCode.Cancelled)
+    }
+
+    // Build a sed script that replaces "pick <hash>" with "<action> <hash>" for each commit
+    // We use GIT_SEQUENCE_EDITOR to modify the rebase-todo file
+    const sedCommands = actions
+      .filter((a) => a.action !== 'pick')
+      .map((a) => `s/^pick ${a.hash.substring(0, 7)}/${a.action} ${a.hash.substring(0, 7)}/`)
+      .join(';')
+
+    const sequenceEditor = sedCommands ? `sed -i '${sedCommands}'` : 'true'
+
+    return new Promise<{ success: boolean; message: string; conflicts?: string[] }>((resolve, reject) => {
+      const child = spawn('git', ['rebase', '-i', ontoBranch], {
+        cwd: repoPath,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          GIT_SEQUENCE_EDITOR: sequenceEditor
+        }
+      })
+
+      let stdout = ''
+      let stderr = ''
+
+      child.stdout?.on('data', (data: Buffer) => {
+        stdout += data.toString()
+      })
+
+      child.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString()
+      })
+
+      child.on('close', async (code) => {
+        if (signal?.aborted) {
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+          return
+        }
+
+        if (code === 0) {
+          resolve({ success: true, message: (stdout + '\n' + stderr).trim() || 'Rebase successful' })
+        } else {
+          const output = stderr + stdout
+          if (output.includes('CONFLICT') || output.includes('conflict') || output.includes('Could not apply')) {
+            try {
+              const conflicts = await this.getConflictedFiles(repoPath)
+              resolve({
+                success: false,
+                message: 'Rebase resulted in conflicts. Resolve conflicts and continue.',
+                conflicts
+              })
+            } catch {
+              resolve({
+                success: false,
+                message: 'Rebase resulted in conflicts.',
+                conflicts: []
+              })
+            }
+          } else {
+            reject(this.createError(
+              output || 'Rebase failed',
+              GitErrorCode.CommandFailed,
+              stderr
+            ))
+          }
+        }
+      })
+
+      child.on('error', (err) => {
+        reject(this.classifyError(
+          err as Error & { code?: string | number | null },
+          stderr
+        ))
+      })
+
+      if (signal) {
+        const onAbort = (): void => {
+          child.kill('SIGTERM')
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+        }
+        signal.addEventListener('abort', onAbort, { once: true })
+      }
+    })
+  }
+
+  /**
+   * Continue a rebase after resolving conflicts.
+   */
+  async rebaseContinue(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; conflicts?: string[] }> {
+    return new Promise<{ success: boolean; message: string; conflicts?: string[] }>((resolve, reject) => {
+      const child = spawn('git', ['rebase', '--continue'], {
+        cwd: repoPath,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          GIT_EDITOR: 'true' // auto-accept commit messages
+        }
+      })
+
+      let stdout = ''
+      let stderr = ''
+
+      child.stdout?.on('data', (data: Buffer) => {
+        stdout += data.toString()
+      })
+
+      child.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString()
+      })
+
+      child.on('close', async (code) => {
+        if (options?.signal?.aborted) {
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+          return
+        }
+
+        if (code === 0) {
+          resolve({ success: true, message: (stdout + '\n' + stderr).trim() || 'Rebase continue successful' })
+        } else {
+          const output = stderr + stdout
+          if (output.includes('CONFLICT') || output.includes('conflict') || output.includes('Could not apply')) {
+            try {
+              const conflicts = await this.getConflictedFiles(repoPath)
+              resolve({
+                success: false,
+                message: 'More conflicts encountered. Resolve and continue.',
+                conflicts
+              })
+            } catch {
+              resolve({ success: false, message: 'More conflicts encountered.', conflicts: [] })
+            }
+          } else if (output.includes('No changes')) {
+            // No changes to commit — skip this commit
+            resolve({ success: false, message: 'No changes — use skip to continue.' })
+          } else {
+            reject(this.createError(
+              output || 'Rebase continue failed',
+              GitErrorCode.CommandFailed,
+              stderr
+            ))
+          }
+        }
+      })
+
+      child.on('error', (err) => {
+        reject(this.classifyError(
+          err as Error & { code?: string | number | null },
+          stderr
+        ))
+      })
+
+      if (options?.signal) {
+        const onAbort = (): void => {
+          child.kill('SIGTERM')
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+        }
+        options.signal.addEventListener('abort', onAbort, { once: true })
+      }
+    })
+  }
+
+  /**
+   * Abort an in-progress rebase.
+   */
+  async rebaseAbort(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['rebase', '--abort'], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Skip the current commit during a rebase.
+   */
+  async rebaseSkip(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; conflicts?: string[] }> {
+    try {
+      const result = await this.exec(
+        ['rebase', '--skip'],
+        repoPath,
+        { signal: options?.signal }
+      )
+      return { success: true, message: result.stdout.trim() || 'Skipped' }
+    } catch (err) {
+      const gitErr = err as GitError
+      const stderr = gitErr.stderr || gitErr.message || ''
+      if (stderr.includes('CONFLICT') || stderr.includes('conflict') || stderr.includes('Could not apply')) {
+        const conflicts = await this.getConflictedFiles(repoPath)
+        return {
+          success: false,
+          message: 'More conflicts after skip. Resolve and continue.',
+          conflicts
+        }
+      }
+      throw err
+    }
+  }
+
+  /**
+   * Check if a rebase is currently in progress.
+   */
+  async isRebasing(repoPath: string): Promise<boolean> {
+    try {
+      const { existsSync } = await import('fs')
+      const { join } = await import('path')
+      const gitDir = (await this.exec(['rev-parse', '--git-dir'], repoPath)).stdout.trim()
+      const rebaseMergePath = join(repoPath, gitDir, 'rebase-merge')
+      const rebaseApplyPath = join(repoPath, gitDir, 'rebase-apply')
+      return existsSync(rebaseMergePath) || existsSync(rebaseApplyPath)
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Get rebase progress information (current step / total steps).
+   */
+  async getRebaseProgress(repoPath: string): Promise<{ current: number; total: number } | null> {
+    try {
+      const { readFileSync, existsSync } = await import('fs')
+      const { join } = await import('path')
+      const gitDir = (await this.exec(['rev-parse', '--git-dir'], repoPath)).stdout.trim()
+
+      // Check rebase-merge (for interactive rebase)
+      const rebaseMergePath = join(repoPath, gitDir, 'rebase-merge')
+      if (existsSync(rebaseMergePath)) {
+        const msgnum = readFileSync(join(rebaseMergePath, 'msgnum'), 'utf-8').trim()
+        const end = readFileSync(join(rebaseMergePath, 'end'), 'utf-8').trim()
+        return { current: parseInt(msgnum, 10), total: parseInt(end, 10) }
+      }
+
+      // Check rebase-apply (for non-interactive rebase)
+      const rebaseApplyPath = join(repoPath, gitDir, 'rebase-apply')
+      if (existsSync(rebaseApplyPath)) {
+        const next = readFileSync(join(rebaseApplyPath, 'next'), 'utf-8').trim()
+        const last = readFileSync(join(rebaseApplyPath, 'last'), 'utf-8').trim()
+        return { current: parseInt(next, 10), total: parseInt(last, 10) }
+      }
+
+      return null
+    } catch {
+      return null
+    }
+  }
+
   async getCurrentBranch(
     repoPath: string,
     options?: { signal?: AbortSignal }

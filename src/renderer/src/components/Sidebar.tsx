@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { MergeDialog } from './MergeDialog'
+import { RebaseDialog } from './RebaseDialog'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1619,6 +1620,7 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
   const [renameTarget, setRenameTarget] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [mergeBranch, setMergeBranch] = useState<string | null>(null)
+  const [rebaseBranch, setRebaseBranch] = useState<string | null>(null)
 
   // ─── Load branches ──────────────────────────────────────────────────────
 
@@ -1735,13 +1737,11 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
   )
 
   const handleRebase = useCallback(
-    async (branchName: string) => {
+    (branchName: string) => {
       if (!currentRepo) return
-      // Placeholder — rebase functionality will be implemented in US-020
-      await window.electronAPI.git.exec(['rebase', branchName], currentRepo)
-      await loadBranches()
+      setRebaseBranch(branchName)
     },
-    [currentRepo, loadBranches]
+    [currentRepo]
   )
 
   const handlePush = useCallback(
@@ -1931,6 +1931,19 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
           onClose={() => setMergeBranch(null)}
           onMergeComplete={() => {
             setMergeBranch(null)
+            loadBranches()
+          }}
+        />
+      )}
+
+      {/* Rebase Dialog */}
+      {rebaseBranch && currentRepo && (
+        <RebaseDialog
+          currentRepo={currentRepo}
+          preselectedBranch={rebaseBranch}
+          onClose={() => setRebaseBranch(null)}
+          onRebaseComplete={() => {
+            setRebaseBranch(null)
             loadBranches()
           }}
         />

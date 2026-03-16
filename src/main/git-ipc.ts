@@ -792,6 +792,123 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Rebase Preview ────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:rebasePreview',
+    async (_event, repoPath: string, ontoBranch: string) => {
+      try {
+        const data = await gitService.getRebasePreview(repoPath, ontoBranch)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Rebase ─────────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:rebase',
+    async (_event, repoPath: string, ontoBranch: string) => {
+      try {
+        const result = await gitService.rebase(repoPath, ontoBranch)
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Rebase Interactive ────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:rebaseInteractive',
+    async (
+      _event,
+      repoPath: string,
+      ontoBranch: string,
+      actions: { hash: string; action: 'pick' | 'squash' | 'edit' | 'drop' | 'reword' | 'fixup' }[]
+    ) => {
+      try {
+        const result = await gitService.rebaseInteractive(repoPath, ontoBranch, actions)
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Rebase Continue ───────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:rebaseContinue',
+    async (_event, repoPath: string) => {
+      try {
+        const result = await gitService.rebaseContinue(repoPath)
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Rebase Abort ──────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:rebaseAbort',
+    async (_event, repoPath: string) => {
+      try {
+        await gitService.rebaseAbort(repoPath)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Rebase Skip ──────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:rebaseSkip',
+    async (_event, repoPath: string) => {
+      try {
+        const result = await gitService.rebaseSkip(repoPath)
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Is Rebasing ──────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:isRebasing',
+    async (_event, repoPath: string) => {
+      try {
+        const data = await gitService.isRebasing(repoPath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Rebase Progress ──────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:rebaseProgress',
+    async (_event, repoPath: string) => {
+      try {
+        const data = await gitService.getRebaseProgress(repoPath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {

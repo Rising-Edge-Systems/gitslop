@@ -190,6 +190,26 @@ const electronAPI = {
       ipcRenderer.invoke('git:isMerging', repoPath),
     getConflictedFiles: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getConflictedFiles', repoPath),
+    rebasePreview: (repoPath: string, ontoBranch: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:rebasePreview', repoPath, ontoBranch),
+    rebase: (repoPath: string, ontoBranch: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:rebase', repoPath, ontoBranch),
+    rebaseInteractive: (
+      repoPath: string,
+      ontoBranch: string,
+      actions: { hash: string; action: 'pick' | 'squash' | 'edit' | 'drop' | 'reword' | 'fixup' }[]
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:rebaseInteractive', repoPath, ontoBranch, actions),
+    rebaseContinue: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:rebaseContinue', repoPath),
+    rebaseAbort: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:rebaseAbort', repoPath),
+    rebaseSkip: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:rebaseSkip', repoPath),
+    isRebasing: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:isRebasing', repoPath),
+    rebaseProgress: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:rebaseProgress', repoPath),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

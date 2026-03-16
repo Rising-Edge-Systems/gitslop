@@ -3852,3 +3852,214 @@ body {
   font-style: italic;
   line-height: 1.4;
 }
+
+/* ─── Rebase Dialog ──────────────────────────────────────────────────────────── */
+
+.rebase-dialog {
+  min-width: 500px;
+  max-width: 650px;
+}
+
+.rebase-dialog-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 12px 0;
+}
+
+.rebase-preview {
+  margin: 8px 0 12px 0;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.rebase-preview-loading {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.rebase-preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rebase-preview-count {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.rebase-published-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  background: rgba(231, 76, 60, 0.12);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.rebase-published-warning-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.rebase-interactive-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  margin: 8px 0;
+}
+
+.rebase-interactive-toggle input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.rebase-interactive-commits {
+  margin: 8px 0 12px 0;
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.rebase-interactive-header {
+  display: grid;
+  grid-template-columns: 90px 70px 1fr;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rebase-interactive-row {
+  display: grid;
+  grid-template-columns: 90px 70px 1fr;
+  gap: 8px;
+  padding: 5px 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.rebase-interactive-row:last-child {
+  border-bottom: none;
+}
+
+.rebase-interactive-action-select {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.rebase-interactive-hash {
+  font-family: monospace;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.rebase-interactive-message {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rebase conflict section (in-progress rebase) */
+
+.rebase-conflict-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rebase-conflict-info {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.rebase-progress-indicator {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 2px 8px;
+  background: var(--accent);
+  color: white;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rebase-conflict-files {
+  margin: 0;
+}
+
+.rebase-conflict-files-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.rebase-conflict-file-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.rebase-conflict-file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+
+.rebase-conflict-file-item:last-child {
+  border-bottom: none;
+}
+
+.rebase-conflict-file-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e74c3c;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.rebase-conflict-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+  font-style: italic;
+  line-height: 1.4;
+}
