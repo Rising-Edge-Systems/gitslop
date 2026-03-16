@@ -1,10 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'path'
-import { execFile } from 'child_process'
-import { promisify } from 'util'
 import Store from 'electron-store'
+import { registerGitIpcHandlers } from './git-ipc'
+import { gitService } from './git-service'
 
-const execFileAsync = promisify(execFile)
 const isDev = !app.isPackaged
 
 interface RecentRepo {
@@ -91,25 +90,7 @@ ipcMain.handle('dialog:openDirectory', async () => {
   return result.filePaths[0]
 })
 
-// Git IPC handlers
-ipcMain.handle('git:isRepo', async (_event, dirPath: string) => {
-  try {
-    await execFileAsync('git', ['rev-parse', '--git-dir'], { cwd: dirPath })
-    return true
-  } catch {
-    return false
-  }
-})
-
-ipcMain.handle('git:init', async (_event, dirPath: string) => {
-  try {
-    await execFileAsync('git', ['init'], { cwd: dirPath })
-    return { success: true }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to initialize repository'
-    return { success: false, error: message }
-  }
-})
+// Git IPC handlers are registered via git-ipc module (see app.whenReady)
 
 // Recent repos IPC handlers
 ipcMain.handle('repos:getRecent', () => {
@@ -139,7 +120,22 @@ ipcMain.handle('repos:removeRecent', (_event, repoPath: string) => {
   return filtered
 })
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Register git IPC handlers
+  registerGitIpcHandlers()
+
+  // Check git version on startup
+  try {
+    const version = await gitService.getVersion()
+    if (!version.supported) {
+      console.warn(
+        `Git version ${version.raw} is older than recommended (2.20+). Some features may not work.`
+      )
+    }
+  } catch {
+    console.warn('Git is not installed or not found in PATH.')
+  }
+
   createWindow()
 
   app.on('activate', () => {

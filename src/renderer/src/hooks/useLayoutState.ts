@@ -6,6 +6,15 @@ export interface RecentRepo {
   lastOpened: string
 }
 
+interface GitServiceResult {
+  success: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: any
+  error?: string
+  code?: string
+  operationId?: string
+}
+
 declare global {
   interface Window {
     electronAPI: {
@@ -22,6 +31,17 @@ declare global {
       git: {
         isRepo: (dirPath: string) => Promise<boolean>
         init: (dirPath: string) => Promise<{ success: boolean; error?: string }>
+        getVersion: () => Promise<GitServiceResult>
+        log: (repoPath: string, opts?: { maxCount?: number; all?: boolean }) => Promise<GitServiceResult>
+        getBranches: (repoPath: string) => Promise<GitServiceResult>
+        getRemotes: (repoPath: string) => Promise<GitServiceResult>
+        getTags: (repoPath: string) => Promise<GitServiceResult>
+        getStashes: (repoPath: string) => Promise<GitServiceResult>
+        getStatus: (repoPath: string) => Promise<GitServiceResult>
+        diff: (repoPath: string, filePath?: string, opts?: { staged?: boolean }) => Promise<GitServiceResult>
+        showCommit: (repoPath: string, hash: string) => Promise<GitServiceResult>
+        cancelOperation: (operationId: string) => Promise<{ success: boolean; error?: string }>
+        exec: (args: string[], repoPath: string) => Promise<GitServiceResult>
       }
       repos: {
         getRecent: () => Promise<RecentRepo[]>

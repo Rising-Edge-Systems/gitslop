@@ -6,6 +6,15 @@ export interface RecentRepo {
   lastOpened: string
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export interface GitServiceResult {
+  success: boolean
+  data?: any
+  error?: string
+  code?: string
+  operationId?: string
+}
+
 const electronAPI = {
   window: {
     minimize: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
@@ -28,7 +37,33 @@ const electronAPI = {
   git: {
     isRepo: (dirPath: string): Promise<boolean> => ipcRenderer.invoke('git:isRepo', dirPath),
     init: (dirPath: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('git:init', dirPath)
+      ipcRenderer.invoke('git:init', dirPath),
+    getVersion: (): Promise<GitServiceResult> => ipcRenderer.invoke('git:getVersion'),
+    log: (
+      repoPath: string,
+      opts?: { maxCount?: number; all?: boolean }
+    ): Promise<GitServiceResult> => ipcRenderer.invoke('git:log', repoPath, opts),
+    getBranches: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getBranches', repoPath),
+    getRemotes: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getRemotes', repoPath),
+    getTags: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getTags', repoPath),
+    getStashes: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getStashes', repoPath),
+    getStatus: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getStatus', repoPath),
+    diff: (
+      repoPath: string,
+      filePath?: string,
+      opts?: { staged?: boolean }
+    ): Promise<GitServiceResult> => ipcRenderer.invoke('git:diff', repoPath, filePath, opts),
+    showCommit: (repoPath: string, hash: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:showCommit', repoPath, hash),
+    cancelOperation: (operationId: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('git:cancelOperation', operationId),
+    exec: (args: string[], repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:exec', args, repoPath)
   },
   repos: {
     getRecent: (): Promise<RecentRepo[]> => ipcRenderer.invoke('repos:getRecent'),
