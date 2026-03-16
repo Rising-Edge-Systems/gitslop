@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import type { Theme } from '../hooks/useTheme'
 
 interface TitleBarProps {
   repoPath?: string | null
+  theme?: Theme
+  onToggleTheme?: () => void
 }
 
-export function TitleBar({ repoPath }: TitleBarProps): React.JSX.Element {
+export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): React.JSX.Element {
   const [isMaximized, setIsMaximized] = useState(false)
 
   useEffect(() => {
@@ -42,6 +45,16 @@ export function TitleBar({ repoPath }: TitleBarProps): React.JSX.Element {
         </div>
       </div>
       <div className="titlebar-controls">
+        {onToggleTheme && (
+          <button
+            className="titlebar-btn titlebar-btn-theme"
+            onClick={onToggleTheme}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme (Ctrl+Shift+T)`}
+          >
+            {theme === 'dark' ? '☀' : '🌙'}
+          </button>
+        )}
         <button
           className="titlebar-btn titlebar-btn-minimize"
           onClick={handleMinimize}
