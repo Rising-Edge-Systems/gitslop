@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
+import { FileTree } from './FileTree'
+
+type SidebarTab = 'git' | 'files'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1606,6 +1609,7 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
 // ─── Sidebar (main export) ──────────────────────────────────────────────────
 
 export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
+  const [activeTab, setActiveTab] = useState<SidebarTab>('git')
   const [branches, setBranches] = useState<GitBranch[]>([])
   const [searchFilter, setSearchFilter] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
@@ -1800,6 +1804,32 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
 
   return (
     <div className="sidebar">
+      {/* Sidebar Tabs */}
+      <div className="sidebar-tabs">
+        <button
+          className={`sidebar-tab ${activeTab === 'git' ? 'sidebar-tab-active' : ''}`}
+          onClick={() => setActiveTab('git')}
+          title="Git"
+        >
+          &#9922; Git
+        </button>
+        <button
+          className={`sidebar-tab ${activeTab === 'files' ? 'sidebar-tab-active' : ''}`}
+          onClick={() => setActiveTab('files')}
+          title="Files"
+        >
+          &#128193; Files
+        </button>
+      </div>
+
+      {/* File Tree Tab */}
+      {activeTab === 'files' && (
+        <FileTree currentRepo={currentRepo} />
+      )}
+
+      {/* Git Tab */}
+      {activeTab === 'git' && (
+      <>
       <SidebarSection
         title="Branches"
         icon="&#9922;"
@@ -1887,6 +1917,8 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
       <TagsSection currentRepo={currentRepo} />
 
       <StashesSection currentRepo={currentRepo} />
+      </>
+      )}
 
       {/* Context Menu */}
       {contextMenu && (

@@ -5928,3 +5928,157 @@ body {
   background: var(--bg-tertiary);
   color: var(--text-primary);
 }
+
+/* ─── Sidebar Tabs ────────────────────────────────────────────────────────── */
+
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.sidebar-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  user-select: none;
+  border-bottom: 2px solid transparent;
+}
+
+.sidebar-tab:hover {
+  color: var(--text-secondary);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.sidebar-tab-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.sidebar-tab-active:hover {
+  color: var(--accent);
+}
+
+/* ─── File Tree ───────────────────────────────────────────────────────────── */
+
+.file-tree-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.file-tree-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+
+.file-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-primary);
+  transition: background-color 0.1s ease;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-tree-node:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.file-tree-dir {
+  font-weight: 500;
+}
+
+.file-tree-chevron {
+  font-size: 7px;
+  width: 10px;
+  display: inline-block;
+  transition: transform 0.15s ease;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.file-tree-chevron.open {
+  transform: rotate(90deg);
+}
+
+.file-tree-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+
+.file-tree-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-tree-status {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 3px;
+  margin-left: auto;
+}
+
+.file-status-modified .file-tree-name,
+.file-status-modified {
+  color: #fab387;
+}
+
+.file-status-staged .file-tree-name,
+.file-status-staged {
+  color: #a6e3a1;
+}
+
+.file-status-untracked .file-tree-name,
+.file-status-untracked {
+  color: #94e2d5;
+}
+
+.file-status-conflicted .file-tree-name,
+.file-status-conflicted {
+  color: #f38ba8;
+}
+
+.file-status-deleted .file-tree-name,
+.file-status-deleted {
+  color: #f38ba8;
+  text-decoration: line-through;
+}
+
+.file-status-added .file-tree-name,
+.file-status-added {
+  color: #a6e3a1;
+}
+
+.file-status-renamed .file-tree-name,
+.file-status-renamed {
+  color: #89b4fa;
+}
+
+.file-tree-children {
+  /* No padding — depth is handled via inline style */
+}
