@@ -110,6 +110,54 @@ export function registerGitIpcHandlers(): void {
     }
   })
 
+  // ─── Create Tag ──────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:createTag',
+    async (
+      _event,
+      repoPath: string,
+      name: string,
+      target?: string,
+      opts?: { message?: string }
+    ) => {
+      try {
+        await gitService.createTag(repoPath, name, target, { message: opts?.message })
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Delete Tag ──────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:deleteTag',
+    async (_event, repoPath: string, name: string) => {
+      try {
+        await gitService.deleteTag(repoPath, name)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Push Tag ────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:pushTag',
+    async (_event, repoPath: string, tagName: string, remoteName?: string) => {
+      try {
+        await gitService.pushTag(repoPath, tagName, remoteName)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Stashes ─────────────────────────────────────────────────────────────
 
   ipcMain.handle('git:getStashes', async (_event, repoPath: string) => {

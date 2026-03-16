@@ -923,6 +923,349 @@ function RemoteBranchContextMenu({ state, onClose, onCheckout, onDelete, onFetch
   )
 }
 
+// ─── TagsSection ────────────────────────────────────────────────────────────
+
+interface GitTag {
+  name: string
+  hash: string
+  isAnnotated: boolean
+  message: string
+  taggerDate: string
+}
+
+interface TagContextMenuState {
+  x: number
+  y: number
+  tag: GitTag
+}
+
+interface NewTagDialogState {
+  open: boolean
+  name: string
+  target: string
+  message: string
+  error: string | null
+  loading: boolean
+}
+
+interface TagsSectionProps {
+  currentRepo: string | null
+}
+
+function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
+  const [tags, setTags] = useState<GitTag[]>([])
+  const [filter, setFilter] = useState('')
+  const [contextMenu, setContextMenu] = useState<TagContextMenuState | null>(null)
+  const [newTagDialog, setNewTagDialog] = useState<NewTagDialogState>({
+    open: false,
+    name: '',
+    target: 'HEAD',
+    message: '',
+    error: null,
+    loading: false
+  })
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const loadTags = useCallback(async () => {
+    if (!currentRepo) {
+      setTags([])
+      return
+    }
+    try {
+      const result = await window.electronAPI.git.getTags(currentRepo)
+      if (result.success && result.data) {
+        setTags(result.data)
+      }
+    } catch {
+      // ignore
+    }
+  }, [currentRepo])
+
+  // Load tags on mount and auto-refresh
+  useEffect(() => {
+    loadTags()
+
+    const startRefresh = (): void => {
+      refreshTimerRef.current = setInterval(() => {
+        loadTags()
+      }, 5000)
+    }
+
+    startRefresh()
+    return () => {
+      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current)
+    }
+  }, [loadTags])
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenu) return
+    const handler = (): void => setContextMenu(null)
+    window.addEventListener('click', handler)
+    return () => window.removeEventListener('click', handler)
+  }, [contextMenu])
+
+  const filteredTags = filter
+    ? tags.filter((t) => t.name.toLowerCase().includes(filter.toLowerCase()))
+    : tags
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, tag: GitTag) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY, tag })
+  }, [])
+
+  const handleDelete = useCallback(
+    async (name: string) => {
+      if (!currentRepo) return
+      if (!confirm(`Delete tag "${name}"?`)) return
+      try {
+        const result = await window.electronAPI.git.deleteTag(currentRepo, name)
+        if (!result.success) {
+          alert(`Failed to delete tag: ${result.error}`)
+        }
+        loadTags()
+      } catch {
+        // ignore
+      }
+    },
+    [currentRepo, loadTags]
+  )
+
+  const handlePushTag = useCallback(
+    async (name: string) => {
+      if (!currentRepo) return
+      try {
+        const result = await window.electronAPI.git.pushTag(currentRepo, name)
+        if (!result.success) {
+          alert(`Failed to push tag: ${result.error}`)
+        }
+      } catch {
+        // ignore
+      }
+    },
+    [currentRepo]
+  )
+
+  const handleNewTagSubmit = useCallback(async () => {
+    if (!currentRepo || !newTagDialog.name.trim()) return
+    setNewTagDialog((prev) => ({ ...prev, loading: true, error: null }))
+
+    try {
+      const target = newTagDialog.target.trim() || undefined
+      const message = newTagDialog.message.trim() || undefined
+      const result = await window.electronAPI.git.createTag(
+        currentRepo,
+        newTagDialog.name.trim(),
+        target,
+        message ? { message } : undefined
+      )
+      if (result.success) {
+        setNewTagDialog({
+          open: false,
+          name: '',
+          target: 'HEAD',
+          message: '',
+          error: null,
+          loading: false
+        })
+        loadTags()
+      } else {
+        setNewTagDialog((prev) => ({
+          ...prev,
+          error: result.error || 'Failed to create tag',
+          loading: false
+        }))
+      }
+    } catch {
+      setNewTagDialog((prev) => ({
+        ...prev,
+        error: 'Unexpected error',
+        loading: false
+      }))
+    }
+  }, [currentRepo, newTagDialog.name, newTagDialog.target, newTagDialog.message, loadTags])
+
+  const formatDate = (dateStr: string): string => {
+    if (!dateStr) return ''
+    try {
+      const d = new Date(dateStr)
+      const now = new Date()
+      const diffMs = now.getTime() - d.getTime()
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+      if (diffDays === 0) return 'today'
+      if (diffDays === 1) return 'yesterday'
+      if (diffDays < 30) return `${diffDays}d ago`
+      if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`
+      return `${Math.floor(diffDays / 365)}y ago`
+    } catch {
+      return ''
+    }
+  }
+
+  return (
+    <>
+      <SidebarSection
+        title="Tags"
+        icon="&#127991;"
+        defaultOpen={false}
+        count={tags.length}
+        headerAction={
+          currentRepo ? (
+            <button
+              className="sidebar-section-add-btn"
+              title="New Tag"
+              onClick={(e) => {
+                e.stopPropagation()
+                setNewTagDialog((prev) => ({ ...prev, open: true }))
+              }}
+            >
+              +
+            </button>
+          ) : undefined
+        }
+      >
+        {!currentRepo ? (
+          <div className="sidebar-placeholder">No repository open</div>
+        ) : tags.length === 0 ? (
+          <div className="sidebar-placeholder">No tags</div>
+        ) : (
+          <div className="sidebar-branch-list">
+            {tags.length > 5 && (
+              <input
+                className="sidebar-branch-filter"
+                type="text"
+                placeholder="Filter tags..."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+            )}
+            {filteredTags.length === 0 ? (
+              <div className="sidebar-placeholder">No matching tags</div>
+            ) : (
+              filteredTags.map((tag) => (
+                <div
+                  key={tag.name}
+                  className="sidebar-tag-item"
+                  title={
+                    tag.isAnnotated
+                      ? `${tag.name} (annotated)\n${tag.message}`
+                      : `${tag.name} (lightweight)`
+                  }
+                  onContextMenu={(e) => handleContextMenu(e, tag)}
+                >
+                  <span className="sidebar-tag-icon">
+                    {tag.isAnnotated ? '\u{1F3F7}' : '\u{1F516}'}
+                  </span>
+                  <span className="sidebar-tag-name">{tag.name}</span>
+                  {tag.taggerDate && (
+                    <span className="sidebar-tag-date">{formatDate(tag.taggerDate)}</span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </SidebarSection>
+
+      {/* Tag Context Menu */}
+      {contextMenu && (
+        <div
+          className="branch-ctx-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="branch-ctx-menu-item"
+            onClick={() => {
+              handleDelete(contextMenu.tag.name)
+              setContextMenu(null)
+            }}
+          >
+            <span className="branch-ctx-menu-icon">&#128465;</span>
+            <span className="branch-ctx-menu-label">Delete tag</span>
+          </button>
+          <button
+            className="branch-ctx-menu-item"
+            onClick={() => {
+              handlePushTag(contextMenu.tag.name)
+              setContextMenu(null)
+            }}
+          >
+            <span className="branch-ctx-menu-icon">&#8593;</span>
+            <span className="branch-ctx-menu-label">Push tag</span>
+          </button>
+        </div>
+      )}
+
+      {/* New Tag Dialog */}
+      {newTagDialog.open && (
+        <div className="branch-dialog-overlay" onClick={() => setNewTagDialog((prev) => ({ ...prev, open: false }))}>
+          <div className="branch-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>New Tag</h3>
+            <div className="branch-dialog-field">
+              <label>Name</label>
+              <input
+                type="text"
+                placeholder="v1.0.0"
+                value={newTagDialog.name}
+                onChange={(e) =>
+                  setNewTagDialog((prev) => ({ ...prev, name: e.target.value, error: null }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !newTagDialog.loading) handleNewTagSubmit()
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="branch-dialog-field">
+              <label>Target commit (defaults to HEAD)</label>
+              <input
+                type="text"
+                placeholder="HEAD"
+                value={newTagDialog.target}
+                onChange={(e) =>
+                  setNewTagDialog((prev) => ({ ...prev, target: e.target.value }))
+                }
+              />
+            </div>
+            <div className="branch-dialog-field">
+              <label>Message (for annotated tag, leave empty for lightweight)</label>
+              <textarea
+                placeholder="Release message..."
+                value={newTagDialog.message}
+                onChange={(e) =>
+                  setNewTagDialog((prev) => ({ ...prev, message: e.target.value }))
+                }
+                rows={3}
+                style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: 'inherit' }}
+              />
+            </div>
+            {newTagDialog.error && (
+              <div className="branch-dialog-error">{newTagDialog.error}</div>
+            )}
+            <div className="branch-dialog-actions">
+              <button
+                className="branch-dialog-btn branch-dialog-cancel"
+                onClick={() => setNewTagDialog((prev) => ({ ...prev, open: false }))}
+              >
+                Cancel
+              </button>
+              <button
+                className="branch-dialog-btn branch-dialog-submit"
+                disabled={!newTagDialog.name.trim() || newTagDialog.loading}
+                onClick={handleNewTagSubmit}
+              >
+                {newTagDialog.loading ? 'Creating...' : 'Create Tag'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ─── Sidebar (main export) ──────────────────────────────────────────────────
 
 export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
@@ -1206,11 +1549,7 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
 
       <RemotesSection currentRepo={currentRepo} onBranchesChanged={loadBranches} />
 
-      <SidebarSection title="Tags" icon="&#127991;" defaultOpen={false}>
-        <div className="sidebar-placeholder">
-          {currentRepo ? 'Tags shown here' : 'No repository open'}
-        </div>
-      </SidebarSection>
+      <TagsSection currentRepo={currentRepo} />
 
       <SidebarSection title="Stashes" icon="&#128230;" defaultOpen={false}>
         <div className="sidebar-placeholder">

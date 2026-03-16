@@ -609,6 +609,49 @@ export class GitService {
   }
 
   /**
+   * Create a tag.
+   */
+  async createTag(
+    repoPath: string,
+    name: string,
+    target?: string,
+    options?: { message?: string; signal?: AbortSignal }
+  ): Promise<void> {
+    const args = ['tag']
+    if (options?.message) {
+      args.push('-a', name, '-m', options.message)
+    } else {
+      args.push(name)
+    }
+    if (target) args.push(target)
+    await this.exec(args, repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Delete a tag (local).
+   */
+  async deleteTag(
+    repoPath: string,
+    name: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['tag', '-d', name], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Push a tag to a remote.
+   */
+  async pushTag(
+    repoPath: string,
+    tagName: string,
+    remoteName?: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    const remote = remoteName || 'origin'
+    await this.exec(['push', remote, `refs/tags/${tagName}`], repoPath, { signal: options?.signal })
+  }
+
+  /**
    * Checkout a branch.
    */
   async checkout(repoPath: string, branchName: string, options?: { signal?: AbortSignal }): Promise<void> {

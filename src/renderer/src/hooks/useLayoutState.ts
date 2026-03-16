@@ -36,6 +36,14 @@ declare global {
         getBranches: (repoPath: string) => Promise<GitServiceResult>
         getRemotes: (repoPath: string) => Promise<GitServiceResult>
         getTags: (repoPath: string) => Promise<GitServiceResult>
+        createTag: (
+          repoPath: string,
+          name: string,
+          target?: string,
+          opts?: { message?: string }
+        ) => Promise<GitServiceResult>
+        deleteTag: (repoPath: string, name: string) => Promise<GitServiceResult>
+        pushTag: (repoPath: string, tagName: string, remoteName?: string) => Promise<GitServiceResult>
         getStashes: (repoPath: string) => Promise<GitServiceResult>
         getStatus: (repoPath: string) => Promise<GitServiceResult>
         diff: (repoPath: string, filePath?: string, opts?: { staged?: boolean }) => Promise<GitServiceResult>

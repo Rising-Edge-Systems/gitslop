@@ -781,6 +781,43 @@ body {
   min-width: 0;
 }
 
+/* Tag sidebar items */
+.sidebar-tag-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 16px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  user-select: none;
+}
+
+.sidebar-tag-item:hover {
+  background-color: rgba(137, 180, 250, 0.06);
+}
+
+.sidebar-tag-icon {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.sidebar-tag-name {
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-tag-date {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 /* Main Content */
 .main-content {
   height: 100%;

@@ -49,6 +49,17 @@ const electronAPI = {
       ipcRenderer.invoke('git:getRemotes', repoPath),
     getTags: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getTags', repoPath),
+    createTag: (
+      repoPath: string,
+      name: string,
+      target?: string,
+      opts?: { message?: string }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:createTag', repoPath, name, target, opts),
+    deleteTag: (repoPath: string, name: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:deleteTag', repoPath, name),
+    pushTag: (repoPath: string, tagName: string, remoteName?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:pushTag', repoPath, tagName, remoteName),
     getStashes: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getStashes', repoPath),
     getStatus: (repoPath: string): Promise<GitServiceResult> =>
