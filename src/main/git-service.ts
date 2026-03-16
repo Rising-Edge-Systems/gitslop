@@ -1093,6 +1093,126 @@ export class GitService {
   /**
    * Get the current branch name.
    */
+  // ─── Merge ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Preview how many commits will be merged from a branch.
+   */
+  async getMergePreview(
+    repoPath: string,
+    branchName: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ commitCount: number; fastForward: boolean }> {
+    // Count commits that would be merged
+    const result = await this.exec(
+      ['rev-list', '--count', `HEAD..${branchName}`],
+      repoPath,
+      { signal: options?.signal }
+    )
+    const commitCount = parseInt(result.stdout.trim(), 10) || 0
+
+    // Check if fast-forward is possible
+    let fastForward = false
+    try {
+      const mergeBase = await this.exec(
+        ['merge-base', 'HEAD', branchName],
+        repoPath,
+        { signal: options?.signal }
+      )
+      const headHash = await this.exec(
+        ['rev-parse', 'HEAD'],
+        repoPath,
+        { signal: options?.signal }
+      )
+      fastForward = mergeBase.stdout.trim() === headHash.stdout.trim()
+    } catch {
+      // Ignore — can't determine fast-forward status
+    }
+
+    return { commitCount, fastForward }
+  }
+
+  /**
+   * Merge a branch into the current branch.
+   */
+  async merge(
+    repoPath: string,
+    branchName: string,
+    options?: {
+      signal?: AbortSignal
+      noFastForward?: boolean
+      fastForwardOnly?: boolean
+    }
+  ): Promise<{ success: boolean; message: string; conflicts?: string[] }> {
+    const args = ['merge', branchName]
+
+    if (options?.noFastForward) {
+      args.push('--no-ff')
+    } else if (options?.fastForwardOnly) {
+      args.push('--ff-only')
+    }
+
+    try {
+      const result = await this.exec(args, repoPath, { signal: options?.signal })
+      const output = (result.stdout + '\n' + result.stderr).trim()
+      return { success: true, message: output || 'Merge successful' }
+    } catch (err) {
+      // Check if it's a conflict
+      const gitErr = err as GitError
+      const stderr = gitErr.stderr || gitErr.message || ''
+      if (stderr.includes('CONFLICT') || stderr.includes('Merge conflict') || stderr.includes('Automatic merge failed')) {
+        // Get list of conflicted files
+        const conflicts = await this.getConflictedFiles(repoPath)
+        return {
+          success: false,
+          message: 'Merge resulted in conflicts. Resolve conflicts and commit.',
+          conflicts
+        }
+      }
+      throw err
+    }
+  }
+
+  /**
+   * Abort an in-progress merge.
+   */
+  async mergeAbort(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['merge', '--abort'], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Check if a merge is currently in progress.
+   */
+  async isMerging(repoPath: string): Promise<boolean> {
+    try {
+      const { existsSync } = await import('fs')
+      const { join } = await import('path')
+      const gitDir = (await this.exec(['rev-parse', '--git-dir'], repoPath)).stdout.trim()
+      const mergeHeadPath = join(repoPath, gitDir, 'MERGE_HEAD')
+      return existsSync(mergeHeadPath)
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Get list of conflicted files.
+   */
+  async getConflictedFiles(repoPath: string): Promise<string[]> {
+    try {
+      const result = await this.exec(
+        ['diff', '--name-only', '--diff-filter=U'],
+        repoPath
+      )
+      return result.stdout.trim().split('\n').filter((f) => f.length > 0)
+    } catch {
+      return []
+    }
+  }
+
   async getCurrentBranch(
     repoPath: string,
     options?: { signal?: AbortSignal }

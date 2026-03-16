@@ -714,6 +714,84 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Merge Preview ───────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:mergePreview',
+    async (_event, repoPath: string, branchName: string) => {
+      try {
+        const data = await gitService.getMergePreview(repoPath, branchName)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Merge ──────────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:merge',
+    async (
+      _event,
+      repoPath: string,
+      branchName: string,
+      opts?: { noFastForward?: boolean; fastForwardOnly?: boolean }
+    ) => {
+      try {
+        const result = await gitService.merge(repoPath, branchName, {
+          noFastForward: opts?.noFastForward,
+          fastForwardOnly: opts?.fastForwardOnly
+        })
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Merge Abort ────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:mergeAbort',
+    async (_event, repoPath: string) => {
+      try {
+        await gitService.mergeAbort(repoPath)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Is Merging ─────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:isMerging',
+    async (_event, repoPath: string) => {
+      try {
+        const data = await gitService.isMerging(repoPath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Get Conflicted Files ──────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:getConflictedFiles',
+    async (_event, repoPath: string) => {
+      try {
+        const data = await gitService.getConflictedFiles(repoPath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {

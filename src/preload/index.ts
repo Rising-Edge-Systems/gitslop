@@ -176,6 +176,20 @@ const electronAPI = {
         ipcRenderer.removeListener('git:operation-progress', handler)
       }
     },
+    mergePreview: (repoPath: string, branchName: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:mergePreview', repoPath, branchName),
+    merge: (
+      repoPath: string,
+      branchName: string,
+      opts?: { noFastForward?: boolean; fastForwardOnly?: boolean }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:merge', repoPath, branchName, opts),
+    mergeAbort: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:mergeAbort', repoPath),
+    isMerging: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:isMerging', repoPath),
+    getConflictedFiles: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getConflictedFiles', repoPath),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

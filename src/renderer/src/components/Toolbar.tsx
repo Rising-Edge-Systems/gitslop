@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { MergeDialog } from './MergeDialog'
 
 interface StashDialogState {
   open: boolean
@@ -71,6 +72,8 @@ export function Toolbar({ currentRepo }: ToolbarProps): React.JSX.Element {
     loading: false,
     error: null
   })
+
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false)
 
   const [activeOp, setActiveOp] = useState<ActiveOperation>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -374,7 +377,14 @@ export function Toolbar({ currentRepo }: ToolbarProps): React.JSX.Element {
           <span className="toolbar-btn-icon">⑂</span>
           <span className="toolbar-btn-label">Branch</span>
         </button>
-        <button className="toolbar-btn" title="Merge">
+        <button
+          className="toolbar-btn"
+          title="Merge"
+          onClick={() => {
+            if (currentRepo) setMergeDialogOpen(true)
+          }}
+          disabled={!currentRepo}
+        >
           <span className="toolbar-btn-icon">⤞</span>
           <span className="toolbar-btn-label">Merge</span>
         </button>
@@ -578,6 +588,17 @@ export function Toolbar({ currentRepo }: ToolbarProps): React.JSX.Element {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Merge Dialog */}
+      {mergeDialogOpen && currentRepo && (
+        <MergeDialog
+          currentRepo={currentRepo}
+          onClose={() => setMergeDialogOpen(false)}
+          onMergeComplete={() => {
+            showNotification('success', 'Merge completed successfully')
+          }}
+        />
       )}
 
       {/* Pull Strategy Dialog */}

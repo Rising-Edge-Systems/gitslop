@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { MergeDialog } from './MergeDialog'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1617,6 +1618,7 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
   })
   const [renameTarget, setRenameTarget] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [mergeBranch, setMergeBranch] = useState<string | null>(null)
 
   // ─── Load branches ──────────────────────────────────────────────────────
 
@@ -1725,13 +1727,11 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
   )
 
   const handleMerge = useCallback(
-    async (branchName: string) => {
+    (branchName: string) => {
       if (!currentRepo) return
-      // Placeholder — merge functionality will be implemented in US-019
-      await window.electronAPI.git.exec(['merge', branchName], currentRepo)
-      await loadBranches()
+      setMergeBranch(branchName)
     },
-    [currentRepo, loadBranches]
+    [currentRepo]
   )
 
   const handleRebase = useCallback(
@@ -1920,6 +1920,19 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
           oldName={renameTarget}
           onClose={() => setRenameTarget(null)}
           onSubmit={handleRenameSubmit}
+        />
+      )}
+
+      {/* Merge Dialog */}
+      {mergeBranch && currentRepo && (
+        <MergeDialog
+          currentRepo={currentRepo}
+          preselectedBranch={mergeBranch}
+          onClose={() => setMergeBranch(null)}
+          onMergeComplete={() => {
+            setMergeBranch(null)
+            loadBranches()
+          }}
         />
       )}
     </div>

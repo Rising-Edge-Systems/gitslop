@@ -106,6 +106,15 @@ declare global {
         onOperationProgress: (
           callback: (progress: { operationId: string; operation: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
         ) => () => void
+        mergePreview: (repoPath: string, branchName: string) => Promise<GitServiceResult>
+        merge: (
+          repoPath: string,
+          branchName: string,
+          opts?: { noFastForward?: boolean; fastForwardOnly?: boolean }
+        ) => Promise<GitServiceResult>
+        mergeAbort: (repoPath: string) => Promise<GitServiceResult>
+        isMerging: (repoPath: string) => Promise<GitServiceResult>
+        getConflictedFiles: (repoPath: string) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
