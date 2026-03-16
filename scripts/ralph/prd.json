@@ -467,7 +467,7 @@
         "Typecheck passes"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": "Use xterm.js + node-pty. node-pty requires native compilation — ensure electron-rebuild is configured."
     },
     {

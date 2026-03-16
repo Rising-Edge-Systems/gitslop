@@ -525,3 +525,25 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - `openFileInEditor(filePath)` helper function exported from CodeEditor for other components to use
   - CodeEditor panel is a 400px collapsible section in RepoView, toggled via editor button
 ---
+## 2026-03-16 15:43 - US-026
+- Implemented: Toggleable CLI Terminal with xterm.js + node-pty, multiple terminal tabs, auto-resize, repo-aware cwd
+- Files created:
+  - `src/main/terminal-manager.ts` - Terminal process manager using node-pty for PTY spawning, IPC handlers for create/write/resize/kill/setCwd
+  - `src/renderer/src/components/Terminal.tsx` - Full terminal panel with xterm.js rendering, multiple tabs, FitAddon auto-resize, tab management (create/close/switch), ResizeObserver for dynamic sizing, debounced repo status refresh on terminal activity
+- Files modified:
+  - `src/main/index.ts` - Registered terminal IPC handlers, cleanup terminals on window close
+  - `src/preload/index.ts` - Added terminal.create/write/resize/kill/setCwd/onData/onExit to electronAPI
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with terminal namespace
+  - `src/renderer/src/components/AppLayout.tsx` - Replaced BottomPanel with TerminalPanel, passes currentRepo prop
+  - `src/renderer/src/styles/global.css` - Added terminal tabs bar, tab styling, active states, close buttons, terminal content/xterm overrides
+  - `package.json` - Added node-pty, @xterm/xterm, @xterm/addon-fit dependencies
+- **Learnings for future iterations:**
+  - node-pty installed cleanly without native compilation issues on this system
+  - `@xterm/xterm` is the v5+ package name (replaces old `xterm` package); CSS import is `@xterm/xterm/css/xterm.css`
+  - `FitAddon.proposeDimensions()` returns `{ cols, rows }` for syncing PTY size with xterm display
+  - Terminal IPC: `terminal:create`/`terminal:write`/`terminal:resize`/`terminal:kill`/`terminal:setCwd` for control, `terminal:data`/`terminal:exit` for events
+  - ResizeObserver + debounced fit is the best pattern for auto-resizing xterm terminals in resizable panels
+  - node-pty `spawn` env must be cast to `Record<string, string>` due to `process.env` type having `undefined` values
+  - Terminal tabs use `disposed` flag to prevent double-dispose on cleanup
+  - Catppuccin Mocha colors used for xterm theme to match app's dark theme
+---
