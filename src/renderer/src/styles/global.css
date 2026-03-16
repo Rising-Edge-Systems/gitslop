@@ -4189,6 +4189,162 @@ body {
   background: rgba(166, 227, 161, 0.25);
 }
 
+/* ─── Revert Notification ──────────────────────────────────────────────────── */
+
+.revert-notification {
+  position: absolute;
+  top: 48px;
+  right: 12px;
+  z-index: 2500;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-width: 280px;
+  max-width: 400px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.revert-reverting {
+  border-color: #89b4fa;
+}
+
+.revert-success {
+  border-color: #a6e3a1;
+}
+
+.revert-conflict {
+  border-color: #f38ba8;
+}
+
+.revert-merge-prompt {
+  border-color: #f9e2af;
+}
+
+.revert-notification-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.revert-message {
+  flex: 1;
+}
+
+.revert-new-hash {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.revert-new-hash code {
+  background: rgba(137, 180, 250, 0.15);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #89b4fa;
+  font-size: 12px;
+}
+
+.revert-conflicts {
+  margin-top: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.revert-conflicts-title {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.revert-conflict-file {
+  font-size: 12px;
+  padding: 2px 0;
+  color: #f38ba8;
+  font-family: var(--font-mono);
+}
+
+.revert-parent-select {
+  margin-top: 10px;
+}
+
+.revert-parent-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.revert-parent-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.revert-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  justify-content: flex-end;
+}
+
+.revert-btn {
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  cursor: pointer;
+  background: rgba(137, 180, 250, 0.15);
+  color: var(--text-primary);
+  transition: background 0.15s;
+}
+
+.revert-btn:hover {
+  background: rgba(137, 180, 250, 0.25);
+}
+
+.revert-btn-parent {
+  background: rgba(249, 226, 175, 0.15);
+  border-color: #f9e2af;
+  color: #f9e2af;
+}
+
+.revert-btn-parent:hover {
+  background: rgba(249, 226, 175, 0.3);
+}
+
+.revert-btn-continue {
+  background: rgba(137, 180, 250, 0.15);
+  border-color: #89b4fa;
+  color: #89b4fa;
+}
+
+.revert-btn-continue:hover {
+  background: rgba(137, 180, 250, 0.25);
+}
+
+.revert-btn-abort {
+  background: rgba(243, 139, 168, 0.15);
+  border-color: #f38ba8;
+  color: #f38ba8;
+}
+
+.revert-btn-abort:hover {
+  background: rgba(243, 139, 168, 0.25);
+}
+
+.revert-btn-dismiss {
+  background: rgba(166, 227, 161, 0.15);
+  border-color: #a6e3a1;
+  color: #a6e3a1;
+}
+
+.revert-btn-dismiss:hover {
+  background: rgba(166, 227, 161, 0.25);
+}
+
 /* ─── Reset Dialog ──────────────────────────────────────────────────────────── */
 
 .reset-dialog-overlay {

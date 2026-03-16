@@ -2058,6 +2058,124 @@ export class GitService {
     }
   }
 
+  // ─── Revert ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Revert a commit, creating a new revert commit.
+   * For merge commits, parentNumber (1 or 2) must be specified.
+   */
+  async revert(
+    repoPath: string,
+    hash: string,
+    options?: { parentNumber?: number; signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; newHash?: string; conflicts?: string[] }> {
+    try {
+      const args = ['revert', '--no-edit']
+      if (options?.parentNumber) {
+        args.push('-m', String(options.parentNumber))
+      }
+      args.push(hash)
+
+      const result = await this.exec(args, repoPath, { signal: options?.signal })
+      const output = (result.stdout + '\n' + result.stderr).trim()
+
+      // Try to get the new commit hash
+      let newHash: string | undefined
+      try {
+        const headResult = await this.exec(['rev-parse', 'HEAD'], repoPath)
+        newHash = headResult.stdout.trim()
+      } catch {
+        // Ignore
+      }
+
+      return {
+        success: true,
+        message: output || `Reverted commit ${hash.substring(0, 7)} successfully`,
+        newHash
+      }
+    } catch (err) {
+      const gitErr = err as GitError
+      const stderr = gitErr.stderr || gitErr.message || ''
+
+      if (stderr.includes('CONFLICT') || stderr.includes('conflict') || stderr.includes('could not revert')) {
+        const conflicts = await this.getConflictedFiles(repoPath)
+        return {
+          success: false,
+          message: stderr || 'Revert resulted in conflicts. Resolve them and continue.',
+          conflicts
+        }
+      }
+      throw err
+    }
+  }
+
+  /**
+   * Abort an in-progress revert.
+   */
+  async revertAbort(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['revert', '--abort'], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * Continue a revert after resolving conflicts.
+   */
+  async revertContinue(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; newHash?: string; conflicts?: string[] }> {
+    try {
+      const result = await this.exec(
+        ['revert', '--continue'],
+        repoPath,
+        { signal: options?.signal }
+      )
+
+      let newHash: string | undefined
+      try {
+        const headResult = await this.exec(['rev-parse', 'HEAD'], repoPath)
+        newHash = headResult.stdout.trim()
+      } catch {
+        // Ignore
+      }
+
+      return {
+        success: true,
+        message: result.stdout.trim() || 'Revert completed successfully',
+        newHash
+      }
+    } catch (err) {
+      const gitErr = err as GitError
+      const stderr = gitErr.stderr || gitErr.message || ''
+      if (stderr.includes('CONFLICT') || stderr.includes('conflict')) {
+        const conflicts = await this.getConflictedFiles(repoPath)
+        return {
+          success: false,
+          message: 'More conflicts. Resolve and continue.',
+          conflicts
+        }
+      }
+      throw err
+    }
+  }
+
+  /**
+   * Check if a revert is currently in progress.
+   */
+  async isReverting(repoPath: string): Promise<boolean> {
+    try {
+      const { existsSync } = await import('fs')
+      const { join } = await import('path')
+      const gitDir = (await this.exec(['rev-parse', '--git-dir'], repoPath)).stdout.trim()
+      const revertHeadPath = join(repoPath, gitDir, 'REVERT_HEAD')
+      return existsSync(revertHeadPath)
+    } catch {
+      return false
+    }
+  }
+
   private createError(message: string, code: GitErrorCode, stderr?: string): GitError {
     return { message, code, stderr }
   }

@@ -978,6 +978,63 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Revert ──────────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:revert',
+    async (
+      _event,
+      repoPath: string,
+      hash: string,
+      opts?: { parentNumber?: number }
+    ) => {
+      try {
+        const result = await gitService.revert(repoPath, hash, {
+          parentNumber: opts?.parentNumber
+        })
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:revertAbort',
+    async (_event, repoPath: string) => {
+      try {
+        await gitService.revertAbort(repoPath)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:revertContinue',
+    async (_event, repoPath: string) => {
+      try {
+        const result = await gitService.revertContinue(repoPath)
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:isReverting',
+    async (_event, repoPath: string) => {
+      try {
+        const data = await gitService.isReverting(repoPath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {

@@ -136,6 +136,14 @@ declare global {
           targetHash: string,
           mode: 'soft' | 'mixed' | 'hard'
         ) => Promise<GitServiceResult>
+        revert: (
+          repoPath: string,
+          hash: string,
+          opts?: { parentNumber?: number }
+        ) => Promise<GitServiceResult>
+        revertAbort: (repoPath: string) => Promise<GitServiceResult>
+        revertContinue: (repoPath: string) => Promise<GitServiceResult>
+        isReverting: (repoPath: string) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void

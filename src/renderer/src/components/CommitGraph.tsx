@@ -46,6 +46,15 @@ interface CherryPickState {
   conflicts?: string[]
 }
 
+interface RevertState {
+  status: 'idle' | 'reverting' | 'success' | 'conflict' | 'merge-prompt'
+  message: string
+  newHash?: string
+  conflicts?: string[]
+  commitHash?: string
+  parentCount?: number
+}
+
 interface CommitGraphProps {
   repoPath: string
   onRefresh?: () => void
@@ -683,6 +692,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set())
   const [cherryPickState, setCherryPickState] = useState<CherryPickState>({ status: 'idle', message: '' })
+  const [revertState, setRevertState] = useState<RevertState>({ status: 'idle', message: '' })
   const [resetTarget, setResetTarget] = useState<{ hash: string; subject: string } | null>(null)
 
   // Load commits
@@ -907,6 +917,93 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
     }
   }, [repoPath, loadCommits])
 
+  // Revert handler
+  const handleRevert = useCallback(async (hash: string, parentHashes: string[], parentNumber?: number) => {
+    // If merge commit and no parent specified, prompt
+    if (parentHashes.length > 1 && !parentNumber) {
+      setRevertState({
+        status: 'merge-prompt',
+        message: 'This is a merge commit. Select which parent to revert against.',
+        commitHash: hash,
+        parentCount: parentHashes.length
+      })
+      return
+    }
+
+    setRevertState({ status: 'reverting', message: 'Reverting commit...' })
+
+    try {
+      const result = await window.electronAPI.git.revert(repoPath, hash, {
+        parentNumber
+      })
+      if (result.success && result.data?.success) {
+        setRevertState({
+          status: 'success',
+          message: 'Revert successful!',
+          newHash: result.data.newHash
+        })
+        loadCommits()
+      } else if (result.data?.conflicts && result.data.conflicts.length > 0) {
+        setRevertState({
+          status: 'conflict',
+          message: result.data?.message || 'Revert resulted in conflicts.',
+          conflicts: result.data.conflicts,
+          commitHash: hash
+        })
+      } else {
+        setRevertState({
+          status: 'conflict',
+          message: result.error || result.data?.message || 'Revert failed.',
+          conflicts: result.data?.conflicts || [],
+          commitHash: hash
+        })
+      }
+    } catch (err) {
+      setRevertState({
+        status: 'conflict',
+        message: err instanceof Error ? err.message : 'Revert failed.',
+        conflicts: [],
+        commitHash: hash
+      })
+    }
+  }, [repoPath, loadCommits])
+
+  const handleRevertAbort = useCallback(async () => {
+    try {
+      await window.electronAPI.git.revertAbort(repoPath)
+      setRevertState({ status: 'idle', message: '' })
+      loadCommits()
+    } catch {
+      setRevertState({ status: 'idle', message: '' })
+    }
+  }, [repoPath, loadCommits])
+
+  const handleRevertContinue = useCallback(async () => {
+    setRevertState((prev) => ({ ...prev, status: 'reverting', message: 'Continuing revert...' }))
+    try {
+      const result = await window.electronAPI.git.revertContinue(repoPath)
+      if (result.success && result.data?.success) {
+        setRevertState({
+          status: 'success',
+          message: 'Revert completed successfully!',
+          newHash: result.data.newHash
+        })
+        loadCommits()
+      } else {
+        setRevertState({
+          status: 'conflict',
+          message: result.data?.message || result.error || 'More conflicts.',
+          conflicts: result.data?.conflicts || []
+        })
+      }
+    } catch (err) {
+      setRevertState({
+        status: 'conflict',
+        message: err instanceof Error ? err.message : 'Continue failed.'
+      })
+    }
+  }, [repoPath, loadCommits])
+
   // Handle context menu actions
   const handleContextAction = useCallback((action: string, commit: GitCommit) => {
     switch (action) {
@@ -927,13 +1024,15 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
         setResetTarget({ hash: commit.hash, subject: commit.subject })
         break
       case 'revert':
+        handleRevert(commit.hash, commit.parentHashes)
+        break
       case 'create-branch':
       case 'create-tag':
         // Placeholder — these will be implemented in future stories
         console.log(`Action: ${action} on commit ${commit.shortHash}`)
         break
     }
-  }, [selectedHashes, handleCherryPick])
+  }, [selectedHashes, handleCherryPick, handleRevert])
 
   // Keyboard navigation
   useEffect(() => {
@@ -1149,6 +1248,82 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
           </div>
         )}
       </div>
+
+      {/* Revert notification */}
+      {revertState.status !== 'idle' && (
+        <div className={`revert-notification revert-${revertState.status}`}>
+          <div className="revert-notification-content">
+            {revertState.status === 'reverting' && (
+              <span className="repo-view-spinner">&#x21BB;</span>
+            )}
+            {revertState.status === 'success' && <span>&#x2714;</span>}
+            {revertState.status === 'conflict' && <span>&#x26A0;</span>}
+            {revertState.status === 'merge-prompt' && <span>&#x2753;</span>}
+            <span className="revert-message">{revertState.message}</span>
+          </div>
+
+          {revertState.status === 'success' && revertState.newHash && (
+            <div className="revert-new-hash">
+              Revert commit: <code>{revertState.newHash.substring(0, 7)}</code>
+            </div>
+          )}
+
+          {revertState.status === 'conflict' && revertState.conflicts && revertState.conflicts.length > 0 && (
+            <div className="revert-conflicts">
+              <div className="revert-conflicts-title">Conflicted files:</div>
+              {revertState.conflicts.map((f, i) => (
+                <div key={i} className="revert-conflict-file">{f}</div>
+              ))}
+            </div>
+          )}
+
+          {revertState.status === 'merge-prompt' && revertState.commitHash && (
+            <div className="revert-parent-select">
+              <div className="revert-parent-label">Select parent to revert against:</div>
+              <div className="revert-parent-buttons">
+                {Array.from({ length: revertState.parentCount || 2 }, (_, i) => (
+                  <button
+                    key={i}
+                    className="revert-btn revert-btn-parent"
+                    onClick={() => handleRevert(revertState.commitHash!, [], i + 1)}
+                  >
+                    Parent {i + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="revert-actions">
+            {revertState.status === 'conflict' && (
+              <>
+                <button className="revert-btn revert-btn-continue" onClick={handleRevertContinue}>
+                  Continue
+                </button>
+                <button className="revert-btn revert-btn-abort" onClick={handleRevertAbort}>
+                  Abort Revert
+                </button>
+              </>
+            )}
+            {revertState.status === 'merge-prompt' && (
+              <button
+                className="revert-btn revert-btn-dismiss"
+                onClick={() => setRevertState({ status: 'idle', message: '' })}
+              >
+                Cancel
+              </button>
+            )}
+            {revertState.status === 'success' && (
+              <button
+                className="revert-btn revert-btn-dismiss"
+                onClick={() => setRevertState({ status: 'idle', message: '' })}
+              >
+                Dismiss
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Reset dialog */}
       {resetTarget && (

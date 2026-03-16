@@ -224,6 +224,18 @@ const electronAPI = {
       mode: 'soft' | 'mixed' | 'hard'
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:reset', repoPath, targetHash, mode),
+    revert: (
+      repoPath: string,
+      hash: string,
+      opts?: { parentNumber?: number }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:revert', repoPath, hash, opts),
+    revertAbort: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:revertAbort', repoPath),
+    revertContinue: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:revertContinue', repoPath),
+    isReverting: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:isReverting', repoPath),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (
