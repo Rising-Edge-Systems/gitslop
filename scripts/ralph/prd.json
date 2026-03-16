@@ -624,7 +624,7 @@
         "Typecheck passes"
       ],
       "priority": 35,
-      "passes": false,
+      "passes": true,
       "notes": "Use chokidar for file watching. Ignore .git directory changes except for refs."
     },
     {

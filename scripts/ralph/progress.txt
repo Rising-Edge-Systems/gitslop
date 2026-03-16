@@ -694,3 +694,21 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Toast notifications auto-dismiss (4s success, 8s error); error toasts have expandable "Show Details"
   - Notification history (last 100) accessible from bell icon in status bar
 ---
+
+## 2026-03-16 16:30 - US-035
+- Implemented: Auto-Fetch & File Watching with chokidar
+- Files changed/created:
+  - `package.json` - Added chokidar dependency
+  - `src/main/index.ts` - Replaced fs.watch with chokidar watcher, added `git:autoFetch` IPC handler
+  - `src/preload/index.ts` - Added `autoFetch` IPC bridge
+  - `src/renderer/src/hooks/useAutoFetch.ts` - New hook for auto-fetch timer with configurable interval
+  - `src/renderer/src/hooks/useLayoutState.ts` - Added `autoFetch` type to Window.electronAPI
+  - `src/renderer/src/components/AppLayout.tsx` - Integrated useAutoFetch, passes data to StatusBar
+  - `src/renderer/src/components/StatusBar.tsx` - Added incoming changes indicator, auto-fetch spinner, last fetch time, manual refresh button
+  - `src/renderer/src/styles/global.css` - CSS for incoming changes badge, fetching spinner, refresh button
+- **Learnings for future iterations:**
+  - chokidar uses `watch()` function (named export), not a default constructor
+  - chokidar `ignored` option takes a function that receives the full path, use `.includes()` for cross-platform path matching
+  - Auto-fetch delay of 5s before first fetch prevents unnecessary immediate fetch on repo open
+  - The `autoFetchInterval` setting already existed in useSettings (default: 5 minutes, 0 = disabled)
+---
