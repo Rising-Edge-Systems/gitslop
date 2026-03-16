@@ -318,3 +318,33 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - HunkDiffViewer is a child of StatusPanel, receives operationInProgress state from parent
   - Line selection supports Shift+click for range selection within a hunk
 ---
+## 2026-03-16 14:54 - US-016
+- Implemented: Diff Viewer with side-by-side and inline (unified) modes, syntax highlighting, word-level diff, binary file handling, large file truncation, scroll sync
+- Files created:
+  - `src/renderer/src/components/DiffViewer.tsx` - Full diff viewer component with:
+    - Toggle between inline and side-by-side views
+    - Lightweight syntax highlighting for 20+ languages (keywords, strings, comments, numbers, functions, types)
+    - Word-level diff highlighting (LCS-based token diff) within changed lines
+    - Line numbers for both old and new versions
+    - Color-coded diffs (green added, red removed, word-level highlights)
+    - Scroll sync between left/right panes in side-by-side mode
+    - Binary file detection with "Binary file changed" message
+    - Large file truncation with "Show More" / "Show All" buttons (5000 line limit)
+    - Side-by-side pairing algorithm that aligns removed/added blocks
+- Files modified:
+  - `src/main/git-service.ts` - Added `showCommitFileDiff()` method for getting diff of a specific file in a commit
+  - `src/main/git-ipc.ts` - Added `git:showCommitFileDiff` IPC handler
+  - `src/preload/index.ts` - Added `showCommitFileDiff` to electronAPI
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with showCommitFileDiff
+  - `src/renderer/src/components/StatusPanel.tsx` - Integrated DiffViewer via DiffViewerWithStaging wrapper (Staging/Enhanced View toggle tabs)
+  - `src/renderer/src/components/CommitGraph.tsx` - Added DiffViewer integration in CommitDetailPanel (double-click file to view diff)
+  - `src/renderer/src/styles/global.css` - Added comprehensive DiffViewer styles (inline, side-by-side, syntax tokens, word diff, binary, truncation, tabs)
+- **Learnings for future iterations:**
+  - DiffViewer is a standalone component that can be used anywhere diffs need to be displayed
+  - Syntax highlighting is built-in (no external dependency) — tokenizer handles keywords, strings, comments, numbers for 20+ languages
+  - Word-level diff uses LCS algorithm on tokenized words — skips if token count product > 50000 to avoid perf issues
+  - Side-by-side view pairs removed/added lines by collecting consecutive blocks and aligning them
+  - Scroll sync uses requestAnimationFrame with a syncing guard to prevent infinite scroll loops
+  - `git show --format= --patch <hash> -- <file>` gets the diff of a specific file in a commit
+  - DiffViewerWithStaging wraps HunkDiffViewer (staging controls) and DiffViewer (enhanced view) with a tab bar toggle
+---

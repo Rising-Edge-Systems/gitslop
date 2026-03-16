@@ -287,7 +287,7 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "Consider using Monaco's built-in diff editor for this. Or use diff2html for rendering. Syntax highlighting via Prism or Monaco."
     },
     {
