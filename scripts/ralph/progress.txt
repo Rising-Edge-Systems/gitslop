@@ -581,3 +581,17 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Custom events (CustomEvent) can be used to communicate between unrelated components (e.g., context menu → filter bar)
   - CommitGraph now exports `CommitLogFilters` type for use by parent components
 ---
+
+## 2026-03-16 15:57 - US-029
+- Implemented: File Tree View as a sidebar tab alongside Git sections
+- Files changed/created:
+  - `src/renderer/src/components/FileTree.tsx` - Full file tree component with expandable folders, file icons, git status indicators, search/filter, and context menu
+  - `src/renderer/src/components/Sidebar.tsx` - Added tab system (Git/Files tabs) to sidebar, imported FileTree
+  - `src/renderer/src/styles/global.css` - Added styles for sidebar tabs, file tree nodes, status indicators
+- **Learnings for future iterations:**
+  - `git:exec` IPC can be used to run arbitrary git commands (like `git ls-files`) without needing a dedicated git-service method
+  - File tree uses `git ls-files --full-name` for tracked files and `git ls-files --others --exclude-standard` for untracked
+  - Git status data from `getStatus` provides staged/unstaged/untracked/conflicted arrays used for status indicators
+  - Sidebar now has a tab system — future sidebar features should consider which tab they belong to
+  - File tree auto-refreshes via the `onRepoChanged` watcher callback
+---

@@ -521,7 +521,7 @@
         "Typecheck passes"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": "Use git ls-files and git status --porcelain for tree + status data. Use a file icon library like file-icons or vscode-icons."
     },
     {
