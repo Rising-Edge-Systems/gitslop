@@ -8,7 +8,7 @@ import type { PanelSize } from 'react-resizable-panels'
 import { Toolbar } from './Toolbar'
 import { Sidebar } from './Sidebar'
 import { MainContent } from './MainContent'
-import { BottomPanel } from './BottomPanel'
+import { TerminalPanel } from './Terminal'
 import { useLayoutState } from '../hooks/useLayoutState'
 
 interface AppLayoutProps {
@@ -92,7 +92,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo }: AppLayoutPro
                     maxSize={60}
                     onResize={handleBottomResize}
                   >
-                    <BottomPanel onToggle={toggleBottomPanel} />
+                    <TerminalPanel currentRepo={currentRepo} onToggle={toggleBottomPanel} />
                   </Panel>
                 </>
               )}

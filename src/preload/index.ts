@@ -287,6 +287,36 @@ const electronAPI = {
       ipcRenderer.invoke('repos:addRecent', repoPath, repoName),
     removeRecent: (repoPath: string): Promise<RecentRepo[]> =>
       ipcRenderer.invoke('repos:removeRecent', repoPath)
+  },
+  terminal: {
+    create: (opts: { cwd?: string; id?: string }): Promise<{ success: boolean; data?: { id: string }; error?: string }> =>
+      ipcRenderer.invoke('terminal:create', opts),
+    write: (opts: { id: string; data: string }): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('terminal:write', opts),
+    resize: (opts: { id: string; cols: number; rows: number }): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('terminal:resize', opts),
+    kill: (id: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('terminal:kill', id),
+    setCwd: (opts: { id: string; cwd: string }): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('terminal:setCwd', opts),
+    onData: (callback: (payload: { id: string; data: string }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: { id: string; data: string }): void => {
+        callback(payload)
+      }
+      ipcRenderer.on('terminal:data', handler)
+      return () => {
+        ipcRenderer.removeListener('terminal:data', handler)
+      }
+    },
+    onExit: (callback: (payload: { id: string; exitCode: number }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: { id: string; exitCode: number }): void => {
+        callback(payload)
+      }
+      ipcRenderer.on('terminal:exit', handler)
+      return () => {
+        ipcRenderer.removeListener('terminal:exit', handler)
+      }
+    }
   }
 }
 

@@ -2248,6 +2248,109 @@ body {
   font-family: var(--font-mono);
 }
 
+/* Terminal Tabs Bar */
+.terminal-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.terminal-tab:hover {
+  background-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.terminal-tab-active {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.terminal-tab-icon {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.terminal-tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-tab-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 9px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+  line-height: 1;
+}
+
+.terminal-tab:hover .terminal-tab-close {
+  opacity: 1;
+}
+
+.terminal-tab-close:hover {
+  background-color: rgba(243, 139, 168, 0.3);
+  color: var(--close-hover);
+}
+
+.terminal-new-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.terminal-new-tab:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+/* Terminal Content Area */
+.terminal-content {
+  overflow: hidden !important;
+  padding: 0;
+}
+
+.terminal-content .xterm {
+  height: 100%;
+  padding: 4px 0 0 4px;
+}
+
+.terminal-content .xterm-viewport {
+  overflow-y: auto !important;
+}
+
+.terminal-content .xterm-screen {
+  height: 100%;
+}
+
 /* Resize Handles */
 .resize-handle {
   background-color: transparent;

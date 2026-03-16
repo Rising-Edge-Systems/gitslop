@@ -4,6 +4,7 @@ import { watch, FSWatcher, readFile, writeFile } from 'fs'
 import Store from 'electron-store'
 import { registerGitIpcHandlers } from './git-ipc'
 import { gitService } from './git-service'
+import { registerTerminalIpcHandlers, killAllTerminals } from './terminal-manager'
 
 const isDev = !app.isPackaged
 
@@ -125,6 +126,9 @@ app.whenReady().then(async () => {
   // Register git IPC handlers
   registerGitIpcHandlers()
 
+  // Register terminal IPC handlers
+  registerTerminalIpcHandlers()
+
   // Check git version on startup
   try {
     const version = await gitService.getVersion()
@@ -223,6 +227,7 @@ app.on('window-all-closed', () => {
     activeWatcher.close()
     activeWatcher = null
   }
+  killAllTerminals()
   if (process.platform !== 'darwin') {
     app.quit()
   }

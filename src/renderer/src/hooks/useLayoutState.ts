@@ -167,6 +167,15 @@ declare global {
         addRecent: (repoPath: string, repoName: string) => Promise<RecentRepo[]>
         removeRecent: (repoPath: string) => Promise<RecentRepo[]>
       }
+      terminal: {
+        create: (opts: { cwd?: string; id?: string }) => Promise<{ success: boolean; data?: { id: string }; error?: string }>
+        write: (opts: { id: string; data: string }) => Promise<{ success: boolean; error?: string }>
+        resize: (opts: { id: string; cols: number; rows: number }) => Promise<{ success: boolean; error?: string }>
+        kill: (id: string) => Promise<{ success: boolean; error?: string }>
+        setCwd: (opts: { id: string; cwd: string }) => Promise<{ success: boolean; error?: string }>
+        onData: (callback: (payload: { id: string; data: string }) => void) => () => void
+        onExit: (callback: (payload: { id: string; exitCode: number }) => void) => () => void
+      }
     }
   }
 }
