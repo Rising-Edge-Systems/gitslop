@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'path'
-import { watch, FSWatcher, readFile, writeFile } from 'fs'
+import { readFile, writeFile } from 'fs'
+import { watch as chokidarWatch, type FSWatcher } from 'chokidar'
 import Store from 'electron-store'
 import { registerGitIpcHandlers } from './git-ipc'
 import { gitService } from './git-service'
@@ -176,37 +177,55 @@ ipcMain.handle('file:write', async (_event, filePath: string, content: string) =
   })
 })
 
-// ─── File Watcher for repo changes ──────────────────────────────────────────
+// ─── File Watcher for repo changes (chokidar) ──────────────────────────────
 
 let activeWatcher: FSWatcher | null = null
 let watchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-ipcMain.handle('watcher:start', (_event, repoPath: string) => {
+function sendRepoChanged(): void {
+  if (watchDebounceTimer) {
+    clearTimeout(watchDebounceTimer)
+  }
+  watchDebounceTimer = setTimeout(() => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('repo:changed')
+    }
+  }, 300)
+}
+
+ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
   // Stop previous watcher if any
   if (activeWatcher) {
-    activeWatcher.close()
+    await activeWatcher.close()
     activeWatcher = null
   }
 
   try {
-    activeWatcher = watch(repoPath, { recursive: true }, (_eventType, filename) => {
-      // Ignore .git directory internal changes (except refs which indicate branch/tag changes)
-      const fname = filename?.toString() ?? ''
-      if (fname.startsWith('.git') && !fname.startsWith('.git/refs') && !fname.startsWith('.git\\refs')) {
-        return
-      }
-
-      // Debounce notifications
-      if (watchDebounceTimer) {
-        clearTimeout(watchDebounceTimer)
-      }
-      watchDebounceTimer = setTimeout(() => {
-        const win = BrowserWindow.getAllWindows()[0]
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('repo:changed')
+    activeWatcher = chokidarWatch(repoPath, {
+      ignored: (path: string) => {
+        // Ignore .git directory except refs (branch/tag changes)
+        if (path.includes('/.git/') || path.includes('\\.git\\')) {
+          return !(path.includes('/.git/refs') || path.includes('\\.git\\refs'))
         }
-      }, 300)
+        if (path.endsWith('/.git') || path.endsWith('\\.git')) {
+          return false // Don't ignore .git itself, we want to see refs
+        }
+        return false
+      },
+      ignoreInitial: true,
+      persistent: true,
+      awaitWriteFinish: {
+        stabilityThreshold: 200,
+        pollInterval: 100
+      }
     })
+
+    activeWatcher.on('add', () => sendRepoChanged())
+    activeWatcher.on('change', () => sendRepoChanged())
+    activeWatcher.on('unlink', () => sendRepoChanged())
+    activeWatcher.on('addDir', () => sendRepoChanged())
+    activeWatcher.on('unlinkDir', () => sendRepoChanged())
 
     return { success: true }
   } catch (err) {
@@ -214,17 +233,34 @@ ipcMain.handle('watcher:start', (_event, repoPath: string) => {
   }
 })
 
-ipcMain.handle('watcher:stop', () => {
+ipcMain.handle('watcher:stop', async () => {
   if (activeWatcher) {
-    activeWatcher.close()
+    await activeWatcher.close()
     activeWatcher = null
   }
   return { success: true }
 })
 
+// ─── Auto-Fetch IPC ────────────────────────────────────────────────────────
+
+ipcMain.handle('git:autoFetch', async (_event, repoPath: string) => {
+  try {
+    await gitService.fetch(repoPath)
+    // After fetch, check ahead/behind
+    const branch = await gitService.getCurrentBranch(repoPath)
+    const branches = await gitService.getBranches(repoPath)
+    const current = branches.find((b: { name: string; isCurrent?: boolean; current?: boolean }) => b.isCurrent || b.current)
+    const behind = current?.behind || 0
+    const ahead = current?.ahead || 0
+    return { success: true, data: { behind, ahead, branch } }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Auto-fetch failed' }
+  }
+})
+
 app.on('window-all-closed', () => {
   if (activeWatcher) {
-    activeWatcher.close()
+    activeWatcher.close().catch(() => {/* ignore */})
     activeWatcher = null
   }
   killAllTerminals()

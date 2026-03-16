@@ -13,6 +13,7 @@ import { SearchPalette } from './SearchPalette'
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel'
 import { StatusBar } from './StatusBar'
 import { NotificationToast } from './NotificationToast'
+import { useAutoFetch } from '../hooks/useAutoFetch'
 import { useLayoutState } from '../hooks/useLayoutState'
 import { useNotifications } from '../hooks/useNotifications'
 import {
@@ -27,7 +28,7 @@ interface AppLayoutProps {
   onRepoOpen: (repoPath: string) => void
   onCloseRepo: () => void
   onOpenSettings: () => void
-  settings: { sidebarPosition: 'left' | 'right' }
+  settings: { sidebarPosition: 'left' | 'right'; autoFetchInterval: number }
 }
 
 export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings, settings: appSettings }: AppLayoutProps): React.JSX.Element {
@@ -51,6 +52,13 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
+  // Auto-fetch: fetches on configurable interval, tracks incoming changes
+  const { incomingChanges, lastFetchTime, fetching: autoFetching, manualRefresh } = useAutoFetch({
+    repoPath: currentRepo,
+    intervalMinutes: appSettings.autoFetchInterval,
+    onNotify: addNotification
+  })
 
   const handleSidebarResize = useCallback(
     (panelSize: PanelSize) => {
@@ -216,6 +224,10 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
         historyOpen={historyOpen}
         onToggleHistory={handleToggleHistory}
         onClearHistory={clearHistory}
+        incomingChanges={incomingChanges}
+        lastFetchTime={lastFetchTime}
+        autoFetching={autoFetching}
+        onManualRefresh={manualRefresh}
       />
     </div>
   )

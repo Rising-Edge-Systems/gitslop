@@ -246,6 +246,8 @@ const electronAPI = {
       ipcRenderer.invoke('git:getActiveOperation', repoPath),
     blame: (repoPath: string, filePath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:blame', repoPath, filePath),
+    autoFetch: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:autoFetch', repoPath),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

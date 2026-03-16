@@ -13,6 +13,10 @@ interface StatusBarProps {
   historyOpen: boolean
   onToggleHistory: () => void
   onClearHistory: () => void
+  incomingChanges?: number
+  lastFetchTime?: number | null
+  autoFetching?: boolean
+  onManualRefresh?: () => Promise<void>
 }
 
 export function StatusBar({
@@ -20,7 +24,11 @@ export function StatusBar({
   history,
   historyOpen,
   onToggleHistory,
-  onClearHistory
+  onClearHistory,
+  incomingChanges = 0,
+  lastFetchTime,
+  autoFetching = false,
+  onManualRefresh
 }: StatusBarProps): React.JSX.Element {
   const [branch, setBranch] = useState<string | null>(null)
   const [ahead, setAhead] = useState(0)
@@ -115,6 +123,24 @@ export function StatusBar({
                 {behind > 0 && <span className="status-bar-behind">↓{behind}</span>}
               </span>
             )}
+            {incomingChanges > 0 && (
+              <span
+                className="status-bar-incoming"
+                title={`${incomingChanges} incoming commit${incomingChanges > 1 ? 's' : ''} — pull to update`}
+              >
+                ⬇ {incomingChanges} incoming
+              </span>
+            )}
+            {autoFetching && (
+              <span className="status-bar-fetching" title="Auto-fetching...">
+                ⟳
+              </span>
+            )}
+            {lastFetchTime && (
+              <span className="status-bar-last-fetch" title={`Last fetched at ${formatTime(lastFetchTime)}`}>
+                Last fetch: {formatTime(lastFetchTime)}
+              </span>
+            )}
           </>
         )}
         {!currentRepo && (
@@ -140,8 +166,22 @@ export function StatusBar({
         )}
       </div>
 
-      {/* Right section: notification history */}
+      {/* Right section: refresh + notification history */}
       <div className="status-bar-right">
+        {currentRepo && onManualRefresh && (
+          <button
+            className="status-bar-refresh-btn"
+            onClick={onManualRefresh}
+            disabled={autoFetching}
+            title="Manual refresh — fetch from remotes and reload"
+          >
+            {autoFetching ? (
+              <span className="status-bar-spinner">⟳</span>
+            ) : (
+              '⟳'
+            )}
+          </button>
+        )}
         <button
           className={`status-bar-notif-btn ${unreadCount > 0 ? 'status-bar-notif-btn-active' : ''}`}
           onClick={onToggleHistory}
