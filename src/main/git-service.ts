@@ -534,6 +534,20 @@ export class GitService {
   }
 
   /**
+   * Get the diff of a specific file in a commit.
+   */
+  async showCommitFileDiff(
+    repoPath: string,
+    hash: string,
+    filePath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<string> {
+    const args = ['show', '--format=', '--patch', hash, '--', filePath]
+    const result = await this.exec(args, repoPath, { signal: options?.signal })
+    return result.stdout
+  }
+
+  /**
    * Clone a remote repository with progress reporting.
    * Uses spawn instead of execFile to get real-time stderr progress output.
    */

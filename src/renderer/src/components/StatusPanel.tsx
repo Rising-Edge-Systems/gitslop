@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { DiffViewer } from './DiffViewer'
 
 interface FileStatus {
   path: string
@@ -572,7 +573,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
             {diffLoading ? (
               <div className="status-diff-loading">Loading diff...</div>
             ) : diffContent ? (
-              <HunkDiffViewer
+              <DiffViewerWithStaging
                 diffContent={diffContent}
                 filePath={selectedFile.path}
                 staged={selectedFile.staged}
@@ -968,6 +969,61 @@ function HunkDiffViewer({
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ─── Diff Viewer with Staging Toggle ─────────────────────────────────────────
+
+interface DiffViewerWithStagingProps {
+  diffContent: string
+  filePath: string
+  staged: boolean
+  isUntracked: boolean
+  repoPath: string
+  onOperationDone: () => void
+  operationInProgress: boolean
+  setOperationInProgress: (v: boolean) => void
+}
+
+function DiffViewerWithStaging(props: DiffViewerWithStagingProps): React.JSX.Element {
+  const [viewMode, setViewMode] = useState<'staging' | 'enhanced'>('staging')
+
+  return (
+    <div className="diff-viewer-with-staging">
+      <div className="diff-viewer-tab-bar">
+        <button
+          className={`diff-viewer-tab ${viewMode === 'staging' ? 'active' : ''}`}
+          onClick={() => setViewMode('staging')}
+          title="Staging view with hunk/line controls"
+        >
+          Staging
+        </button>
+        <button
+          className={`diff-viewer-tab ${viewMode === 'enhanced' ? 'active' : ''}`}
+          onClick={() => setViewMode('enhanced')}
+          title="Enhanced diff view with side-by-side mode and syntax highlighting"
+        >
+          Enhanced View
+        </button>
+      </div>
+      {viewMode === 'staging' ? (
+        <HunkDiffViewer
+          diffContent={props.diffContent}
+          filePath={props.filePath}
+          staged={props.staged}
+          isUntracked={props.isUntracked}
+          repoPath={props.repoPath}
+          onOperationDone={props.onOperationDone}
+          operationInProgress={props.operationInProgress}
+          setOperationInProgress={props.setOperationInProgress}
+        />
+      ) : (
+        <DiffViewer
+          diffContent={props.diffContent}
+          filePath={props.filePath}
+        />
+      )}
     </div>
   )
 }

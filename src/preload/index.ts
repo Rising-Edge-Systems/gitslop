@@ -84,6 +84,12 @@ const electronAPI = {
     ): Promise<GitServiceResult> => ipcRenderer.invoke('git:diff', repoPath, filePath, opts),
     showCommit: (repoPath: string, hash: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:showCommit', repoPath, hash),
+    showCommitFileDiff: (
+      repoPath: string,
+      hash: string,
+      filePath: string
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:showCommitFileDiff', repoPath, hash, filePath),
     cancelOperation: (operationId: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('git:cancelOperation', operationId),
     exec: (args: string[], repoPath: string): Promise<GitServiceResult> =>

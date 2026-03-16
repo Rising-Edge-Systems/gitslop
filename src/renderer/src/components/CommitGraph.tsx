@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
+import { DiffViewer } from './DiffViewer'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -491,12 +492,35 @@ interface CommitDetailPanelProps {
   onFileDoubleClick?: (filePath: string) => void
 }
 
-function CommitDetailPanel({ detail, onClose, onFileDoubleClick }: CommitDetailPanelProps): React.JSX.Element {
+function CommitDetailPanel({ detail, repoPath, onClose, onFileDoubleClick }: CommitDetailPanelProps): React.JSX.Element {
   const { commit, files, refs } = detail
+  const [fileDiff, setFileDiff] = useState<{ path: string; content: string } | null>(null)
+  const [fileDiffLoading, setFileDiffLoading] = useState(false)
 
-  const handleFileDoubleClick = useCallback((filePath: string) => {
+  // Reset file diff when detail changes
+  useEffect(() => {
+    setFileDiff(null)
+    setFileDiffLoading(false)
+  }, [detail])
+
+  const handleFileDoubleClick = useCallback(async (filePath: string) => {
     onFileDoubleClick?.(filePath)
-  }, [onFileDoubleClick])
+    // Load diff for this file in this commit
+    setFileDiffLoading(true)
+    setFileDiff(null)
+    try {
+      const result = await window.electronAPI.git.showCommitFileDiff(repoPath, commit.hash, filePath)
+      if (result.success && result.data) {
+        setFileDiff({ path: filePath, content: result.data as string })
+      } else {
+        setFileDiff({ path: filePath, content: '(Failed to load diff)' })
+      }
+    } catch {
+      setFileDiff({ path: filePath, content: '(Failed to load diff)' })
+    } finally {
+      setFileDiffLoading(false)
+    }
+  }, [onFileDoubleClick, repoPath, commit.hash])
 
   return (
     <div className="commit-detail-panel">
@@ -583,6 +607,29 @@ function CommitDetailPanel({ detail, onClose, onFileDoubleClick }: CommitDetailP
             )}
           </div>
         </div>
+
+        {/* File diff viewer */}
+        {fileDiffLoading && (
+          <div className="commit-detail-diff-loading">Loading diff...</div>
+        )}
+        {fileDiff && !fileDiffLoading && (
+          <div className="commit-detail-diff">
+            <div className="commit-detail-diff-header">
+              <span>Diff: {fileDiff.path}</span>
+              <button
+                className="commit-detail-diff-close"
+                onClick={() => setFileDiff(null)}
+                title="Close diff"
+              >
+                ✕
+              </button>
+            </div>
+            <DiffViewer
+              diffContent={fileDiff.content}
+              filePath={fileDiff.path}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

@@ -282,6 +282,20 @@ export function registerGitIpcHandlers(): void {
     }
   })
 
+  // ─── Show Commit File Diff ──────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:showCommitFileDiff',
+    async (_event, repoPath: string, hash: string, filePath: string) => {
+      try {
+        const data = await gitService.showCommitFileDiff(repoPath, hash, filePath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Clone ─────────────────────────────────────────────────────────────
 
   ipcMain.handle(
