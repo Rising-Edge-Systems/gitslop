@@ -18,7 +18,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Foundation story — everything else depends on this. Use electron-forge or electron-vite for scaffolding. React 18+, TypeScript strict."
     },
     {
@@ -36,7 +36,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Use CSS Grid or flexbox layout. Consider allotment or react-resizable-panels for drag handles. Persist layout to electron-store."
     },
     {
