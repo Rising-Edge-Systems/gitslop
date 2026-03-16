@@ -599,10 +599,115 @@ export function registerGitIpcHandlers(): void {
 
   ipcMain.handle(
     'git:push',
+    async (
+      _event,
+      repoPath: string,
+      opts?: { force?: boolean; setUpstream?: { remote: string; branch: string } }
+    ) => {
+      const opId = createOperationId()
+      const controller = new AbortController()
+      activeControllers.set(opId, controller)
+
+      try {
+        await gitService.push(repoPath, {
+          signal: controller.signal,
+          force: opts?.force,
+          setUpstream: opts?.setUpstream,
+          onProgress: (progress) => {
+            const win = BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('git:operation-progress', { operationId: opId, operation: 'push', ...progress })
+            }
+          }
+        })
+        return { success: true, operationId: opId }
+      } catch (err) {
+        return { success: false, ...formatError(err), operationId: opId }
+      } finally {
+        activeControllers.delete(opId)
+      }
+    }
+  )
+
+  // ─── Pull ──────────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:pull',
+    async (_event, repoPath: string, opts?: { rebase?: boolean }) => {
+      const opId = createOperationId()
+      const controller = new AbortController()
+      activeControllers.set(opId, controller)
+
+      try {
+        await gitService.pull(repoPath, {
+          signal: controller.signal,
+          rebase: opts?.rebase,
+          onProgress: (progress) => {
+            const win = BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('git:operation-progress', { operationId: opId, operation: 'pull', ...progress })
+            }
+          }
+        })
+        return { success: true, operationId: opId }
+      } catch (err) {
+        return { success: false, ...formatError(err), operationId: opId }
+      } finally {
+        activeControllers.delete(opId)
+      }
+    }
+  )
+
+  // ─── Fetch with Progress ──────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:fetchWithProgress',
+    async (_event, repoPath: string, remoteName?: string) => {
+      const opId = createOperationId()
+      const controller = new AbortController()
+      activeControllers.set(opId, controller)
+
+      try {
+        await gitService.fetchWithProgress(repoPath, remoteName, {
+          signal: controller.signal,
+          onProgress: (progress) => {
+            const win = BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('git:operation-progress', { operationId: opId, operation: 'fetch', ...progress })
+            }
+          }
+        })
+        return { success: true, operationId: opId }
+      } catch (err) {
+        return { success: false, ...formatError(err), operationId: opId }
+      } finally {
+        activeControllers.delete(opId)
+      }
+    }
+  )
+
+  // ─── Has Upstream ─────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:hasUpstream',
     async (_event, repoPath: string) => {
       try {
-        await gitService.push(repoPath)
-        return { success: true }
+        const data = await gitService.hasUpstream(repoPath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Get Current Branch ──────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:getCurrentBranch',
+    async (_event, repoPath: string) => {
+      try {
+        const branch = await gitService.getCurrentBranch(repoPath)
+        return { success: true, data: branch }
       } catch (err) {
         return { success: false, ...formatError(err) }
       }

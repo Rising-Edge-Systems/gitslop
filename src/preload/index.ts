@@ -149,8 +149,33 @@ const electronAPI = {
       ipcRenderer.invoke('git:commit', repoPath, message, opts),
     getLastCommitMessage: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getLastCommitMessage', repoPath),
-    push: (repoPath: string): Promise<GitServiceResult> =>
-      ipcRenderer.invoke('git:push', repoPath),
+    push: (
+      repoPath: string,
+      opts?: { force?: boolean; setUpstream?: { remote: string; branch: string } }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:push', repoPath, opts),
+    pull: (repoPath: string, opts?: { rebase?: boolean }): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:pull', repoPath, opts),
+    fetchWithProgress: (repoPath: string, remoteName?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:fetchWithProgress', repoPath, remoteName),
+    hasUpstream: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:hasUpstream', repoPath),
+    getCurrentBranch: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getCurrentBranch', repoPath),
+    onOperationProgress: (
+      callback: (progress: { operationId: string; operation: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        progress: { operationId: string; operation: string; phase: string; percent: number | null; current: number | null; total: number | null }
+      ): void => {
+        callback(progress)
+      }
+      ipcRenderer.on('git:operation-progress', handler)
+      return () => {
+        ipcRenderer.removeListener('git:operation-progress', handler)
+      }
+    },
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (

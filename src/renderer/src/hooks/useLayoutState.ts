@@ -95,7 +95,17 @@ declare global {
           opts?: { amend?: boolean; signoff?: boolean }
         ) => Promise<GitServiceResult>
         getLastCommitMessage: (repoPath: string) => Promise<GitServiceResult>
-        push: (repoPath: string) => Promise<GitServiceResult>
+        push: (
+          repoPath: string,
+          opts?: { force?: boolean; setUpstream?: { remote: string; branch: string } }
+        ) => Promise<GitServiceResult>
+        pull: (repoPath: string, opts?: { rebase?: boolean }) => Promise<GitServiceResult>
+        fetchWithProgress: (repoPath: string, remoteName?: string) => Promise<GitServiceResult>
+        hasUpstream: (repoPath: string) => Promise<GitServiceResult>
+        getCurrentBranch: (repoPath: string) => Promise<GitServiceResult>
+        onOperationProgress: (
+          callback: (progress: { operationId: string; operation: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
+        ) => () => void
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void

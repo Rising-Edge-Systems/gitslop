@@ -115,6 +115,13 @@ export interface CloneProgress {
   total: number | null
 }
 
+export interface GitOperationProgress {
+  phase: string
+  percent: number | null
+  current: number | null
+  total: number | null
+}
+
 // ─── Minimum required git version ────────────────────────────────────────────
 
 const MIN_GIT_VERSION = { major: 2, minor: 20, patch: 0 }
@@ -997,12 +1004,222 @@ export class GitService {
 
   /**
    * Push current branch to its tracking remote.
+   * Supports force push, set-upstream, and progress reporting.
    */
   async push(
     repoPath: string,
-    options?: { signal?: AbortSignal }
+    options?: {
+      signal?: AbortSignal
+      force?: boolean
+      setUpstream?: { remote: string; branch: string }
+      onProgress?: (progress: GitOperationProgress) => void
+    }
   ): Promise<void> {
-    await this.exec(['push'], repoPath, { signal: options?.signal })
+    const args = ['push', '--progress']
+    if (options?.force) args.push('--force')
+    if (options?.setUpstream) {
+      args.push('-u', options.setUpstream.remote, options.setUpstream.branch)
+    }
+
+    return this.execWithProgress(repoPath, args, options)
+  }
+
+  /**
+   * Pull from remote with configurable strategy (merge or rebase).
+   */
+  async pull(
+    repoPath: string,
+    options?: {
+      signal?: AbortSignal
+      rebase?: boolean
+      onProgress?: (progress: GitOperationProgress) => void
+    }
+  ): Promise<void> {
+    const args = ['pull', '--progress']
+    if (options?.rebase) args.push('--rebase')
+
+    return this.execWithProgress(repoPath, args, options)
+  }
+
+  /**
+   * Fetch from a specific remote or all remotes, with progress reporting.
+   */
+  async fetchWithProgress(
+    repoPath: string,
+    remoteName?: string,
+    options?: {
+      signal?: AbortSignal
+      onProgress?: (progress: GitOperationProgress) => void
+    }
+  ): Promise<void> {
+    const args = ['fetch', '--progress']
+    if (remoteName) {
+      args.push(remoteName)
+    } else {
+      args.push('--all')
+    }
+
+    return this.execWithProgress(repoPath, args, options)
+  }
+
+  /**
+   * Check if the current branch has an upstream tracking branch.
+   */
+  async hasUpstream(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ hasUpstream: boolean; remote?: string; branch?: string }> {
+    try {
+      const result = await this.exec(
+        ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
+        repoPath,
+        { signal: options?.signal }
+      )
+      const upstream = result.stdout.trim()
+      if (upstream) {
+        const slashIndex = upstream.indexOf('/')
+        return {
+          hasUpstream: true,
+          remote: upstream.substring(0, slashIndex),
+          branch: upstream.substring(slashIndex + 1)
+        }
+      }
+      return { hasUpstream: false }
+    } catch {
+      return { hasUpstream: false }
+    }
+  }
+
+  /**
+   * Get the current branch name.
+   */
+  async getCurrentBranch(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<string> {
+    try {
+      const result = await this.exec(
+        ['rev-parse', '--abbrev-ref', 'HEAD'],
+        repoPath,
+        { signal: options?.signal }
+      )
+      return result.stdout.trim()
+    } catch {
+      return ''
+    }
+  }
+
+  /**
+   * Execute a git command with progress reporting via spawn.
+   */
+  private async execWithProgress(
+    repoPath: string,
+    args: string[],
+    options?: {
+      signal?: AbortSignal
+      onProgress?: (progress: GitOperationProgress) => void
+    }
+  ): Promise<void> {
+    const signal = options?.signal
+
+    if (signal?.aborted) {
+      throw this.createError('Operation cancelled', GitErrorCode.Cancelled)
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const child = spawn('git', args, {
+        cwd: repoPath,
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+
+      let stderrOutput = ''
+
+      child.stderr?.on('data', (data: Buffer) => {
+        const text = data.toString()
+        stderrOutput += text
+
+        if (options?.onProgress) {
+          const progress = this.parseGitProgress(text)
+          if (progress) {
+            options.onProgress(progress)
+          }
+        }
+      })
+
+      child.stdout?.on('data', (data: Buffer) => {
+        // Some git operations output progress on stdout too
+        const text = data.toString()
+        if (options?.onProgress) {
+          const progress = this.parseGitProgress(text)
+          if (progress) {
+            options.onProgress(progress)
+          }
+        }
+      })
+
+      child.on('close', (code) => {
+        if (signal?.aborted) {
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+          return
+        }
+
+        if (code === 0) {
+          resolve()
+        } else {
+          reject(this.classifyError(
+            Object.assign(new Error('git command failed'), { code: code ?? 1 }),
+            stderrOutput
+          ))
+        }
+      })
+
+      child.on('error', (err) => {
+        reject(this.classifyError(
+          err as Error & { code?: string | number | null },
+          stderrOutput
+        ))
+      })
+
+      if (signal) {
+        const onAbort = (): void => {
+          child.kill('SIGTERM')
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+        }
+        signal.addEventListener('abort', onAbort, { once: true })
+      }
+    })
+  }
+
+  /**
+   * Parse progress from git command output.
+   */
+  private parseGitProgress(text: string): GitOperationProgress | null {
+    // Match: "Receiving objects:  50% (21/42), 1.5 MiB | 500.00 KiB/s"
+    // Match: "Counting objects: 100% (42/42), done."
+    // Match: "Compressing objects: 100% (42/42)"
+    // Match: "Writing objects: 100% (3/3), 285 bytes | 285.00 KiB/s, done."
+    const progressMatch = text.match(/([\w\s]+):\s+(\d+)%\s+\((\d+)\/(\d+)\)/)
+    if (progressMatch) {
+      return {
+        phase: progressMatch[1].trim(),
+        percent: parseInt(progressMatch[2], 10),
+        current: parseInt(progressMatch[3], 10),
+        total: parseInt(progressMatch[4], 10)
+      }
+    }
+
+    // Match phase-only lines
+    const phaseMatch = text.match(/(Enumerating|Counting|Compressing|Writing|Receiving|Resolving|Unpacking|remote:.*?)[\s.,:]/i)
+    if (phaseMatch) {
+      return {
+        phase: phaseMatch[1].trim(),
+        percent: null,
+        current: null,
+        total: null
+      }
+    }
+
+    return null
   }
 
   /**

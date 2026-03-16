@@ -234,6 +234,163 @@ body {
   font-size: 12px;
 }
 
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-btn:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.toolbar-btn-active {
+  color: var(--accent) !important;
+}
+
+@keyframes toolbar-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.toolbar-spinner {
+  display: inline-block;
+  animation: toolbar-spin 1s linear infinite;
+}
+
+.toolbar-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.toolbar-progress-text {
+  white-space: nowrap;
+}
+
+.toolbar-progress-bar {
+  width: 80px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.toolbar-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.toolbar-notification {
+  position: fixed;
+  top: 44px;
+  right: 16px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 1000;
+  animation: toolbar-notification-in 0.2s ease-out;
+  pointer-events: none;
+}
+
+@keyframes toolbar-notification-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.toolbar-notification-success {
+  background: #1a5c2e;
+  color: #a6e3a1;
+  border: 1px solid #2d7a42;
+}
+
+.toolbar-notification-error {
+  background: #5c1a2e;
+  color: #f38ba8;
+  border: 1px solid #7a2d42;
+}
+
+.force-push-warning {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.force-push-warning-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.branch-dialog-btn-danger {
+  background: #f38ba8 !important;
+  color: #1e1e2e !important;
+}
+
+.branch-dialog-btn-danger:hover {
+  background: #eba0ac !important;
+}
+
+.upstream-dialog-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.pull-strategy-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pull-strategy-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.pull-strategy-option:hover {
+  background: var(--border);
+}
+
+.pull-strategy-option input[type="radio"] {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.pull-strategy-option div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pull-strategy-option strong {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.pull-strategy-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* Sidebar */
 .sidebar {
   height: 100%;
