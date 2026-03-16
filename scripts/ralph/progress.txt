@@ -745,3 +745,21 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - StatusPanel.tsx contains both the status list and the HunkDiffViewer sub-component
   - Type definitions for electronAPI.git are in useLayoutState.ts
 ---
+
+## 2026-03-16 16:53 - US-038
+- Implemented: Submodule support with sidebar section, status display, init/update, and open as repository
+- Files changed:
+  - `src/main/git-service.ts` - Added `getSubmodules()`, `submoduleInit()`, `submoduleUpdate()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:getSubmodules`, `git:submoduleInit`, `git:submoduleUpdate`
+  - `src/preload/index.ts` - Added `getSubmodules`, `submoduleInit`, `submoduleUpdate` preload bridge APIs
+  - `src/renderer/src/hooks/useLayoutState.ts` - Added submodule API types to Window.electronAPI
+  - `src/renderer/src/components/Sidebar.tsx` - Added `SubmodulesSection` component with context menu (init/update, open as repo)
+  - `src/renderer/src/styles/global.css` - Added submodule item styles with status badges
+  - `src/renderer/src/App.tsx` - Added listener for 'open-repo' custom event to support opening submodules
+- **Learnings for future iterations:**
+  - Submodule status is parsed from `git submodule status` output: `-` = uninitialized, `+` = out-of-date, `U` = merge conflict, ` ` = initialized
+  - Submodule config is read from `.gitmodules` via `git config --file .gitmodules --list`
+  - Can't use Node.js `path` module in renderer; use string manipulation for path joining
+  - Custom events (`window.dispatchEvent(new CustomEvent('open-repo', ...))`) can be used for cross-component communication when prop drilling isn't practical
+  - SubmodulesSection only renders when submodules exist (returns null otherwise)
+---

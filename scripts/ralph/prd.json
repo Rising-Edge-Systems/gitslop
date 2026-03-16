@@ -674,7 +674,7 @@
         "Typecheck passes"
       ],
       "priority": 38,
-      "passes": false,
+      "passes": true,
       "notes": "Use git submodule status and git submodule foreach for data."
     },
     {
