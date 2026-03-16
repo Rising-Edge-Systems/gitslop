@@ -763,3 +763,22 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Custom events (`window.dispatchEvent(new CustomEvent('open-repo', ...))`) can be used for cross-component communication when prop drilling isn't practical
   - SubmodulesSection only renders when submodules exist (returns null otherwise)
 ---
+
+## 2026-03-16 - US-039
+- Implemented GPG commit signing support across the full stack
+- Files changed:
+  - `src/main/git-service.ts` — Added `signatureStatus`, `signer`, `signingKey` fields to GitCommit, `GpgKey` interface, `parseSignatureStatus()` helper, GPG sign option on commit(), `getAvailableGpgKeys()`, `getGitSigningKey()`, `setGitSigningKey()` methods. Updated all log format strings to include `%G?`, `%GS`, `%GK`.
+  - `src/main/git-ipc.ts` — Updated commit handler to pass `gpgSign`/`gpgKeyId`, added GPG IPC handlers
+  - `src/preload/index.ts` — Updated commit signature, added GPG API methods
+  - `src/renderer/src/hooks/useLayoutState.ts` — Updated Window.electronAPI type with GPG methods and gpgSign/gpgKeyId on commit
+  - `src/renderer/src/hooks/useSettings.ts` — Added `gpgKeyId` to AppSettings
+  - `src/renderer/src/components/SettingsPanel.tsx` — Added GPG key selector dropdown (loads keys when sign commits is enabled)
+  - `src/renderer/src/components/CommitDialog.tsx` — Added GPG Sign checkbox (defaults from settings)
+  - `src/renderer/src/components/CommitGraph.tsx` — Added signature badge on commits (checkmark/warning/X), signature info in commit detail panel
+  - `src/renderer/src/styles/global.css` — Added signature badge CSS styles
+- **Learnings for future iterations:**
+  - GPG key listing uses `--with-colons` format for machine-parseable output (sec/fpr/uid fields)
+  - The GitCommit interface is duplicated in git-service.ts and CommitGraph.tsx — both must be updated
+  - The Window.electronAPI type in useLayoutState.ts must also match preload/index.ts
+  - `parseSignatureStatus` maps git's `%G?` codes (G/B/U/X/Y/R/E/N) to human-readable status strings
+---
