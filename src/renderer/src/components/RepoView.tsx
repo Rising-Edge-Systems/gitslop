@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { CodeEditor } from './CodeEditor'
 import { CommitDialog } from './CommitDialog'
 import { CommitGraph } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
@@ -28,6 +29,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
   const [error, setError] = useState<string | null>(null)
   const [showConflictResolver, setShowConflictResolver] = useState(false)
   const [hasConflicts, setHasConflicts] = useState(false)
+  const [showEditor, setShowEditor] = useState(false)
 
   const loadRepoData = useCallback(async () => {
     setLoading(true)
@@ -79,6 +81,15 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
       window.electronAPI.watcher.stop()
     }
   }, [loadRepoData, repoPath])
+
+  // Show editor panel when a file is opened
+  useEffect(() => {
+    const handler = (): void => {
+      setShowEditor(true)
+    }
+    window.addEventListener('editor:open-file', handler)
+    return () => window.removeEventListener('editor:open-file', handler)
+  }, [])
 
   const repoName = repoPath.split(/[/\\]/).pop() || repoPath
   const currentBranch = branches.find((b) => b.current)?.name || status?.branch || '—'
@@ -188,6 +199,22 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
             stagedCount={status?.staged ?? 0}
             onCommitDone={loadRepoData}
           />
+
+          {/* Editor Toggle + Panel */}
+          <div className="editor-toggle-bar">
+            <button
+              className={`editor-toggle-btn ${showEditor ? 'active' : ''}`}
+              onClick={() => setShowEditor((prev) => !prev)}
+              title="Toggle Code Editor"
+            >
+              &#128196; Editor {showEditor ? '(hide)' : '(show)'}
+            </button>
+          </div>
+          {showEditor && (
+            <div className="code-editor-panel">
+              <CodeEditor repoPath={repoPath} onFileSaved={loadRepoData} />
+            </div>
+          )}
 
           {/* Commit Graph */}
           <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} />

@@ -153,6 +153,10 @@ declare global {
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
         ) => () => void
       }
+      file: {
+        read: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>
+        write: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>
+      }
       watcher: {
         start: (repoPath: string) => Promise<{ success: boolean; error?: string }>
         stop: () => Promise<{ success: boolean }>

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'path'
-import { watch, FSWatcher } from 'fs'
+import { watch, FSWatcher, readFile, writeFile } from 'fs'
 import Store from 'electron-store'
 import { registerGitIpcHandlers } from './git-ipc'
 import { gitService } from './git-service'
@@ -143,6 +143,32 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
     }
+  })
+})
+
+// ─── File Read/Write IPC ─────────────────────────────────────────────────────
+
+ipcMain.handle('file:read', async (_event, filePath: string) => {
+  return new Promise<{ success: boolean; data?: string; error?: string }>((resolve) => {
+    readFile(filePath, 'utf-8', (err, data) => {
+      if (err) {
+        resolve({ success: false, error: err.message })
+      } else {
+        resolve({ success: true, data })
+      }
+    })
+  })
+})
+
+ipcMain.handle('file:write', async (_event, filePath: string, content: string) => {
+  return new Promise<{ success: boolean; error?: string }>((resolve) => {
+    writeFile(filePath, content, 'utf-8', (err) => {
+      if (err) {
+        resolve({ success: false, error: err.message })
+      } else {
+        resolve({ success: true })
+      }
+    })
   })
 })
 

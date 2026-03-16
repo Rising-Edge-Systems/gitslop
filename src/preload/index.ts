@@ -261,6 +261,12 @@ const electronAPI = {
       }
     }
   },
+  file: {
+    read: (filePath: string): Promise<{ success: boolean; data?: string; error?: string }> =>
+      ipcRenderer.invoke('file:read', filePath),
+    write: (filePath: string, content: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:write', filePath, content)
+  },
   watcher: {
     start: (repoPath: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('watcher:start', repoPath),
