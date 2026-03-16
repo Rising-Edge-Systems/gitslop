@@ -2,7 +2,7 @@
  * Git IPC handlers — bridges GitService to the renderer process via ipcMain.
  */
 
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow } from 'electron'
 import { gitService, GitErrorCode } from './git-service'
 import type { GitError } from './git-service'
 
@@ -156,6 +156,35 @@ export function registerGitIpcHandlers(): void {
       return { success: false, ...formatError(err) }
     }
   })
+
+  // ─── Clone ─────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:clone',
+    async (_event, url: string, destPath: string) => {
+      const opId = createOperationId()
+      const controller = new AbortController()
+      activeControllers.set(opId, controller)
+
+      try {
+        await gitService.clone(url, destPath, {
+          signal: controller.signal,
+          onProgress: (progress) => {
+            // Send progress to renderer via the window that initiated the clone
+            const win = BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('git:clone-progress', { operationId: opId, ...progress })
+            }
+          }
+        })
+        return { success: true, operationId: opId }
+      } catch (err) {
+        return { success: false, ...formatError(err), operationId: opId }
+      } finally {
+        activeControllers.delete(opId)
+      }
+    }
+  )
 
   // ─── Cancel Operation ────────────────────────────────────────────────────
 

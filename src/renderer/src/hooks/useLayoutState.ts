@@ -42,6 +42,10 @@ declare global {
         showCommit: (repoPath: string, hash: string) => Promise<GitServiceResult>
         cancelOperation: (operationId: string) => Promise<{ success: boolean; error?: string }>
         exec: (args: string[], repoPath: string) => Promise<GitServiceResult>
+        clone: (url: string, destPath: string) => Promise<GitServiceResult>
+        onCloneProgress: (
+          callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
+        ) => () => void
       }
       repos: {
         getRecent: () => Promise<RecentRepo[]>

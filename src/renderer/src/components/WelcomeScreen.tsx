@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import type { RecentRepo } from '../hooks/useLayoutState'
+import { CloneDialog } from './CloneDialog'
 
 interface WelcomeScreenProps {
   onRepoOpen: (repoPath: string) => void
@@ -9,6 +10,7 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
   const [recentRepos, setRecentRepos] = useState<RecentRepo[]>([])
   const [error, setError] = useState<string | null>(null)
   const [errorPath, setErrorPath] = useState<string | null>(null)
+  const [showCloneDialog, setShowCloneDialog] = useState(false)
 
   useEffect(() => {
     window.electronAPI.repos.getRecent().then(setRecentRepos).catch(() => {
@@ -66,9 +68,20 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
   }, [errorPath, onRepoOpen])
 
   const handleCloneRepo = useCallback(() => {
-    // Placeholder — clone dialog will be implemented in US-006
-    setError('Clone dialog coming soon!')
+    setError(null)
+    setShowCloneDialog(true)
   }, [])
+
+  const handleCloneComplete = useCallback(
+    async (repoPath: string) => {
+      setShowCloneDialog(false)
+      const name = repoPath.split(/[/\\]/).pop() || repoPath
+      const updated = await window.electronAPI.repos.addRecent(repoPath, name)
+      setRecentRepos(updated)
+      onRepoOpen(repoPath)
+    },
+    [onRepoOpen]
+  )
 
   const handleRecentClick = useCallback(
     async (repo: RecentRepo) => {
@@ -189,6 +202,13 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
             ))}
           </div>
         </div>
+      )}
+
+      {showCloneDialog && (
+        <CloneDialog
+          onClose={() => setShowCloneDialog(false)}
+          onCloneComplete={handleCloneComplete}
+        />
       )}
     </div>
   )

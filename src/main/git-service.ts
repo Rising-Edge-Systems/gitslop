@@ -10,7 +10,7 @@
  * - Git version detection
  */
 
-import { execFile, ExecFileOptions } from 'child_process'
+import { execFile, ExecFileOptions, spawn } from 'child_process'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -106,6 +106,13 @@ export interface GitRepoStatus {
   staged: GitFileStatus[]
   unstaged: GitFileStatus[]
   untracked: GitFileStatus[]
+}
+
+export interface CloneProgress {
+  phase: string
+  percent: number | null
+  current: number | null
+  total: number | null
 }
 
 // ─── Minimum required git version ────────────────────────────────────────────
@@ -526,6 +533,81 @@ export class GitService {
     return { commit, files }
   }
 
+  /**
+   * Clone a remote repository with progress reporting.
+   * Uses spawn instead of execFile to get real-time stderr progress output.
+   */
+  async clone(
+    url: string,
+    destPath: string,
+    options?: {
+      signal?: AbortSignal
+      onProgress?: (progress: CloneProgress) => void
+    }
+  ): Promise<void> {
+    const signal = options?.signal
+
+    if (signal?.aborted) {
+      throw this.createError('Operation cancelled', GitErrorCode.Cancelled)
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const child = spawn('git', ['clone', '--progress', url, destPath], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+
+      let stderrOutput = ''
+
+      child.stderr?.on('data', (data: Buffer) => {
+        const text = data.toString()
+        stderrOutput += text
+
+        // Parse progress from stderr
+        // Git progress lines look like:
+        // "Cloning into 'repo'..."
+        // "remote: Counting objects: 100% (42/42), done."
+        // "Receiving objects:  50% (21/42)"
+        // "Resolving deltas: 100% (10/10), done."
+        if (options?.onProgress) {
+          const progress = this.parseCloneProgress(text, stderrOutput)
+          options.onProgress(progress)
+        }
+      })
+
+      child.on('close', (code) => {
+        if (signal?.aborted) {
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+          return
+        }
+
+        if (code === 0) {
+          resolve()
+        } else {
+          reject(this.classifyError(
+            Object.assign(new Error('git clone failed'), { code: code ?? 1 }),
+            stderrOutput
+          ))
+        }
+      })
+
+      child.on('error', (err) => {
+        reject(this.classifyError(
+          err as Error & { code?: string | number | null },
+          stderrOutput
+        ))
+      })
+
+      // Wire up abort signal
+      if (signal) {
+        const onAbort = (): void => {
+          child.kill('SIGTERM')
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+        }
+        signal.addEventListener('abort', onAbort, { once: true })
+      }
+    })
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   private parseLogOutput(output: string, separator: string, recordEnd: string): GitCommit[] {
@@ -650,6 +732,32 @@ export class GitService {
         workTreeStatus
       })
     }
+  }
+
+  private parseCloneProgress(text: string, _fullOutput: string): CloneProgress {
+    // Match lines like "Receiving objects:  50% (21/42), 1.5 MiB | 500.00 KiB/s"
+    const progressMatch = text.match(/([\w\s]+):\s+(\d+)%\s+\((\d+)\/(\d+)\)/)
+    if (progressMatch) {
+      return {
+        phase: progressMatch[1].trim(),
+        percent: parseInt(progressMatch[2], 10),
+        current: parseInt(progressMatch[3], 10),
+        total: parseInt(progressMatch[4], 10)
+      }
+    }
+
+    // Match phase-only lines like "Cloning into 'repo'..."
+    const phaseMatch = text.match(/(Cloning into|Counting objects|Compressing objects|remote:.*?)[\s.,:]/i)
+    if (phaseMatch) {
+      return {
+        phase: phaseMatch[1].trim(),
+        percent: null,
+        current: null,
+        total: null
+      }
+    }
+
+    return { phase: 'Cloning...', percent: null, current: null, total: null }
   }
 
   private classifyError(error: Error & { code?: string | number | null; killed?: boolean }, stderr: string): GitError {

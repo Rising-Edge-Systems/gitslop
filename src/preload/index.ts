@@ -63,7 +63,23 @@ const electronAPI = {
     cancelOperation: (operationId: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('git:cancelOperation', operationId),
     exec: (args: string[], repoPath: string): Promise<GitServiceResult> =>
-      ipcRenderer.invoke('git:exec', args, repoPath)
+      ipcRenderer.invoke('git:exec', args, repoPath),
+    clone: (url: string, destPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:clone', url, destPath),
+    onCloneProgress: (
+      callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }
+      ): void => {
+        callback(progress)
+      }
+      ipcRenderer.on('git:clone-progress', handler)
+      return () => {
+        ipcRenderer.removeListener('git:clone-progress', handler)
+      }
+    }
   },
   repos: {
     getRecent: (): Promise<RecentRepo[]> => ipcRenderer.invoke('repos:getRecent'),
