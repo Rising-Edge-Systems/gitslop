@@ -571,7 +571,7 @@
         "Typecheck passes"
       ],
       "priority": 32,
-      "passes": false,
+      "passes": true,
       "notes": "Use a central shortcut registry. Consider mousetrap or hotkeys-js library."
     },
     {

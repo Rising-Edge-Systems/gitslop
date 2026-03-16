@@ -634,3 +634,24 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Theme preference stored in localStorage with key `gitslop-theme`
   - Semantic color variables: `--success`, `--error`, `--warning`, `--info`, `--purple`, `--orange`, `--btn-primary-*`, `--btn-danger-*`
 ---
+
+## 2026-03-16 16:14 - US-032
+- Implemented central keyboard shortcuts system with registry, reference panel, and refactored all existing shortcuts
+- Files created:
+  - `src/renderer/src/hooks/useKeyboardShortcuts.ts` - Central shortcut registry hook with `useKeyboardShortcuts`, `useShortcutHandler`, `defineShortcut`, `getRegisteredShortcuts`, `subscribeToRegistry`
+  - `src/renderer/src/components/KeyboardShortcutsPanel.tsx` - Keyboard shortcuts reference panel (Ctrl+?) with filter/search, grouped by category
+- Files changed:
+  - `src/renderer/src/components/AppLayout.tsx` - Migrated Ctrl+B, Ctrl+`, Ctrl+K to central system; added Ctrl+? for shortcuts panel
+  - `src/renderer/src/components/Toolbar.tsx` - Migrated Ctrl+Shift+P/L/F to central system; added Ctrl+Shift+S for stash
+  - `src/renderer/src/hooks/useTheme.ts` - Migrated Ctrl+Shift+T to central system
+  - `src/renderer/src/components/CommitDialog.tsx` - Migrated Ctrl+Enter to central system
+  - `src/renderer/src/components/CodeEditor.tsx` - Migrated Ctrl+S to central system
+  - `src/renderer/src/styles/global.css` - Added shortcuts panel styles
+- Registered shortcuts: Ctrl+Enter (commit), Ctrl+Shift+P (push), Ctrl+Shift+L (pull), Ctrl+Shift+F (fetch), Ctrl+Shift+S (stash), Ctrl+` (terminal), Ctrl+K (search), Ctrl+B (sidebar), Ctrl+S (save), Ctrl+Shift+T (toggle theme), Ctrl+? (show shortcuts)
+- **Learnings for future iterations:**
+  - `useKeyboardShortcuts` hook registers shortcuts in a shared Map; use `useShortcutHandler` for stable callback refs to avoid re-registration
+  - `defineShortcut` helper creates ShortcutDefinition objects with category/keys/handler
+  - `useSyncExternalStore` used in KeyboardShortcutsPanel to reactively display registry contents
+  - Shortcut categories: General, Git, Navigation, Editor, View — displayed in that order
+  - Special key handling: '?' requires custom matching since it inherently requires Shift on most keyboards
+---
