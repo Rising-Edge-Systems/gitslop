@@ -2176,6 +2176,96 @@ export class GitService {
     }
   }
 
+  // ─── Conflict Resolution ────────────────────────────────────────────────────
+
+  /**
+   * Get the content of a conflicted file from different stages.
+   * Stage 1 = base (common ancestor), Stage 2 = ours, Stage 3 = theirs.
+   */
+  async getConflictContent(
+    repoPath: string,
+    filePath: string
+  ): Promise<{
+    base: string | null
+    ours: string | null
+    theirs: string | null
+    merged: string
+  }> {
+    const { readFileSync } = await import('fs')
+    const { join } = await import('path')
+
+    // Read the current file with conflict markers
+    let merged = ''
+    try {
+      merged = readFileSync(join(repoPath, filePath), 'utf-8')
+    } catch {
+      merged = ''
+    }
+
+    // Get content from git object store for each stage
+    const getStage = async (stage: number): Promise<string | null> => {
+      try {
+        const result = await this.exec(['show', `:${stage}:${filePath}`], repoPath)
+        return result.stdout
+      } catch {
+        return null
+      }
+    }
+
+    const [base, ours, theirs] = await Promise.all([
+      getStage(1),
+      getStage(2),
+      getStage(3)
+    ])
+
+    return { base, ours, theirs, merged }
+  }
+
+  /**
+   * Write resolved content for a conflicted file and stage it (mark as resolved).
+   */
+  async resolveConflictFile(repoPath: string, filePath: string, content: string): Promise<void> {
+    const { writeFileSync } = await import('fs')
+    const { join } = await import('path')
+
+    // Write the resolved content
+    writeFileSync(join(repoPath, filePath), content, 'utf-8')
+
+    // Stage the file (marks it as resolved)
+    await this.exec(['add', filePath], repoPath)
+  }
+
+  /**
+   * Resolve a file by choosing ours or theirs version entirely.
+   */
+  async resolveConflictFileWith(
+    repoPath: string,
+    filePath: string,
+    choice: 'ours' | 'theirs'
+  ): Promise<void> {
+    await this.exec(['checkout', `--${choice}`, filePath], repoPath)
+    await this.exec(['add', filePath], repoPath)
+  }
+
+  /**
+   * Determine what git operation is currently in progress.
+   */
+  async getActiveOperation(
+    repoPath: string
+  ): Promise<'merge' | 'rebase' | 'cherry-pick' | 'revert' | null> {
+    const [merging, rebasing, cherryPicking, reverting] = await Promise.all([
+      this.isMerging(repoPath),
+      this.isRebasing(repoPath),
+      this.isCherryPicking(repoPath),
+      this.isReverting(repoPath)
+    ])
+    if (merging) return 'merge'
+    if (rebasing) return 'rebase'
+    if (cherryPicking) return 'cherry-pick'
+    if (reverting) return 'revert'
+    return null
+  }
+
   private createError(message: string, code: GitErrorCode, stderr?: string): GitError {
     return { message, code, stderr }
   }

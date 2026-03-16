@@ -1035,6 +1035,56 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Conflict Resolution ────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:getConflictContent',
+    async (_event, repoPath: string, filePath: string) => {
+      try {
+        const data = await gitService.getConflictContent(repoPath, filePath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:resolveConflictFile',
+    async (_event, repoPath: string, filePath: string, content: string) => {
+      try {
+        await gitService.resolveConflictFile(repoPath, filePath, content)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:resolveConflictFileWith',
+    async (_event, repoPath: string, filePath: string, choice: 'ours' | 'theirs') => {
+      try {
+        await gitService.resolveConflictFileWith(repoPath, filePath, choice)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:getActiveOperation',
+    async (_event, repoPath: string) => {
+      try {
+        const data = await gitService.getActiveOperation(repoPath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {

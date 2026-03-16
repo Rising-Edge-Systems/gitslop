@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { CommitDialog } from './CommitDialog'
 import { CommitGraph } from './CommitGraph'
+import { ConflictResolver } from './ConflictResolver'
 import { StatusPanel } from './StatusPanel'
 
 interface RepoViewProps {
@@ -25,6 +26,8 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showConflictResolver, setShowConflictResolver] = useState(false)
+  const [hasConflicts, setHasConflicts] = useState(false)
 
   const loadRepoData = useCallback(async () => {
     setLoading(true)
@@ -51,6 +54,15 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
             current: b.current
           }))
         )
+      }
+
+      // Check for conflicts
+      const conflictsResult = await window.electronAPI.git.getConflictedFiles(repoPath)
+      if (conflictsResult.success && Array.isArray(conflictsResult.data) && conflictsResult.data.length > 0) {
+        setHasConflicts(true)
+        setShowConflictResolver(true)
+      } else {
+        setHasConflicts(false)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load repository data')
@@ -139,6 +151,33 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
               </div>
             </div>
           </div>
+
+          {/* Conflict Banner */}
+          {hasConflicts && !showConflictResolver && (
+            <div className="conflict-banner">
+              <span className="conflict-banner-icon">&#9888;</span>
+              <span>Merge conflicts detected. Resolve them to continue.</span>
+              <button
+                className="conflict-banner-btn"
+                onClick={() => setShowConflictResolver(true)}
+              >
+                Open Conflict Resolver
+              </button>
+            </div>
+          )}
+
+          {/* Conflict Resolver Overlay */}
+          {showConflictResolver && (
+            <ConflictResolver
+              repoPath={repoPath}
+              onResolved={() => {
+                setShowConflictResolver(false)
+                setHasConflicts(false)
+                loadRepoData()
+              }}
+              onClose={() => setShowConflictResolver(false)}
+            />
+          )}
 
           {/* Status Panel */}
           <StatusPanel repoPath={repoPath} onRefresh={loadRepoData} />
