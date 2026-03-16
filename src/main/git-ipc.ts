@@ -1116,6 +1116,39 @@ export function registerGitIpcHandlers(): void {
     return { success: false, error: 'Operation not found' }
   })
 
+  // ─── Discard Files ─────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:discardFiles',
+    async (
+      _event,
+      repoPath: string,
+      filePaths: string[],
+      opts?: { untracked?: boolean }
+    ) => {
+      try {
+        await gitService.discardFiles(repoPath, filePaths, opts)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── File Log ──────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:fileLog',
+    async (_event, repoPath: string, filePath: string, maxCount?: number) => {
+      try {
+        const data = await gitService.fileLog(repoPath, filePath, maxCount)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Generic exec (for operations not yet wrapped) ───────────────────────
 
   ipcMain.handle(

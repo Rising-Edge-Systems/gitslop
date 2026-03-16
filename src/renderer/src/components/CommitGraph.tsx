@@ -481,14 +481,14 @@ function CommitContextMenu({ state, multiSelectCount, onClose, onAction }: Commi
     : 'Cherry-pick'
 
   const items = [
-    { label: cherryPickLabel, action: 'cherry-pick', icon: '\u{1F352}' },
-    { label: 'Revert', action: 'revert', icon: '\u21A9' },
-    { label: 'Reset current branch to here', action: 'reset', icon: '\u23EA' },
-    { label: '---', action: '', icon: '' },
-    { label: 'Create branch here...', action: 'create-branch', icon: '\u{1F33F}' },
-    { label: 'Create tag here...', action: 'create-tag', icon: '\u{1F3F7}' },
-    { label: '---', action: '', icon: '' },
-    { label: 'Copy SHA', action: 'copy-sha', icon: '\u{1F4CB}' },
+    { label: cherryPickLabel, action: 'cherry-pick', icon: '\u{1F352}', shortcut: '' },
+    { label: 'Revert', action: 'revert', icon: '\u21A9', shortcut: '' },
+    { label: 'Reset current branch to here', action: 'reset', icon: '\u23EA', shortcut: '' },
+    { label: '---', action: '', icon: '', shortcut: '' },
+    { label: 'Create branch here...', action: 'create-branch', icon: '\u{1F33F}', shortcut: '' },
+    { label: 'Create tag here...', action: 'create-tag', icon: '\u{1F3F7}', shortcut: '' },
+    { label: '---', action: '', icon: '', shortcut: '' },
+    { label: 'Copy SHA', action: 'copy-sha', icon: '\u{1F4CB}', shortcut: 'Ctrl+C' },
   ]
 
   return (
@@ -508,6 +508,9 @@ function CommitContextMenu({ state, multiSelectCount, onClose, onAction }: Commi
           >
             <span className="commit-ctx-menu-icon">{item.icon}</span>
             <span className="commit-ctx-menu-label">{item.label}</span>
+            {item.shortcut && (
+              <span className="commit-ctx-menu-shortcut">{item.shortcut}</span>
+            )}
           </button>
         )
       })}

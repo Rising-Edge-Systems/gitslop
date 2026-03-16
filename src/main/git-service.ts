@@ -2383,6 +2383,67 @@ export class GitService {
     return { lines }
   }
 
+  /**
+   * Discard changes to tracked files (git checkout -- <files>).
+   * For untracked files, use git clean -f -- <files>.
+   */
+  async discardFiles(
+    repoPath: string,
+    filePaths: string[],
+    opts?: { untracked?: boolean }
+  ): Promise<void> {
+    if (filePaths.length === 0) return
+
+    if (opts?.untracked) {
+      // Remove untracked files
+      await this.exec(['clean', '-f', '--', ...filePaths], repoPath)
+    } else {
+      // Discard changes to tracked files
+      await this.exec(['checkout', '--', ...filePaths], repoPath)
+    }
+  }
+
+  /**
+   * Get log for a specific file path.
+   */
+  async fileLog(
+    repoPath: string,
+    filePath: string,
+    maxCount = 50
+  ): Promise<GitCommit[]> {
+    const result = await this.exec(
+      [
+        'log',
+        `--max-count=${maxCount}`,
+        '--format=%H%x00%h%x00%P%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%b%x00%D',
+        '--',
+        filePath
+      ],
+      repoPath
+    )
+    const commits: GitCommit[] = []
+    for (const line of result.stdout.split('\n').filter(Boolean)) {
+      const parts = line.split('\0')
+      if (parts.length >= 10) {
+        commits.push({
+          hash: parts[0],
+          shortHash: parts[1],
+          parentHashes: parts[2].split(' ').filter(Boolean),
+          authorName: parts[3],
+          authorEmail: parts[4],
+          authorDate: parts[5],
+          committerName: parts[6],
+          committerEmail: parts[7],
+          commitDate: parts[8],
+          subject: parts[9],
+          body: parts[10] || '',
+          refs: parts[11] || ''
+        })
+      }
+    }
+    return commits
+  }
+
   private createError(message: string, code: GitErrorCode, stderr?: string): GitError {
     return { message, code, stderr }
   }

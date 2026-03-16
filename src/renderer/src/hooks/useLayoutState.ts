@@ -150,6 +150,8 @@ declare global {
         getActiveOperation: (repoPath: string) => Promise<GitServiceResult>
         blame: (repoPath: string, filePath: string) => Promise<GitServiceResult>
         autoFetch: (repoPath: string) => Promise<GitServiceResult>
+        discardFiles: (repoPath: string, filePaths: string[], opts?: { untracked?: boolean }) => Promise<GitServiceResult>
+        fileLog: (repoPath: string, filePath: string, maxCount?: number) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void

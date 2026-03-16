@@ -192,6 +192,7 @@ function BranchContextMenu({
         >
           <span className="branch-ctx-menu-icon">&#8682;</span>
           <span className="branch-ctx-menu-label">Push</span>
+          <span className="branch-ctx-menu-shortcut">Ctrl+Shift+P</span>
         </button>
       )}
       {!isCurrent && (
@@ -1037,6 +1038,22 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
     [currentRepo, loadTags]
   )
 
+  const handleCheckoutTag = useCallback(
+    async (name: string) => {
+      if (!currentRepo) return
+      if (!confirm(`Checkout tag "${name}"? This will put you in detached HEAD state.`)) return
+      try {
+        const result = await window.electronAPI.git.checkout(currentRepo, name)
+        if (!result.success) {
+          alert(`Failed to checkout tag: ${result.error}`)
+        }
+      } catch {
+        // ignore
+      }
+    },
+    [currentRepo]
+  )
+
   const handlePushTag = useCallback(
     async (name: string) => {
       if (!currentRepo) return
@@ -1177,11 +1194,22 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
       {contextMenu && (
         <div
           className="branch-ctx-menu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y, zIndex: 2000 }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
             className="branch-ctx-menu-item"
+            onClick={() => {
+              handleCheckoutTag(contextMenu.tag.name)
+              setContextMenu(null)
+            }}
+          >
+            <span className="branch-ctx-menu-icon">&#10004;</span>
+            <span className="branch-ctx-menu-label">Checkout tag</span>
+          </button>
+          <div className="branch-ctx-menu-separator" />
+          <button
+            className="branch-ctx-menu-item branch-ctx-menu-item-danger"
             onClick={() => {
               handleDelete(contextMenu.tag.name)
               setContextMenu(null)
@@ -1535,13 +1563,31 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
       {contextMenu && (
         <div
           className="branch-ctx-menu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y, zIndex: 2000 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button onClick={() => handleApply(contextMenu.stash.index)}>Apply</button>
-          <button onClick={() => handlePop(contextMenu.stash.index)}>Pop</button>
-          <div className="branch-ctx-divider" />
-          <button className="branch-ctx-danger" onClick={() => handleDrop(contextMenu.stash.index)}>Drop</button>
+          <button
+            className="branch-ctx-menu-item"
+            onClick={() => { handleApply(contextMenu.stash.index); setContextMenu(null) }}
+          >
+            <span className="branch-ctx-menu-icon">&#10548;</span>
+            <span className="branch-ctx-menu-label">Apply</span>
+          </button>
+          <button
+            className="branch-ctx-menu-item"
+            onClick={() => { handlePop(contextMenu.stash.index); setContextMenu(null) }}
+          >
+            <span className="branch-ctx-menu-icon">&#8599;</span>
+            <span className="branch-ctx-menu-label">Pop</span>
+          </button>
+          <div className="branch-ctx-menu-separator" />
+          <button
+            className="branch-ctx-menu-item branch-ctx-menu-item-danger"
+            onClick={() => { handleDrop(contextMenu.stash.index); setContextMenu(null) }}
+          >
+            <span className="branch-ctx-menu-icon">&#128465;</span>
+            <span className="branch-ctx-menu-label">Drop</span>
+          </button>
         </div>
       )}
 

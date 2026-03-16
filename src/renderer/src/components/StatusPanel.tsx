@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { DiffViewer } from './DiffViewer'
+import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
+import { openFileInEditor } from './CodeEditor'
 
 interface FileStatus {
   path: string
@@ -66,6 +68,11 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const [operationInProgress, setOperationInProgress] = useState(false)
   const [dragSource, setDragSource] = useState<'staged' | 'unstaged' | 'untracked' | null>(null)
+  const [fileContextMenu, setFileContextMenu] = useState<{
+    x: number
+    y: number
+    file: FileStatus
+  } | null>(null)
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -218,6 +225,106 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
       setOperationInProgress(false)
     }
   }, [repoPath, loadStatus, onRefresh, operationInProgress])
+
+  // ─── Discard changes ────────────────────────────────────────────────────────
+  const discardFile = useCallback(
+    async (file: FileStatus) => {
+      if (operationInProgress) return
+      const isUntracked = file.status === 'untracked'
+      const confirmed = window.confirm(
+        `Discard changes to "${file.path}"?\n\nThis action is irreversible${isUntracked ? ' — the file will be deleted' : ''}.`
+      )
+      if (!confirmed) return
+      setOperationInProgress(true)
+      try {
+        const result = await window.electronAPI.git.discardFiles(
+          repoPath,
+          [file.path],
+          { untracked: isUntracked }
+        )
+        if (result.success) {
+          await loadStatus()
+          onRefresh?.()
+        }
+      } finally {
+        setOperationInProgress(false)
+      }
+    },
+    [repoPath, loadStatus, onRefresh, operationInProgress]
+  )
+
+  // ─── File Context Menu ──────────────────────────────────────────────────────
+  const handleFileContextMenu = useCallback(
+    (file: FileStatus, x: number, y: number) => {
+      setFileContextMenu({ x, y, file })
+    },
+    []
+  )
+
+  const buildFileContextMenuItems = useCallback(
+    (file: FileStatus): ContextMenuEntry[] => {
+      const isStaged = file.staged
+      const isUntracked = file.status === 'untracked'
+      const items: ContextMenuEntry[] = []
+
+      if (isStaged) {
+        items.push({
+          key: 'unstage',
+          label: 'Unstage',
+          icon: '−',
+          shortcut: 'U',
+          onClick: () => unstageFiles([file.path])
+        })
+      } else {
+        items.push({
+          key: 'stage',
+          label: 'Stage',
+          icon: '+',
+          shortcut: 'S',
+          onClick: () => stageFiles([file.path])
+        })
+      }
+
+      items.push({ key: 'sep1', separator: true })
+
+      if (!isStaged) {
+        items.push({
+          key: 'discard',
+          label: isUntracked ? 'Delete File' : 'Discard Changes',
+          icon: '✕',
+          danger: true,
+          onClick: () => discardFile(file)
+        })
+        items.push({ key: 'sep2', separator: true })
+      }
+
+      items.push({
+        key: 'openInEditor',
+        label: 'Open in Editor',
+        icon: '✎',
+        onClick: () => {
+          const fullPath = repoPath + '/' + file.path
+          openFileInEditor(fullPath)
+        }
+      })
+
+      if (!isUntracked) {
+        items.push({
+          key: 'showHistory',
+          label: 'Show History',
+          icon: '🕐',
+          onClick: () => {
+            window.dispatchEvent(
+              new CustomEvent('commit-filter:file-history', { detail: { path: file.path } })
+            )
+          }
+        })
+      }
+
+      return items
+    },
+    [repoPath, stageFiles, unstageFiles, discardFile]
+  )
 
   // Handle stage/unstage from keyboard shortcut based on selected files
   const handleStageSelected = useCallback(() => {
@@ -494,6 +601,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
             dragSource={dragSource}
             handleDragOver={handleDragOver}
             handleDrop={handleDrop}
+            onFileContextMenu={handleFileContextMenu}
           />
 
           {/* Unstaged Section */}
@@ -520,6 +628,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
             dragSource={dragSource}
             handleDragOver={handleDragOver}
             handleDrop={handleDrop}
+            onFileContextMenu={handleFileContextMenu}
           />
 
           {/* Untracked Section */}
@@ -546,6 +655,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
             dragSource={dragSource}
             handleDragOver={handleDragOver}
             handleDrop={handleDrop}
+            onFileContextMenu={handleFileContextMenu}
           />
         </div>
       )}
@@ -591,6 +701,16 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
             )}
           </div>
         </div>
+      )}
+
+      {/* File Context Menu */}
+      {fileContextMenu && (
+        <ContextMenu
+          x={fileContextMenu.x}
+          y={fileContextMenu.y}
+          items={buildFileContextMenuItems(fileContextMenu.file)}
+          onClose={() => setFileContextMenu(null)}
+        />
       )}
     </div>
   )
@@ -1053,6 +1173,7 @@ interface StatusSectionProps {
   dragSource: 'staged' | 'unstaged' | 'untracked' | null
   handleDragOver: (section: 'staged' | 'unstaged', e: React.DragEvent) => void
   handleDrop: (section: 'staged' | 'unstaged', e: React.DragEvent) => Promise<void>
+  onFileContextMenu: (file: FileStatus, x: number, y: number) => void
 }
 
 function StatusSection({
@@ -1075,7 +1196,8 @@ function StatusSection({
   dropTargetSection,
   dragSource,
   handleDragOver,
-  handleDrop
+  handleDrop,
+  onFileContextMenu
 }: StatusSectionProps): React.JSX.Element | null {
   if (count === 0) return null
 
@@ -1124,6 +1246,11 @@ function StatusSection({
                 draggable
                 onDragStart={(e) => onDragStart(file, e)}
                 onDragEnd={onDragEnd}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onFileContextMenu(file, e.clientX, e.clientY)
+                }}
               >
                 <button
                   className="status-file-info"

@@ -248,6 +248,18 @@ const electronAPI = {
       ipcRenderer.invoke('git:blame', repoPath, filePath),
     autoFetch: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:autoFetch', repoPath),
+    discardFiles: (
+      repoPath: string,
+      filePaths: string[],
+      opts?: { untracked?: boolean }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:discardFiles', repoPath, filePaths, opts),
+    fileLog: (
+      repoPath: string,
+      filePath: string,
+      maxCount?: number
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:fileLog', repoPath, filePath, maxCount),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (
