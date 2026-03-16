@@ -677,3 +677,20 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Sidebar position setting controls whether sidebar renders before or after center panel in the Group
   - SettingsPanel uses dynamic import for keyboard shortcuts registry to avoid circular deps
 ---
+
+## 2026-03-16 - US-034
+- Implemented: Status bar, toast notifications, notification history, centralized notification system
+- Files created:
+  - `src/renderer/src/hooks/useNotifications.ts` - Centralized notification state management hook
+  - `src/renderer/src/components/NotificationToast.tsx` - Toast notification UI with expandable error details
+  - `src/renderer/src/components/StatusBar.tsx` - Bottom status bar with branch, sync status, active ops, notification history
+- Files changed:
+  - `src/renderer/src/components/AppLayout.tsx` - Added StatusBar, NotificationToast, and useNotifications integration
+  - `src/renderer/src/components/Toolbar.tsx` - Added onNotify prop to delegate notifications to centralized system
+  - `src/renderer/src/styles/global.css` - Added status bar, toast, and notification history styles
+- **Learnings for future iterations:**
+  - Notification system: `useNotifications` hook in AppLayout provides `addNotification(type, message, details?)` — pass as `onNotify` prop to child components
+  - Status bar uses `onRepoChanged` listener + `getBranches`/`getCurrentBranch` to refresh branch and ahead/behind info
+  - Toast notifications auto-dismiss (4s success, 8s error); error toasts have expandable "Show Details"
+  - Notification history (last 100) accessible from bell icon in status bar
+---

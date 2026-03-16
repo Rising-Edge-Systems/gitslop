@@ -607,7 +607,7 @@
         "Typecheck passes"
       ],
       "priority": 34,
-      "passes": false,
+      "passes": true,
       "notes": "Consider react-hot-toast or sonner for toast notifications."
     },
     {
