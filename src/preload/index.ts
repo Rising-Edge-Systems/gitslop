@@ -254,6 +254,8 @@ const electronAPI = {
       opts?: { untracked?: boolean }
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:discardFiles', repoPath, filePaths, opts),
+    discardHunk: (repoPath: string, patch: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:discardHunk', repoPath, patch),
     fileLog: (
       repoPath: string,
       filePath: string,

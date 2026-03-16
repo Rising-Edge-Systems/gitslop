@@ -151,6 +151,7 @@ declare global {
         blame: (repoPath: string, filePath: string) => Promise<GitServiceResult>
         autoFetch: (repoPath: string) => Promise<GitServiceResult>
         discardFiles: (repoPath: string, filePaths: string[], opts?: { untracked?: boolean }) => Promise<GitServiceResult>
+        discardHunk: (repoPath: string, patch: string) => Promise<GitServiceResult>
         fileLog: (repoPath: string, filePath: string, maxCount?: number) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (

@@ -3109,6 +3109,24 @@ body.theme-transitioning *::after {
   background: rgba(243, 139, 168, 0.3);
 }
 
+.hunk-action-btn.hunk-discard {
+  background: rgba(243, 139, 168, 0.15);
+  color: var(--btn-danger-bg);
+}
+
+.hunk-action-btn.hunk-discard:hover:not(:disabled) {
+  background: rgba(243, 139, 168, 0.35);
+}
+
+.status-action-discard-all {
+  color: var(--btn-danger-bg) !important;
+}
+
+.status-action-discard-all:hover:not(:disabled) {
+  background: rgba(243, 139, 168, 0.2) !important;
+  color: var(--btn-danger-bg) !important;
+}
+
 .hunk-lines {
   font-family: var(--font-mono);
   font-size: 11px;

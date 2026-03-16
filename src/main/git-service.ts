@@ -2404,6 +2404,17 @@ export class GitService {
   }
 
   /**
+   * Discard a hunk by reverse-applying a patch to the working directory.
+   */
+  async discardHunk(
+    repoPath: string,
+    patch: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    return this.applyPatch(repoPath, patch, { reverse: true, signal: options?.signal })
+  }
+
+  /**
    * Get log for a specific file path.
    */
   async fileLog(

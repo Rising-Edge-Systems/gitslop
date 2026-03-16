@@ -1135,6 +1135,20 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Discard Hunk ─────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:discardHunk',
+    async (_event, repoPath: string, patch: string) => {
+      try {
+        await gitService.discardHunk(repoPath, patch)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── File Log ──────────────────────────────────────────────────────────────
 
   ipcMain.handle(

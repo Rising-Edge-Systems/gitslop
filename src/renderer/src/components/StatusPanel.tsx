@@ -253,6 +253,34 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
     [repoPath, loadStatus, onRefresh, operationInProgress]
   )
 
+  // ─── Discard All Changes ──────────────────────────────────────────────────
+  const discardAllChanges = useCallback(async () => {
+    if (operationInProgress || !status) return
+    const totalFiles = status.unstaged.length + status.untracked.length
+    if (totalFiles === 0) return
+    const confirmed = window.confirm(
+      `Discard ALL changes to ${totalFiles} file(s)?\n\nThis action is irreversible — all unstaged modifications will be lost and untracked files will be deleted.`
+    )
+    if (!confirmed) return
+    setOperationInProgress(true)
+    try {
+      // Discard tracked file changes
+      const trackedPaths = status.unstaged.map((f) => f.path)
+      if (trackedPaths.length > 0) {
+        await window.electronAPI.git.discardFiles(repoPath, trackedPaths)
+      }
+      // Delete untracked files
+      const untrackedPaths = status.untracked.map((f) => f.path)
+      if (untrackedPaths.length > 0) {
+        await window.electronAPI.git.discardFiles(repoPath, untrackedPaths, { untracked: true })
+      }
+      await loadStatus()
+      onRefresh?.()
+    } finally {
+      setOperationInProgress(false)
+    }
+  }, [operationInProgress, status, repoPath, loadStatus, onRefresh])
+
   // ─── File Context Menu ──────────────────────────────────────────────────────
   const handleFileContextMenu = useCallback(
     (file: FileStatus, x: number, y: number) => {
@@ -562,6 +590,16 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
               title="Unstage All"
             >
               − Unstage All
+            </button>
+          )}
+          {hasUnstagedOrUntracked && (
+            <button
+              className="status-action-btn status-action-discard-all"
+              onClick={discardAllChanges}
+              disabled={operationInProgress}
+              title="Discard All Changes (irreversible)"
+            >
+              ✕ Discard All
             </button>
           )}
           <button className="status-panel-refresh" onClick={loadStatus} title="Refresh status">
@@ -995,6 +1033,27 @@ function HunkDiffViewer({
     [operationInProgress, hasValidHeader, selectedLines, fileHeader, hunks, repoPath, onOperationDone, setOperationInProgress]
   )
 
+  const handleDiscardHunk = useCallback(
+    async (hunkIdx: number) => {
+      if (operationInProgress || !hasValidHeader) return
+      const confirmed = window.confirm(
+        'Discard this hunk?\n\nThis action is irreversible — the changes will be permanently lost.'
+      )
+      if (!confirmed) return
+      setOperationInProgress(true)
+      try {
+        const patch = buildHunkPatch(fileHeader, hunks[hunkIdx])
+        const result = await window.electronAPI.git.discardHunk(repoPath, patch)
+        if (result.success) {
+          onOperationDone()
+        }
+      } finally {
+        setOperationInProgress(false)
+      }
+    },
+    [operationInProgress, hasValidHeader, fileHeader, hunks, repoPath, onOperationDone, setOperationInProgress]
+  )
+
   // If it's not a parseable diff (e.g. untracked file placeholder text), show raw
   if (hunks.length === 0 || !hasValidHeader) {
     return <pre className="status-diff-pre">{diffContent}</pre>
@@ -1038,6 +1097,16 @@ function HunkDiffViewer({
                     title="Stage this hunk"
                   >
                     + Stage Hunk
+                  </button>
+                )}
+                {!staged && !isUntracked && (
+                  <button
+                    className="hunk-action-btn hunk-discard"
+                    onClick={() => handleDiscardHunk(hunkIdx)}
+                    disabled={operationInProgress}
+                    title="Discard this hunk (irreversible)"
+                  >
+                    ✕ Discard Hunk
                   </button>
                 )}
                 {staged && (
