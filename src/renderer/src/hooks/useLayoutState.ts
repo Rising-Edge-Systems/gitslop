@@ -131,6 +131,11 @@ declare global {
         rebaseSkip: (repoPath: string) => Promise<GitServiceResult>
         isRebasing: (repoPath: string) => Promise<GitServiceResult>
         rebaseProgress: (repoPath: string) => Promise<GitServiceResult>
+        reset: (
+          repoPath: string,
+          targetHash: string,
+          mode: 'soft' | 'mixed' | 'hard'
+        ) => Promise<GitServiceResult>
         clone: (url: string, destPath: string) => Promise<GitServiceResult>
         onCloneProgress: (
           callback: (progress: { operationId: string; phase: string; percent: number | null; current: number | null; total: number | null }) => void

@@ -959,6 +959,25 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Reset ──────────────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:reset',
+    async (
+      _event,
+      repoPath: string,
+      targetHash: string,
+      mode: 'soft' | 'mixed' | 'hard'
+    ) => {
+      try {
+        const result = await gitService.reset(repoPath, targetHash, mode)
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Cancel Operation ────────────────────────────────────────────────────
 
   ipcMain.handle('git:cancelOperation', async (_event, operationId: string) => {

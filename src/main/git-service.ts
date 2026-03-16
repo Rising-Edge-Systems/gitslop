@@ -2037,6 +2037,27 @@ export class GitService {
     return this.createError(msg || 'Git command failed', GitErrorCode.CommandFailed, stderr)
   }
 
+  // ─── Reset ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Reset current branch to a specific commit.
+   * @param mode - 'soft' keeps changes staged, 'mixed' keeps changes unstaged, 'hard' discards all changes
+   */
+  async reset(
+    repoPath: string,
+    targetHash: string,
+    mode: 'soft' | 'mixed' | 'hard',
+    _options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string }> {
+    const args = ['reset', `--${mode}`, targetHash]
+    const result = await this.exec(args, repoPath, { signal: _options?.signal })
+    const output = (result.stdout + '\n' + result.stderr).trim()
+    return {
+      success: true,
+      message: output || `Reset (${mode}) to ${targetHash.substring(0, 7)} successful`
+    }
+  }
+
   private createError(message: string, code: GitErrorCode, stderr?: string): GitError {
     return { message, code, stderr }
   }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
 import { DiffViewer } from './DiffViewer'
+import { ResetDialog } from './ResetDialog'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -682,6 +683,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set())
   const [cherryPickState, setCherryPickState] = useState<CherryPickState>({ status: 'idle', message: '' })
+  const [resetTarget, setResetTarget] = useState<{ hash: string; subject: string } | null>(null)
 
   // Load commits
   const loadCommits = useCallback(async () => {
@@ -921,8 +923,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
         handleCherryPick(hashes)
         break
       }
-      case 'revert':
       case 'reset':
+        setResetTarget({ hash: commit.hash, subject: commit.subject })
+        break
+      case 'revert':
       case 'create-branch':
       case 'create-tag':
         // Placeholder — these will be implemented in future stories
@@ -1145,6 +1149,20 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect }: CommitGraph
           </div>
         )}
       </div>
+
+      {/* Reset dialog */}
+      {resetTarget && (
+        <ResetDialog
+          repoPath={repoPath}
+          targetHash={resetTarget.hash}
+          targetSubject={resetTarget.subject}
+          onClose={() => setResetTarget(null)}
+          onResetComplete={() => {
+            loadCommits()
+            setResetTarget(null)
+          }}
+        />
+      )}
 
       {/* Commit detail panel */}
       {(commitDetail || loadingDetail) && (

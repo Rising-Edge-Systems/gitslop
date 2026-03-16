@@ -218,6 +218,12 @@ const electronAPI = {
       ipcRenderer.invoke('git:isRebasing', repoPath),
     rebaseProgress: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:rebaseProgress', repoPath),
+    reset: (
+      repoPath: string,
+      targetHash: string,
+      mode: 'soft' | 'mixed' | 'hard'
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:reset', repoPath, targetHash, mode),
     clone: (url: string, destPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:clone', url, destPath),
     onCloneProgress: (
