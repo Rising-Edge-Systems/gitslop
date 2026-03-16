@@ -30,6 +30,8 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
 - `useListCallbackRef` hook for imperative List API in react-window v2
 - `Sidebar` component accepts `currentRepo` prop; each sidebar section loads its own data when repo is set
 - Git branch operations (checkout, create, delete, rename) available via `window.electronAPI.git.checkout/createBranch/deleteBranch/renameBranch`
+- File watcher: `watcher:start`/`watcher:stop` IPC in main, `repo:changed` event to renderer, `onRepoChanged` callback in preload
+- New IPC APIs: add to preload, then update Window.electronAPI type in `useLayoutState.ts`
 ---
 
 ## 2026-03-16 13:10 - US-001
@@ -262,4 +264,22 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Stash show uses `git stash show -p stash@{N}` for full diff output
   - Toolbar now accepts `currentRepo` prop — needed for any toolbar action that invokes git commands
   - Stash diff viewer is shown as a modal overlay (same pattern as clone dialog)
+---
+## 2026-03-16 14:37 - US-013
+- Implemented: Working Directory Status Panel with three collapsible sections (Staged/Unstaged/Untracked), file diff viewer, file watcher for auto-refresh, and clean working directory empty state
+- Files created:
+  - `src/renderer/src/components/StatusPanel.tsx` - StatusPanel component with collapsible sections, file list with status icons, inline diff viewer, auto-refresh via polling + file watcher
+- Files modified:
+  - `src/main/index.ts` - Added file watcher IPC handlers (watcher:start/stop) using Node.js `fs.watch` with recursive flag, debounced repo:changed events
+  - `src/preload/index.ts` - Added watcher.start/stop and onRepoChanged IPC methods
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with watcher and onRepoChanged
+  - `src/renderer/src/components/RepoView.tsx` - Integrated StatusPanel, starts/stops file watcher on repo mount/unmount
+  - `src/renderer/src/styles/global.css` - Added comprehensive StatusPanel styles (sections, file items, diff viewer, status icons)
+- **Learnings for future iterations:**
+  - File watcher uses Node.js native `fs.watch` with `{ recursive: true }` — simpler than chokidar, no extra dependency
+  - Watcher IPC channels: `watcher:start`/`watcher:stop` in main, `repo:changed` event sent to renderer
+  - StatusPanel polls every 3 seconds AND listens for file watcher events (belt and suspenders approach)
+  - Status icons use color-coded CSS classes: `.status-icon-added` (green), `.status-icon-modified` (orange), `.status-icon-deleted` (red)
+  - StatusPanel is embedded in RepoView between the summary cards and the CommitGraph
+  - `onRepoChanged` IPC is added to the preload alongside `watcher` methods
 ---

@@ -233,7 +233,7 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "Use git status --porcelain=v2 for machine-parseable status output."
     },
     {
