@@ -504,3 +504,24 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - RepoView checks for conflicted files on load and shows banner + auto-opens resolver
   - `getActiveOperation()` checks all operation status methods in parallel to determine what's in progress
 ---
+## 2026-03-16 15:37 - US-025
+- Implemented: Built-in Code Editor with Monaco editor, file tabs, modified indicators, save, language detection, word wrap/minimap toggles
+- Files created:
+  - `src/renderer/src/components/CodeEditor.tsx` - Full code editor component with Monaco, multi-tab support, Ctrl+S save, language auto-detection for 40+ extensions, word wrap toggle, minimap toggle, modified indicator, CustomEvent-based file opening
+- Files modified:
+  - `src/main/index.ts` - Added `file:read` and `file:write` IPC handlers using Node.js fs module
+  - `src/preload/index.ts` - Added `file.read()` and `file.write()` to electronAPI
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with `file` namespace
+  - `src/renderer/src/components/RepoView.tsx` - Integrated CodeEditor panel with show/hide toggle, auto-shows when a file is opened
+  - `src/renderer/src/styles/global.css` - Added comprehensive CodeEditor styles (tabs, empty state, error banner, saving indicator, toggle bar)
+  - `package.json` - Added @monaco-editor/react and monaco-editor dependencies
+- **Learnings for future iterations:**
+  - `@monaco-editor/react` uses `Editor` component with `onMount`, `onChange`, `defaultValue` props
+  - Monaco editor type is `editor.IStandaloneCodeEditor` from `monaco-editor` package
+  - Use `defaultValue` (not `value`) to avoid controlled/uncontrolled conflicts with Monaco
+  - Use `key={filePath}` on Editor to force remount when switching tabs (simpler than imperative model management)
+  - File read/write IPC: `file:read`/`file:write` channels in main process, `file.read()`/`file.write()` in preload
+  - Inter-component communication uses CustomEvent `editor:open-file` with `{ filePath }` detail
+  - `openFileInEditor(filePath)` helper function exported from CodeEditor for other components to use
+  - CodeEditor panel is a 400px collapsible section in RepoView, toggled via editor button
+---

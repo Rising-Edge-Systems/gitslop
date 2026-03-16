@@ -448,7 +448,7 @@
         "Typecheck passes"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": "Use @monaco-editor/react. Lazy-load Monaco to reduce initial bundle size."
     },
     {
