@@ -283,3 +283,20 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - StatusPanel is embedded in RepoView between the summary cards and the CommitGraph
   - `onRepoChanged` IPC is added to the preload alongside `watcher` methods
 ---
+## 2026-03-16 14:42 - US-014
+- Implemented: Staging & Unstaging files with per-file buttons, Stage All/Unstage All, multi-select, drag-and-drop, keyboard shortcuts
+- Files changed:
+  - `src/main/git-service.ts` - Added `stageFiles()`, `unstageFiles()`, `stageAll()`, `unstageAll()` methods
+  - `src/main/git-ipc.ts` - Added IPC handlers for `git:stageFiles`, `git:unstageFiles`, `git:stageAll`, `git:unstageAll`
+  - `src/preload/index.ts` - Added stageFiles, unstageFiles, stageAll, unstageAll to electronAPI.git
+  - `src/renderer/src/hooks/useLayoutState.ts` - Updated Window.electronAPI type with new staging methods
+  - `src/renderer/src/components/StatusPanel.tsx` - Major rewrite: added stage/unstage buttons on each file (+/− icons), Stage All/Unstage All buttons in header, multi-select (Ctrl/Shift+click), drag-and-drop between sections, keyboard shortcuts (S to stage, U to unstage)
+  - `src/renderer/src/styles/global.css` - Added styles for stage/unstage buttons, drop targets, action buttons, file info layout
+- **Learnings for future iterations:**
+  - `git restore --staged` is the modern way to unstage (replaces `git reset HEAD <file>`)
+  - `git reset HEAD` (no file args) unstages everything
+  - StatusPanel now uses `status-file-info` inner button + `status-stage-btn` for per-file actions
+  - Drag-and-drop between staged/unstaged/untracked sections uses standard HTML5 drag API
+  - Multi-select uses Set<string> with keys like "staged:path" or "unstaged:path" to distinguish sections
+  - Keyboard shortcuts S (stage) and U (unstage) work when the status panel has focus
+---

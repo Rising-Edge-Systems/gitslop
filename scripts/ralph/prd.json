@@ -251,7 +251,7 @@
         "Typecheck passes"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "Use git add and git restore --staged for stage/unstage."
     },
     {
