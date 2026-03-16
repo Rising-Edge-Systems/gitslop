@@ -47,9 +47,10 @@ type ActiveOperation = {
 interface ToolbarProps {
   currentRepo: string | null
   onOpenSettings?: () => void
+  onNotify?: (type: 'success' | 'error' | 'warning' | 'info', message: string, details?: string) => void
 }
 
-export function Toolbar({ currentRepo, onOpenSettings }: ToolbarProps): React.JSX.Element {
+export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps): React.JSX.Element {
   const [stashDialog, setStashDialog] = useState<StashDialogState>({
     open: false,
     message: '',
@@ -86,12 +87,16 @@ export function Toolbar({ currentRepo, onOpenSettings }: ToolbarProps): React.JS
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Show a temporary notification
-  const showNotification = useCallback((type: 'success' | 'error', message: string) => {
-    if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current)
-    setNotification({ type, message })
-    notificationTimerRef.current = setTimeout(() => setNotification(null), 4000)
-  }, [])
+  // Show a temporary notification — delegates to onNotify if available
+  const showNotification = useCallback((type: 'success' | 'error', message: string, details?: string) => {
+    if (onNotify) {
+      onNotify(type, message, details)
+    } else {
+      if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current)
+      setNotification({ type, message })
+      notificationTimerRef.current = setTimeout(() => setNotification(null), 4000)
+    }
+  }, [onNotify])
 
   // Listen for progress events
   useEffect(() => {
@@ -142,9 +147,9 @@ export function Toolbar({ currentRepo, onOpenSettings }: ToolbarProps): React.JS
         // Check for rejected push (non-fast-forward)
         const errorMsg = result.error || 'Push failed'
         if (errorMsg.includes('rejected') || errorMsg.includes('non-fast-forward') || errorMsg.includes('fetch first')) {
-          showNotification('error', 'Push rejected — remote has new changes. Pull first or force push.')
+          showNotification('error', 'Push rejected — remote has new changes. Pull first or force push.', errorMsg)
         } else {
-          showNotification('error', errorMsg)
+          showNotification('error', errorMsg, result.error)
         }
       }
     } catch {
@@ -449,8 +454,8 @@ export function Toolbar({ currentRepo, onOpenSettings }: ToolbarProps): React.JS
         </div>
       )}
 
-      {/* Notification toast */}
-      {notification && (
+      {/* Inline notification fallback (when no centralized notification system) */}
+      {!onNotify && notification && (
         <div className={`toolbar-notification toolbar-notification-${notification.type}`}>
           {notification.type === 'success' ? '✓' : '✗'} {notification.message}
         </div>

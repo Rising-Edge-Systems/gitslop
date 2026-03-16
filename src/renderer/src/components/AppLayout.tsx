@@ -11,7 +11,10 @@ import { MainContent } from './MainContent'
 import { TerminalPanel } from './Terminal'
 import { SearchPalette } from './SearchPalette'
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel'
+import { StatusBar } from './StatusBar'
+import { NotificationToast } from './NotificationToast'
 import { useLayoutState } from '../hooks/useLayoutState'
+import { useNotifications } from '../hooks/useNotifications'
 import {
   useKeyboardShortcuts,
   useShortcutHandler,
@@ -35,6 +38,16 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     toggleBottomPanel,
     toggleSidebar
   } = useLayoutState()
+
+  const {
+    notifications,
+    history,
+    addNotification,
+    dismissNotification,
+    clearHistory,
+    historyOpen,
+    setHistoryOpen
+  } = useNotifications()
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
@@ -102,9 +115,23 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
   useKeyboardShortcuts(shortcuts)
 
+  const handleToggleHistory = useCallback(() => {
+    setHistoryOpen(!historyOpen)
+  }, [historyOpen, setHistoryOpen])
+
   return (
     <div className="app-layout">
-      <Toolbar currentRepo={currentRepo} onOpenSettings={onOpenSettings} />
+      <Toolbar
+        currentRepo={currentRepo}
+        onOpenSettings={onOpenSettings}
+        onNotify={addNotification}
+      />
+
+      {/* Toast notifications */}
+      <NotificationToast
+        notifications={notifications}
+        onDismiss={dismissNotification}
+      />
 
       {/* Search Palette (Ctrl+K) */}
       {searchOpen && currentRepo && (
@@ -181,6 +208,15 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
           )}
         </Group>
       </div>
+
+      {/* Status Bar */}
+      <StatusBar
+        currentRepo={currentRepo}
+        history={history}
+        historyOpen={historyOpen}
+        onToggleHistory={handleToggleHistory}
+        onClearHistory={clearHistory}
+      />
     </div>
   )
 }
