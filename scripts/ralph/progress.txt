@@ -176,3 +176,18 @@ Started: Mon Mar 16 01:03:27 PM EDT 2026
   - Graph layout: activeLanes array tracks which hashes are "running" in each column
   - repo-view-content needs `flex: 1; min-height: 0; overflow: hidden` for graph to fill available space
 ---
+
+## 2026-03-16 14:18 - US-008
+- Implemented: Commit graph interaction — click-to-select, detail panel, context menu, keyboard navigation
+- Files changed:
+  - `src/renderer/src/components/CommitGraph.tsx` - Added selection state, CommitDetailPanel, CommitContextMenu, keyboard nav (arrow keys), exported CommitDetail type
+  - `src/renderer/src/styles/global.css` - Added styles for: selected row, context menu, commit detail panel with metadata/files, wrapper layout
+- **Learnings for future iterations:**
+  - react-window v2 `scrollToRow` takes an object `{ index, align, behavior }`, not positional args
+  - CommitGraph now exports `CommitDetail` type for use by parent components
+  - CommitGraph uses a wrapper div (`.commit-graph-wrapper`) with flex layout to show detail panel alongside
+  - Context menu actions (cherry-pick, revert, reset, create-branch, create-tag) are placeholders — only copy-sha is functional
+  - `onCommitSelect` callback prop allows parent to react to selection changes
+  - Detail panel loads via `git:showCommit` IPC which returns commit metadata + changed files list
+  - `useCallback` on row click/context handlers is important — they're passed as rowProps to react-window
+---

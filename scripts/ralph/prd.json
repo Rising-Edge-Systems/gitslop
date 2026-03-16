@@ -145,7 +145,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-007 (graph rendering). Use git show --stat for commit details. Context menu actions are placeholders until their respective stories."
     },
     {
