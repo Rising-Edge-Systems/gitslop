@@ -392,10 +392,12 @@ body.theme-transitioning *::after {
 
 .resize-handle-horizontal {
   width: 3px;
+  cursor: col-resize;
 }
 
 .resize-handle-vertical {
   height: 3px;
+  cursor: row-resize;
 }
 
 /* Responsive rules moved to component CSS modules */
@@ -445,4 +447,78 @@ body.theme-transitioning *::after {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ─── Panel Collapse/Expand Animations ────────────────────────────────── */
+
+@keyframes panelExpandWidth {
+  from {
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+  }
+  to {
+    opacity: 1;
+    max-width: 100vw;
+    overflow: visible;
+  }
+}
+
+@keyframes panelExpandHeight {
+  from {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+  }
+  to {
+    opacity: 1;
+    max-height: 100vh;
+    overflow: visible;
+  }
+}
+
+@keyframes panelContentFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Panel wrapper animation class for sidebar expand */
+.panel-animate-sidebar {
+  animation: panelContentFadeIn 200ms ease-out;
+}
+
+/* Panel wrapper animation class for detail panel expand */
+.panel-animate-detail {
+  animation: panelContentFadeIn 200ms ease-out;
+}
+
+/* Panel wrapper animation class for terminal expand */
+.panel-animate-terminal {
+  animation: slideInFromBottom 200ms ease-out;
 }

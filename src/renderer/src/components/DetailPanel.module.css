@@ -45,6 +45,16 @@
   background: var(--bg-primary);
   border-left: 1px solid var(--border);
   overflow: hidden;
+  animation: detailFadeIn 200ms ease-out;
+}
+
+@keyframes detailFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ===== Overlay mode overrides ===== */

@@ -3,7 +3,8 @@ import { useWindowWidth } from '../hooks/useWindowWidth'
 import {
   Group,
   Panel,
-  Separator
+  Separator,
+  usePanelRef
 } from 'react-resizable-panels'
 import type { PanelSize } from 'react-resizable-panels'
 import { Toolbar } from './Toolbar'
@@ -99,6 +100,27 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const handleCloseDetailPanel = useCallback(() => {
     setSelectedCommit(null)
   }, [])
+
+  // Panel refs for double-click-to-reset on dividers
+  const sidebarPanelRef = usePanelRef()
+  const detailPanelRef = usePanelRef()
+  const bottomPanelRef = usePanelRef()
+
+  const DEFAULT_SIDEBAR_SIZE = 20
+  const DEFAULT_BOTTOM_SIZE = 25
+  const DEFAULT_RIGHT_PANEL_SIZE = 25
+
+  const handleSidebarDividerDoubleClick = useCallback(() => {
+    sidebarPanelRef.current?.resize(DEFAULT_SIDEBAR_SIZE)
+  }, [sidebarPanelRef])
+
+  const handleDetailDividerDoubleClick = useCallback(() => {
+    detailPanelRef.current?.resize(DEFAULT_RIGHT_PANEL_SIZE)
+  }, [detailPanelRef])
+
+  const handleBottomDividerDoubleClick = useCallback(() => {
+    bottomPanelRef.current?.resize(DEFAULT_BOTTOM_SIZE)
+  }, [bottomPanelRef])
 
   // Stable handler refs for shortcuts
   const handleToggleSidebar = useShortcutHandler(toggleSidebar)
@@ -209,10 +231,12 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     minSize={12}
                     maxSize={40}
                     onResize={handleSidebarResize}
+                    panelRef={sidebarPanelRef}
+                    className="panel-animate-sidebar"
                   >
                     <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
                   </Panel>
-                  <Separator className="resize-handle resize-handle-horizontal" />
+                  <Separator className="resize-handle resize-handle-horizontal" onDoubleClick={handleSidebarDividerDoubleClick} />
                 </>
               )}
               <Panel id="center" minSize={30}>
@@ -225,13 +249,15 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
               </Panel>
               {rightPanelVisible && !useOverlayDetailPanel && (
                 <>
-                  <Separator className="resize-handle resize-handle-horizontal" />
+                  <Separator className="resize-handle resize-handle-horizontal" onDoubleClick={handleDetailDividerDoubleClick} />
                   <Panel
                     id="detail"
                     defaultSize={layout.rightPanelSize}
                     minSize={15}
                     maxSize={50}
                     onResize={handleRightPanelResize}
+                    panelRef={detailPanelRef}
+                    className="panel-animate-detail"
                   >
                     <DetailPanel
                       detail={selectedCommit}
@@ -243,13 +269,15 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
               )}
               {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && !layout.sidebarCollapsed && (
                 <>
-                  <Separator className="resize-handle resize-handle-horizontal" />
+                  <Separator className="resize-handle resize-handle-horizontal" onDoubleClick={handleSidebarDividerDoubleClick} />
                   <Panel
                     id="sidebar"
                     defaultSize={layout.sidebarSize}
                     minSize={12}
                     maxSize={40}
                     onResize={handleSidebarResize}
+                    panelRef={sidebarPanelRef}
+                    className="panel-animate-sidebar"
                   >
                     <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
                   </Panel>
@@ -259,13 +287,15 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
           </Panel>
           {layout.bottomPanelVisible && (
             <>
-              <Separator className="resize-handle resize-handle-vertical" />
+              <Separator className="resize-handle resize-handle-vertical" onDoubleClick={handleBottomDividerDoubleClick} />
               <Panel
                 id="bottom"
                 defaultSize={layout.bottomPanelSize}
                 minSize={10}
                 maxSize={60}
                 onResize={handleBottomResize}
+                panelRef={bottomPanelRef}
+                className="panel-animate-terminal"
               >
                 <TerminalPanel currentRepo={currentRepo} onToggle={toggleBottomPanel} />
               </Panel>
