@@ -372,10 +372,137 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
-  max-height: 500px;
+  max-height: 600px;
   overflow-y: auto;
 }
 
+/* ===== Diff header ===== */
+.diffHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.diffHeaderInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.diffHeaderPath {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-xs);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diffHeaderType {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  padding: 1px var(--space-xs);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.diffHeaderOldPath {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.diffHeaderControls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+/* ===== Diff mode toggle ===== */
+.diffModeToggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.diffModeBtn {
+  background: none;
+  border: none;
+  padding: 2px var(--space-sm);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.diffModeBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.diffModeBtnActive {
+  background: var(--accent);
+  color: var(--text-on-accent, #fff);
+}
+
+.diffModeBtnActive:hover {
+  background: var(--accent);
+  color: var(--text-on-accent, #fff);
+}
+
+/* ===== File navigation ===== */
+.diffNavBtns {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.diffNavBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.diffNavBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.diffNavBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.diffNavLabel {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  min-width: 28px;
+  text-align: center;
+}
+
+/* ===== Diff states ===== */
 .diffLoading {
   display: flex;
   align-items: center;
@@ -398,6 +525,41 @@
   color: var(--text-muted);
   font-size: var(--font-sm);
   font-style: italic;
+}
+
+.diffBinary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-xl);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.diffCollapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.diffExpandBtn {
+  background: var(--accent);
+  color: var(--text-on-accent, #fff);
+  border: none;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.diffExpandBtn:hover {
+  opacity: 0.85;
 }
 
 .inlineDiff {

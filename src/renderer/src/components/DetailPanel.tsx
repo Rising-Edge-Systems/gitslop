@@ -15,11 +15,18 @@ import {
   Check,
   Loader2,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  ChevronLeft,
+  Package,
+  ChevronsUpDown
 } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
+import type { DiffViewMode } from './DiffViewer'
 import styles from './DetailPanel.module.css'
 import type { CommitDetail, CommitFileDetail } from './CommitGraph'
+
+/** Threshold above which diffs are collapsed by default */
+const LARGE_DIFF_LINE_THRESHOLD = 1000
 
 interface DetailPanelProps {
   detail: CommitDetail
@@ -90,11 +97,18 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
   const [diffContent, setDiffContent] = useState<string>('')
   const [loadingDiff, setLoadingDiff] = useState(false)
   const [filesExpanded, setFilesExpanded] = useState(true)
+  const [diffMode, setDiffMode] = useState<DiffViewMode>('inline')
+  const [isDiffCollapsed, setIsDiffCollapsed] = useState(false)
+  const [isBinaryFile, setIsBinaryFile] = useState(false)
+  const [diffLineCount, setDiffLineCount] = useState(0)
 
   // Reset selected file when commit changes
   useEffect(() => {
     setSelectedFile(null)
     setDiffContent('')
+    setIsBinaryFile(false)
+    setDiffLineCount(0)
+    setIsDiffCollapsed(false)
   }, [commit.hash])
 
   // Close on Escape key when in overlay mode
@@ -138,15 +152,34 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
     if (selectedFile?.path === file.path) {
       setSelectedFile(null)
       setDiffContent('')
+      setIsBinaryFile(false)
+      setDiffLineCount(0)
+      setIsDiffCollapsed(false)
       return
     }
 
     setSelectedFile(file)
     setLoadingDiff(true)
+    setIsBinaryFile(false)
+    setDiffLineCount(0)
+    setIsDiffCollapsed(false)
     try {
       const result = await window.electronAPI.git.showCommitFileDiff(repoPath, commit.hash, file.path)
       if (result.success && result.data) {
-        setDiffContent(result.data as string)
+        const content = result.data as string
+        // Check for binary file
+        if (content.includes('Binary files') || content.includes('GIT binary patch')) {
+          setIsBinaryFile(true)
+          setDiffContent(content)
+        } else {
+          setDiffContent(content)
+          // Count diff lines for large diff collapsing
+          const lineCount = content.split('\n').length
+          setDiffLineCount(lineCount)
+          if (lineCount > LARGE_DIFF_LINE_THRESHOLD) {
+            setIsDiffCollapsed(true)
+          }
+        }
       } else {
         setDiffContent('')
       }
@@ -156,6 +189,52 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
       setLoadingDiff(false)
     }
   }, [repoPath, commit.hash, selectedFile?.path])
+
+  // Navigate to previous/next file
+  const handleNavigateFile = useCallback((direction: 'prev' | 'next') => {
+    if (!selectedFile || fileDetails.length === 0) return
+    const currentIdx = fileDetails.findIndex(f => f.path === selectedFile.path)
+    if (currentIdx === -1) return
+    const nextIdx = direction === 'prev' ? currentIdx - 1 : currentIdx + 1
+    if (nextIdx >= 0 && nextIdx < fileDetails.length) {
+      handleFileClick(fileDetails[nextIdx])
+    }
+  }, [selectedFile, fileDetails, handleFileClick])
+
+  // Keyboard navigation for [ and ] to switch between files
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === '[' || e.key === ']') {
+        if (!selectedFile || fileDetails.length === 0) return
+        const currentIdx = fileDetails.findIndex(f => f.path === selectedFile.path)
+        if (currentIdx === -1) return
+        const nextIdx = e.key === '[' ? currentIdx - 1 : currentIdx + 1
+        if (nextIdx >= 0 && nextIdx < fileDetails.length) {
+          e.preventDefault()
+          handleFileClick(fileDetails[nextIdx])
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selectedFile, fileDetails, handleFileClick])
+
+  /** Human-readable change type label */
+  const getChangeTypeLabel = (status: string): string => {
+    switch (status) {
+      case 'A': return 'Added'
+      case 'D': return 'Deleted'
+      case 'M': return 'Modified'
+      case 'R': return 'Renamed'
+      case 'C': return 'Copied'
+      default: return 'Changed'
+    }
+  }
+
+  // Compute selected file index for navigation
+  const selectedFileIdx = selectedFile ? fileDetails.findIndex(f => f.path === selectedFile.path) : -1
+  const hasPrevFile = selectedFileIdx > 0
+  const hasNextFile = selectedFileIdx >= 0 && selectedFileIdx < fileDetails.length - 1
 
   const fileCount = fileDetails.length
 
@@ -271,17 +350,90 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
                     {/* Inline diff for selected file */}
                     {isSelected && (
                       <div className={styles.diffContainer}>
+                        {/* Diff header */}
+                        <div className={styles.diffHeader}>
+                          <div className={styles.diffHeaderInfo}>
+                            <FileStatusIcon status={file.status} size={14} />
+                            <span className={styles.diffHeaderPath}>{file.path}</span>
+                            <span className={styles.diffHeaderType}>{getChangeTypeLabel(file.status)}</span>
+                            {file.oldPath && (
+                              <span className={styles.diffHeaderOldPath}>← {file.oldPath}</span>
+                            )}
+                          </div>
+                          <div className={styles.diffHeaderControls}>
+                            {/* Mode toggle */}
+                            <div className={styles.diffModeToggle}>
+                              <button
+                                className={`${styles.diffModeBtn} ${diffMode === 'inline' ? styles.diffModeBtnActive : ''}`}
+                                onClick={() => setDiffMode('inline')}
+                                title="Inline (unified) diff"
+                              >
+                                Inline
+                              </button>
+                              <button
+                                className={`${styles.diffModeBtn} ${diffMode === 'side-by-side' ? styles.diffModeBtnActive : ''}`}
+                                onClick={() => setDiffMode('side-by-side')}
+                                title="Side-by-side diff"
+                              >
+                                Split
+                              </button>
+                            </div>
+                            {/* File navigation */}
+                            <div className={styles.diffNavBtns}>
+                              <button
+                                className={styles.diffNavBtn}
+                                onClick={() => handleNavigateFile('prev')}
+                                disabled={!hasPrevFile}
+                                title="Previous file ( [ )"
+                              >
+                                <ChevronLeft size={14} />
+                              </button>
+                              <span className={styles.diffNavLabel}>
+                                {selectedFileIdx + 1}/{fileDetails.length}
+                              </span>
+                              <button
+                                className={styles.diffNavBtn}
+                                onClick={() => handleNavigateFile('next')}
+                                disabled={!hasNextFile}
+                                title="Next file ( ] )"
+                              >
+                                <ChevronRight size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Diff content */}
                         {loadingDiff ? (
                           <div className={styles.diffLoading}>
                             <Loader2 size={16} className={styles.spinner} />
                             <span>Loading diff...</span>
                           </div>
+                        ) : isBinaryFile ? (
+                          <div className={styles.diffBinary}>
+                            <Package size={18} />
+                            <span>Binary file changed</span>
+                          </div>
                         ) : diffContent ? (
-                          <DiffViewer
-                            diffContent={diffContent}
-                            filePath={file.path}
-                            className={styles.inlineDiff}
-                          />
+                          isDiffCollapsed ? (
+                            <div className={styles.diffCollapsed}>
+                              <ChevronsUpDown size={16} />
+                              <span>Large diff ({diffLineCount.toLocaleString()} lines) — collapsed by default</span>
+                              <button
+                                className={styles.diffExpandBtn}
+                                onClick={() => setIsDiffCollapsed(false)}
+                              >
+                                Expand
+                              </button>
+                            </div>
+                          ) : (
+                            <DiffViewer
+                              diffContent={diffContent}
+                              filePath={file.path}
+                              initialMode={diffMode}
+                              className={styles.inlineDiff}
+                            />
+                          )
                         ) : (
                           <div className={styles.diffEmpty}>No diff available</div>
                         )}
