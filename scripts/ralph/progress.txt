@@ -28,6 +28,8 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - `onCommitSelect` callback chain: AppLayout → MainContent → RepoView → CommitGraph — lifts selected commit to layout level
 - CommitDetail type exported from CommitGraph.tsx — use for detail panel props
 - Layout state (useLayoutState) persists sidebar, bottom panel, and right panel sizes to localStorage
+- Sidebar collapse: `sidebarCollapsed` in layout state, icon rail rendered outside resizable panels as fixed 48px flex item
+- Sidebar props: `collapsed: boolean` and `onToggleCollapse: () => void` — both required
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -175,4 +177,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - The `onCommitSelect` callback chain: AppLayout → MainContent → RepoView → CommitGraph
   - DetailPanel receives the full CommitDetail object and a close handler
   - Layout state localStorage key is 'gitslop-layout-state' — new fields get defaults via spread
+---
+## 2026-03-17 - US-044b
+- Implemented sidebar collapse/expand toggle with PanelLeftClose/PanelLeftOpen icons
+- When collapsed, sidebar renders as 48px icon rail with icons for: Branches, Files, Remotes, Tags, Stashes, Submodules
+- Clicking an icon in rail mode opens a floating overlay panel (280px wide) with that section's content
+- Overlay closes on click outside, Escape, or close button
+- Collapse state persisted via `sidebarCollapsed` in useLayoutState (localStorage)
+- Collapsed sidebar rendered outside react-resizable-panels as a fixed-width flex item
+- Files changed: AppLayout.tsx, Sidebar.tsx, Sidebar.module.css, useLayoutState.ts
+- **Learnings for future iterations:**
+  - Icon rail must be outside the react-resizable-panels Group to maintain fixed 48px width
+  - Rail overlay uses `position: absolute` relative to the icon rail with `left: 48px` to float over content
+  - `sidebarCollapsed` is separate from `sidebarVisible` — Ctrl+B toggles visibility, collapse button toggles rail mode
+  - Both collapsed and expanded modes need their own copies of context menus and dialogs (branch context menu, new branch dialog, etc.)
+  - RAIL_SECTIONS array defines icon rail entries — add new sidebar sections there when extending
 ---
