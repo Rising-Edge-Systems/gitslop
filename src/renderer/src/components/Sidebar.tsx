@@ -89,15 +89,35 @@ function SidebarSection({
   headerAction
 }: SidebarSectionProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(defaultOpen)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const toggle = useCallback(() => {
     setIsOpen((prev) => !prev)
   }, [])
 
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      toggle()
+    }
+    // Arrow down: focus the first focusable item in section content
+    if (e.key === 'ArrowDown' && isOpen && contentRef.current) {
+      e.preventDefault()
+      const firstItem = contentRef.current.querySelector<HTMLElement>('[tabindex="0"], button, a, input')
+      if (firstItem) firstItem.focus()
+    }
+  }, [toggle, isOpen])
+
   return (
-    <div className={styles.section}>
+    <div className={styles.section} role="region" aria-label={title}>
       <div className={styles.sectionHeaderRow}>
-        <button className={styles.sectionHeader} onClick={toggle}>
+        <button
+          className={styles.sectionHeader}
+          onClick={toggle}
+          onKeyDown={handleKeyDown}
+          aria-expanded={isOpen}
+          aria-controls={`section-${title.toLowerCase().replace(/\s+/g, '-')}`}
+        >
           <span className={`${styles.sectionChevron} ${isOpen ? styles.sectionChevronOpen : ''}`}><ChevronRight size={14} /></span>
           <span className={styles.sectionIcon}>{icon}</span>
           <span className={styles.sectionTitle}>{title}</span>
@@ -107,7 +127,16 @@ function SidebarSection({
         </button>
         {headerAction && <div className={styles.sectionAction}>{headerAction}</div>}
       </div>
-      {isOpen && <div className={styles.sectionContent}>{children}</div>}
+      {isOpen && (
+        <div
+          ref={contentRef}
+          className={styles.sectionContent}
+          id={`section-${title.toLowerCase().replace(/\s+/g, '-')}`}
+          role="group"
+        >
+          {children}
+        </div>
+      )}
     </div>
   )
 }
@@ -2186,6 +2215,23 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
     setRailOverlaySection((prev) => prev === section ? null : section)
   }, [])
 
+  // ─── Arrow key navigation helper ─────────────────────────────────────────
+  const handleListKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+    e.preventDefault()
+    const container = e.currentTarget
+    const items = Array.from(container.querySelectorAll<HTMLElement>('[tabindex="0"]'))
+    if (items.length === 0) return
+    const currentIdx = items.indexOf(document.activeElement as HTMLElement)
+    let nextIdx: number
+    if (e.key === 'ArrowDown') {
+      nextIdx = currentIdx < items.length - 1 ? currentIdx + 1 : 0
+    } else {
+      nextIdx = currentIdx > 0 ? currentIdx - 1 : items.length - 1
+    }
+    items[nextIdx]?.focus()
+  }, [])
+
   // ─── Render ─────────────────────────────────────────────────────────────
 
   const noBranches = !currentRepo
@@ -2271,7 +2317,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
                           )}
                         </div>
                       )}
-                      <div className={styles.branchList}>
+                      <div className={styles.branchList} onKeyDown={handleListKeyDown} role="listbox" aria-label="Branches">
                         {filteredBranches.length === 0 ? (
                           <div className={styles.placeholder}>
                             {searchFilter ? 'No matching branches' : 'No branches'}
@@ -2283,7 +2329,13 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
                               className={`${styles.branchItem} ${branch.current ? styles.branchItemCurrent : ''}`}
                               onDoubleClick={() => handleDoubleClick(branch)}
                               onContextMenu={(e) => handleContextMenu(e, branch)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleDoubleClick(branch)
+                              }}
                               title={`${branch.name}${branch.upstream ? ` → ${branch.upstream}` : ''}`}
+                              tabIndex={0}
+                              role="option"
+                              aria-selected={branch.current}
                             >
                               <span className={styles.branchIndicator}>
                                 {branch.current ? <CircleDot size={12} /> : ''}
@@ -2399,49 +2451,58 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
 
   return (
     <div className={styles.sidebar}>
-      {/* Collapse toggle button */}
-      <button
-        className={styles.collapseBtn}
-        onClick={onToggleCollapse}
-        title="Collapse Sidebar"
-      >
-        <PanelLeftClose size={16} />
-      </button>
+      {/* Sticky header: collapse button + tabs */}
+      <div className={styles.sidebarHeader}>
+        {/* Collapse toggle button */}
+        <button
+          className={styles.collapseBtn}
+          onClick={onToggleCollapse}
+          title="Collapse Sidebar"
+        >
+          <PanelLeftClose size={16} />
+        </button>
 
-      {/* Sidebar Tabs */}
-      <div className={styles.tabs}>
-        <button
-          className={`${styles.tab} ${activeTab === 'git' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('git')}
-          title="Git"
-        >
-          <GitBranch size={14} /> Git
-        </button>
-        <button
-          className={`${styles.tab} ${activeTab === 'files' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('files')}
-          title="Files"
-        >
-          <FolderOpen size={14} /> Files
-        </button>
+        {/* Sidebar Tabs */}
+        <div className={styles.tabs} role="tablist">
+          <button
+            className={`${styles.tab} ${activeTab === 'git' ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab('git')}
+            title="Git"
+            role="tab"
+            aria-selected={activeTab === 'git'}
+          >
+            <GitBranch size={14} /> Git
+          </button>
+          <button
+            className={`${styles.tab} ${activeTab === 'files' ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab('files')}
+            title="Files"
+            role="tab"
+            aria-selected={activeTab === 'files'}
+          >
+            <FolderOpen size={14} /> Files
+          </button>
+        </div>
       </div>
 
-      {/* File Tree Tab */}
-      {activeTab === 'files' && (
-        <FileTree
-          currentRepo={currentRepo}
-          onShowBlame={(filePath) => {
-            window.dispatchEvent(
-              new CustomEvent('blame:open', { detail: { filePath } })
-            )
-          }}
-        />
-      )}
+      {/* Scrollable content area */}
+      <div className={styles.sidebarScrollArea}>
+        {/* File Tree Tab */}
+        {activeTab === 'files' && (
+          <FileTree
+            currentRepo={currentRepo}
+            onShowBlame={(filePath) => {
+              window.dispatchEvent(
+                new CustomEvent('blame:open', { detail: { filePath } })
+              )
+            }}
+          />
+        )}
 
-      {/* Git Tab */}
-      {activeTab === 'git' && (
-      <>
-      <SidebarSection
+        {/* Git Tab */}
+        {activeTab === 'git' && (
+        <>
+        <SidebarSection
         title="Branches"
         icon={<GitBranch size={16} />}
         defaultOpen={true}
@@ -2483,7 +2544,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
                 )}
               </div>
             )}
-            <div className={styles.branchList}>
+            <div className={styles.branchList} onKeyDown={handleListKeyDown} role="listbox" aria-label="Branches">
               {filteredBranches.length === 0 ? (
                 <div className={styles.placeholder}>
                   {searchFilter ? 'No matching branches' : 'No branches'}
@@ -2495,7 +2556,13 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
                     className={`${styles.branchItem} ${branch.current ? styles.branchItemCurrent : ''}`}
                     onDoubleClick={() => handleDoubleClick(branch)}
                     onContextMenu={(e) => handleContextMenu(e, branch)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleDoubleClick(branch)
+                    }}
                     title={`${branch.name}${branch.upstream ? ` → ${branch.upstream}` : ''}`}
+                    tabIndex={0}
+                    role="option"
+                    aria-selected={branch.current}
                   >
                     <span className={styles.branchIndicator}>
                       {branch.current ? <CircleDot size={12} /> : ''}
@@ -2532,6 +2599,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
       <SubmodulesSection currentRepo={currentRepo} />
       </>
       )}
+      </div>{/* end sidebarScrollArea */}
 
       {/* Context Menu */}
       {contextMenu && (
