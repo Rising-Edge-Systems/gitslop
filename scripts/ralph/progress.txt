@@ -352,3 +352,18 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - DiffViewer accepts `className` prop for custom styling
   - Reset selectedFile when commit.hash changes to avoid stale diff display
 ---
+## 2026-03-17 - US-051
+- Enhanced DetailPanel with integrated diff viewer features for commit file diffs
+- Added inline/side-by-side mode toggle (Inline/Split buttons) in diff header
+- Added diff header showing: file path, change type label (Added/Modified/Deleted/Renamed), old path for renames
+- Binary files show "Binary file changed" message with Package icon
+- Large diffs (1000+ lines) collapsed by default with "Expand" button
+- Added prev/next file navigation buttons with file counter (1/N) and [ / ] keyboard shortcuts
+- Files changed: DetailPanel.tsx, DetailPanel.module.css
+- **Learnings for future iterations:**
+  - DiffViewer exports `DiffViewMode` type — import it for mode state typing
+  - Binary file detection: check for 'Binary files' or 'GIT binary patch' in diff content
+  - `handleFileClick` is a `useCallback` — keyboard navigation effect that calls it must list it in deps
+  - `initialMode` prop on DiffViewer sets the starting mode — pass the current mode state for mode sync
+  - File navigation uses `findIndex` on `fileDetails` array to determine current position
+---

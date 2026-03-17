@@ -369,7 +369,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on commit detail panel (US-050). Reuses existing DiffViewer component — this story wires it into the commit detail flow."
     },
     {
