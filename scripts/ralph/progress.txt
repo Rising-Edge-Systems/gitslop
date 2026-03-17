@@ -385,3 +385,16 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - CommitDialog.tsx is no longer used by RepoView but still exists — could be removed in a cleanup pass
   - The `_forStaging` parameter in buildLinesPatch was prefixed with underscore since it's unused (lint compliance)
 ---
+## 2026-03-17 - US-053
+- Redesigned WelcomeScreen with polished layout and new features
+- Added keyboard shortcut hints (kbd elements) on action cards: Ctrl+O (Open), Ctrl+Shift+C (Clone), Ctrl+Shift+I (Init)
+- Added "No recent repositories" empty state message when recent repos list is empty (previously section was hidden entirely)
+- Recent repos section now always visible with either list or empty message
+- Added CSS for shortcut badges (.welcomeActionShortcut) with subtle border/background, opacity animation on hover
+- Added CSS for empty state (.welcomeRecentEmpty) with italic muted styling
+- Files changed: WelcomeScreen.tsx, WelcomeScreen.module.css
+- **Learnings for future iterations:**
+  - WelcomeScreen already had most features from previous iterations (Lucide icons, action cards, recent repos with remove button)
+  - `<kbd>` element is semantically correct for keyboard shortcut hints
+  - The existing toolbar uses Ctrl+O for Open Repository — keep shortcut hints consistent with toolbar tooltips
+---
