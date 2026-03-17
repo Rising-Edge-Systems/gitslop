@@ -15,6 +15,10 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - `→` in description strings and `&#123;`/`&#125;` for JSX curly braces are NOT icons — leave them
 - Design tokens in `src/renderer/src/styles/tokens.css` — use `--space-{xs,sm,md,lg,xl,2xl}`, `--font-{xs,sm,md,lg,xl}`, `--radius-{sm,md,lg}`, `--shadow-{sm,md,lg}`, `--transition-{fast,normal}` instead of hardcoded values
 - tokens.css is imported BEFORE global.css in main.tsx — all color/spacing/typography vars live there
+- CSS modules: `import styles from './Component.module.css'` then `className={styles.myClass}` — type declarations in `src/renderer/src/css-modules.d.ts`
+- CSS module class names use camelCase (e.g., `styles.btnActive`) instead of kebab-case
+- Shared dialog styles (`branch-dialog-*`) stay in global.css — don't move them into component modules
+- `branch-dialog-btn-primary`, `branch-dialog-btn-secondary`, `branch-dialog-btn-danger` are shared across Toolbar, Sidebar, MergeDialog, RebaseDialog, SearchPalette
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -78,4 +82,21 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Design tokens available: --space-{xs,sm,md,lg,xl,2xl}, --font-{xs,sm,md,lg,xl}, --radius-{sm,md,lg}, --shadow-{sm,md,lg}, --transition-{fast,normal}
   - When creating CSS modules, use design tokens instead of hardcoded px values
   - global.css no longer has :root or [data-theme] blocks — all in tokens.css
+---
+## 2026-03-17 - US-043b
+- Extracted Toolbar styles from global.css into Toolbar.module.css (toolbar, buttons, progress, notifications, force-push warning, pull strategy, stash checkbox)
+- Extracted TitleBar styles from global.css into TitleBar.module.css (titlebar, brand, repo display, window controls)
+- Extracted StatusBar styles from global.css into StatusBar.module.css (status bar, branch info, sync, operations, notifications, history dropdown)
+- Created css-modules.d.ts type declaration for TypeScript CSS module support
+- Updated all three components to use scoped `styles.className` pattern
+- Added missing `branch-dialog-btn-primary`, `branch-dialog-btn-secondary`, `branch-dialog-btn-danger` styles to global.css (shared across multiple components)
+- Fixed broken `toolbar-spinner-rotate` keyframe reference in status bar — defined proper `spinnerRotate` keyframe in module
+- Files changed: Toolbar.tsx, Toolbar.module.css (new), TitleBar.tsx, TitleBar.module.css (new), StatusBar.tsx, StatusBar.module.css (new), css-modules.d.ts (new), global.css
+- **Learnings for future iterations:**
+  - CSS modules need a type declaration file (`*.module.css` → `declare module`) for TypeScript
+  - Shared dialog classes (branch-dialog-*) must stay in global.css, not in component modules
+  - `branch-dialog-btn-primary/secondary/danger` were previously only defined in the toolbar section — they needed to be added back near the other branch-dialog styles
+  - The original `toolbar-spinner-rotate` keyframe was never defined in global.css (broken reference) — fixed by defining `spinnerRotate` in StatusBar.module.css
+  - When converting to CSS modules, keep global class names for shared dialogs but use module classes for component-specific styles
+  - `@keyframes slideUp` is shared by multiple components — keep in global.css
 ---

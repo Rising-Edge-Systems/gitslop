@@ -101,7 +101,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Extract styles for these 3 smaller components first. Update className references in TSX files."
     },
     {
