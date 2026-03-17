@@ -3,6 +3,7 @@ import { List, useListCallbackRef } from 'react-window'
 import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ResetDialog } from './ResetDialog'
+import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { assignLanes, type ParsedRef, type ParentConnection } from './laneAssignment'
 import styles from './CommitGraph.module.css'
 
@@ -684,139 +685,41 @@ function CommitRowComponent(props: {
 
 // ─── Context Menu Component ──────────────────────────────────────────────────
 
-interface CommitContextMenuProps {
-  state: ContextMenuState
-  multiSelectCount: number
-  onClose: () => void
+function buildCommitContextMenuItems(
+  commit: GitCommit,
+  multiSelectCount: number,
   onAction: (action: string, commit: GitCommit) => void
-}
-
-function CommitContextMenu({ state, multiSelectCount, onClose, onAction }: CommitContextMenuProps): React.JSX.Element {
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose()
-      }
-    }
-    const handleEscape = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
-    }
-    const handleScroll = (): void => { onClose() }
-    document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('keydown', handleEscape)
-    window.addEventListener('scroll', handleScroll, true)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('keydown', handleEscape)
-      window.removeEventListener('scroll', handleScroll, true)
-    }
-  }, [onClose])
-
-  // Adjust position to stay within viewport bounds
-  const menuHeight = 280 // approximate
-  const menuWidth = 220
-  const adjustedX = Math.min(state.x, window.innerWidth - menuWidth - 8)
-  const adjustedY = state.y + menuHeight > window.innerHeight ? Math.max(8, state.y - menuHeight) : state.y
-
-  const menuStyle: React.CSSProperties = {
-    position: 'fixed',
-    left: adjustedX,
-    top: adjustedY,
-    zIndex: 2000
-  }
-
+): ContextMenuEntry[] {
   const cherryPickLabel = multiSelectCount > 1
     ? `Cherry-pick ${multiSelectCount} commits`
     : 'Cherry-pick'
 
-  const items: { label: string; action: string; icon: React.ReactNode; shortcut: string }[] = [
-    { label: 'Checkout', action: 'checkout', icon: <LogOut size={14} />, shortcut: '' },
-    { label: '---', action: '', icon: null, shortcut: '' },
-    { label: cherryPickLabel, action: 'cherry-pick', icon: <Cherry size={14} />, shortcut: '' },
-    { label: 'Revert', action: 'revert', icon: <Undo2 size={14} />, shortcut: '' },
-    { label: 'Reset current branch to here', action: 'reset', icon: <SkipBack size={14} />, shortcut: '' },
-    { label: '---', action: '', icon: null, shortcut: '' },
-    { label: 'Create branch here...', action: 'create-branch', icon: <GitBranch size={14} />, shortcut: '' },
-    { label: 'Create tag here...', action: 'create-tag', icon: <Tag size={14} />, shortcut: '' },
-    { label: '---', action: '', icon: null, shortcut: '' },
-    { label: 'Copy SHA', action: 'copy-sha', icon: <Clipboard size={14} />, shortcut: 'Ctrl+C' },
+  return [
+    { key: 'checkout', label: 'Checkout', icon: <LogOut size={14} />, onClick: () => onAction('checkout', commit) },
+    { key: 'sep1', separator: true as const },
+    { key: 'cherry-pick', label: cherryPickLabel, icon: <Cherry size={14} />, onClick: () => onAction('cherry-pick', commit) },
+    { key: 'revert', label: 'Revert', icon: <Undo2 size={14} />, onClick: () => onAction('revert', commit) },
+    { key: 'reset', label: 'Reset current branch to here', icon: <SkipBack size={14} />, onClick: () => onAction('reset', commit) },
+    { key: 'sep2', separator: true as const },
+    { key: 'create-branch', label: 'Create branch here...', icon: <GitBranch size={14} />, onClick: () => onAction('create-branch', commit) },
+    { key: 'create-tag', label: 'Create tag here...', icon: <Tag size={14} />, onClick: () => onAction('create-tag', commit) },
+    { key: 'sep3', separator: true as const },
+    { key: 'copy-sha', label: 'Copy SHA', icon: <Clipboard size={14} />, shortcut: 'Ctrl+C', onClick: () => onAction('copy-sha', commit) },
   ]
-
-  return (
-    <div className={styles.ctxMenu} ref={menuRef} style={menuStyle}>
-      {items.map((item, idx) => {
-        if (item.label === '---') {
-          return <div key={idx} className={styles.ctxMenuSeparator} />
-        }
-        return (
-          <button
-            key={idx}
-            className={styles.ctxMenuItem}
-            onClick={() => {
-              onAction(item.action, state.commit)
-              onClose()
-            }}
-          >
-            <span className={styles.ctxMenuIcon}>{item.icon}</span>
-            <span className={styles.ctxMenuLabel}>{item.label}</span>
-            {item.shortcut && (
-              <span className={styles.ctxMenuShortcut}>{item.shortcut}</span>
-            )}
-          </button>
-        )
-      })}
-    </div>
-  )
 }
 
-// ─── Branch/Ref Context Menu Component ──────────────────────────────────────
+// ─── Branch/Ref Context Menu Items Builder ──────────────────────────────────
 
-interface BranchContextMenuProps {
-  state: BranchContextMenuState
-  repoPath: string
-  onClose: () => void
+function buildBranchRefContextMenuItems(
+  ref: ParsedRef,
+  repoPath: string,
   onRefresh: () => void
-}
-
-function BranchRefContextMenu({ state, repoPath, onClose, onRefresh }: BranchContextMenuProps): React.JSX.Element {
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose()
-      }
-    }
-    const handleEscape = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
-    }
-    const handleScroll = (): void => { onClose() }
-    document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('keydown', handleEscape)
-    window.addEventListener('scroll', handleScroll, true)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('keydown', handleEscape)
-      window.removeEventListener('scroll', handleScroll, true)
-    }
-  }, [onClose])
-
-  const menuStyle: React.CSSProperties = {
-    position: 'fixed',
-    left: state.x,
-    top: state.y,
-    zIndex: 2000
-  }
-
-  const { ref } = state
+): ContextMenuEntry[] {
   const isBranch = ref.type === 'branch' || ref.type === 'head'
   const isRemote = ref.type === 'remote'
   const isTag = ref.type === 'tag'
 
   const handleAction = async (action: string): Promise<void> => {
-    onClose()
     try {
       switch (action) {
         case 'checkout':
@@ -852,52 +755,30 @@ function BranchRefContextMenu({ state, repoPath, onClose, onRefresh }: BranchCon
     }
   }
 
-  const items: { label: string; action: string; icon: React.ReactNode; shortcut: string }[] = []
+  const items: ContextMenuEntry[] = []
 
   if (isBranch || isRemote) {
-    items.push({ label: 'Checkout', action: 'checkout', icon: <LogOut size={14} />, shortcut: '' })
-    items.push({ label: 'Merge into current', action: 'merge', icon: <GitMerge size={14} />, shortcut: '' })
-    items.push({ label: 'Rebase onto', action: 'rebase', icon: <GitBranch size={14} />, shortcut: '' })
-    items.push({ label: '---', action: '', icon: null, shortcut: '' })
+    items.push({ key: 'checkout', label: 'Checkout', icon: <LogOut size={14} />, onClick: () => handleAction('checkout') })
+    items.push({ key: 'merge', label: 'Merge into current', icon: <GitMerge size={14} />, onClick: () => handleAction('merge') })
+    items.push({ key: 'rebase', label: 'Rebase onto', icon: <GitBranch size={14} />, onClick: () => handleAction('rebase') })
+    items.push({ key: 'sep1', separator: true })
     if (isBranch) {
-      items.push({ label: 'Delete', action: 'delete', icon: <Trash2 size={14} />, shortcut: '' })
-      items.push({ label: 'Push', action: 'push', icon: <ArrowUpFromLine size={14} />, shortcut: '' })
+      items.push({ key: 'delete', label: 'Delete', icon: <Trash2 size={14} />, danger: true, onClick: () => handleAction('delete') })
+      items.push({ key: 'push', label: 'Push', icon: <ArrowUpFromLine size={14} />, onClick: () => handleAction('push') })
     }
-    items.push({ label: '---', action: '', icon: null, shortcut: '' })
   }
 
   if (isTag) {
-    items.push({ label: 'Checkout', action: 'checkout', icon: <LogOut size={14} />, shortcut: '' })
-    items.push({ label: '---', action: '', icon: null, shortcut: '' })
-    items.push({ label: 'Delete tag', action: 'delete', icon: <Trash2 size={14} />, shortcut: '' })
-    items.push({ label: 'Push tag', action: 'push', icon: <ArrowUpFromLine size={14} />, shortcut: '' })
-    items.push({ label: '---', action: '', icon: null, shortcut: '' })
+    items.push({ key: 'checkout', label: 'Checkout', icon: <LogOut size={14} />, onClick: () => handleAction('checkout') })
+    items.push({ key: 'sep1', separator: true })
+    items.push({ key: 'delete', label: 'Delete tag', icon: <Trash2 size={14} />, danger: true, onClick: () => handleAction('delete') })
+    items.push({ key: 'push', label: 'Push tag', icon: <ArrowUpFromLine size={14} />, onClick: () => handleAction('push') })
   }
 
-  items.push({ label: 'Copy name', action: 'copy-name', icon: <Clipboard size={14} />, shortcut: '' })
+  items.push({ key: 'sep-end', separator: true })
+  items.push({ key: 'copy-name', label: 'Copy name', icon: <Clipboard size={14} />, onClick: () => handleAction('copy-name') })
 
-  return (
-    <div className={styles.ctxMenu} ref={menuRef} style={menuStyle}>
-      {items.map((item, idx) => {
-        if (item.label === '---') {
-          return <div key={idx} className={styles.ctxMenuSeparator} />
-        }
-        return (
-          <button
-            key={idx}
-            className={styles.ctxMenuItem}
-            onClick={() => handleAction(item.action)}
-          >
-            <span className={styles.ctxMenuIcon}>{item.icon}</span>
-            <span className={styles.ctxMenuLabel}>{item.label}</span>
-            {item.shortcut && (
-              <span className={styles.ctxMenuShortcut}>{item.shortcut}</span>
-            )}
-          </button>
-        )
-      })}
-    </div>
-  )
+  return items
 }
 
 // ─── Commit Tooltip Component ────────────────────────────────────────────────
@@ -1771,21 +1652,29 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
         {/* Context menu */}
         {contextMenu && (
-          <CommitContextMenu
-            state={contextMenu}
-            multiSelectCount={selectedHashes.size > 0 ? selectedHashes.size : 1}
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            items={buildCommitContextMenuItems(
+              contextMenu.commit,
+              selectedHashes.size > 0 ? selectedHashes.size : 1,
+              handleContextAction
+            )}
             onClose={() => setContextMenu(null)}
-            onAction={handleContextAction}
           />
         )}
 
         {/* Branch/ref context menu */}
         {branchContextMenu && (
-          <BranchRefContextMenu
-            state={branchContextMenu}
-            repoPath={repoPath}
+          <ContextMenu
+            x={branchContextMenu.x}
+            y={branchContextMenu.y}
+            items={buildBranchRefContextMenuItems(
+              branchContextMenu.ref,
+              repoPath,
+              handleRefresh
+            )}
             onClose={() => setBranchContextMenu(null)}
-            onRefresh={handleRefresh}
           />
         )}
 

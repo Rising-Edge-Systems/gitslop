@@ -1,5 +1,6 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { Folder, FileCode, FileJson, FileText, Palette, Globe, Image, Settings, Lock, Terminal, FileType, Coffee, File, Ban, KeyRound, ChevronRight, Pencil, Clock, User, Clipboard, X } from 'lucide-react'
+import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import sidebarStyles from './Sidebar.module.css'
 import styles from './FileTree.module.css'
 
@@ -290,104 +291,29 @@ function TreeNode({
   )
 }
 
-// ─── FileTreeContextMenu ─────────────────────────────────────────────────────
+// ─── FileTree Context Menu items builder ─────────────────────────────────────
 
-interface FileTreeContextMenuProps {
-  state: FileContextMenuState
-  onClose: () => void
-  onOpenInEditor: (path: string) => void
-  onShowHistory: (path: string) => void
-  onShowBlame: (path: string) => void
-  onCopyPath: (path: string) => void
-}
+function buildFileTreeContextMenuItems(
+  state: FileContextMenuState,
+  callbacks: {
+    onOpenInEditor: (path: string) => void
+    onShowHistory: (path: string) => void
+    onShowBlame: (path: string) => void
+    onCopyPath: (path: string) => void
+  }
+): ContextMenuEntry[] {
+  const items: ContextMenuEntry[] = []
 
-function FileTreeContextMenu({
-  state,
-  onClose,
-  onOpenInEditor,
-  onShowHistory,
-  onShowBlame,
-  onCopyPath
-}: FileTreeContextMenuProps): React.JSX.Element {
-  const menuRef = useRef<HTMLDivElement>(null)
+  if (!state.isDirectory) {
+    items.push({ key: 'open', label: 'Open in Editor', icon: <Pencil size={14} />, onClick: () => callbacks.onOpenInEditor(state.filePath) })
+    items.push({ key: 'history', label: 'Show History', icon: <Clock size={14} />, onClick: () => callbacks.onShowHistory(state.filePath) })
+    items.push({ key: 'blame', label: 'Show Blame', icon: <User size={14} />, onClick: () => callbacks.onShowBlame(state.filePath) })
+    items.push({ key: 'sep1', separator: true })
+  }
 
-  useEffect(() => {
-    const handleClick = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose()
-      }
-    }
-    const handleEsc = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleEsc)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleEsc)
-    }
-  }, [onClose])
+  items.push({ key: 'copy', label: 'Copy Path', icon: <Clipboard size={14} />, onClick: () => callbacks.onCopyPath(state.filePath) })
 
-  return (
-    <div
-      ref={menuRef}
-      className="branch-ctx-menu"
-      style={{
-        position: 'fixed',
-        left: state.x,
-        top: state.y,
-        zIndex: 2000
-      }}
-    >
-      {!state.isDirectory && (
-        <button
-          className="branch-ctx-menu-item"
-          onClick={() => {
-            onOpenInEditor(state.filePath)
-            onClose()
-          }}
-        >
-          <span className="branch-ctx-menu-icon"><Pencil size={14} /></span>
-          <span className="branch-ctx-menu-label">Open in Editor</span>
-        </button>
-      )}
-      {!state.isDirectory && (
-        <button
-          className="branch-ctx-menu-item"
-          onClick={() => {
-            onShowHistory(state.filePath)
-            onClose()
-          }}
-        >
-          <span className="branch-ctx-menu-icon"><Clock size={14} /></span>
-          <span className="branch-ctx-menu-label">Show History</span>
-        </button>
-      )}
-      {!state.isDirectory && (
-        <button
-          className="branch-ctx-menu-item"
-          onClick={() => {
-            onShowBlame(state.filePath)
-            onClose()
-          }}
-        >
-          <span className="branch-ctx-menu-icon"><User size={14} /></span>
-          <span className="branch-ctx-menu-label">Show Blame</span>
-        </button>
-      )}
-      <div className="branch-ctx-menu-separator" />
-      <button
-        className="branch-ctx-menu-item"
-        onClick={() => {
-          onCopyPath(state.filePath)
-          onClose()
-        }}
-      >
-        <span className="branch-ctx-menu-icon"><Clipboard size={14} /></span>
-        <span className="branch-ctx-menu-label">Copy Path</span>
-      </button>
-    </div>
-  )
+  return items
 }
 
 // ─── Main FileTree Component ─────────────────────────────────────────────────
@@ -607,13 +533,16 @@ export function FileTree({ currentRepo, onOpenFile, onShowHistory, onShowBlame }
 
       {/* Context Menu */}
       {contextMenu && (
-        <FileTreeContextMenu
-          state={contextMenu}
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={buildFileTreeContextMenuItems(contextMenu, {
+            onOpenInEditor: (path) => onOpenFile?.(path),
+            onShowHistory: (path) => onShowHistory?.(path),
+            onShowBlame: (path) => onShowBlame?.(path),
+            onCopyPath: handleCopyPath,
+          })}
           onClose={() => setContextMenu(null)}
-          onOpenInEditor={(path) => onOpenFile?.(path)}
-          onShowHistory={(path) => onShowHistory?.(path)}
-          onShowBlame={(path) => onShowBlame?.(path)}
-          onCopyPath={handleCopyPath}
         />
       )}
     </div>

@@ -33,6 +33,7 @@ import {
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
 import { FileTree } from './FileTree'
+import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import styles from './Sidebar.module.css'
 
 type SidebarTab = 'git' | 'files'
@@ -141,137 +142,41 @@ function SidebarSection({
   )
 }
 
-// ─── BranchContextMenu ──────────────────────────────────────────────────────
+// ─── BranchContextMenu items builder ────────────────────────────────────────
 
-interface BranchContextMenuProps {
-  state: ContextMenuState
-  currentBranch: string
-  onClose: () => void
-  onCheckout: (name: string) => void
-  onRename: (name: string) => void
-  onDelete: (name: string) => void
-  onMerge: (name: string) => void
-  onRebase: (name: string) => void
-  onPush: (name: string) => void
-}
+function buildBranchContextMenuItems(
+  branch: GitBranch,
+  currentBranch: string,
+  callbacks: {
+    onCheckout: (name: string) => void
+    onRename: (name: string) => void
+    onDelete: (name: string) => void
+    onMerge: (name: string) => void
+    onRebase: (name: string) => void
+    onPush: (name: string) => void
+  }
+): ContextMenuEntry[] {
+  const isCurrent = branch.name === currentBranch
+  const items: ContextMenuEntry[] = []
 
-function BranchContextMenu({
-  state,
-  currentBranch,
-  onClose,
-  onCheckout,
-  onRename,
-  onDelete,
-  onMerge,
-  onRebase,
-  onPush
-}: BranchContextMenuProps): React.JSX.Element {
-  const menuRef = useRef<HTMLDivElement>(null)
-  const isCurrent = state.branch.name === currentBranch
+  if (!isCurrent) {
+    items.push({ key: 'checkout', label: 'Checkout', icon: <ArrowRightLeft size={14} />, onClick: () => callbacks.onCheckout(branch.name) })
+  }
+  items.push({ key: 'rename', label: 'Rename', icon: <Pencil size={14} />, onClick: () => callbacks.onRename(branch.name) })
+  if (!isCurrent) {
+    items.push({ key: 'sep1', separator: true })
+    items.push({ key: 'merge', label: `Merge into ${currentBranch}`, icon: <GitMerge size={14} />, onClick: () => callbacks.onMerge(branch.name) })
+    items.push({ key: 'rebase', label: `Rebase onto ${branch.name}`, icon: <RotateCcw size={14} />, onClick: () => callbacks.onRebase(branch.name) })
+  }
+  items.push({ key: 'sep2', separator: true })
+  if (branch.upstream) {
+    items.push({ key: 'push', label: 'Push', icon: <ArrowUpFromLine size={14} />, shortcut: 'Ctrl+Shift+P', onClick: () => callbacks.onPush(branch.name) })
+  }
+  if (!isCurrent) {
+    items.push({ key: 'delete', label: 'Delete', icon: <Trash2 size={14} />, danger: true, onClick: () => callbacks.onDelete(branch.name) })
+  }
 
-  useEffect(() => {
-    const handleClick = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose()
-      }
-    }
-    const handleEsc = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleEsc)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleEsc)
-    }
-  }, [onClose])
-
-  return (
-    <div
-      ref={menuRef}
-      className="branch-ctx-menu"
-      style={{
-        position: 'fixed',
-        left: state.x,
-        top: state.y,
-        zIndex: 2000
-      }}
-    >
-      {!isCurrent && (
-        <button
-          className="branch-ctx-menu-item"
-          onClick={() => {
-            onCheckout(state.branch.name)
-            onClose()
-          }}
-        >
-          <span className="branch-ctx-menu-icon"><ArrowRightLeft size={14} /></span>
-          <span className="branch-ctx-menu-label">Checkout</span>
-        </button>
-      )}
-      <button
-        className="branch-ctx-menu-item"
-        onClick={() => {
-          onRename(state.branch.name)
-          onClose()
-        }}
-      >
-        <span className="branch-ctx-menu-icon"><Pencil size={14} /></span>
-        <span className="branch-ctx-menu-label">Rename</span>
-      </button>
-      {!isCurrent && (
-        <>
-          <div className="branch-ctx-menu-separator" />
-          <button
-            className="branch-ctx-menu-item"
-            onClick={() => {
-              onMerge(state.branch.name)
-              onClose()
-            }}
-          >
-            <span className="branch-ctx-menu-icon"><GitMerge size={14} /></span>
-            <span className="branch-ctx-menu-label">Merge into {currentBranch}</span>
-          </button>
-          <button
-            className="branch-ctx-menu-item"
-            onClick={() => {
-              onRebase(state.branch.name)
-              onClose()
-            }}
-          >
-            <span className="branch-ctx-menu-icon"><RotateCcw size={14} /></span>
-            <span className="branch-ctx-menu-label">Rebase onto {state.branch.name}</span>
-          </button>
-        </>
-      )}
-      <div className="branch-ctx-menu-separator" />
-      {state.branch.upstream && (
-        <button
-          className="branch-ctx-menu-item"
-          onClick={() => {
-            onPush(state.branch.name)
-            onClose()
-          }}
-        >
-          <span className="branch-ctx-menu-icon"><ArrowUpFromLine size={14} /></span>
-          <span className="branch-ctx-menu-label">Push</span>
-          <span className="branch-ctx-menu-shortcut">Ctrl+Shift+P</span>
-        </button>
-      )}
-      {!isCurrent && (
-        <button
-          className="branch-ctx-menu-item branch-ctx-menu-item-danger"
-          onClick={() => {
-            onDelete(state.branch.name)
-            onClose()
-          }}
-        >
-          <span className="branch-ctx-menu-icon"><Trash2 size={14} /></span>
-          <span className="branch-ctx-menu-label">Delete</span>
-        </button>
-      )}
-    </div>
-  )
+  return items
 }
 
 // ─── NewBranchDialog ────────────────────────────────────────────────────────
@@ -760,23 +665,33 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
 
       {/* Remote context menu */}
       {remoteContextMenu && (
-        <RemoteContextMenu
-          state={remoteContextMenu}
+        <ContextMenu
+          x={remoteContextMenu.x}
+          y={remoteContextMenu.y}
+          items={buildRemoteContextMenuItems(remoteContextMenu.remote, {
+            onFetch: (name) => { handleFetchRemote(name) },
+            onEdit: (remote) => { openEditRemote(remote) },
+            onRemove: (name) => { handleRemoveRemote(name) },
+          })}
           onClose={() => setRemoteContextMenu(null)}
-          onFetch={(name) => { handleFetchRemote(name); setRemoteContextMenu(null) }}
-          onEdit={(remote) => { openEditRemote(remote); setRemoteContextMenu(null) }}
-          onRemove={(name) => { handleRemoveRemote(name); setRemoteContextMenu(null) }}
         />
       )}
 
       {/* Remote branch context menu */}
       {remoteBranchContextMenu && (
-        <RemoteBranchContextMenu
-          state={remoteBranchContextMenu}
+        <ContextMenu
+          x={remoteBranchContextMenu.x}
+          y={remoteBranchContextMenu.y}
+          items={buildRemoteBranchContextMenuItems(
+            remoteBranchContextMenu.remote,
+            remoteBranchContextMenu.branch,
+            {
+              onCheckout: (r, b) => { handleCheckoutRemoteBranch(r, b) },
+              onDelete: (r, b) => { handleDeleteRemoteBranch(r, b) },
+              onFetch: (r) => { handleFetchRemote(r) },
+            }
+          )}
           onClose={() => setRemoteBranchContextMenu(null)}
-          onCheckout={(r, b) => { handleCheckoutRemoteBranch(r, b); setRemoteBranchContextMenu(null) }}
-          onDelete={(r, b) => { handleDeleteRemoteBranch(r, b); setRemoteBranchContextMenu(null) }}
-          onFetch={(r) => { handleFetchRemote(r); setRemoteBranchContextMenu(null) }}
         />
       )}
 
@@ -897,106 +812,41 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
   )
 }
 
-// ─── RemoteContextMenu ──────────────────────────────────────────────────────
+// ─── Remote Context Menu items builder ───────────────────────────────────────
 
-interface RemoteContextMenuProps {
-  state: RemoteContextMenuState
-  onClose: () => void
-  onFetch: (name: string) => void
-  onEdit: (remote: GitRemote) => void
-  onRemove: (name: string) => void
+function buildRemoteContextMenuItems(
+  remote: GitRemote,
+  callbacks: {
+    onFetch: (name: string) => void
+    onEdit: (remote: GitRemote) => void
+    onRemove: (name: string) => void
+  }
+): ContextMenuEntry[] {
+  return [
+    { key: 'fetch', label: 'Fetch', icon: <RefreshCw size={14} />, onClick: () => callbacks.onFetch(remote.name) },
+    { key: 'edit', label: 'Edit URL', icon: <Pencil size={14} />, onClick: () => callbacks.onEdit(remote) },
+    { key: 'sep1', separator: true },
+    { key: 'remove', label: 'Remove', icon: <Trash2 size={14} />, danger: true, onClick: () => callbacks.onRemove(remote.name) },
+  ]
 }
 
-function RemoteContextMenu({ state, onClose, onFetch, onEdit, onRemove }: RemoteContextMenuProps): React.JSX.Element {
-  const menuRef = useRef<HTMLDivElement>(null)
+// ─── Remote Branch Context Menu items builder ────────────────────────────────
 
-  useEffect(() => {
-    const handleClick = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
-    }
-    const handleEsc = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleEsc)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleEsc)
-    }
-  }, [onClose])
-
-  return (
-    <div
-      ref={menuRef}
-      className="branch-ctx-menu"
-      style={{ position: 'fixed', left: state.x, top: state.y, zIndex: 2000 }}
-    >
-      <button className="branch-ctx-menu-item" onClick={() => onFetch(state.remote.name)}>
-        <span className="branch-ctx-menu-icon"><RefreshCw size={14} /></span>
-        <span className="branch-ctx-menu-label">Fetch</span>
-      </button>
-      <button className="branch-ctx-menu-item" onClick={() => onEdit(state.remote)}>
-        <span className="branch-ctx-menu-icon"><Pencil size={14} /></span>
-        <span className="branch-ctx-menu-label">Edit URL</span>
-      </button>
-      <div className="branch-ctx-menu-separator" />
-      <button className="branch-ctx-menu-item branch-ctx-menu-item-danger" onClick={() => onRemove(state.remote.name)}>
-        <span className="branch-ctx-menu-icon"><Trash2 size={14} /></span>
-        <span className="branch-ctx-menu-label">Remove</span>
-      </button>
-    </div>
-  )
-}
-
-// ─── RemoteBranchContextMenu ────────────────────────────────────────────────
-
-interface RemoteBranchContextMenuProps {
-  state: RemoteBranchContextMenuState
-  onClose: () => void
-  onCheckout: (remote: string, branch: string) => void
-  onDelete: (remote: string, branch: string) => void
-  onFetch: (remote: string) => void
-}
-
-function RemoteBranchContextMenu({ state, onClose, onCheckout, onDelete, onFetch }: RemoteBranchContextMenuProps): React.JSX.Element {
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent): void => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose()
-    }
-    const handleEsc = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleEsc)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleEsc)
-    }
-  }, [onClose])
-
-  return (
-    <div
-      ref={menuRef}
-      className="branch-ctx-menu"
-      style={{ position: 'fixed', left: state.x, top: state.y, zIndex: 2000 }}
-    >
-      <button className="branch-ctx-menu-item" onClick={() => onCheckout(state.remote, state.branch)}>
-        <span className="branch-ctx-menu-icon"><ArrowRightLeft size={14} /></span>
-        <span className="branch-ctx-menu-label">Checkout as local branch</span>
-      </button>
-      <button className="branch-ctx-menu-item" onClick={() => onFetch(state.remote)}>
-        <span className="branch-ctx-menu-icon"><RefreshCw size={14} /></span>
-        <span className="branch-ctx-menu-label">Fetch</span>
-      </button>
-      <div className="branch-ctx-menu-separator" />
-      <button className="branch-ctx-menu-item branch-ctx-menu-item-danger" onClick={() => onDelete(state.remote, state.branch)}>
-        <span className="branch-ctx-menu-icon"><Trash2 size={14} /></span>
-        <span className="branch-ctx-menu-label">Delete remote branch</span>
-      </button>
-    </div>
-  )
+function buildRemoteBranchContextMenuItems(
+  remote: string,
+  branch: string,
+  callbacks: {
+    onCheckout: (remote: string, branch: string) => void
+    onDelete: (remote: string, branch: string) => void
+    onFetch: (remote: string) => void
+  }
+): ContextMenuEntry[] {
+  return [
+    { key: 'checkout', label: 'Checkout as local branch', icon: <ArrowRightLeft size={14} />, onClick: () => callbacks.onCheckout(remote, branch) },
+    { key: 'fetch', label: 'Fetch', icon: <RefreshCw size={14} />, onClick: () => callbacks.onFetch(remote) },
+    { key: 'sep1', separator: true },
+    { key: 'delete', label: 'Delete remote branch', icon: <Trash2 size={14} />, danger: true, onClick: () => callbacks.onDelete(remote, branch) },
+  ]
 }
 
 // ─── TagsSection ────────────────────────────────────────────────────────────
@@ -1072,14 +922,6 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
       if (timer) clearTimeout(timer)
     }
   }, [loadTags])
-
-  // Close context menu on outside click
-  useEffect(() => {
-    if (!contextMenu) return
-    const handler = (): void => setContextMenu(null)
-    window.addEventListener('click', handler)
-    return () => window.removeEventListener('click', handler)
-  }, [contextMenu])
 
   const filteredTags = filter
     ? tags.filter((t) => t.name.toLowerCase().includes(filter.toLowerCase()))
@@ -1262,43 +1104,17 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
 
       {/* Tag Context Menu */}
       {contextMenu && (
-        <div
-          className="branch-ctx-menu"
-          style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y, zIndex: 2000 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            className="branch-ctx-menu-item"
-            onClick={() => {
-              handleCheckoutTag(contextMenu.tag.name)
-              setContextMenu(null)
-            }}
-          >
-            <span className="branch-ctx-menu-icon"><Check size={14} /></span>
-            <span className="branch-ctx-menu-label">Checkout tag</span>
-          </button>
-          <div className="branch-ctx-menu-separator" />
-          <button
-            className="branch-ctx-menu-item branch-ctx-menu-item-danger"
-            onClick={() => {
-              handleDelete(contextMenu.tag.name)
-              setContextMenu(null)
-            }}
-          >
-            <span className="branch-ctx-menu-icon"><Trash2 size={14} /></span>
-            <span className="branch-ctx-menu-label">Delete tag</span>
-          </button>
-          <button
-            className="branch-ctx-menu-item"
-            onClick={() => {
-              handlePushTag(contextMenu.tag.name)
-              setContextMenu(null)
-            }}
-          >
-            <span className="branch-ctx-menu-icon"><ArrowUpFromLine size={14} /></span>
-            <span className="branch-ctx-menu-label">Push tag</span>
-          </button>
-        </div>
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={[
+            { key: 'checkout', label: 'Checkout tag', icon: <Check size={14} />, onClick: () => handleCheckoutTag(contextMenu.tag.name) },
+            { key: 'sep1', separator: true },
+            { key: 'push', label: 'Push tag', icon: <ArrowUpFromLine size={14} />, onClick: () => handlePushTag(contextMenu.tag.name) },
+            { key: 'delete', label: 'Delete tag', icon: <Trash2 size={14} />, danger: true, onClick: () => handleDelete(contextMenu.tag.name) },
+          ]}
+          onClose={() => setContextMenu(null)}
+        />
       )}
 
       {/* New Tag Dialog */}
@@ -1440,14 +1256,6 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
     }
   }, [loadStashes])
-
-  // Close context menu on outside click
-  useEffect(() => {
-    if (!contextMenu) return
-    const handler = (): void => setContextMenu(null)
-    window.addEventListener('click', handler)
-    return () => window.removeEventListener('click', handler)
-  }, [contextMenu])
 
   const handleStashClick = useCallback(
     async (stash: GitStash) => {
@@ -1637,34 +1445,17 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
 
       {/* Stash Context Menu */}
       {contextMenu && (
-        <div
-          className="branch-ctx-menu"
-          style={{ position: 'fixed', left: contextMenu.x, top: contextMenu.y, zIndex: 2000 }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            className="branch-ctx-menu-item"
-            onClick={() => { handleApply(contextMenu.stash.index); setContextMenu(null) }}
-          >
-            <span className="branch-ctx-menu-icon"><CornerRightUp size={14} /></span>
-            <span className="branch-ctx-menu-label">Apply</span>
-          </button>
-          <button
-            className="branch-ctx-menu-item"
-            onClick={() => { handlePop(contextMenu.stash.index); setContextMenu(null) }}
-          >
-            <span className="branch-ctx-menu-icon"><CornerUpRight size={14} /></span>
-            <span className="branch-ctx-menu-label">Pop</span>
-          </button>
-          <div className="branch-ctx-menu-separator" />
-          <button
-            className="branch-ctx-menu-item branch-ctx-menu-item-danger"
-            onClick={() => { handleDrop(contextMenu.stash.index); setContextMenu(null) }}
-          >
-            <span className="branch-ctx-menu-icon"><Trash2 size={14} /></span>
-            <span className="branch-ctx-menu-label">Drop</span>
-          </button>
-        </div>
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={[
+            { key: 'apply', label: 'Apply', icon: <CornerRightUp size={14} />, onClick: () => handleApply(contextMenu.stash.index) },
+            { key: 'pop', label: 'Pop', icon: <CornerUpRight size={14} />, onClick: () => handlePop(contextMenu.stash.index) },
+            { key: 'sep1', separator: true },
+            { key: 'drop', label: 'Drop', icon: <Trash2 size={14} />, danger: true, onClick: () => handleDrop(contextMenu.stash.index) },
+          ]}
+          onClose={() => setContextMenu(null)}
+        />
       )}
 
       {/* Stash Save Dialog */}
@@ -1753,7 +1544,7 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
   const [submodules, setSubmodules] = useState<GitSubmodule[]>([])
   const [contextMenu, setContextMenu] = useState<SubmoduleContextMenuState | null>(null)
   const [loading, setLoading] = useState(false)
-  const contextMenuRef = useRef<HTMLDivElement>(null)
+  // contextMenuRef removed — ContextMenu component manages its own ref
 
   const loadSubmodules = useCallback(async () => {
     if (!currentRepo) {
@@ -1782,25 +1573,6 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
       if (timer) clearTimeout(timer)
     }
   }, [loadSubmodules])
-
-  // Close context menu on click outside / Escape
-  useEffect(() => {
-    if (!contextMenu) return
-    const handleClick = (e: MouseEvent): void => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
-        setContextMenu(null)
-      }
-    }
-    const handleEsc = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setContextMenu(null)
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleEsc)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleEsc)
-    }
-  }, [contextMenu])
 
   const handleInitUpdate = useCallback(
     async (submodule: GitSubmodule) => {
@@ -1909,59 +1681,30 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
 
       {/* Submodule Context Menu */}
       {contextMenu && (
-        <div
-          ref={contextMenuRef}
-          className="branch-ctx-menu"
-          style={{
-            position: 'fixed',
-            left: contextMenu.x,
-            top: contextMenu.y,
-            zIndex: 2000
-          }}
-        >
-          {(contextMenu.submodule.status === 'uninitialized' ||
-            contextMenu.submodule.status === 'out-of-date') && (
-            <button
-              className="branch-ctx-menu-item"
-              disabled={loading}
-              onClick={() => {
-                handleInitUpdate(contextMenu.submodule)
-                setContextMenu(null)
-              }}
-            >
-              <span className="branch-ctx-menu-icon"><Download size={14} /></span>
-              <span className="branch-ctx-menu-label">
-                {contextMenu.submodule.status === 'uninitialized'
-                  ? 'Init & Update'
-                  : 'Update'}
-              </span>
-            </button>
-          )}
-          {contextMenu.submodule.status !== 'uninitialized' && (
-            <button
-              className="branch-ctx-menu-item"
-              disabled={loading}
-              onClick={() => {
-                handleInitUpdate(contextMenu.submodule)
-                setContextMenu(null)
-              }}
-            >
-              <span className="branch-ctx-menu-icon"><RefreshCw size={14} /></span>
-              <span className="branch-ctx-menu-label">Update</span>
-            </button>
-          )}
-          <div className="branch-ctx-menu-separator" />
-          <button
-            className="branch-ctx-menu-item"
-            onClick={() => {
-              handleOpenInNewWindow(contextMenu.submodule)
-              setContextMenu(null)
-            }}
-          >
-            <span className="branch-ctx-menu-icon"><ExternalLink size={14} /></span>
-            <span className="branch-ctx-menu-label">Open as Repository</span>
-          </button>
-        </div>
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={(() => {
+            const items: ContextMenuEntry[] = []
+            const sm = contextMenu.submodule
+            if (sm.status === 'uninitialized' || sm.status === 'out-of-date') {
+              items.push({
+                key: 'init-update',
+                label: sm.status === 'uninitialized' ? 'Init & Update' : 'Update',
+                icon: <Download size={14} />,
+                disabled: loading,
+                onClick: () => handleInitUpdate(sm)
+              })
+            }
+            if (sm.status !== 'uninitialized') {
+              items.push({ key: 'update', label: 'Update', icon: <RefreshCw size={14} />, disabled: loading, onClick: () => handleInitUpdate(sm) })
+            }
+            items.push({ key: 'sep1', separator: true })
+            items.push({ key: 'open', label: 'Open as Repository', icon: <ExternalLink size={14} />, onClick: () => handleOpenInNewWindow(sm) })
+            return items
+          })()}
+          onClose={() => setContextMenu(null)}
+        />
       )}
     </>
   )
@@ -2391,16 +2134,18 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
 
         {/* Context Menu (needed for branch interactions in overlay) */}
         {contextMenu && (
-          <BranchContextMenu
-            state={contextMenu}
-            currentBranch={currentBranch}
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            items={buildBranchContextMenuItems(contextMenu.branch, currentBranch, {
+              onCheckout: handleCheckout,
+              onRename: (name) => setRenameTarget(name),
+              onDelete: handleDelete,
+              onMerge: handleMerge,
+              onRebase: handleRebase,
+              onPush: handlePush,
+            })}
             onClose={() => setContextMenu(null)}
-            onCheckout={handleCheckout}
-            onRename={(name) => setRenameTarget(name)}
-            onDelete={handleDelete}
-            onMerge={handleMerge}
-            onRebase={handleRebase}
-            onPush={handlePush}
           />
         )}
 
@@ -2603,16 +2348,18 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
 
       {/* Context Menu */}
       {contextMenu && (
-        <BranchContextMenu
-          state={contextMenu}
-          currentBranch={currentBranch}
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={buildBranchContextMenuItems(contextMenu.branch, currentBranch, {
+            onCheckout: handleCheckout,
+            onRename: (name) => setRenameTarget(name),
+            onDelete: handleDelete,
+            onMerge: handleMerge,
+            onRebase: handleRebase,
+            onPush: handlePush,
+          })}
           onClose={() => setContextMenu(null)}
-          onCheckout={handleCheckout}
-          onRename={(name) => setRenameTarget(name)}
-          onDelete={handleDelete}
-          onMerge={handleMerge}
-          onRebase={handleRebase}
-          onPush={handlePush}
         />
       )}
 

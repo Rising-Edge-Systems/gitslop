@@ -311,66 +311,6 @@
   background-color: rgba(243, 139, 168, 0.15);
 }
 
-/* ─── Context Menu ──────────────────────────────────────────────────────── */
-
-.ctxMenu {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  min-width: 220px;
-  padding: var(--space-xs);
-  overflow: hidden;
-}
-
-.ctxMenuItem {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  width: 100%;
-  padding: 7px var(--space-md);
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: var(--font-md);
-  font-family: var(--font-family);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: background-color 0.1s ease;
-  text-align: left;
-}
-
-.ctxMenuItem:hover {
-  background-color: rgba(137, 180, 250, 0.1);
-  color: var(--accent);
-}
-
-.ctxMenuIcon {
-  font-size: 14px;
-  width: 20px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.ctxMenuLabel {
-  flex: 1;
-}
-
-.ctxMenuShortcut {
-  margin-left: auto;
-  padding-left: var(--space-lg);
-  font-size: var(--font-xs);
-  color: var(--text-secondary);
-  opacity: 0.7;
-  flex-shrink: 0;
-}
-
-.ctxMenuSeparator {
-  height: 1px;
-  background-color: var(--border);
-  margin: var(--space-xs) var(--space-sm);
-}
-
 /* ─── Commit Tooltip ───────────────────────────────────────────────────── */
 
 .tooltip {
