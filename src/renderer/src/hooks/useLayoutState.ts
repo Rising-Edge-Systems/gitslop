@@ -196,6 +196,7 @@ export interface LayoutState {
   bottomPanelSize: number
   bottomPanelVisible: boolean
   sidebarVisible: boolean
+  rightPanelSize: number
 }
 
 const STORAGE_KEY = 'gitslop-layout-state'
@@ -204,7 +205,8 @@ const DEFAULT_LAYOUT: LayoutState = {
   sidebarSize: 20,
   bottomPanelSize: 25,
   bottomPanelVisible: false,
-  sidebarVisible: true
+  sidebarVisible: true,
+  rightPanelSize: 25
 }
 
 function loadLayout(): LayoutState {
@@ -232,6 +234,7 @@ export function useLayoutState(): {
   layout: LayoutState
   setSidebarSize: (size: number) => void
   setBottomPanelSize: (size: number) => void
+  setRightPanelSize: (size: number) => void
   toggleBottomPanel: () => void
   toggleSidebar: () => void
 } {
@@ -261,6 +264,10 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, bottomPanelSize: size }))
   }, [])
 
+  const setRightPanelSize = useCallback((size: number) => {
+    setLayout((prev) => ({ ...prev, rightPanelSize: size }))
+  }, [])
+
   const toggleBottomPanel = useCallback(() => {
     setLayout((prev) => ({ ...prev, bottomPanelVisible: !prev.bottomPanelVisible }))
   }, [])
@@ -273,6 +280,7 @@ export function useLayoutState(): {
     layout,
     setSidebarSize,
     setBottomPanelSize,
+    setRightPanelSize,
     toggleBottomPanel,
     toggleSidebar
   }

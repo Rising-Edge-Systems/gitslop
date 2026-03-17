@@ -8,6 +8,7 @@ import type { PanelSize } from 'react-resizable-panels'
 import { Toolbar } from './Toolbar'
 import { Sidebar } from './Sidebar'
 import { MainContent } from './MainContent'
+import { DetailPanel } from './DetailPanel'
 import { TerminalPanel } from './Terminal'
 import { SearchPalette } from './SearchPalette'
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel'
@@ -22,6 +23,7 @@ import {
   defineShortcut,
   type ShortcutDefinition
 } from '../hooks/useKeyboardShortcuts'
+import type { CommitDetail } from './CommitGraph'
 
 interface AppLayoutProps {
   currentRepo: string | null
@@ -36,6 +38,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     layout,
     setSidebarSize,
     setBottomPanelSize,
+    setRightPanelSize,
     toggleBottomPanel,
     toggleSidebar
   } = useLayoutState()
@@ -52,6 +55,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [selectedCommit, setSelectedCommit] = useState<CommitDetail | null>(null)
 
   // Auto-fetch: fetches on configurable interval, tracks incoming changes
   const { incomingChanges, lastFetchTime, fetching: autoFetching, manualRefresh } = useAutoFetch({
@@ -73,6 +77,21 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     },
     [setBottomPanelSize]
   )
+
+  const handleRightPanelResize = useCallback(
+    (panelSize: PanelSize) => {
+      setRightPanelSize(panelSize.asPercentage)
+    },
+    [setRightPanelSize]
+  )
+
+  const handleCommitSelect = useCallback((detail: CommitDetail | null) => {
+    setSelectedCommit(detail)
+  }, [])
+
+  const handleCloseDetailPanel = useCallback(() => {
+    setSelectedCommit(null)
+  }, [])
 
   // Stable handler refs for shortcuts
   const handleToggleSidebar = useShortcutHandler(toggleSidebar)
@@ -127,6 +146,9 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setHistoryOpen(!historyOpen)
   }, [historyOpen, setHistoryOpen])
 
+  // Right detail panel is visible when a commit is selected and a repo is open
+  const rightPanelVisible = selectedCommit !== null && currentRepo !== null
+
   return (
     <div className="app-layout">
       <Toolbar
@@ -164,53 +186,75 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       )}
 
       <div className="app-body">
-        <Group orientation="horizontal" id="gitslop-horizontal">
-          {layout.sidebarVisible && appSettings.sidebarPosition === 'left' && (
-            <>
-              <Panel
-                id="sidebar"
-                defaultSize={layout.sidebarSize}
-                minSize={12}
-                maxSize={40}
-                onResize={handleSidebarResize}
-              >
-                <Sidebar currentRepo={currentRepo} />
-              </Panel>
-              <Separator className="resize-handle resize-handle-horizontal" />
-            </>
-          )}
-          <Panel id="center" minSize={30}>
-            <Group orientation="vertical" id="gitslop-vertical">
-              <Panel id="main" minSize={20}>
-                <MainContent currentRepo={currentRepo} onRepoOpen={onRepoOpen} onCloseRepo={onCloseRepo} />
-              </Panel>
-              {layout.bottomPanelVisible && (
+        <Group orientation="vertical" id="gitslop-outer-vertical">
+          <Panel id="columns" minSize={20}>
+            <Group orientation="horizontal" id="gitslop-horizontal">
+              {layout.sidebarVisible && appSettings.sidebarPosition === 'left' && (
                 <>
-                  <Separator className="resize-handle resize-handle-vertical" />
                   <Panel
-                    id="bottom"
-                    defaultSize={layout.bottomPanelSize}
-                    minSize={10}
-                    maxSize={60}
-                    onResize={handleBottomResize}
+                    id="sidebar"
+                    defaultSize={layout.sidebarSize}
+                    minSize={12}
+                    maxSize={40}
+                    onResize={handleSidebarResize}
                   >
-                    <TerminalPanel currentRepo={currentRepo} onToggle={toggleBottomPanel} />
+                    <Sidebar currentRepo={currentRepo} />
+                  </Panel>
+                  <Separator className="resize-handle resize-handle-horizontal" />
+                </>
+              )}
+              <Panel id="center" minSize={30}>
+                <MainContent
+                  currentRepo={currentRepo}
+                  onRepoOpen={onRepoOpen}
+                  onCloseRepo={onCloseRepo}
+                  onCommitSelect={handleCommitSelect}
+                />
+              </Panel>
+              {rightPanelVisible && (
+                <>
+                  <Separator className="resize-handle resize-handle-horizontal" />
+                  <Panel
+                    id="detail"
+                    defaultSize={layout.rightPanelSize}
+                    minSize={15}
+                    maxSize={50}
+                    onResize={handleRightPanelResize}
+                  >
+                    <DetailPanel
+                      detail={selectedCommit}
+                      onClose={handleCloseDetailPanel}
+                    />
+                  </Panel>
+                </>
+              )}
+              {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && (
+                <>
+                  <Separator className="resize-handle resize-handle-horizontal" />
+                  <Panel
+                    id="sidebar"
+                    defaultSize={layout.sidebarSize}
+                    minSize={12}
+                    maxSize={40}
+                    onResize={handleSidebarResize}
+                  >
+                    <Sidebar currentRepo={currentRepo} />
                   </Panel>
                 </>
               )}
             </Group>
           </Panel>
-          {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && (
+          {layout.bottomPanelVisible && (
             <>
-              <Separator className="resize-handle resize-handle-horizontal" />
+              <Separator className="resize-handle resize-handle-vertical" />
               <Panel
-                id="sidebar"
-                defaultSize={layout.sidebarSize}
-                minSize={12}
-                maxSize={40}
-                onResize={handleSidebarResize}
+                id="bottom"
+                defaultSize={layout.bottomPanelSize}
+                minSize={10}
+                maxSize={60}
+                onResize={handleBottomResize}
               >
-                <Sidebar currentRepo={currentRepo} />
+                <TerminalPanel currentRepo={currentRepo} onToggle={toggleBottomPanel} />
               </Panel>
             </>
           )}

@@ -8,13 +8,14 @@ import { BlameView } from './BlameView'
 import { CodeEditor } from './CodeEditor'
 import { CommitDialog } from './CommitDialog'
 import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from './CommitFilterBar'
-import { CommitGraph, CommitLogFilters } from './CommitGraph'
+import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
 import { StatusPanel } from './StatusPanel'
 
 interface RepoViewProps {
   repoPath: string
   onCloseRepo: () => void
+  onCommitSelect?: (detail: CommitDetail | null) => void
 }
 
 interface BranchInfo {
@@ -29,7 +30,7 @@ interface RepoStatus {
   untracked: number
 }
 
-export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.Element {
+export function RepoView({ repoPath, onCloseRepo, onCommitSelect }: RepoViewProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -287,7 +288,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
           />
 
           {/* Commit Graph */}
-          <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} filters={graphFilters} />
+          <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} filters={graphFilters} />
         </div>
       )}
     </div>
