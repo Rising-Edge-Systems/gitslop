@@ -224,17 +224,56 @@ ipcMain.handle('file:write', async (_event, filePath: string, content: string) =
 
 let activeWatcher: FSWatcher | null = null
 let watchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let watcherSuppressedUntil = 0
+let activeGitOperations = 0
+
+/**
+ * Suppress watcher events for a duration (ms) after git operations complete.
+ * While suppressed, file change events are silently dropped.
+ */
+export function suppressWatcher(durationMs = 1000): void {
+  watcherSuppressedUntil = Date.now() + durationMs
+}
+
+/**
+ * Track start/end of git operations. While any operation is in progress,
+ * watcher events are suppressed. After the last operation completes,
+ * events remain suppressed for 1 additional second.
+ */
+export function gitOperationStarted(): void {
+  activeGitOperations++
+}
+
+export function gitOperationFinished(): void {
+  activeGitOperations = Math.max(0, activeGitOperations - 1)
+  if (activeGitOperations === 0) {
+    suppressWatcher(1000)
+  }
+}
+
+function isWatcherSuppressed(): boolean {
+  return activeGitOperations > 0 || Date.now() < watcherSuppressedUntil
+}
 
 function sendRepoChanged(): void {
+  // Drop events while git operations are in progress or during suppression window
+  if (isWatcherSuppressed()) {
+    return
+  }
+
   if (watchDebounceTimer) {
     clearTimeout(watchDebounceTimer)
   }
   watchDebounceTimer = setTimeout(() => {
+    // Re-check suppression at send time (operation may have started during debounce)
+    if (isWatcherSuppressed()) {
+      return
+    }
     const win = BrowserWindow.getAllWindows()[0]
     if (win && !win.isDestroyed()) {
       win.webContents.send('repo:changed')
     }
-  }, 300)
+  }, 500)
 }
 
 ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
@@ -247,19 +286,24 @@ ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
   try {
     activeWatcher = chokidarWatch(repoPath, {
       ignored: (path: string) => {
-        // Ignore .git directory except refs (branch/tag changes)
+        // Ignore ALL .git directory changes — git operations modify refs, objects,
+        // index, HEAD, etc. inside .git/ which causes infinite refresh loops
         if (path.includes('/.git/') || path.includes('\\.git\\')) {
-          return !(path.includes('/.git/refs') || path.includes('\\.git\\refs'))
+          return true
         }
         if (path.endsWith('/.git') || path.endsWith('\\.git')) {
-          return false // Don't ignore .git itself, we want to see refs
+          return true
+        }
+        // Ignore node_modules
+        if (path.includes('/node_modules/') || path.includes('\\node_modules\\')) {
+          return true
         }
         return false
       },
       ignoreInitial: true,
       persistent: true,
       awaitWriteFinish: {
-        stabilityThreshold: 200,
+        stabilityThreshold: 300,
         pollInterval: 100
       }
     })
@@ -309,7 +353,9 @@ ipcMain.handle('updater:quitAndInstall', () => {
 
 ipcMain.handle('git:autoFetch', async (_event, repoPath: string) => {
   try {
+    suppressWatcher(1000)
     await gitService.fetch(repoPath)
+    suppressWatcher(1000)
     // After fetch, check ahead/behind
     const branch = await gitService.getCurrentBranch(repoPath)
     const branches = await gitService.getBranches(repoPath)

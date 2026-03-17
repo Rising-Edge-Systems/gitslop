@@ -5,6 +5,20 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { gitService, GitErrorCode } from './git-service'
 import type { GitError } from './git-service'
+import { gitOperationStarted, gitOperationFinished } from './index'
+
+/**
+ * Wrap a git operation that modifies .git/ directory (commits, checkouts, merges, etc.)
+ * to suppress file watcher events during the operation and for 1s after.
+ */
+async function withWatcherSuppression<T>(fn: () => Promise<T>): Promise<T> {
+  gitOperationStarted()
+  try {
+    return await fn()
+  } finally {
+    gitOperationFinished()
+  }
+}
 
 // Track active AbortControllers so we can cancel operations
 const activeControllers = new Map<string, AbortController>()
@@ -46,7 +60,7 @@ export function registerGitIpcHandlers(): void {
   ipcMain.removeHandler('git:init')
   ipcMain.handle('git:init', async (_event, dirPath: string) => {
     try {
-      await gitService.init(dirPath)
+      await withWatcherSuppression(() => gitService.init(dirPath))
       return { success: true }
     } catch (err) {
       return { success: false, ...formatError(err) }
@@ -127,7 +141,7 @@ export function registerGitIpcHandlers(): void {
       opts?: { message?: string }
     ) => {
       try {
-        await gitService.createTag(repoPath, name, target, { message: opts?.message })
+        await withWatcherSuppression(() => gitService.createTag(repoPath, name, target, { message: opts?.message }))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -141,7 +155,7 @@ export function registerGitIpcHandlers(): void {
     'git:deleteTag',
     async (_event, repoPath: string, name: string) => {
       try {
-        await gitService.deleteTag(repoPath, name)
+        await withWatcherSuppression(() => gitService.deleteTag(repoPath, name))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -155,7 +169,7 @@ export function registerGitIpcHandlers(): void {
     'git:pushTag',
     async (_event, repoPath: string, tagName: string, remoteName?: string) => {
       try {
-        await gitService.pushTag(repoPath, tagName, remoteName)
+        await withWatcherSuppression(() => gitService.pushTag(repoPath, tagName, remoteName))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -184,10 +198,10 @@ export function registerGitIpcHandlers(): void {
       opts?: { message?: string; includeUntracked?: boolean }
     ) => {
       try {
-        await gitService.stashSave(repoPath, {
+        await withWatcherSuppression(() => gitService.stashSave(repoPath, {
           message: opts?.message,
           includeUntracked: opts?.includeUntracked
-        })
+        }))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -201,7 +215,7 @@ export function registerGitIpcHandlers(): void {
     'git:stashApply',
     async (_event, repoPath: string, index: number) => {
       try {
-        await gitService.stashApply(repoPath, index)
+        await withWatcherSuppression(() => gitService.stashApply(repoPath, index))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -215,7 +229,7 @@ export function registerGitIpcHandlers(): void {
     'git:stashPop',
     async (_event, repoPath: string, index: number) => {
       try {
-        await gitService.stashPop(repoPath, index)
+        await withWatcherSuppression(() => gitService.stashPop(repoPath, index))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -229,7 +243,7 @@ export function registerGitIpcHandlers(): void {
     'git:stashDrop',
     async (_event, repoPath: string, index: number) => {
       try {
-        await gitService.stashDrop(repoPath, index)
+        await withWatcherSuppression(() => gitService.stashDrop(repoPath, index))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -311,7 +325,7 @@ export function registerGitIpcHandlers(): void {
       activeControllers.set(opId, controller)
 
       try {
-        await gitService.clone(url, destPath, {
+        await withWatcherSuppression(() => gitService.clone(url, destPath, {
           signal: controller.signal,
           onProgress: (progress) => {
             // Send progress to renderer via the window that initiated the clone
@@ -320,7 +334,7 @@ export function registerGitIpcHandlers(): void {
               win.webContents.send('git:clone-progress', { operationId: opId, ...progress })
             }
           }
-        })
+        }))
         return { success: true, operationId: opId }
       } catch (err) {
         return { success: false, ...formatError(err), operationId: opId }
@@ -334,7 +348,7 @@ export function registerGitIpcHandlers(): void {
 
   ipcMain.handle('git:checkout', async (_event, repoPath: string, branchName: string) => {
     try {
-      await gitService.checkout(repoPath, branchName)
+      await withWatcherSuppression(() => gitService.checkout(repoPath, branchName))
       return { success: true }
     } catch (err) {
       return { success: false, ...formatError(err) }
@@ -353,9 +367,9 @@ export function registerGitIpcHandlers(): void {
       opts?: { checkout?: boolean }
     ) => {
       try {
-        await gitService.createBranch(repoPath, branchName, baseBranch, {
+        await withWatcherSuppression(() => gitService.createBranch(repoPath, branchName, baseBranch, {
           checkout: opts?.checkout
-        })
+        }))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -369,7 +383,7 @@ export function registerGitIpcHandlers(): void {
     'git:deleteBranch',
     async (_event, repoPath: string, branchName: string, opts?: { force?: boolean }) => {
       try {
-        await gitService.deleteBranch(repoPath, branchName, { force: opts?.force })
+        await withWatcherSuppression(() => gitService.deleteBranch(repoPath, branchName, { force: opts?.force }))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -383,7 +397,7 @@ export function registerGitIpcHandlers(): void {
     'git:renameBranch',
     async (_event, repoPath: string, oldName: string, newName: string) => {
       try {
-        await gitService.renameBranch(repoPath, oldName, newName)
+        await withWatcherSuppression(() => gitService.renameBranch(repoPath, oldName, newName))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -408,7 +422,7 @@ export function registerGitIpcHandlers(): void {
     'git:addRemote',
     async (_event, repoPath: string, name: string, url: string) => {
       try {
-        await gitService.addRemote(repoPath, name, url)
+        await withWatcherSuppression(() => gitService.addRemote(repoPath, name, url))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -422,7 +436,7 @@ export function registerGitIpcHandlers(): void {
     'git:editRemoteUrl',
     async (_event, repoPath: string, name: string, newUrl: string) => {
       try {
-        await gitService.editRemoteUrl(repoPath, name, newUrl)
+        await withWatcherSuppression(() => gitService.editRemoteUrl(repoPath, name, newUrl))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -436,7 +450,7 @@ export function registerGitIpcHandlers(): void {
     'git:removeRemote',
     async (_event, repoPath: string, name: string) => {
       try {
-        await gitService.removeRemote(repoPath, name)
+        await withWatcherSuppression(() => gitService.removeRemote(repoPath, name))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -450,7 +464,7 @@ export function registerGitIpcHandlers(): void {
     'git:fetch',
     async (_event, repoPath: string, remoteName?: string) => {
       try {
-        await gitService.fetch(repoPath, remoteName)
+        await withWatcherSuppression(() => gitService.fetch(repoPath, remoteName))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -464,7 +478,7 @@ export function registerGitIpcHandlers(): void {
     'git:deleteRemoteBranch',
     async (_event, repoPath: string, remoteName: string, branchName: string) => {
       try {
-        await gitService.deleteRemoteBranch(repoPath, remoteName, branchName)
+        await withWatcherSuppression(() => gitService.deleteRemoteBranch(repoPath, remoteName, branchName))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -478,7 +492,7 @@ export function registerGitIpcHandlers(): void {
     'git:checkoutRemoteBranch',
     async (_event, repoPath: string, remoteName: string, branchName: string) => {
       try {
-        await gitService.checkoutRemoteBranch(repoPath, remoteName, branchName)
+        await withWatcherSuppression(() => gitService.checkoutRemoteBranch(repoPath, remoteName, branchName))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -492,7 +506,7 @@ export function registerGitIpcHandlers(): void {
     'git:stageFiles',
     async (_event, repoPath: string, filePaths: string[]) => {
       try {
-        await gitService.stageFiles(repoPath, filePaths)
+        await withWatcherSuppression(() => gitService.stageFiles(repoPath, filePaths))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -506,7 +520,7 @@ export function registerGitIpcHandlers(): void {
     'git:unstageFiles',
     async (_event, repoPath: string, filePaths: string[]) => {
       try {
-        await gitService.unstageFiles(repoPath, filePaths)
+        await withWatcherSuppression(() => gitService.unstageFiles(repoPath, filePaths))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -518,7 +532,7 @@ export function registerGitIpcHandlers(): void {
 
   ipcMain.handle('git:stageAll', async (_event, repoPath: string) => {
     try {
-      await gitService.stageAll(repoPath)
+      await withWatcherSuppression(() => gitService.stageAll(repoPath))
       return { success: true }
     } catch (err) {
       return { success: false, ...formatError(err) }
@@ -529,7 +543,7 @@ export function registerGitIpcHandlers(): void {
 
   ipcMain.handle('git:unstageAll', async (_event, repoPath: string) => {
     try {
-      await gitService.unstageAll(repoPath)
+      await withWatcherSuppression(() => gitService.unstageAll(repoPath))
       return { success: true }
     } catch (err) {
       return { success: false, ...formatError(err) }
@@ -542,7 +556,7 @@ export function registerGitIpcHandlers(): void {
     'git:stageHunk',
     async (_event, repoPath: string, patch: string) => {
       try {
-        await gitService.stageHunk(repoPath, patch)
+        await withWatcherSuppression(() => gitService.stageHunk(repoPath, patch))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -556,7 +570,7 @@ export function registerGitIpcHandlers(): void {
     'git:unstageHunk',
     async (_event, repoPath: string, patch: string) => {
       try {
-        await gitService.unstageHunk(repoPath, patch)
+        await withWatcherSuppression(() => gitService.unstageHunk(repoPath, patch))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -575,12 +589,12 @@ export function registerGitIpcHandlers(): void {
       opts?: { amend?: boolean; signoff?: boolean; gpgSign?: boolean; gpgKeyId?: string }
     ) => {
       try {
-        const result = await gitService.commit(repoPath, message, {
+        const result = await withWatcherSuppression(() => gitService.commit(repoPath, message, {
           amend: opts?.amend,
           signoff: opts?.signoff,
           gpgSign: opts?.gpgSign,
           gpgKeyId: opts?.gpgKeyId
-        })
+        }))
         return { success: true, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -616,7 +630,7 @@ export function registerGitIpcHandlers(): void {
       activeControllers.set(opId, controller)
 
       try {
-        await gitService.push(repoPath, {
+        await withWatcherSuppression(() => gitService.push(repoPath, {
           signal: controller.signal,
           force: opts?.force,
           setUpstream: opts?.setUpstream,
@@ -626,7 +640,7 @@ export function registerGitIpcHandlers(): void {
               win.webContents.send('git:operation-progress', { operationId: opId, operation: 'push', ...progress })
             }
           }
-        })
+        }))
         return { success: true, operationId: opId }
       } catch (err) {
         return { success: false, ...formatError(err), operationId: opId }
@@ -646,7 +660,7 @@ export function registerGitIpcHandlers(): void {
       activeControllers.set(opId, controller)
 
       try {
-        await gitService.pull(repoPath, {
+        await withWatcherSuppression(() => gitService.pull(repoPath, {
           signal: controller.signal,
           rebase: opts?.rebase,
           onProgress: (progress) => {
@@ -655,7 +669,7 @@ export function registerGitIpcHandlers(): void {
               win.webContents.send('git:operation-progress', { operationId: opId, operation: 'pull', ...progress })
             }
           }
-        })
+        }))
         return { success: true, operationId: opId }
       } catch (err) {
         return { success: false, ...formatError(err), operationId: opId }
@@ -675,7 +689,7 @@ export function registerGitIpcHandlers(): void {
       activeControllers.set(opId, controller)
 
       try {
-        await gitService.fetchWithProgress(repoPath, remoteName, {
+        await withWatcherSuppression(() => gitService.fetchWithProgress(repoPath, remoteName, {
           signal: controller.signal,
           onProgress: (progress) => {
             const win = BrowserWindow.getAllWindows()[0]
@@ -683,7 +697,7 @@ export function registerGitIpcHandlers(): void {
               win.webContents.send('git:operation-progress', { operationId: opId, operation: 'fetch', ...progress })
             }
           }
-        })
+        }))
         return { success: true, operationId: opId }
       } catch (err) {
         return { success: false, ...formatError(err), operationId: opId }
@@ -746,10 +760,10 @@ export function registerGitIpcHandlers(): void {
       opts?: { noFastForward?: boolean; fastForwardOnly?: boolean }
     ) => {
       try {
-        const result = await gitService.merge(repoPath, branchName, {
+        const result = await withWatcherSuppression(() => gitService.merge(repoPath, branchName, {
           noFastForward: opts?.noFastForward,
           fastForwardOnly: opts?.fastForwardOnly
-        })
+        }))
         return { success: result.success, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -763,7 +777,7 @@ export function registerGitIpcHandlers(): void {
     'git:mergeAbort',
     async (_event, repoPath: string) => {
       try {
-        await gitService.mergeAbort(repoPath)
+        await withWatcherSuppression(() => gitService.mergeAbort(repoPath))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -805,7 +819,7 @@ export function registerGitIpcHandlers(): void {
     'git:cherryPick',
     async (_event, repoPath: string, hashes: string[]) => {
       try {
-        const result = await gitService.cherryPick(repoPath, hashes)
+        const result = await withWatcherSuppression(() => gitService.cherryPick(repoPath, hashes))
         return { success: result.success, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -817,7 +831,7 @@ export function registerGitIpcHandlers(): void {
     'git:cherryPickAbort',
     async (_event, repoPath: string) => {
       try {
-        await gitService.cherryPickAbort(repoPath)
+        await withWatcherSuppression(() => gitService.cherryPickAbort(repoPath))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -829,7 +843,7 @@ export function registerGitIpcHandlers(): void {
     'git:cherryPickContinue',
     async (_event, repoPath: string) => {
       try {
-        const result = await gitService.cherryPickContinue(repoPath)
+        const result = await withWatcherSuppression(() => gitService.cherryPickContinue(repoPath))
         return { success: result.success, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -869,7 +883,7 @@ export function registerGitIpcHandlers(): void {
     'git:rebase',
     async (_event, repoPath: string, ontoBranch: string) => {
       try {
-        const result = await gitService.rebase(repoPath, ontoBranch)
+        const result = await withWatcherSuppression(() => gitService.rebase(repoPath, ontoBranch))
         return { success: result.success, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -888,7 +902,7 @@ export function registerGitIpcHandlers(): void {
       actions: { hash: string; action: 'pick' | 'squash' | 'edit' | 'drop' | 'reword' | 'fixup' }[]
     ) => {
       try {
-        const result = await gitService.rebaseInteractive(repoPath, ontoBranch, actions)
+        const result = await withWatcherSuppression(() => gitService.rebaseInteractive(repoPath, ontoBranch, actions))
         return { success: result.success, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -902,7 +916,7 @@ export function registerGitIpcHandlers(): void {
     'git:rebaseContinue',
     async (_event, repoPath: string) => {
       try {
-        const result = await gitService.rebaseContinue(repoPath)
+        const result = await withWatcherSuppression(() => gitService.rebaseContinue(repoPath))
         return { success: result.success, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -916,7 +930,7 @@ export function registerGitIpcHandlers(): void {
     'git:rebaseAbort',
     async (_event, repoPath: string) => {
       try {
-        await gitService.rebaseAbort(repoPath)
+        await withWatcherSuppression(() => gitService.rebaseAbort(repoPath))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -930,7 +944,7 @@ export function registerGitIpcHandlers(): void {
     'git:rebaseSkip',
     async (_event, repoPath: string) => {
       try {
-        const result = await gitService.rebaseSkip(repoPath)
+        const result = await withWatcherSuppression(() => gitService.rebaseSkip(repoPath))
         return { success: result.success, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -977,7 +991,7 @@ export function registerGitIpcHandlers(): void {
       mode: 'soft' | 'mixed' | 'hard'
     ) => {
       try {
-        const result = await gitService.reset(repoPath, targetHash, mode)
+        const result = await withWatcherSuppression(() => gitService.reset(repoPath, targetHash, mode))
         return { success: result.success, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -996,9 +1010,9 @@ export function registerGitIpcHandlers(): void {
       opts?: { parentNumber?: number }
     ) => {
       try {
-        const result = await gitService.revert(repoPath, hash, {
+        const result = await withWatcherSuppression(() => gitService.revert(repoPath, hash, {
           parentNumber: opts?.parentNumber
-        })
+        }))
         return { success: result.success, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -1010,7 +1024,7 @@ export function registerGitIpcHandlers(): void {
     'git:revertAbort',
     async (_event, repoPath: string) => {
       try {
-        await gitService.revertAbort(repoPath)
+        await withWatcherSuppression(() => gitService.revertAbort(repoPath))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -1022,7 +1036,7 @@ export function registerGitIpcHandlers(): void {
     'git:revertContinue',
     async (_event, repoPath: string) => {
       try {
-        const result = await gitService.revertContinue(repoPath)
+        const result = await withWatcherSuppression(() => gitService.revertContinue(repoPath))
         return { success: result.success, data: result }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -1060,7 +1074,7 @@ export function registerGitIpcHandlers(): void {
     'git:resolveConflictFile',
     async (_event, repoPath: string, filePath: string, content: string) => {
       try {
-        await gitService.resolveConflictFile(repoPath, filePath, content)
+        await withWatcherSuppression(() => gitService.resolveConflictFile(repoPath, filePath, content))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -1072,7 +1086,7 @@ export function registerGitIpcHandlers(): void {
     'git:resolveConflictFileWith',
     async (_event, repoPath: string, filePath: string, choice: 'ours' | 'theirs') => {
       try {
-        await gitService.resolveConflictFileWith(repoPath, filePath, choice)
+        await withWatcherSuppression(() => gitService.resolveConflictFileWith(repoPath, filePath, choice))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -1129,7 +1143,7 @@ export function registerGitIpcHandlers(): void {
       opts?: { untracked?: boolean }
     ) => {
       try {
-        await gitService.discardFiles(repoPath, filePaths, opts)
+        await withWatcherSuppression(() => gitService.discardFiles(repoPath, filePaths, opts))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -1143,7 +1157,7 @@ export function registerGitIpcHandlers(): void {
     'git:discardHunk',
     async (_event, repoPath: string, patch: string) => {
       try {
-        await gitService.discardHunk(repoPath, patch)
+        await withWatcherSuppression(() => gitService.discardHunk(repoPath, patch))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -1180,7 +1194,7 @@ export function registerGitIpcHandlers(): void {
     'git:submoduleInit',
     async (_event, repoPath: string, submodulePath: string) => {
       try {
-        await gitService.submoduleInit(repoPath, submodulePath)
+        await withWatcherSuppression(() => gitService.submoduleInit(repoPath, submodulePath))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -1192,7 +1206,7 @@ export function registerGitIpcHandlers(): void {
     'git:submoduleUpdate',
     async (_event, repoPath: string, submodulePath: string) => {
       try {
-        await gitService.submoduleUpdate(repoPath, submodulePath)
+        await withWatcherSuppression(() => gitService.submoduleUpdate(repoPath, submodulePath))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -1224,7 +1238,7 @@ export function registerGitIpcHandlers(): void {
     'git:setGitSigningKey',
     async (_event, repoPath: string, keyId: string) => {
       try {
-        await gitService.setGitSigningKey(repoPath, keyId)
+        await withWatcherSuppression(() => gitService.setGitSigningKey(repoPath, keyId))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
