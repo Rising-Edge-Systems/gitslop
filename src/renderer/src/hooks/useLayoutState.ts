@@ -196,6 +196,7 @@ export interface LayoutState {
   bottomPanelSize: number
   bottomPanelVisible: boolean
   sidebarVisible: boolean
+  sidebarCollapsed: boolean
   rightPanelSize: number
 }
 
@@ -206,6 +207,7 @@ const DEFAULT_LAYOUT: LayoutState = {
   bottomPanelSize: 25,
   bottomPanelVisible: false,
   sidebarVisible: true,
+  sidebarCollapsed: false,
   rightPanelSize: 25
 }
 
@@ -237,6 +239,7 @@ export function useLayoutState(): {
   setRightPanelSize: (size: number) => void
   toggleBottomPanel: () => void
   toggleSidebar: () => void
+  toggleSidebarCollapse: () => void
 } {
   const [layout, setLayout] = useState<LayoutState>(loadLayout)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -276,12 +279,17 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, sidebarVisible: !prev.sidebarVisible }))
   }, [])
 
+  const toggleSidebarCollapse = useCallback(() => {
+    setLayout((prev) => ({ ...prev, sidebarCollapsed: !prev.sidebarCollapsed }))
+  }, [])
+
   return {
     layout,
     setSidebarSize,
     setBottomPanelSize,
     setRightPanelSize,
     toggleBottomPanel,
-    toggleSidebar
+    toggleSidebar,
+    toggleSidebarCollapse
   }
 }

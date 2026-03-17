@@ -40,7 +40,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setBottomPanelSize,
     setRightPanelSize,
     toggleBottomPanel,
-    toggleSidebar
+    toggleSidebar,
+    toggleSidebarCollapse
   } = useLayoutState()
 
   const {
@@ -186,10 +187,14 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       )}
 
       <div className="app-body">
+        {/* Collapsed sidebar icon rail — rendered outside resizable panels */}
+        {layout.sidebarVisible && layout.sidebarCollapsed && appSettings.sidebarPosition === 'left' && (
+          <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
+        )}
         <Group orientation="vertical" id="gitslop-outer-vertical">
           <Panel id="columns" minSize={20}>
             <Group orientation="horizontal" id="gitslop-horizontal">
-              {layout.sidebarVisible && appSettings.sidebarPosition === 'left' && (
+              {layout.sidebarVisible && appSettings.sidebarPosition === 'left' && !layout.sidebarCollapsed && (
                 <>
                   <Panel
                     id="sidebar"
@@ -198,7 +203,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     maxSize={40}
                     onResize={handleSidebarResize}
                   >
-                    <Sidebar currentRepo={currentRepo} />
+                    <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
                   </Panel>
                   <Separator className="resize-handle resize-handle-horizontal" />
                 </>
@@ -228,7 +233,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   </Panel>
                 </>
               )}
-              {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && (
+              {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && !layout.sidebarCollapsed && (
                 <>
                   <Separator className="resize-handle resize-handle-horizontal" />
                   <Panel
@@ -238,7 +243,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     maxSize={40}
                     onResize={handleSidebarResize}
                   >
-                    <Sidebar currentRepo={currentRepo} />
+                    <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
                   </Panel>
                 </>
               )}
@@ -259,6 +264,10 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
             </>
           )}
         </Group>
+        {/* Collapsed sidebar icon rail — right position */}
+        {layout.sidebarVisible && layout.sidebarCollapsed && appSettings.sidebarPosition === 'right' && (
+          <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
+        )}
       </div>
 
       {/* Status Bar */}

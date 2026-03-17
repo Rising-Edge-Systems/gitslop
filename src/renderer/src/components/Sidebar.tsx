@@ -26,7 +26,9 @@ import {
   CornerUpRight,
   Bell,
   Download,
-  Bookmark
+  Bookmark,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
@@ -48,6 +50,8 @@ interface GitBranch {
 
 interface SidebarProps {
   currentRepo: string | null
+  collapsed: boolean
+  onToggleCollapse: () => void
 }
 
 interface ContextMenuState {
@@ -1916,7 +1920,26 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
 
 // ─── Sidebar (main export) ──────────────────────────────────────────────────
 
-export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
+// ─── Icon Rail Section Definitions ──────────────────────────────────────────
+
+type RailSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'submodules' | 'files'
+
+interface RailSectionDef {
+  id: RailSection
+  label: string
+  icon: React.ReactNode
+}
+
+const RAIL_SECTIONS: RailSectionDef[] = [
+  { id: 'branches', label: 'Branches', icon: <GitBranch size={20} /> },
+  { id: 'files', label: 'Files', icon: <FolderOpen size={20} /> },
+  { id: 'remotes', label: 'Remotes', icon: <Globe size={20} /> },
+  { id: 'tags', label: 'Tags', icon: <Tag size={20} /> },
+  { id: 'stashes', label: 'Stashes', icon: <Archive size={20} /> },
+  { id: 'submodules', label: 'Submodules', icon: <Package size={20} /> }
+]
+
+export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<SidebarTab>('git')
   const [branches, setBranches] = useState<GitBranch[]>([])
   const [searchFilter, setSearchFilter] = useState('')
@@ -1933,6 +1956,9 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
   const [loading, setLoading] = useState(false)
   const [mergeBranch, setMergeBranch] = useState<string | null>(null)
   const [rebaseBranch, setRebaseBranch] = useState<string | null>(null)
+  const [railOverlaySection, setRailOverlaySection] = useState<RailSection | null>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const railRef = useRef<HTMLDivElement>(null)
 
   // ─── Load branches ──────────────────────────────────────────────────────
 
@@ -2106,12 +2132,255 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
     }
   }, [currentRepo, newBranchDialog.name, newBranchDialog.base, newBranchDialog.checkout, closeNewBranchDialog, loadBranches])
 
+  // ─── Rail overlay close on outside click ────────────────────────────────
+
+  useEffect(() => {
+    if (!railOverlaySection) return
+    const handleClick = (e: MouseEvent): void => {
+      if (
+        overlayRef.current && !overlayRef.current.contains(e.target as Node) &&
+        railRef.current && !railRef.current.contains(e.target as Node)
+      ) {
+        setRailOverlaySection(null)
+      }
+    }
+    const handleEsc = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setRailOverlaySection(null)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [railOverlaySection])
+
+  const handleRailIconClick = useCallback((section: RailSection) => {
+    setRailOverlaySection((prev) => prev === section ? null : section)
+  }, [])
+
   // ─── Render ─────────────────────────────────────────────────────────────
 
   const noBranches = !currentRepo
 
+  // ─── Collapsed Icon Rail ───────────────────────────────────────────────
+
+  if (collapsed) {
+    return (
+      <div className={styles.iconRail} ref={railRef}>
+        <button
+          className={styles.railCollapseBtn}
+          onClick={onToggleCollapse}
+          title="Expand Sidebar"
+        >
+          <PanelLeftOpen size={18} />
+        </button>
+        {RAIL_SECTIONS.map((section) => (
+          <button
+            key={section.id}
+            className={`${styles.railIcon} ${railOverlaySection === section.id ? styles.railIconActive : ''}`}
+            onClick={() => handleRailIconClick(section.id)}
+            title={section.label}
+          >
+            {section.icon}
+          </button>
+        ))}
+
+        {/* Floating overlay panel */}
+        {railOverlaySection && (
+          <div className={styles.railOverlay} ref={overlayRef}>
+            <div className={styles.railOverlayHeader}>
+              <span className={styles.railOverlayTitle}>
+                {RAIL_SECTIONS.find((s) => s.id === railOverlaySection)?.label}
+              </span>
+              <button
+                className={styles.railOverlayClose}
+                onClick={() => setRailOverlaySection(null)}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className={styles.railOverlayContent}>
+              {railOverlaySection === 'branches' && (
+                <SidebarSection
+                  title="Branches"
+                  icon={<GitBranch size={16} />}
+                  defaultOpen={true}
+                  count={branches.length}
+                  headerAction={
+                    currentRepo ? (
+                      <button
+                        className={styles.sectionAddBtn}
+                        onClick={openNewBranchDialog}
+                        title="New Branch"
+                      >
+                        +
+                      </button>
+                    ) : undefined
+                  }
+                >
+                  {noBranches ? (
+                    <div className={styles.placeholder}>No repository open</div>
+                  ) : loading && branches.length === 0 ? (
+                    <div className={styles.placeholder}>Loading branches...</div>
+                  ) : (
+                    <div className={styles.branchSection}>
+                      {branches.length > 5 && (
+                        <div className={styles.searchBox}>
+                          <input
+                            type="text"
+                            className={styles.searchInput}
+                            placeholder="Filter branches..."
+                            value={searchFilter}
+                            onChange={(e) => setSearchFilter(e.target.value)}
+                          />
+                          {searchFilter && (
+                            <button
+                              className={styles.searchClear}
+                              onClick={() => setSearchFilter('')}
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <div className={styles.branchList}>
+                        {filteredBranches.length === 0 ? (
+                          <div className={styles.placeholder}>
+                            {searchFilter ? 'No matching branches' : 'No branches'}
+                          </div>
+                        ) : (
+                          filteredBranches.map((branch) => (
+                            <div
+                              key={branch.name}
+                              className={`${styles.branchItem} ${branch.current ? styles.branchItemCurrent : ''}`}
+                              onDoubleClick={() => handleDoubleClick(branch)}
+                              onContextMenu={(e) => handleContextMenu(e, branch)}
+                              title={`${branch.name}${branch.upstream ? ` → ${branch.upstream}` : ''}`}
+                            >
+                              <span className={styles.branchIndicator}>
+                                {branch.current ? <CircleDot size={12} /> : ''}
+                              </span>
+                              <span className={styles.branchName}>{branch.name}</span>
+                              {(branch.ahead > 0 || branch.behind > 0) && branch.upstream && (
+                                <span className={styles.branchTracking}>
+                                  {branch.ahead > 0 && (
+                                    <span className={styles.branchAhead} title={`${branch.ahead} ahead`}>
+                                      <ArrowUp size={10} />{branch.ahead}
+                                    </span>
+                                  )}
+                                  {branch.behind > 0 && (
+                                    <span className={styles.branchBehind} title={`${branch.behind} behind`}>
+                                      <ArrowDown size={10} />{branch.behind}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </SidebarSection>
+              )}
+              {railOverlaySection === 'remotes' && (
+                <RemotesSection currentRepo={currentRepo} onBranchesChanged={loadBranches} />
+              )}
+              {railOverlaySection === 'tags' && (
+                <TagsSection currentRepo={currentRepo} />
+              )}
+              {railOverlaySection === 'stashes' && (
+                <StashesSection currentRepo={currentRepo} />
+              )}
+              {railOverlaySection === 'submodules' && (
+                <SubmodulesSection currentRepo={currentRepo} />
+              )}
+              {railOverlaySection === 'files' && (
+                <FileTree
+                  currentRepo={currentRepo}
+                  onShowBlame={(filePath) => {
+                    window.dispatchEvent(
+                      new CustomEvent('blame:open', { detail: { filePath } })
+                    )
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Context Menu (needed for branch interactions in overlay) */}
+        {contextMenu && (
+          <BranchContextMenu
+            state={contextMenu}
+            currentBranch={currentBranch}
+            onClose={() => setContextMenu(null)}
+            onCheckout={handleCheckout}
+            onRename={(name) => setRenameTarget(name)}
+            onDelete={handleDelete}
+            onMerge={handleMerge}
+            onRebase={handleRebase}
+            onPush={handlePush}
+          />
+        )}
+
+        {/* Dialogs (shared with expanded mode) */}
+        {newBranchDialog.open && (
+          <NewBranchDialog
+            state={newBranchDialog}
+            branches={branches}
+            onClose={closeNewBranchDialog}
+            onChange={(updates) => setNewBranchDialog((prev) => ({ ...prev, ...updates }))}
+            onSubmit={handleNewBranchSubmit}
+          />
+        )}
+        {renameTarget && (
+          <RenameDialog
+            oldName={renameTarget}
+            onClose={() => setRenameTarget(null)}
+            onSubmit={handleRenameSubmit}
+          />
+        )}
+        {mergeBranch && currentRepo && (
+          <MergeDialog
+            currentRepo={currentRepo}
+            preselectedBranch={mergeBranch}
+            onClose={() => setMergeBranch(null)}
+            onMergeComplete={() => {
+              setMergeBranch(null)
+              loadBranches()
+            }}
+          />
+        )}
+        {rebaseBranch && currentRepo && (
+          <RebaseDialog
+            currentRepo={currentRepo}
+            preselectedBranch={rebaseBranch}
+            onClose={() => setRebaseBranch(null)}
+            onRebaseComplete={() => {
+              setRebaseBranch(null)
+              loadBranches()
+            }}
+          />
+        )}
+      </div>
+    )
+  }
+
+  // ─── Expanded Sidebar ──────────────────────────────────────────────────
+
   return (
     <div className={styles.sidebar}>
+      {/* Collapse toggle button */}
+      <button
+        className={styles.collapseBtn}
+        onClick={onToggleCollapse}
+        title="Collapse Sidebar"
+      >
+        <PanelLeftClose size={16} />
+      </button>
+
       {/* Sidebar Tabs */}
       <div className={styles.tabs}>
         <button

@@ -597,6 +597,156 @@
   color: var(--text-muted);
 }
 
+/* ─── Collapse Toggle Button ────────────────────────────────────────────── */
+
+.collapseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.collapseBtn:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+/* ─── Icon Rail (Collapsed Sidebar) ──────────────────────────────────── */
+
+.iconRail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 48px;
+  min-width: 48px;
+  height: 100%;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  padding-top: var(--space-xs);
+  gap: var(--space-xs);
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.railCollapseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  margin-bottom: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.railCollapseBtn:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.railIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.railIcon:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.railIconActive {
+  background-color: var(--accent);
+  color: var(--bg-primary);
+}
+
+.railIconActive:hover {
+  background-color: var(--accent);
+  color: var(--bg-primary);
+}
+
+/* ─── Rail Floating Overlay Panel ────────────────────────────────────── */
+
+.railOverlay {
+  position: absolute;
+  top: 0;
+  left: 48px;
+  width: 280px;
+  height: 100%;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.railOverlayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.railOverlayTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.railOverlayClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.railOverlayClose:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.railOverlayContent {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 /* ─── Responsive ────────────────────────────────────────────────────────── */
 
 @media (max-width: 700px) {
