@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { RefreshCw, X, Loader2, AlertTriangle, GitBranch, Pencil, FileEdit, HelpCircle, FileText } from 'lucide-react'
+import { RefreshCw, X, AlertTriangle, GitBranch, Pencil, FileEdit, HelpCircle, FileText } from 'lucide-react'
 import styles from './RepoView.module.css'
+import { RepoViewSkeleton } from './Skeleton'
 import blameStyles from './BlameView.module.css'
 import conflictStyles from './ConflictResolver.module.css'
 import editorStyles from './CodeEditor.module.css'
@@ -166,10 +167,7 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect }: RepoViewProp
       </div>
 
       {loading && (
-        <div className={styles.repoViewLoading}>
-          <span className={styles.repoViewSpinner}><Loader2 size={16} /></span>
-          Loading repository...
-        </div>
+        <RepoViewSkeleton />
       )}
 
       {error && (

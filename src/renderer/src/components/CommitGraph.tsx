@@ -4,6 +4,7 @@ import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, Ski
 import { DiffViewer } from './DiffViewer'
 import { ResetDialog } from './ResetDialog'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
+import { CommitGraphSkeleton } from './Skeleton'
 import { assignLanes, type ParsedRef, type ParentConnection } from './laneAssignment'
 import styles from './CommitGraph.module.css'
 
@@ -1564,10 +1565,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
   if (loading && commits.length === 0) {
     return (
       <div className={styles.container} ref={containerRef}>
-        <div className={styles.loading}>
-          <span className={styles.spinner}><Loader2 size={16} /></span>
-          Loading commit history...
-        </div>
+        <CommitGraphSkeleton />
       </div>
     )
   }

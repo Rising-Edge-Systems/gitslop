@@ -1,0 +1,176 @@
+/* =============================================================================
+   Skeleton — CSS Module
+   Pulsing placeholder elements for loading states
+   ============================================================================= */
+
+@keyframes skeletonPulse {
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.15;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+/* ─── Base skeleton element ─────────────────────────────────────────────────── */
+
+.skeleton {
+  background-color: var(--text-secondary);
+  opacity: 0.4;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.sm {
+  border-radius: var(--radius-sm);
+}
+
+.md {
+  border-radius: var(--radius-md);
+}
+
+.lg {
+  border-radius: var(--radius-lg);
+}
+
+.circle {
+  border-radius: 50%;
+}
+
+/* ─── Skeleton row (icon + text) ────────────────────────────────────────────── */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 4px var(--space-sm);
+}
+
+/* ─── Skeleton list ─────────────────────────────────────────────────────────── */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ─── Sidebar skeleton ──────────────────────────────────────────────────────── */
+
+.sidebarSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.sectionHeader:first-child {
+  margin-top: 0;
+}
+
+/* ─── Commit graph skeleton ─────────────────────────────────────────────────── */
+
+.graphSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-sm);
+}
+
+.graphHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.graphRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px var(--space-sm);
+  height: 36px;
+}
+
+.graphLane {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 30px;
+}
+
+.graphInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+/* ─── Diff skeleton ─────────────────────────────────────────────────────────── */
+
+.diffSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-sm);
+}
+
+.diffHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.diffLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 3px var(--space-sm);
+  height: 24px;
+}
+
+/* ─── Repo view skeleton ────────────────────────────────────────────────────── */
+
+.repoSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.repoCards {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.repoCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-width: 160px;
+  flex: 1;
+}
+
+.repoCardText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

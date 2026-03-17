@@ -34,6 +34,7 @@ import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
 import { FileTree } from './FileTree'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
+import { SkeletonList } from './Skeleton'
 import styles from './Sidebar.module.css'
 
 type SidebarTab = 'git' | 'files'
@@ -2038,7 +2039,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
                   {noBranches ? (
                     <div className={styles.placeholder}>No repository open</div>
                   ) : loading && branches.length === 0 ? (
-                    <div className={styles.placeholder}>Loading branches...</div>
+                    <SkeletonList count={4} showIcon={true} />
                   ) : (
                     <div className={styles.branchSection}>
                       {branches.length > 5 && (
@@ -2267,7 +2268,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
         {noBranches ? (
           <div className={styles.placeholder}>No repository open</div>
         ) : loading && branches.length === 0 ? (
-          <div className={styles.placeholder}>Loading branches...</div>
+          <SkeletonList count={4} showIcon={true} />
         ) : (
           <div className={styles.branchSection}>
             {branches.length > 5 && (

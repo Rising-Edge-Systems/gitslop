@@ -13,7 +13,7 @@ import {
   FileSymlink,
   Copy,
   Check,
-  Loader2,
+
   ChevronDown,
   ChevronRight,
   ChevronLeft,
@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import type { DiffViewMode } from './DiffViewer'
+import { DiffSkeleton } from './Skeleton'
 import styles from './DetailPanel.module.css'
 import type { CommitDetail, CommitFileDetail } from './CommitGraph'
 
@@ -405,10 +406,7 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
 
                         {/* Diff content */}
                         {loadingDiff ? (
-                          <div className={styles.diffLoading}>
-                            <Loader2 size={16} className={styles.spinner} />
-                            <span>Loading diff...</span>
-                          </div>
+                          <DiffSkeleton />
                         ) : isBinaryFile ? (
                           <div className={styles.diffBinary}>
                             <Package size={18} />
