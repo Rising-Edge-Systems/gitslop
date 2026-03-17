@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Folder, FileCode, FileJson, FileText, Palette, Globe, Image, Settings, Lock, Terminal, FileType, Coffee, File, Ban, KeyRound, ChevronRight, Pencil, Clock, User, Clipboard, X } from 'lucide-react'
+import sidebarStyles from './Sidebar.module.css'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -550,7 +551,7 @@ export function FileTree({ currentRepo, onOpenFile, onShowHistory, onShowBlame }
   if (!currentRepo) {
     return (
       <div className="file-tree-container">
-        <div className="sidebar-placeholder">No repository open</div>
+        <div className={sidebarStyles.placeholder}>No repository open</div>
       </div>
     )
   }
@@ -558,16 +559,16 @@ export function FileTree({ currentRepo, onOpenFile, onShowHistory, onShowBlame }
   return (
     <div className="file-tree-container">
       {/* Search / filter */}
-      <div className="sidebar-search-box">
+      <div className={sidebarStyles.searchBox}>
         <input
           type="text"
-          className="sidebar-search-input"
+          className={sidebarStyles.searchInput}
           placeholder="Filter files..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
         {filter && (
-          <button className="sidebar-search-clear" onClick={() => setFilter('')}>
+          <button className={sidebarStyles.searchClear} onClick={() => setFilter('')}>
             <X size={12} />
           </button>
         )}
@@ -576,9 +577,9 @@ export function FileTree({ currentRepo, onOpenFile, onShowHistory, onShowBlame }
       {/* File tree */}
       <div className="file-tree-list">
         {loading && files.length === 0 ? (
-          <div className="sidebar-placeholder">Loading files...</div>
+          <div className={sidebarStyles.placeholder}>Loading files...</div>
         ) : filteredTree.length === 0 ? (
-          <div className="sidebar-placeholder">
+          <div className={sidebarStyles.placeholder}>
             {filter ? 'No matching files' : 'No files in repository'}
           </div>
         ) : (

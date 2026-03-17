@@ -1,0 +1,606 @@
+/* Sidebar.module.css — Scoped styles for Sidebar component */
+
+/* ─── Sidebar Container ──────────────────────────────────────────────────── */
+
+.sidebar {
+  height: 100%;
+  background-color: var(--bg-secondary);
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--border);
+}
+
+/* ─── Sidebar Tabs ──────────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.tab {
+  flex: 1;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  font-family: var(--font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  user-select: none;
+  border-bottom: 2px solid transparent;
+}
+
+.tab:hover {
+  color: var(--text-secondary);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.tabActive {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tabActive:hover {
+  color: var(--accent);
+}
+
+/* ─── Sidebar Sections ──────────────────────────────────────────────────── */
+
+.section {
+  border-bottom: 1px solid var(--border);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  font-family: var(--font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  user-select: none;
+}
+
+.sectionHeader:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.sectionChevron {
+  font-size: 8px;
+  transition: transform var(--transition-fast);
+  display: inline-block;
+}
+
+.sectionChevronOpen {
+  transform: rotate(90deg);
+}
+
+.sectionIcon {
+  font-size: var(--font-md);
+}
+
+.sectionTitle {
+  flex: 1;
+  text-align: left;
+}
+
+.sectionContent {
+  padding: var(--space-xs) 0;
+}
+
+.placeholder {
+  padding: var(--space-sm) var(--space-md) var(--space-sm) 32px;
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Section Header Row (with action button) */
+.sectionHeaderRow {
+  display: flex;
+  align-items: center;
+}
+
+.sectionHeaderRow .sectionHeader {
+  flex: 1;
+}
+
+.sectionAction {
+  padding-right: var(--space-sm);
+}
+
+.sectionAddBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-lg);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.sectionAddBtn:hover {
+  background-color: var(--border);
+  color: var(--accent);
+}
+
+.sectionCount {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background-color: var(--bg-tertiary);
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: var(--space-xs);
+}
+
+.sectionActionBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.sectionActionBtn:hover {
+  background-color: var(--border);
+  color: var(--accent);
+}
+
+/* ─── Search Box ────────────────────────────────────────────────────────── */
+
+.searchBox {
+  position: relative;
+  padding: var(--space-xs) 10px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 5px 24px 5px var(--space-sm);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.searchInput:focus {
+  border-color: var(--accent);
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.searchClear {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px var(--space-xs);
+  border-radius: 3px;
+  transition: color var(--transition-fast);
+}
+
+.searchClear:hover {
+  color: var(--text-primary);
+}
+
+/* ─── Branch List ───────────────────────────────────────────────────────── */
+
+.branchSection {
+  display: flex;
+  flex-direction: column;
+}
+
+.branchList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.branchItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px var(--space-md) 5px var(--space-lg);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  user-select: none;
+}
+
+.branchItem:hover {
+  background-color: rgba(137, 180, 250, 0.06);
+}
+
+.branchItemCurrent {
+  background-color: rgba(137, 180, 250, 0.08);
+}
+
+.branchItemCurrent .branchName {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.branchIndicator {
+  font-size: 7px;
+  color: var(--accent);
+  width: 10px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.branchName {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.branchTracking {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.branchAhead {
+  font-size: 10px;
+  color: var(--success);
+}
+
+.branchBehind {
+  font-size: 10px;
+  color: var(--error);
+}
+
+.branchFilter {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+}
+
+/* ─── Remote Items ──────────────────────────────────────────────────────── */
+
+.remoteList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.remoteGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.remoteItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px var(--space-md) 5px var(--space-md);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  user-select: none;
+}
+
+.remoteItem:hover {
+  background-color: rgba(137, 180, 250, 0.06);
+}
+
+.remoteName {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+
+.remoteBranches {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.remoteBranchItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-xs) var(--space-md) var(--space-xs) 32px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  user-select: none;
+}
+
+.remoteBranchItem:hover {
+  background-color: rgba(137, 180, 250, 0.06);
+}
+
+.remoteBranchName {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ─── Tag Items ─────────────────────────────────────────────────────────── */
+
+.tagItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px var(--space-sm) 3px var(--space-lg);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  user-select: none;
+}
+
+.tagItem:hover {
+  background-color: rgba(137, 180, 250, 0.06);
+}
+
+.tagIcon {
+  font-size: var(--font-xs);
+  flex-shrink: 0;
+}
+
+.tagName {
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.tagDate {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ─── Stash List ────────────────────────────────────────────────────────── */
+
+.stashList {
+  display: flex;
+  flex-direction: column;
+}
+
+.stashItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-xs) var(--space-md);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  transition: background-color 0.1s;
+}
+
+.stashItem:hover {
+  background-color: var(--bg-hover);
+}
+
+.stashItemSelected {
+  background-color: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.stashIcon {
+  font-size: var(--font-sm);
+  flex-shrink: 0;
+}
+
+.stashInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.stashMessage {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--font-sm);
+}
+
+.stashDate {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+/* ─── Stash Diff Viewer ─────────────────────────────────────────────────── */
+
+.stashDiffOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stashDiffPanel {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 80%;
+  max-width: 900px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.stashDiffHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stashDiffClose {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-lg);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.stashDiffClose:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.stashDiffContent {
+  padding: var(--space-md) var(--space-lg);
+  overflow: auto;
+  flex: 1;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre;
+  margin: 0;
+  tab-size: 4;
+}
+
+/* ─── Stash Dialog Checkbox ─────────────────────────────────────────────── */
+
+.stashDialogCheckbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* ─── Submodules ────────────────────────────────────────────────────────── */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.listItem {
+  /* base for list items in the sidebar */
+}
+
+.submoduleItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-xs) var(--space-md);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+}
+
+.submoduleItem:hover {
+  background: var(--bg-hover);
+}
+
+.submoduleStatus {
+  font-size: var(--font-xs);
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.submoduleName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.submoduleBadge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  text-transform: capitalize;
+}
+
+.submoduleBadge[data-status="initialized"] {
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
+}
+
+.submoduleBadge[data-status="dirty"] {
+  background: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning);
+}
+
+.submoduleBadge[data-status="out-of-date"] {
+  background: color-mix(in srgb, var(--info) 20%, transparent);
+  color: var(--info);
+}
+
+.submoduleBadge[data-status="uninitialized"] {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+/* ─── Responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  .sectionTitle {
+    font-size: 10px;
+  }
+}

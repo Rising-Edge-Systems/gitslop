@@ -31,6 +31,7 @@ import {
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
 import { FileTree } from './FileTree'
+import styles from './Sidebar.module.css'
 
 type SidebarTab = 'git' | 'files'
 
@@ -90,19 +91,19 @@ function SidebarSection({
   }, [])
 
   return (
-    <div className="sidebar-section">
-      <div className="sidebar-section-header-row">
-        <button className="sidebar-section-header" onClick={toggle}>
-          <span className={`sidebar-section-chevron ${isOpen ? 'open' : ''}`}><ChevronRight size={14} /></span>
-          <span className="sidebar-section-icon">{icon}</span>
-          <span className="sidebar-section-title">{title}</span>
+    <div className={styles.section}>
+      <div className={styles.sectionHeaderRow}>
+        <button className={styles.sectionHeader} onClick={toggle}>
+          <span className={`${styles.sectionChevron} ${isOpen ? styles.sectionChevronOpen : ''}`}><ChevronRight size={14} /></span>
+          <span className={styles.sectionIcon}>{icon}</span>
+          <span className={styles.sectionTitle}>{title}</span>
           {count !== undefined && count > 0 && (
-            <span className="sidebar-section-count">{count}</span>
+            <span className={styles.sectionCount}>{count}</span>
           )}
         </button>
-        {headerAction && <div className="sidebar-section-action">{headerAction}</div>}
+        {headerAction && <div className={styles.sectionAction}>{headerAction}</div>}
       </div>
-      {isOpen && <div className="sidebar-section-content">{children}</div>}
+      {isOpen && <div className={styles.sectionContent}>{children}</div>}
     </div>
   )
 }
@@ -655,7 +656,7 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
         headerAction={
           currentRepo ? (
             <button
-              className="sidebar-section-add-btn"
+              className={styles.sectionAddBtn}
               onClick={() => setAddRemoteDialog({ open: true, name: '', url: '', error: null, loading: false })}
               title="Add Remote"
             >
@@ -665,18 +666,18 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
         }
       >
         {!currentRepo ? (
-          <div className="sidebar-placeholder">No repository open</div>
+          <div className={styles.placeholder}>No repository open</div>
         ) : remotes.length === 0 ? (
-          <div className="sidebar-placeholder">No remotes configured</div>
+          <div className={styles.placeholder}>No remotes configured</div>
         ) : (
-          <div className="sidebar-remote-list">
+          <div className={styles.remoteList}>
             {remotes.map((remote) => {
               const isExpanded = expandedRemotes.has(remote.name)
               const branches = branchesByRemote(remote.name)
               return (
-                <div key={remote.name} className="sidebar-remote-group">
+                <div key={remote.name} className={styles.remoteGroup}>
                   <div
-                    className="sidebar-remote-item"
+                    className={styles.remoteItem}
                     onClick={() => toggleRemote(remote.name)}
                     onContextMenu={(e) => {
                       e.preventDefault()
@@ -684,19 +685,19 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
                     }}
                     title={`${remote.name}\nFetch: ${remote.fetchUrl}\nPush: ${remote.pushUrl}`}
                   >
-                    <span className={`sidebar-section-chevron ${isExpanded ? 'open' : ''}`}><ChevronRight size={14} /></span>
-                    <span className="sidebar-remote-name">{remote.name}</span>
-                    <span className="sidebar-section-count">{branches.length}</span>
+                    <span className={`${styles.sectionChevron} ${isExpanded ? styles.sectionChevronOpen : ''}`}><ChevronRight size={14} /></span>
+                    <span className={styles.remoteName}>{remote.name}</span>
+                    <span className={styles.sectionCount}>{branches.length}</span>
                   </div>
                   {isExpanded && (
-                    <div className="sidebar-remote-branches">
+                    <div className={styles.remoteBranches}>
                       {branches.length === 0 ? (
-                        <div className="sidebar-placeholder" style={{ paddingLeft: '28px' }}>No branches</div>
+                        <div className={styles.placeholder} style={{ paddingLeft: '28px' }}>No branches</div>
                       ) : (
                         branches.map((rb) => (
                           <div
                             key={`${rb.remote}/${rb.branch}`}
-                            className="sidebar-remote-branch-item"
+                            className={styles.remoteBranchItem}
                             onDoubleClick={() => handleCheckoutRemoteBranch(rb.remote, rb.branch)}
                             onContextMenu={(e) => {
                               e.preventDefault()
@@ -704,7 +705,7 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
                             }}
                             title={`${rb.remote}/${rb.branch} (${rb.hash})`}
                           >
-                            <span className="sidebar-remote-branch-name">{rb.branch}</span>
+                            <span className={styles.remoteBranchName}>{rb.branch}</span>
                           </div>
                         ))
                       )}
@@ -1164,7 +1165,7 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
         headerAction={
           currentRepo ? (
             <button
-              className="sidebar-section-add-btn"
+              className={styles.sectionAddBtn}
               title="New Tag"
               onClick={(e) => {
                 e.stopPropagation()
@@ -1177,14 +1178,14 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
         }
       >
         {!currentRepo ? (
-          <div className="sidebar-placeholder">No repository open</div>
+          <div className={styles.placeholder}>No repository open</div>
         ) : tags.length === 0 ? (
-          <div className="sidebar-placeholder">No tags</div>
+          <div className={styles.placeholder}>No tags</div>
         ) : (
-          <div className="sidebar-branch-list">
+          <div className={styles.branchList}>
             {tags.length > 5 && (
               <input
-                className="sidebar-branch-filter"
+                className={styles.branchFilter}
                 type="text"
                 placeholder="Filter tags..."
                 value={filter}
@@ -1192,12 +1193,12 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
               />
             )}
             {filteredTags.length === 0 ? (
-              <div className="sidebar-placeholder">No matching tags</div>
+              <div className={styles.placeholder}>No matching tags</div>
             ) : (
               filteredTags.map((tag) => (
                 <div
                   key={tag.name}
-                  className="sidebar-tag-item"
+                  className={styles.tagItem}
                   title={
                     tag.isAnnotated
                       ? `${tag.name} (annotated)\n${tag.message}`
@@ -1205,12 +1206,12 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
                   }
                   onContextMenu={(e) => handleContextMenu(e, tag)}
                 >
-                  <span className="sidebar-tag-icon">
+                  <span className={styles.tagIcon}>
                     {tag.isAnnotated ? <Tag size={14} /> : <Bookmark size={14} />}
                   </span>
-                  <span className="sidebar-tag-name">{tag.name}</span>
+                  <span className={styles.tagName}>{tag.name}</span>
                   {tag.taggerDate && (
-                    <span className="sidebar-tag-date">{formatDate(tag.taggerDate)}</span>
+                    <span className={styles.tagDate}>{formatDate(tag.taggerDate)}</span>
                   )}
                 </div>
               ))
@@ -1534,7 +1535,7 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
         headerAction={
           currentRepo ? (
             <button
-              className="sidebar-section-action-btn"
+              className={styles.sectionActionBtn}
               title="Stash changes"
               onClick={(e) => {
                 e.stopPropagation()
@@ -1547,25 +1548,25 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
         }
       >
         {!currentRepo ? (
-          <div className="sidebar-placeholder">No repository open</div>
+          <div className={styles.placeholder}>No repository open</div>
         ) : stashes.length === 0 ? (
-          <div className="sidebar-placeholder">No stashes</div>
+          <div className={styles.placeholder}>No stashes</div>
         ) : (
-          <div className="sidebar-stash-list">
+          <div className={styles.stashList}>
             {stashes.map((stash) => (
               <div
                 key={stash.hash}
-                className={`sidebar-stash-item ${selectedStash?.index === stash.index ? 'selected' : ''}`}
+                className={`${styles.stashItem} ${selectedStash?.index === stash.index ? styles.stashItemSelected : ''}`}
                 onClick={() => handleStashClick(stash)}
                 onContextMenu={(e) => handleStashContextMenu(e, stash)}
                 title={`stash@{${stash.index}}: ${stash.message}`}
               >
-                <span className="sidebar-stash-icon"><Archive size={14} /></span>
-                <div className="sidebar-stash-info">
-                  <span className="sidebar-stash-message">
+                <span className={styles.stashIcon}><Archive size={14} /></span>
+                <div className={styles.stashInfo}>
+                  <span className={styles.stashMessage}>
                     {stash.message || `stash@{${stash.index}}`}
                   </span>
-                  <span className="sidebar-stash-date">
+                  <span className={styles.stashDate}>
                     {formatRelativeDate(stash.date)}
                   </span>
                 </div>
@@ -1577,13 +1578,13 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
 
       {/* Stash Diff Viewer */}
       {selectedStash && stashDiff !== null && (
-        <div className="stash-diff-overlay" onClick={() => { setSelectedStash(null); setStashDiff(null) }}>
-          <div className="stash-diff-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="stash-diff-header">
+        <div className={styles.stashDiffOverlay} onClick={() => { setSelectedStash(null); setStashDiff(null) }}>
+          <div className={styles.stashDiffPanel} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.stashDiffHeader}>
               <span>stash@&#123;{selectedStash.index}&#125;: {selectedStash.message}</span>
-              <button className="stash-diff-close" onClick={() => { setSelectedStash(null); setStashDiff(null) }}><X size={14} /></button>
+              <button className={styles.stashDiffClose} onClick={() => { setSelectedStash(null); setStashDiff(null) }}><X size={14} /></button>
             </div>
-            <pre className="stash-diff-content">{stashDiff}</pre>
+            <pre className={styles.stashDiffContent}>{stashDiff}</pre>
           </div>
         </div>
       )}
@@ -1648,7 +1649,7 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
               />
             </label>
 
-            <label className="stash-dialog-checkbox">
+            <label className={styles.stashDialogCheckbox}>
               <input
                 type="checkbox"
                 checked={stashDialog.includeUntracked}
@@ -1827,11 +1828,11 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
   return (
     <>
       <SidebarSection title="Submodules" icon={<Package size={16} />} defaultOpen={true} count={submodules.length}>
-        <div className="sidebar-list">
+        <div className={styles.list}>
           {submodules.map((sm) => (
             <div
               key={sm.path}
-              className="sidebar-list-item sidebar-submodule-item"
+              className={`${styles.listItem} ${styles.submoduleItem}`}
               onContextMenu={(e) => {
                 e.preventDefault()
                 setContextMenu({ x: e.clientX, y: e.clientY, submodule: sm })
@@ -1839,13 +1840,13 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
               title={`${sm.path}\nURL: ${sm.url}\nStatus: ${sm.status}${sm.hash ? '\nCommit: ' + sm.hash.slice(0, 8) : ''}`}
             >
               <span
-                className="sidebar-submodule-status"
+                className={styles.submoduleStatus}
                 style={{ color: statusColor(sm.status) }}
               >
                 {statusIcon(sm.status)}
               </span>
-              <span className="sidebar-submodule-name">{sm.path}</span>
-              <span className="sidebar-submodule-badge" data-status={sm.status}>
+              <span className={styles.submoduleName}>{sm.path}</span>
+              <span className={styles.submoduleBadge} data-status={sm.status}>
                 {sm.status}
               </span>
             </div>
@@ -2110,18 +2111,18 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
   const noBranches = !currentRepo
 
   return (
-    <div className="sidebar">
+    <div className={styles.sidebar}>
       {/* Sidebar Tabs */}
-      <div className="sidebar-tabs">
+      <div className={styles.tabs}>
         <button
-          className={`sidebar-tab ${activeTab === 'git' ? 'sidebar-tab-active' : ''}`}
+          className={`${styles.tab} ${activeTab === 'git' ? styles.tabActive : ''}`}
           onClick={() => setActiveTab('git')}
           title="Git"
         >
           <GitBranch size={14} /> Git
         </button>
         <button
-          className={`sidebar-tab ${activeTab === 'files' ? 'sidebar-tab-active' : ''}`}
+          className={`${styles.tab} ${activeTab === 'files' ? styles.tabActive : ''}`}
           onClick={() => setActiveTab('files')}
           title="Files"
         >
@@ -2152,7 +2153,7 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
         headerAction={
           currentRepo ? (
             <button
-              className="sidebar-section-add-btn"
+              className={styles.sectionAddBtn}
               onClick={openNewBranchDialog}
               title="New Branch"
             >
@@ -2162,23 +2163,23 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
         }
       >
         {noBranches ? (
-          <div className="sidebar-placeholder">No repository open</div>
+          <div className={styles.placeholder}>No repository open</div>
         ) : loading && branches.length === 0 ? (
-          <div className="sidebar-placeholder">Loading branches...</div>
+          <div className={styles.placeholder}>Loading branches...</div>
         ) : (
-          <div className="sidebar-branch-section">
+          <div className={styles.branchSection}>
             {branches.length > 5 && (
-              <div className="sidebar-search-box">
+              <div className={styles.searchBox}>
                 <input
                   type="text"
-                  className="sidebar-search-input"
+                  className={styles.searchInput}
                   placeholder="Filter branches..."
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
                 />
                 {searchFilter && (
                   <button
-                    className="sidebar-search-clear"
+                    className={styles.searchClear}
                     onClick={() => setSearchFilter('')}
                   >
                     <X size={12} />
@@ -2186,33 +2187,33 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
                 )}
               </div>
             )}
-            <div className="sidebar-branch-list">
+            <div className={styles.branchList}>
               {filteredBranches.length === 0 ? (
-                <div className="sidebar-placeholder">
+                <div className={styles.placeholder}>
                   {searchFilter ? 'No matching branches' : 'No branches'}
                 </div>
               ) : (
                 filteredBranches.map((branch) => (
                   <div
                     key={branch.name}
-                    className={`sidebar-branch-item ${branch.current ? 'sidebar-branch-item-current' : ''}`}
+                    className={`${styles.branchItem} ${branch.current ? styles.branchItemCurrent : ''}`}
                     onDoubleClick={() => handleDoubleClick(branch)}
                     onContextMenu={(e) => handleContextMenu(e, branch)}
                     title={`${branch.name}${branch.upstream ? ` → ${branch.upstream}` : ''}`}
                   >
-                    <span className="sidebar-branch-indicator">
+                    <span className={styles.branchIndicator}>
                       {branch.current ? <CircleDot size={12} /> : ''}
                     </span>
-                    <span className="sidebar-branch-name">{branch.name}</span>
+                    <span className={styles.branchName}>{branch.name}</span>
                     {(branch.ahead > 0 || branch.behind > 0) && branch.upstream && (
-                      <span className="sidebar-branch-tracking">
+                      <span className={styles.branchTracking}>
                         {branch.ahead > 0 && (
-                          <span className="sidebar-branch-ahead" title={`${branch.ahead} ahead`}>
+                          <span className={styles.branchAhead} title={`${branch.ahead} ahead`}>
                             <ArrowUp size={10} />{branch.ahead}
                           </span>
                         )}
                         {branch.behind > 0 && (
-                          <span className="sidebar-branch-behind" title={`${branch.behind} behind`}>
+                          <span className={styles.branchBehind} title={`${branch.behind} behind`}>
                             <ArrowDown size={10} />{branch.behind}
                           </span>
                         )}
