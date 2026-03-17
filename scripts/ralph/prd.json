@@ -206,7 +206,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-044a. Use window resize observer to detect threshold."
     },
     {

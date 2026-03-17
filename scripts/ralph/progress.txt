@@ -30,6 +30,8 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - Layout state (useLayoutState) persists sidebar, bottom panel, and right panel sizes to localStorage
 - Sidebar collapse: `sidebarCollapsed` in layout state, icon rail rendered outside resizable panels as fixed 48px flex item
 - Sidebar props: `collapsed: boolean` and `onToggleCollapse: () => void` — both required
+- `useWindowWidth()` hook tracks window.innerWidth — use for responsive breakpoints (e.g., DETAIL_PANEL_BREAKPOINT = 1400px)
+- Detail panel overlay: `overlay` prop switches between inline (resizable column) and overlay (fixed + backdrop) modes
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -192,4 +194,18 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `sidebarCollapsed` is separate from `sidebarVisible` — Ctrl+B toggles visibility, collapse button toggles rail mode
   - Both collapsed and expanded modes need their own copies of context menus and dialogs (branch context menu, new branch dialog, etc.)
   - RAIL_SECTIONS array defines icon rail entries — add new sidebar sections there when extending
+---
+## 2026-03-17 - US-044c
+- Implemented hybrid right detail panel: inline column on wide screens (>=1400px), sliding overlay on narrow screens (<1400px)
+- Created useWindowWidth hook (src/renderer/src/hooks/useWindowWidth.ts) with requestAnimationFrame-based debounce
+- Updated DetailPanel to accept `overlay` prop — when true, renders with backdrop shadow and slide-in animation
+- Updated AppLayout to conditionally render inline panel (in react-resizable-panels) vs overlay (fixed position)
+- Overlay dismissible via: close button (X), clicking backdrop, or Escape key
+- Files changed: useWindowWidth.ts (new), DetailPanel.tsx, DetailPanel.module.css, AppLayout.tsx
+- **Learnings for future iterations:**
+  - useWindowWidth hook uses requestAnimationFrame for performant resize tracking
+  - Overlay detail panel uses `position: fixed` with `z-index: 100/101` — backdrop at 100, panel at 101
+  - The `min(420px, 85vw)` width ensures overlay works on very narrow windows
+  - Transition between inline and overlay is instant (React conditional rendering) — the slide-in animation only applies to overlay appearance
+  - DETAIL_PANEL_BREAKPOINT (1400px) is defined as a const in AppLayout for easy adjustment
 ---
