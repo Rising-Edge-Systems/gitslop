@@ -50,11 +50,15 @@
       "target": [
         {
           "target": "deb",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "category": "Development",
@@ -66,7 +70,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "category": "public.app-category.developer-tools",
@@ -81,11 +88,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "msi",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "resources/icon.svg",
@@ -119,6 +130,7 @@
     "chokidar": "^5.0.0",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.8.3",
+    "lucide-react": "^0.577.0",
     "monaco-editor": "^0.55.1",
     "node-pty": "^1.1.0",
     "react": "^19.2.4",

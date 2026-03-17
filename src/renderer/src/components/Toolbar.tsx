@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { Settings } from 'lucide-react'
 import { MergeDialog } from './MergeDialog'
 import {
   useKeyboardShortcuts,
@@ -463,7 +464,7 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
 
       <div className="toolbar-group">
         <button className="toolbar-btn" title="Settings (Ctrl+,)" onClick={onOpenSettings}>
-          <span className="toolbar-btn-icon">⚙</span>
+          <span className="toolbar-btn-icon"><Settings size={18} className="lucide-icon" /></span>
         </button>
       </div>
 
