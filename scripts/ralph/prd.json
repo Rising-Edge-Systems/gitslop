@@ -312,7 +312,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Canvas uses offscreen rendering for visible viewport + buffer. Hit-testing via coordinate mapping, not DOM events."
     },
     {

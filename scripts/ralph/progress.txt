@@ -302,3 +302,20 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - React.memo on GraphSVG prevents unnecessary re-renders when parent state changes
   - SVG `overflow: visible` ensures lines extending beyond viewport boundaries render correctly
 ---
+## 2026-03-17 - US-048c
+- Implemented Canvas-based fallback renderer (`GraphCanvas`) for repos with 50,000+ commits
+- Canvas renderer produces visually identical output to SVG: same colors, node sizes, bezier curves, HEAD glow rings, merge hollow nodes
+- Uses same `assignLanes()` from laneAssignment.ts and same `buildHashIndex()` for O(1) parent lookups
+- Automatic switch via `CANVAS_THRESHOLD = 50000` const — `useCanvas = nodes.length >= CANVAS_THRESHOLD`
+- Canvas renders only visible viewport + buffer (renderStart/renderStop), same as SVG
+- High-DPI support via `devicePixelRatio` scaling
+- Hit-testing for click/hover: distance-based coordinate mapping with generous hit radii
+- `onNodeHover` changes cursor to pointer, `onNodeClick` delegates to commit selection logic
+- Files changed: CommitGraph.tsx
+- **Learnings for future iterations:**
+  - Canvas needs explicit `devicePixelRatio` scaling: set canvas.width = width * dpr, then ctx.scale(dpr, dpr)
+  - Canvas `pointerEvents: 'auto'` (not 'none' like SVG) since it handles its own mouse events
+  - Hit-testing uses reverse iteration so top-most nodes win on overlap
+  - Canvas merge node fill uses hardcoded '#1e1e2e' instead of CSS var — consider reading computed style if theme switching is needed
+  - The `canvasHoverIndex` state drives cursor change on the viewport container
+---
