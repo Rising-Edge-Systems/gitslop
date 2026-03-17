@@ -1,714 +1,545 @@
 {
   "project": "GitSlop",
-  "branchName": "ralph/gitslop-v1",
-  "description": "GitSlop — A free, open-source, cross-platform GUI git client built with Electron + React + TypeScript. Rivals GitKraken with visual branch graphs, inline diffs, built-in editor, toggleable CLI, and full git operation support.",
+  "branchName": "ralph/ui-overhaul",
+  "description": "Major UI/UX overhaul — replace emojis with Lucide icons, redesign layout to GitKraken-style three-column, implement SVG commit graph, add commit-level diff viewing, fix blink refresh, CSS modules migration, and full visual polish.",
   "userStories": [
     {
-      "id": "US-001",
-      "title": "Electron App Shell & Window Management",
-      "description": "As a developer, I need the foundational Electron + React + TypeScript app scaffold so all other features have a shell to live in.",
+      "id": "US-041",
+      "title": "Install and Configure Lucide Icons",
+      "description": "As a developer, I need the Lucide icon library integrated so we can replace all emoji/unicode symbols with consistent, professional line icons.",
       "acceptanceCriteria": [
-        "Electron app boots and shows a React-rendered window",
-        "Window supports minimize, maximize, close, and resize",
-        "App has a custom titlebar with GitSlop branding",
-        "Main process and renderer process are separated correctly",
-        "Hot reload works in development mode",
-        "TypeScript strict mode enabled, builds without errors",
-        "npm run dev starts the app, npm run build produces a distributable",
-        "Typecheck passes"
+        "lucide-react package installed as a dependency",
+        "One example icon renders correctly in the app (e.g., replace the settings gear emoji with Lucide Settings icon)",
+        "Icons accept size and className props for consistent sizing",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Foundation story — everything else depends on this. Use electron-forge or electron-vite for scaffolding. React 18+, TypeScript strict."
+      "notes": "Foundation for all icon work. Just install and prove one icon works — do NOT replace all icons yet."
     },
     {
-      "id": "US-002",
-      "title": "Application Layout & Navigation Shell",
-      "description": "As a user, I want a clear application layout so I can navigate between different views and panels.",
+      "id": "US-042a",
+      "title": "Replace Emoji Icons — Toolbar and Titlebar",
+      "description": "As a user, I want professional Lucide icons in the toolbar and titlebar instead of tacky emojis.",
       "acceptanceCriteria": [
-        "Left sidebar with collapsible sections (Branches, Remotes, Tags, Stashes)",
-        "Center panel area for main content (graph, diff, editor)",
-        "Bottom panel area for toggleable CLI terminal",
-        "Top toolbar with action buttons (pull, push, fetch, branch, stash, etc.)",
-        "Panels are resizable via drag handles",
-        "Layout state persists across restarts",
-        "Responsive — panels collapse gracefully at small window sizes",
-        "Typecheck passes"
+        "All emoji/unicode icons in Toolbar.tsx replaced with Lucide icons: pull (ArrowDownToLine), push (ArrowUpFromLine), fetch (RefreshCw), stash (Archive), settings (Settings), branch (GitBranch), merge (GitMerge)",
+        "All emoji/unicode icons in TitleBar.tsx replaced: minimize (Minus), maximize (Square), close (X), logo/circle replaced with text wordmark or Lucide icon",
+        "Icons are 18px in toolbar, consistent spacing",
+        "No raw emoji or unicode symbols remain in Toolbar.tsx or TitleBar.tsx",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Use CSS Grid or flexbox layout. Consider allotment or react-resizable-panels for drag handles. Persist layout to electron-store."
+      "passes": false,
+      "notes": "Focus ONLY on Toolbar.tsx and TitleBar.tsx. Other components will be handled in subsequent stories."
     },
     {
-      "id": "US-003",
-      "title": "Welcome Screen & Recent Repos",
-      "description": "As a user, I want a welcome screen when no repo is open so I can quickly open, clone, or init a repository.",
+      "id": "US-042b",
+      "title": "Replace Emoji Icons — Sidebar and Status Bar",
+      "description": "As a user, I want professional Lucide icons in the sidebar and status bar.",
       "acceptanceCriteria": [
-        "Welcome screen shown when no repo is open",
-        "Open Repository button that launches a native folder picker",
-        "Clone Repository button that opens a clone dialog (placeholder for now)",
-        "Init Repository button that opens a folder picker and inits a new repo",
-        "List of recently opened repositories persisted across sessions",
-        "Clicking a recent repo opens it immediately",
-        "Recent repos show path and last-opened date",
-        "Remove individual entries from recent repos list",
-        "Typecheck passes"
+        "All emoji/unicode icons in Sidebar.tsx replaced: collapse/expand chevrons (ChevronRight/ChevronDown), file icons (File/Folder), stash (Archive), branch (GitBranch), tag (Tag), remote (Globe)",
+        "All emoji/unicode icons in StatusBar.tsx replaced: notifications bell (Bell), refresh (RefreshCw), success/error (Check/AlertCircle), theme toggle (Sun/Moon), branch (GitBranch)",
+        "Icons are 14px in status bar, 16px inline in sidebar",
+        "No raw emoji or unicode symbols remain in Sidebar.tsx or StatusBar.tsx",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Use Electron dialog.showOpenDialog for folder picker. Store recent repos in electron-store."
+      "passes": false,
+      "notes": "Focus ONLY on Sidebar.tsx and StatusBar.tsx."
     },
     {
-      "id": "US-004",
-      "title": "Git CLI Wrapper Service",
-      "description": "As a developer, I need a service layer that executes git commands via the user's installed git CLI and parses output into structured data.",
+      "id": "US-042c",
+      "title": "Replace Emoji Icons — All Remaining Components",
+      "description": "As a user, I want all remaining emoji/unicode symbols replaced with Lucide icons throughout the entire UI.",
       "acceptanceCriteria": [
-        "Service runs git commands via child_process.execFile in the main process",
-        "IPC bridge exposes git operations to the renderer process",
-        "Handles errors gracefully: git not installed, not a repo, auth failures",
-        "Commands are queued to prevent concurrent git operations on the same repo",
-        "Supports cancellation of long-running operations via AbortController",
-        "Returns structured data (parsed objects), not raw strings",
-        "Detects user's git version on startup and warns if too old (< 2.20)",
+        "All emoji/unicode in NotificationToast.tsx replaced: info (Info), warning (AlertTriangle), error (AlertCircle), success (CheckCircle), close (X)",
+        "All emoji/unicode in StatusPanel.tsx replaced: file status icons (FilePlus, FileMinus, FileEdit), checkmarks (Check), warnings (AlertTriangle)",
+        "All emoji/unicode in CommitGraph.tsx replaced: any inline symbols",
+        "All emoji/unicode in WelcomeScreen.tsx replaced: open (FolderOpen), clone (GitBranch), init (FolderPlus), remove (X)",
+        "All emoji/unicode in remaining components (SearchPalette, SettingsPanel, CommitDialog, DiffViewer, BlameView, etc.) replaced",
+        "Grep for emoji/unicode patterns in src/renderer/ returns zero matches: no &#, no emoji codepoints, no raw unicode symbols used as icons",
         "Typecheck passes",
-        "Tests pass"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Core infrastructure. Use git --format flags for structured output where possible. All git interaction goes through this service."
+      "passes": false,
+      "notes": "Final emoji cleanup pass. After this, zero emoji/unicode icon symbols should remain in any renderer source file."
     },
     {
-      "id": "US-005",
-      "title": "Open & Init Repositories",
-      "description": "As a user, I want to open an existing git repo or initialize a new one so I can start working.",
+      "id": "US-043a",
+      "title": "Create Design Token System",
+      "description": "As a developer, I need a centralized design token CSS file so all spacing, typography, colors, and other values are consistent.",
       "acceptanceCriteria": [
-        "Open Repo opens a native folder picker dialog",
-        "If selected folder is a git repo, load it into the app",
-        "If selected folder is NOT a git repo, show error with option to init",
-        "Init Repo creates a new git repo in the selected folder via git init",
-        "After opening/initing, app transitions from welcome screen to repo view",
-        "Repo path shown in titlebar",
-        "Recent repos list updated on open",
-        "Typecheck passes"
+        "Create src/renderer/src/styles/tokens.css with CSS custom properties organized into categories: spacing (--space-xs through --space-2xl), font sizes (--font-xs through --font-xl), border radius (--radius-sm/md/lg), shadows (--shadow-sm/md/lg), transitions (--transition-fast/normal)",
+        "Move all existing color variables from global.css :root into tokens.css",
+        "Both dark and light theme values defined in tokens.css via [data-theme] selectors",
+        "tokens.css imported at app root (App.tsx or main entry)",
+        "Existing app still renders correctly with no visual changes",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Depends on US-004 (git service) and US-003 (welcome screen). Use git rev-parse --git-dir to verify a folder is a repo."
+      "passes": false,
+      "notes": "Create the token file and move color vars over. Do NOT split component CSS yet — that comes in subsequent stories."
     },
     {
-      "id": "US-006",
-      "title": "Clone Repository Dialog",
-      "description": "As a user, I want to clone a remote repository so I can start working on an existing project.",
+      "id": "US-043b",
+      "title": "CSS Modules — Toolbar, Titlebar, StatusBar",
+      "description": "As a developer, I need the Toolbar, TitleBar, and StatusBar styles extracted from global.css into CSS modules.",
       "acceptanceCriteria": [
-        "Clone dialog with fields: URL, destination folder, name (auto-filled from URL)",
-        "Supports HTTPS and SSH URLs",
-        "Browse button to pick destination folder",
-        "Progress indicator showing clone progress",
-        "Cancel button to abort clone",
-        "On success, automatically opens the cloned repo",
-        "On failure, shows clear error message (auth failed, network error, etc.)",
-        "Typecheck passes"
+        "Create Toolbar.module.css with all toolbar-related styles extracted from global.css",
+        "Create TitleBar.module.css with all titlebar-related styles extracted from global.css",
+        "Create StatusBar.module.css with all status-bar-related styles extracted from global.css",
+        "Each component imports its own .module.css and uses scoped class names (styles.className pattern)",
+        "Hardcoded pixel values replaced with design tokens where applicable",
+        "Removed styles no longer present in global.css",
+        "No visual regressions — components look identical to before",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Use git clone --progress and parse stderr for progress updates."
+      "passes": false,
+      "notes": "Extract styles for these 3 smaller components first. Update className references in TSX files."
     },
     {
-      "id": "US-007",
-      "title": "Commit Graph — Data & Rendering",
-      "description": "As a user, I want to see a visual branch/commit graph so I can understand the project's history at a glance.",
+      "id": "US-043c",
+      "title": "CSS Modules — Sidebar",
+      "description": "As a developer, I need the Sidebar styles extracted from global.css into a CSS module.",
       "acceptanceCriteria": [
-        "Parse git log --all into structured commit data with parent relationships",
-        "Render a visual commit graph with colored branch lines using Canvas or SVG",
-        "Each commit row shows: short hash, message (first line), author, relative date",
-        "Branch and tag labels rendered as badges on their respective commits",
-        "HEAD indicator clearly visible",
-        "Graph renders correctly for merge commits and linear history",
-        "Virtualised scrolling — handles repos with 100k+ commits without lag",
-        "Graph auto-refreshes when the repo changes",
-        "Typecheck passes"
+        "Create Sidebar.module.css with all sidebar-related styles extracted from global.css (sidebar sections, branch lists, file tree, context menus, dialogs)",
+        "Sidebar.tsx imports Sidebar.module.css and uses scoped class names",
+        "Hardcoded pixel values replaced with design tokens where applicable",
+        "Removed styles no longer present in global.css",
+        "No visual regressions",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Most complex UI story. Use react-window or react-virtuoso for virtualisation. Consider Canvas for graph lines (SVG may be too slow for large repos). Use git log --format to get structured data."
+      "passes": false,
+      "notes": "Sidebar is 2,272 lines with many style classes — this is a big extraction but scoped to one component."
     },
     {
-      "id": "US-008",
-      "title": "Commit Graph — Interaction & Selection",
-      "description": "As a user, I want to interact with the commit graph to view details and perform actions on commits.",
+      "id": "US-043d",
+      "title": "CSS Modules — CommitGraph, StatusPanel, DiffViewer",
+      "description": "As a developer, I need the CommitGraph, StatusPanel, and DiffViewer styles extracted from global.css into CSS modules.",
       "acceptanceCriteria": [
-        "Click a commit to select it and show details in a side/bottom panel",
-        "Commit detail panel shows: full hash, author, date, full message, list of changed files",
-        "Right-click a commit for context menu (cherry-pick, revert, reset, create branch, create tag, copy SHA)",
-        "Double-click a file in commit details to show its diff",
-        "Keyboard navigation: arrow keys to move between commits",
-        "Typecheck passes"
+        "Create CommitGraph.module.css with all commit-graph-related styles from global.css",
+        "Create StatusPanel.module.css with all status-panel-related styles from global.css",
+        "Create DiffViewer.module.css with all diff-viewer-related styles from global.css",
+        "Each component imports its own .module.css and uses scoped class names",
+        "Hardcoded pixel values replaced with design tokens where applicable",
+        "Removed styles no longer present in global.css",
+        "No visual regressions",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Depends on US-007 (graph rendering). Use git show --stat for commit details. Context menu actions are placeholders until their respective stories."
+      "passes": false,
+      "notes": "These are the three largest remaining components with significant CSS."
     },
     {
-      "id": "US-009",
-      "title": "Branch Sidebar — List & Management",
-      "description": "As a user, I want to see and manage all branches from the sidebar so I can switch contexts easily.",
+      "id": "US-043e",
+      "title": "CSS Modules — All Remaining Components and Cleanup",
+      "description": "As a developer, I need all remaining component styles extracted from global.css into CSS modules, leaving global.css with only truly global styles.",
       "acceptanceCriteria": [
-        "Sidebar section Branches lists all local branches via git branch",
-        "Current branch highlighted/bolded",
-        "Double-click a branch to check it out",
-        "Right-click context menu: rename, delete, merge into current, rebase onto current, push",
-        "New Branch button opens dialog: branch name, base branch/commit",
-        "Branches sorted alphabetically with current branch pinned to top",
-        "Search/filter box to find branches in large repos",
-        "Show ahead/behind count relative to tracking branch",
-        "Typecheck passes"
+        "CSS modules created for all remaining components: WelcomeScreen, SearchPalette, SettingsPanel, CommitDialog, NotificationToast, CodeEditor, BlameView, ConflictResolver, CommitFilterBar, KeyboardShortcutsPanel, and any others",
+        "global.css contains ONLY truly global styles: CSS reset, body/html, scrollbar styling, font-face declarations",
+        "No component-specific class names remain in global.css",
+        "All components use scoped class names from their .module.css",
+        "No visual regressions",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Use git branch -vv --format for structured branch data including tracking info."
+      "passes": false,
+      "notes": "Final CSS cleanup pass. After this, global.css should be small (< 5KB) with only resets and global defaults."
     },
     {
-      "id": "US-010",
-      "title": "Remote Branches & Remote Management",
-      "description": "As a user, I want to see remote branches and manage remotes so I can collaborate with others.",
+      "id": "US-044a",
+      "title": "Three-Column Layout — Structure",
+      "description": "As a user, I want a GitKraken-style three-column layout so I can see branches, the commit graph, and details simultaneously.",
       "acceptanceCriteria": [
-        "Sidebar section Remotes lists all remotes, expandable to show their branches",
-        "Double-click a remote branch to check it out as a local tracking branch",
-        "Right-click remote branch: delete remote branch, fetch",
-        "Add Remote dialog: name, URL",
-        "Edit Remote dialog: change URL",
-        "Remove Remote with confirmation",
-        "Fetch all or fetch individual remotes",
-        "Typecheck passes"
+        "AppLayout restructured into three resizable columns using react-resizable-panels: left sidebar (200-350px), center panel (flexible), right detail panel (250-500px)",
+        "Terminal panel remains at the bottom spanning full width below all three columns",
+        "All panel dividers are draggable with visible grab handles",
+        "Minimum sizes enforced: sidebar min 200px, center min 300px, right min 250px",
+        "Right panel collapses completely when no commit is selected (shows only sidebar + center)",
+        "Layout proportions persist across restarts via localStorage",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "Use git remote -v and git branch -r for data."
+      "passes": false,
+      "notes": "Set up the three-column structure. Don't implement hybrid overlay or icon rail yet — those come in later stories."
     },
     {
-      "id": "US-011",
-      "title": "Tags Sidebar",
-      "description": "As a user, I want to see and manage tags so I can mark releases and important commits.",
+      "id": "US-044b",
+      "title": "Sidebar Icon Rail and Collapse",
+      "description": "As a user, I want to collapse the sidebar to an icon rail to save horizontal space.",
       "acceptanceCriteria": [
-        "Sidebar section Tags lists all tags",
-        "Click a tag to scroll the graph to that commit",
-        "Right-click: delete tag, push tag",
-        "New Tag dialog: name, target commit (defaults to HEAD), message (for annotated tags)",
-        "Tags sorted by date (newest first)",
-        "Search/filter tags",
-        "Typecheck passes"
+        "Sidebar collapse/expand toggle button always visible at top of sidebar (use Lucide PanelLeftClose/PanelLeftOpen icon)",
+        "When collapsed, sidebar shows as a 48px wide icon rail with section icons vertically",
+        "Hovering an icon in rail mode shows a tooltip with the section name",
+        "Clicking an icon in rail mode expands that section as a floating overlay panel",
+        "Collapse state persists across restarts",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "Use git tag --sort=-creatordate --format for structured output."
+      "passes": false,
+      "notes": "Depends on US-044a for the base layout structure."
     },
     {
-      "id": "US-012",
-      "title": "Stash Sidebar",
-      "description": "As a user, I want to see and manage stashes so I can temporarily shelve work.",
+      "id": "US-044c",
+      "title": "Hybrid Right Detail Panel",
+      "description": "As a user, I want the right detail panel to be an inline column on wide screens and a sliding overlay on narrow screens.",
       "acceptanceCriteria": [
-        "Sidebar section Stashes lists all stashes with message and date",
-        "Click a stash to view its diff",
-        "Right-click: apply, pop, drop",
-        "Stash button in toolbar: stash all changes, with optional message",
-        "Option to include untracked files in stash",
-        "Stash apply shows conflicts if any",
-        "Typecheck passes"
+        "On window width >= 1400px: right detail panel renders as a dedicated inline column within the three-column layout",
+        "On window width < 1400px: right detail panel renders as a sliding overlay/drawer from the right edge, overlapping the center content",
+        "Overlay has a subtle backdrop shadow to visually separate from content beneath",
+        "Transition between inline and overlay modes is smooth when window is resized across the 1400px threshold",
+        "Panel can be dismissed via close button (X) or clicking outside the overlay",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
-      "passes": true,
-      "notes": "Use git stash list --format for structured output."
+      "passes": false,
+      "notes": "Depends on US-044a. Use window resize observer to detect threshold."
     },
     {
-      "id": "US-013",
-      "title": "Working Directory Status Panel",
-      "description": "As a user, I want to see the current status of my working directory — staged, unstaged, and untracked files.",
+      "id": "US-045",
+      "title": "Context-Aware Toolbar",
+      "description": "As a user, I want toolbar buttons to only appear when they're relevant so I'm not confused by actions I can't perform.",
       "acceptanceCriteria": [
-        "Status panel shows three sections: Staged, Unstaged, Untracked",
-        "Each file shows: filename, path, change type icon (added/modified/deleted/renamed)",
-        "File counts shown in section headers",
-        "Click a file to show its diff in the diff viewer",
-        "Status auto-refreshes on file system changes via file watcher",
-        "Empty state messaging when working directory is clean",
-        "Typecheck passes"
+        "When no repo is open: toolbar shows only Open Repository, Clone, and Init buttons",
+        "When a repo is open: toolbar shows git operation buttons (pull, push, fetch, branch, merge, stash)",
+        "Buttons that require a remote (push, pull, fetch) are hidden if repo has no remotes configured",
+        "Buttons show a disabled state with tooltip explaining why when preconditions aren't met (e.g., Nothing to push)",
+        "Active operations show a subtle inline spinner next to the button text, not replacing the button",
+        "Toolbar never wraps or overflows — excess buttons go into a ... overflow menu",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 13,
-      "passes": true,
-      "notes": "Use git status --porcelain=v2 for machine-parseable status output."
+      "passes": false,
+      "notes": "Depends on Lucide icons being in place (US-042a). Modifies Toolbar.tsx."
     },
     {
-      "id": "US-014",
-      "title": "Staging & Unstaging Files",
-      "description": "As a user, I want to stage and unstage files so I can prepare my commits precisely.",
+      "id": "US-046",
+      "title": "Fix Full-Screen Blink Refresh",
+      "description": "As a user, I don't want the entire screen to flash white/blank when the app refreshes state.",
       "acceptanceCriteria": [
-        "Stage button (+ icon) on each unstaged/untracked file",
-        "Unstage button (- icon) on each staged file",
-        "Stage All button to stage everything",
-        "Unstage All button to unstage everything",
-        "Drag and drop files between staged and unstaged sections",
-        "Keyboard shortcut to stage/unstage selected file(s)",
-        "Multi-select files with Ctrl/Shift+click for bulk stage/unstage",
-        "Typecheck passes"
+        "Identify the cause of full-screen re-renders (likely top-level state change triggering full component tree remount, or file watcher causing complete repo reload)",
+        "State updates are granular — changing one piece of state (e.g., staging a file) does not re-render unrelated components (e.g., commit graph, sidebar)",
+        "File watcher updates are diffed against current state — only changed data triggers re-renders",
+        "No visible flash, flicker, or blank screen during any normal operation (stage, unstage, commit, checkout, fetch, pull, push)",
+        "Loading states use skeleton placeholders or spinners within their specific panel, never a blank screen",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 14,
-      "passes": true,
-      "notes": "Use git add and git restore --staged for stage/unstage."
+      "passes": false,
+      "notes": "Investigate state management in AppLayout/RepoView. Likely needs React.memo, useMemo, splitting state into independent atoms. May need to refactor how file watcher triggers refresh."
     },
     {
-      "id": "US-015",
-      "title": "Hunk & Line Staging",
-      "description": "As a user, I want to stage individual hunks or lines so I can make precise, atomic commits.",
+      "id": "US-047",
+      "title": "Sidebar Accessibility Fix",
+      "description": "As a user, I want to always be able to access the sidebar content so I can switch branches, browse tags, and navigate the file tree.",
       "acceptanceCriteria": [
-        "When viewing diff of an unstaged file, each hunk has a Stage Hunk button",
-        "Individual lines within a hunk can be selected and staged",
-        "Staged hunks/lines move to the staged diff view",
-        "Unstage Hunk button on staged hunks",
-        "Visual indicators clearly distinguish staged vs unstaged portions of a file",
-        "Works correctly for added, modified, and deleted files",
-        "Typecheck passes"
+        "Sidebar sections (Branches, Remotes, Tags, Stashes, Files) are always scrollable when content overflows",
+        "Collapsible sections use Lucide chevron icons with smooth rotation animation (90deg on expand)",
+        "Sidebar has its own scroll container independent of other panels",
+        "Keyboard accessible: Tab to focus sections, Enter to expand/collapse, arrow keys to navigate items",
+        "Sidebar collapse/expand toggle button is always visible (pinned to top of sidebar)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 15,
-      "passes": true,
-      "notes": "Use git apply --cached with patch data for partial staging. Generate patches from selected hunks/lines."
+      "passes": false,
+      "notes": "Fixes the current issue where sidebar content can become inaccessible. Depends on Lucide icons (US-042b) and sidebar CSS module (US-043c)."
     },
     {
-      "id": "US-016",
-      "title": "Diff Viewer — Side-by-Side & Inline",
-      "description": "As a user, I want to see file diffs with syntax highlighting in both side-by-side and inline modes.",
+      "id": "US-048a",
+      "title": "SVG Commit Graph — Lane Assignment Algorithm",
+      "description": "As a developer, I need a lane assignment algorithm that determines which vertical column each branch occupies in the graph.",
       "acceptanceCriteria": [
-        "Toggle between side-by-side and inline (unified) diff views",
-        "Syntax highlighting for common languages (JS/TS, Python, Rust, Go, Java, C/C++, HTML, CSS, JSON, YAML, Markdown, shell)",
-        "Line numbers shown for both old and new versions",
-        "Added lines highlighted green, removed highlighted red, modified with word-level diff",
-        "Word-level diff highlighting within changed lines",
-        "Scroll sync between left and right panes in side-by-side mode",
-        "Handle binary files gracefully (show Binary file changed message)",
-        "Handle large files gracefully (truncate with Show more option)",
+        "Implement a lane assignment algorithm that takes commit data (with parent hashes) and assigns each commit to a lane (column index)",
+        "Algorithm correctly handles: linear history (single lane), feature branches (new lane for divergence), merge commits (connecting lines between lanes), branch endings (lane freed for reuse)",
+        "HEAD and current branch assigned to lane 0 (leftmost)",
+        "Each branch gets a consistent color from a curated palette of 8-10 colors, cycling for additional branches",
+        "Algorithm exported as a pure function that can be unit tested",
+        "Unit tests cover: linear history, single branch, merge commit, multiple concurrent branches, octopus merge",
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": true,
-      "notes": "Consider using Monaco's built-in diff editor for this. Or use diff2html for rendering. Syntax highlighting via Prism or Monaco."
+      "passes": false,
+      "notes": "Pure data/logic — no rendering. This algorithm will be shared between SVG and Canvas renderers. Output: array of { commit, lane, color, parentConnections[] }."
     },
     {
-      "id": "US-017",
-      "title": "Commit Dialog",
-      "description": "As a user, I want to write a commit message and commit my staged changes.",
+      "id": "US-048b",
+      "title": "SVG Commit Graph — SVG Renderer",
+      "description": "As a user, I want a graphical commit history with colored branch lines and nodes rendered as SVG.",
       "acceptanceCriteria": [
-        "Commit message input: subject line + expandable body textarea",
-        "Character count indicator on subject line (warn at 72 chars)",
-        "Commit button (disabled when no staged changes or empty message)",
-        "Commit & Push button for convenience",
-        "Amend checkbox to amend the last commit (pre-fills message from previous commit)",
-        "Sign-off checkbox (appends Signed-off-by line)",
-        "Keyboard shortcut to commit (Ctrl+Enter)",
-        "After commit, clear message and refresh status panel",
-        "Typecheck passes"
+        "Replace the current ASCII-art commit graph with SVG rendering",
+        "Each commit is a colored circle node (8-10px radius) positioned on its assigned branch lane",
+        "Branch lanes are vertical colored lines connecting commits on the same branch",
+        "Merge commits show connecting bezier curve lines from the merged branch to the target branch",
+        "HEAD commit is visually distinct (larger node with highlighted ring or glow effect)",
+        "Branch and tag labels rendered as pill badges next to their commit node",
+        "Commit row still shows: short hash, message, author, relative date as HTML alongside the SVG",
+        "Virtualized rendering using react-window — only visible rows rendered in DOM",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 17,
-      "passes": true,
-      "notes": "Use git commit -m for basic commit. Use git commit --amend for amend. Use git log -1 --format=%B to pre-fill amend message."
+      "passes": false,
+      "notes": "Uses the lane assignment algorithm from US-048a. SVG for lines/nodes, HTML overlay for text. This replaces the existing CommitGraph rendering."
     },
     {
-      "id": "US-018",
-      "title": "Push, Pull, Fetch Operations",
-      "description": "As a user, I want to push, pull, and fetch with clear feedback so I can sync with remotes.",
+      "id": "US-048c",
+      "title": "SVG Commit Graph — Canvas Fallback for Large Repos",
+      "description": "As a developer, I need a Canvas-based fallback renderer for repos with 50,000+ commits.",
       "acceptanceCriteria": [
-        "Toolbar buttons for Push, Pull, Fetch",
-        "Push: pushes current branch to its tracking remote",
-        "Pull: pulls with configurable strategy (merge or rebase)",
-        "Fetch: fetches all remotes",
-        "Progress indicator during operations",
-        "Force push option with confirmation dialog warning about data loss",
-        "Error handling: auth failure, network error, rejected push",
-        "Push dialog for setting upstream when branch has no tracking branch",
-        "Typecheck passes"
+        "Canvas renderer produces visually identical output to the SVG renderer (same colors, node sizes, bezier curves)",
+        "Uses the same lane assignment algorithm from US-048a",
+        "Automatic switch from SVG to Canvas when commit count exceeds 50,000",
+        "Canvas renderer handles 100,000+ commits without performance degradation",
+        "Click/hover interactions still work on Canvas (hit-testing for commit nodes)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 18,
-      "passes": true,
-      "notes": "Use git push --progress, git pull --progress, git fetch --all --progress. Parse stderr for progress."
+      "passes": false,
+      "notes": "Canvas uses offscreen rendering for visible viewport + buffer. Hit-testing via coordinate mapping, not DOM events."
     },
     {
-      "id": "US-019",
-      "title": "Merge",
-      "description": "As a user, I want to merge branches visually so I can integrate changes.",
+      "id": "US-049",
+      "title": "SVG Commit Graph — Interaction",
+      "description": "As a user, I want to interact with the commit graph to select commits, view details, and perform actions.",
       "acceptanceCriteria": [
-        "Right-click branch in sidebar → Merge into current branch",
-        "Merge dialog with branch picker accessible from toolbar",
-        "Preview: show how many commits will be merged",
-        "Fast-forward merge when possible (configurable)",
-        "If conflicts arise, transition to merge conflict resolution view",
-        "Abort merge button available during conflict resolution",
-        "Success notification after clean merge",
-        "Typecheck passes"
+        "Single-click a commit node or row to select it — selection highlighted with accent color",
+        "Selected commit's details populate the right detail panel",
+        "Right-click a commit for context menu: checkout, cherry-pick, revert, reset (soft/mixed/hard), create branch here, create tag here, copy SHA",
+        "Right-click a branch label for context menu: checkout, merge into current, rebase onto, delete, rename, push",
+        "Hover over a commit shows a tooltip with full commit message preview",
+        "Keyboard navigation: Up/Down arrows move selection, Enter opens commit details",
+        "Scroll position is preserved when data refreshes (no jumping to top)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 19,
-      "passes": true,
-      "notes": "Use git merge. Use git rev-list --count to preview merge size. Use git merge --abort for abort."
+      "passes": false,
+      "notes": "Depends on SVG renderer (US-048b). Existing context menu logic can be adapted."
     },
     {
-      "id": "US-020",
-      "title": "Rebase",
-      "description": "As a user, I want to rebase branches so I can maintain clean linear history.",
+      "id": "US-050",
+      "title": "Commit Detail Panel",
+      "description": "As a user, when I click a commit in the graph, I want to see its full details and changed files in the right panel.",
       "acceptanceCriteria": [
-        "Right-click branch → Rebase current onto this branch",
-        "Interactive rebase: show list of commits with pick/squash/edit/drop options",
-        "If conflicts arise during rebase, show conflict resolution view with continue/abort/skip",
-        "Progress indicator showing which commit is being replayed",
-        "Abort rebase button always accessible",
-        "Warning when rebasing published commits",
-        "Typecheck passes"
+        "Right panel shows when a commit is selected, auto-hides when deselected",
+        "Panel header: commit subject (bold), full SHA (copyable via click), author name + email, authored date (absolute + relative)",
+        "If commit is signed: show verification badge (Lucide ShieldCheck/ShieldAlert icon with status)",
+        "Full commit message body displayed below header",
+        "Changed Files section lists all files modified in the commit with Lucide status icons: FilePlus (added), FileMinus (deleted), FileEdit (modified), FileSymlink (renamed)",
+        "File count summary: e.g. 3 files changed, +42 -15",
+        "Click a file in the list to show its diff inline below",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 20,
-      "passes": true,
-      "notes": "Interactive rebase is complex. Use GIT_SEQUENCE_EDITOR env var to control rebase-todo. Use git rebase --continue/--abort/--skip."
+      "passes": false,
+      "notes": "Depends on three-column layout (US-044a) and graph interaction (US-049). Uses git:showCommit and git:showCommitFileDiff IPC handlers."
     },
     {
-      "id": "US-021",
-      "title": "Cherry-Pick",
-      "description": "As a user, I want to cherry-pick commits so I can selectively apply changes.",
+      "id": "US-051",
+      "title": "Integrated Diff Viewer for Commits",
+      "description": "As a user, I want to see diffs for files in a commit so I can review what changed without leaving the app.",
       "acceptanceCriteria": [
-        "Right-click commit in graph → Cherry-pick",
-        "Multi-select commits for batch cherry-pick",
-        "If conflicts, show conflict resolution view",
-        "Success notification with link to new commit",
-        "Abort cherry-pick option",
-        "Typecheck passes"
+        "When a file is selected from the commit detail panel, its diff is rendered in the right panel below the file list",
+        "Supports inline (unified) and side-by-side modes toggled via buttons",
+        "Diff uses the existing DiffViewer component (word-level highlighting, syntax highlighting)",
+        "Diff header shows: file path, change type (added/modified/deleted/renamed), old path for renames",
+        "Binary files show Binary file changed message instead of diff content",
+        "Large diffs (1000+ lines) are collapsed by default with Expand button",
+        "Navigation between files: previous/next file buttons or keyboard shortcuts ([ and ])",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 21,
-      "passes": true,
-      "notes": "Use git cherry-pick. Use git cherry-pick --abort for abort."
+      "passes": false,
+      "notes": "Depends on commit detail panel (US-050). Reuses existing DiffViewer component — this story wires it into the commit detail flow."
     },
     {
-      "id": "US-022",
-      "title": "Reset (Soft, Mixed, Hard)",
-      "description": "As a user, I want to reset my branch to a previous commit with different modes.",
+      "id": "US-052",
+      "title": "Redesigned Staging Area",
+      "description": "As a user, I want a clear, well-organized staging area so I can review, stage, and unstage files before committing.",
       "acceptanceCriteria": [
-        "Right-click commit in graph → Reset current branch to here",
-        "Dialog with mode selection: Soft, Mixed (default), Hard",
-        "Clear explanation of what each mode does in the dialog",
-        "Hard reset requires explicit confirmation (type HARD to confirm)",
-        "After reset, refresh graph and status panel",
-        "Typecheck passes"
+        "Staging area lives in the bottom portion of the center panel (below the graph), collapsible",
+        "Two-column file list: Unstaged Changes (left) and Staged Changes (right)",
+        "Each file shows: Lucide status icon, file name, directory path (muted text)",
+        "Stage a file: click + button or drag from unstaged to staged",
+        "Unstage a file: click - button or drag from staged to unstaged",
+        "Stage All and Unstage All buttons at the top of each column",
+        "Clicking a file in either column shows its diff in the right detail panel",
+        "Discard button (with confirmation dialog) on unstaged files",
+        "File counts shown in section headers: Unstaged Changes (5) / Staged Changes (2)",
+        "Commit message input and commit button at the bottom of the staged column",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 22,
-      "passes": true,
-      "notes": "Use git reset --soft/--mixed/--hard. Hard reset is destructive — confirmation is critical."
+      "passes": false,
+      "notes": "Redesigns existing StatusPanel. Depends on three-column layout (US-044a) and Lucide icons."
     },
     {
-      "id": "US-023",
-      "title": "Revert Commit",
-      "description": "As a user, I want to revert a commit so I can undo changes safely without rewriting history.",
+      "id": "US-053",
+      "title": "Welcome Screen Redesign",
+      "description": "As a user, I want a polished welcome screen when no repo is open so I can quickly get started.",
       "acceptanceCriteria": [
-        "Right-click commit in graph → Revert",
-        "Creates a new revert commit",
-        "If conflicts, show conflict resolution view",
-        "Revert of merge commits: prompt for parent number",
-        "Success notification",
-        "Typecheck passes"
+        "Full-width centered layout with GitSlop wordmark text (not emoji logo)",
+        "Three action cards with Lucide icons: FolderOpen (Open Repository), GitBranch (Clone Repository), FolderPlus (Initialize Repository)",
+        "Recent Repositories list below actions showing: repo name (bold), full path (muted), last opened date (relative)",
+        "Hover on recent repo shows Remove from recent X button",
+        "Click a recent repo opens it immediately",
+        "If recent list is empty, show subtle No recent repositories message",
+        "Keyboard shortcut hints shown on action cards (e.g., Ctrl+O)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 23,
-      "passes": true,
-      "notes": "Use git revert. Use git revert -m <parent> for merge commits."
+      "passes": false,
+      "notes": "Redesigns existing WelcomeScreen component. Depends on Lucide icons."
     },
     {
-      "id": "US-024",
-      "title": "Merge Conflict Resolution Tool",
-      "description": "As a user, I want a visual 3-way merge tool so I can resolve conflicts without leaving the app.",
+      "id": "US-054",
+      "title": "Panel Resize and Collapse Animations",
+      "description": "As a user, I want smooth transitions when panels resize or collapse so the UI feels polished.",
       "acceptanceCriteria": [
-        "3-pane view: Ours (left), Theirs (right), Result (bottom)",
-        "Syntax highlighting in all panes",
-        "Conflict markers highlighted and clickable",
-        "Accept Ours, Accept Theirs, Accept Both buttons per conflict",
-        "Manual editing in the Result pane",
-        "Navigation: Next Conflict / Previous Conflict buttons",
-        "Conflict count indicator (e.g. Conflict 2 of 5)",
-        "Mark as Resolved button per file",
-        "After all files resolved, prompt to continue merge/rebase/cherry-pick",
-        "Typecheck passes"
+        "Collapsing/expanding sidebar animates width over 200ms ease-out",
+        "Collapsing/expanding right detail panel animates width over 200ms ease-out",
+        "Collapsing/expanding terminal panel animates height over 200ms ease-out",
+        "Panel content fades in after expand completes (no layout flash during animation)",
+        "Dragging a panel divider is smooth with no jitter or lag",
+        "Double-clicking a divider resets that panel to its default size",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 24,
-      "passes": true,
-      "notes": "Use Monaco editor for all three panes. Parse conflict markers from files. Use git checkout --ours/--theirs for bulk resolution. Use git add to mark resolved."
+      "passes": false,
+      "notes": "Polish story. May need CSS transitions on the panel wrapper elements and react-resizable-panels animation support."
     },
     {
-      "id": "US-025",
-      "title": "Built-in Code Editor",
-      "description": "As a user, I want a built-in code editor so I can make quick edits without switching to an external editor.",
+      "id": "US-055a",
+      "title": "Custom Context Menu Component",
+      "description": "As a developer, I need a reusable custom context menu component with icons, shortcut hints, and consistent styling.",
       "acceptanceCriteria": [
-        "Monaco editor embedded in a tab/panel",
-        "Open files from the file tree, diff viewer, or commit details",
-        "Syntax highlighting for common languages",
-        "File tabs for multiple open files",
-        "Modified indicator on unsaved tabs",
-        "Save with Ctrl+S",
-        "Undo/redo support",
-        "Line numbers, minimap, word wrap toggle",
-        "Saving a file triggers status panel refresh",
-        "Typecheck passes"
+        "Create a reusable ContextMenu component that accepts menu items array with: label, icon (Lucide), shortcut hint, onClick, danger flag, separator flag",
+        "Menu renders at mouse position on right-click",
+        "Menu items show Lucide icon (left), label (center), keyboard shortcut hint (right, muted)",
+        "Dangerous actions (danger: true) are styled with red text and have a separator above them",
+        "Menu closes on: click outside, Escape key, or scroll",
+        "Menu repositions to stay within viewport bounds (doesn't clip off-screen)",
+        "ContextMenu.module.css with scoped styles using design tokens",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 25,
-      "passes": true,
-      "notes": "Use @monaco-editor/react. Lazy-load Monaco to reduce initial bundle size."
+      "passes": false,
+      "notes": "Reusable component — subsequent work will integrate it into commit graph, sidebar, and staging area."
     },
     {
-      "id": "US-026",
-      "title": "Toggleable CLI Terminal",
-      "description": "As a power user, I want a built-in terminal so I can run git commands or any shell commands without leaving the app.",
+      "id": "US-055b",
+      "title": "Integrate Context Menus Throughout App",
+      "description": "As a user, I want right-click context menus on commits, branches, files, tags, and stashes.",
       "acceptanceCriteria": [
-        "Terminal panel at the bottom, toggled with keyboard shortcut (Ctrl+`)",
-        "Uses xterm.js for terminal emulation",
-        "Starts user's default shell (bash/zsh/cmd/powershell) in the repo directory",
-        "Multiple terminal tabs",
-        "Resizable panel height via drag handle",
-        "Terminal output triggers repo status refresh (debounced)",
-        "Copy/paste works correctly",
-        "Font size matches app theme settings",
-        "Typecheck passes"
+        "Context menu on commit graph nodes: checkout, cherry-pick, revert, reset (soft/mixed/hard), create branch, create tag, copy SHA",
+        "Context menu on branch labels (graph and sidebar): checkout, merge into current, rebase onto, delete, rename, push",
+        "Context menu on files in staging area: stage, unstage, discard, open in editor, copy path",
+        "Context menu on tags in sidebar: checkout, delete, push",
+        "Context menu on stashes in sidebar: apply, pop, drop",
+        "All context menus use the ContextMenu component from US-055a",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 26,
-      "passes": true,
-      "notes": "Use xterm.js + node-pty. node-pty requires native compilation — ensure electron-rebuild is configured."
+      "passes": false,
+      "notes": "Depends on ContextMenu component (US-055a). Replace existing context menu implementations with the new component."
     },
     {
-      "id": "US-027",
-      "title": "Search — Commits, Files, Branches",
-      "description": "As a user, I want to search across commits, files, and branches so I can find what I'm looking for quickly.",
+      "id": "US-056",
+      "title": "Loading States and Skeleton Screens",
+      "description": "As a user, I want appropriate loading indicators instead of blank screens or stale data.",
       "acceptanceCriteria": [
-        "Global search bar (Ctrl+K) with command-palette style dropdown",
-        "Search modes: Commits (message, SHA, author), Files (filename), Branches/Tags",
-        "Results displayed in a filterable dropdown",
-        "Selecting a commit result scrolls graph to it",
-        "Selecting a file result opens it in the editor",
-        "Selecting a branch result checks it out (with confirmation)",
-        "Search is debounced and fast (< 200ms for local results)",
-        "Typecheck passes"
+        "Initial repo load shows skeleton placeholders in each panel (not a blank screen)",
+        "Sidebar sections show skeleton list items while branches/tags load",
+        "Commit graph shows skeleton rows while history loads",
+        "Diff viewer shows a centered spinner while computing diff",
+        "Long operations (clone, fetch, push, pull) show progress in the status bar with percentage and operation name",
+        "Skeleton styles match the actual content dimensions (no layout shift when data loads)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 27,
-      "passes": true,
-      "notes": "Use git log --grep for commit search, git ls-files for file search. Consider cmdk library for command palette UI."
+      "passes": false,
+      "notes": "Create a Skeleton component (pulsing gray rectangles) and integrate into panels."
     },
     {
-      "id": "US-028",
-      "title": "Commit History & Filtering",
-      "description": "As a user, I want to filter and explore commit history so I can find specific changes.",
+      "id": "US-057",
+      "title": "Responsive Layout for Small Windows",
+      "description": "As a user, I want the layout to adapt gracefully when I resize the window small.",
       "acceptanceCriteria": [
-        "Filter by: author, date range, file path, commit message text",
-        "Filters combinable (e.g. author + date range)",
-        "Filter UI as a collapsible bar above the graph",
-        "Active filters shown as removable chips/badges",
-        "Show commits touching this file from file context menu",
-        "Filtered view clearly indicates it is filtered (not the full history)",
-        "Clear all filters button",
-        "Typecheck passes"
+        "At window width < 1200px: right detail panel auto-collapses to overlay mode",
+        "At window width < 900px: sidebar auto-collapses to icon rail mode",
+        "At window width < 700px: toolbar buttons collapse to icon-only (no text labels) and overflow to ... menu",
+        "Minimum window size enforced at 800x500 — no content is clipped or inaccessible below this",
+        "Panel min-width constraints prevent dragging panels to unusable sizes",
+        "Text truncates with ellipsis rather than wrapping or overflowing",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 28,
-      "passes": true,
-      "notes": "Use git log --author, --since/--until, -- <path>, --grep flags for filtering."
+      "passes": false,
+      "notes": "Depends on three-column layout (US-044a), icon rail (US-044b), and hybrid panel (US-044c). Uses window resize observer."
     },
     {
-      "id": "US-029",
-      "title": "File Tree View",
-      "description": "As a user, I want to browse the repository's file tree so I can navigate the project structure.",
+      "id": "US-058",
+      "title": "Notification System Redesign",
+      "description": "As a user, I want unobtrusive notifications that don't disrupt my workflow.",
       "acceptanceCriteria": [
-        "File tree in a sidebar tab (alongside branch sidebar)",
-        "Expandable/collapsible folder hierarchy",
-        "File icons by type/extension",
-        "Right-click: open in editor, show history, show blame, copy path",
-        "Double-click to open in built-in editor",
-        "Git status indicators on files (modified, staged, untracked, conflicted)",
-        "Search/filter within the file tree",
-        "Typecheck passes"
+        "Toast notifications appear in bottom-right corner, stacking upward (max 3 visible)",
+        "Each toast has: Lucide icon (color-coded by type), message text, dismiss X button",
+        "Toasts auto-dismiss after 4s (info/success) or 8s (warning/error)",
+        "Error toasts include a Show Details expandable section for stderr output",
+        "Notification bell in status bar shows unread count badge",
+        "Clicking the bell opens a notification history dropdown (last 50 items)",
+        "Toast entrance/exit animated with slide-in from right and fade-out",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 29,
-      "passes": true,
-      "notes": "Use git ls-files and git status --porcelain for tree + status data. Use a file icon library like file-icons or vscode-icons."
+      "passes": false,
+      "notes": "Redesigns existing NotificationToast component and notification bell in StatusBar."
     },
     {
-      "id": "US-030",
-      "title": "Git Blame View",
-      "description": "As a user, I want to see git blame annotations so I can understand who changed each line and when.",
+      "id": "US-059",
+      "title": "Titlebar and Status Bar Redesign",
+      "description": "As a user, I want a clean titlebar and status bar that show useful information without clutter.",
       "acceptanceCriteria": [
-        "Blame gutter alongside file content in the editor view",
-        "Shows author, date, and commit SHA per line block",
-        "Hover on blame annotation shows full commit message",
-        "Click blame annotation to view that commit in the graph",
-        "Color-code blame blocks by age or author",
-        "Toggle blame on/off",
-        "Typecheck passes"
+        "Titlebar: GitSlop wordmark text (left), current repo name + branch (center, clickable to copy), window controls with Lucide icons (right: Minus, Square/Copy, X)",
+        "Titlebar draggable area works for window movement",
+        "Status bar left section: current branch name with Lucide GitBranch icon, ahead/behind counts",
+        "Status bar center section: last operation status (e.g., Pushed to origin/main 2m ago)",
+        "Status bar right section: notification bell, encoding indicator, line ending indicator",
+        "Status bar text uses --font-xs size, muted until hovered",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 30,
-      "passes": true,
-      "notes": "Use git blame --porcelain for structured blame data."
-    },
-    {
-      "id": "US-031",
-      "title": "Theme System — Dark & Light",
-      "description": "As a user, I want to choose between dark and light themes so I can work comfortably in any lighting.",
-      "acceptanceCriteria": [
-        "Dark theme (default) and light theme fully implemented",
-        "Toggle in settings and via keyboard shortcut",
-        "All UI elements styled correctly in both themes (no broken/unreadable sections)",
-        "Theme preference persisted across sessions",
-        "Smooth transition when switching themes",
-        "Consistent color palette — professional, not garish",
-        "Typecheck passes"
-      ],
-      "priority": 31,
-      "passes": true,
-      "notes": "Use CSS custom properties for theming. Define a design token system. Consider VS Code's color palette as inspiration."
-    },
-    {
-      "id": "US-032",
-      "title": "Keyboard Shortcuts System",
-      "description": "As a user, I want comprehensive keyboard shortcuts so I can work without touching the mouse.",
-      "acceptanceCriteria": [
-        "Default shortcuts for all common actions (commit, push, pull, stage, etc.)",
-        "Keyboard shortcut reference panel accessible via Ctrl+?",
-        "Shortcuts shown in tooltips and context menus",
-        "No conflicting shortcuts",
-        "Shortcuts: Ctrl+Enter (commit), Ctrl+Shift+P (push), Ctrl+Shift+L (pull), Ctrl+Shift+F (fetch), Ctrl+` (terminal), Ctrl+K (search), Ctrl+B (sidebar), Ctrl+S (save), Ctrl+Z/Y (undo/redo)",
-        "Typecheck passes"
-      ],
-      "priority": 32,
-      "passes": true,
-      "notes": "Use a central shortcut registry. Consider mousetrap or hotkeys-js library."
-    },
-    {
-      "id": "US-033",
-      "title": "Settings & Preferences Panel",
-      "description": "As a user, I want a settings panel to configure the application to my liking.",
-      "acceptanceCriteria": [
-        "Settings accessible from menu and keyboard shortcut (Ctrl+,)",
-        "Sections: General, Appearance, Git, Editor, Keybindings",
-        "General: default clone directory, auto-fetch interval, proxy settings",
-        "Appearance: theme (dark/light), font family, font size, sidebar position",
-        "Git: default pull strategy (merge/rebase), sign commits (GPG), auto-stash on pull, default branch name",
-        "Editor: tab size, word wrap, minimap on/off",
-        "Settings stored in a JSON config file in user app data directory",
-        "Changes take effect immediately (no restart required)",
-        "Typecheck passes"
-      ],
-      "priority": 33,
-      "passes": true,
-      "notes": "Use electron-store for persistence. Settings UI as a full-page view or modal."
-    },
-    {
-      "id": "US-034",
-      "title": "Notifications & Status Bar",
-      "description": "As a user, I want clear feedback about operations so I know what's happening.",
-      "acceptanceCriteria": [
-        "Status bar at the bottom showing: current branch, sync status (ahead/behind), active operation",
-        "Toast notifications for completed operations (commit, push, pull, etc.)",
-        "Error notifications with Show Details expansion",
-        "Notification history accessible from status bar",
-        "Loading spinners on toolbar buttons during async operations",
-        "Operation progress bar for clone, fetch, push, pull",
-        "Typecheck passes"
-      ],
-      "priority": 34,
-      "passes": true,
-      "notes": "Consider react-hot-toast or sonner for toast notifications."
-    },
-    {
-      "id": "US-035",
-      "title": "Auto-Fetch & File Watching",
-      "description": "As a user, I want the app to stay up-to-date automatically so I always see the current state.",
-      "acceptanceCriteria": [
-        "File system watcher detects changes in the working directory using chokidar",
-        "Status panel and diff viewer auto-refresh on file changes (debounced at 300ms)",
-        "Auto-fetch from remotes on a configurable interval (default: 5 minutes)",
-        "Auto-fetch can be disabled in settings",
-        "Incoming changes indicator in status bar after fetch",
-        "Refresh button for manual full reload",
-        "Typecheck passes"
-      ],
-      "priority": 35,
-      "passes": true,
-      "notes": "Use chokidar for file watching. Ignore .git directory changes except for refs."
-    },
-    {
-      "id": "US-036",
-      "title": "Context Menus Throughout",
-      "description": "As a user, I want right-click context menus on all interactive elements for quick access to actions.",
-      "acceptanceCriteria": [
-        "Context menu on commits: cherry-pick, revert, reset, create branch, create tag, copy SHA",
-        "Context menu on branches: checkout, merge, rebase, rename, delete, push",
-        "Context menu on files (status): stage, unstage, discard changes, open in editor, show history",
-        "Context menu on remotes: fetch, edit, remove",
-        "Context menu on tags: checkout, delete, push",
-        "Context menu on stashes: apply, pop, drop",
-        "All context menu items show keyboard shortcuts where applicable",
-        "Typecheck passes"
-      ],
-      "priority": 36,
-      "passes": true,
-      "notes": "Create a reusable ContextMenu component. Wire up to existing action handlers from earlier stories."
-    },
-    {
-      "id": "US-037",
-      "title": "Discard Changes",
-      "description": "As a user, I want to discard changes to files so I can revert unwanted modifications.",
-      "acceptanceCriteria": [
-        "Right-click file → Discard Changes with confirmation dialog",
-        "Discard All Changes button with confirmation",
-        "Discard individual hunks from the diff viewer",
-        "Confirmation dialog clearly states the action is irreversible",
-        "Works for modified, deleted, and new (untracked) files",
-        "Typecheck passes"
-      ],
-      "priority": 37,
-      "passes": true,
-      "notes": "Use git checkout -- <file> for tracked files. Use rm for untracked files. Use git apply --reverse for hunk discard."
-    },
-    {
-      "id": "US-038",
-      "title": "Submodule Support",
-      "description": "As a user, I want basic submodule support so I can work with repos that use them.",
-      "acceptanceCriteria": [
-        "Sidebar shows submodules section when present",
-        "Submodule status: initialized, dirty, out of date",
-        "Init/update submodule from context menu",
-        "Open submodule as a separate repo in a new window",
-        "Submodule changes visible in status panel",
-        "Typecheck passes"
-      ],
-      "priority": 38,
-      "passes": true,
-      "notes": "Use git submodule status and git submodule foreach for data."
-    },
-    {
-      "id": "US-039",
-      "title": "GPG Commit Signing",
-      "description": "As a user, I want to sign my commits with GPG so I can verify authorship.",
-      "acceptanceCriteria": [
-        "Setting to enable commit signing by default",
-        "GPG key selection in settings (reads from git config or lists available keys)",
-        "Signed commits shown with a verification badge in the graph",
-        "Sign individual commits via checkbox in commit dialog",
-        "Clear error message if GPG key is not found or passphrase fails",
-        "Typecheck passes"
-      ],
-      "priority": 39,
-      "passes": true,
-      "notes": "Use git commit -S for signing. Use git log --show-signature to detect signed commits. Use gpg --list-secret-keys to list available keys."
-    },
-    {
-      "id": "US-040",
-      "title": "Cross-Platform Packaging & Distribution",
-      "description": "As a developer, I need the app to build and package correctly on Linux, macOS, and Windows.",
-      "acceptanceCriteria": [
-        "Electron Builder configured for Linux (.deb, .AppImage), macOS (.dmg), Windows (.exe, .msi)",
-        "Auto-update mechanism via electron-updater",
-        "App icon and branding on all platforms",
-        "Code signing configured (placeholder for future certificates)",
-        "README with build instructions for all platforms",
-        "CI pipeline config (GitHub Actions) for automated builds on all platforms",
-        "Typecheck passes"
-      ],
-      "priority": 40,
-      "passes": true,
-      "notes": "Use electron-builder. Configure GitHub Actions matrix build for linux/mac/windows."
+      "passes": false,
+      "notes": "Redesigns existing TitleBar and StatusBar components. Depends on Lucide icons and CSS modules being in place."
     }
   ]
 }
