@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { X, GitBranch } from 'lucide-react'
 import type { RepoTab } from '../hooks/useRepoTabs'
 import styles from './TabBar.module.css'
@@ -8,9 +8,10 @@ interface TabBarProps {
   activeIndex: number
   onSwitchTab: (index: number) => void
   onCloseTab: (index: number) => void
+  onReorderTabs: (fromIndex: number, toIndex: number) => void
 }
 
-export function TabBar({ tabs, activeIndex, onSwitchTab, onCloseTab }: TabBarProps): React.JSX.Element | null {
+export function TabBar({ tabs, activeIndex, onSwitchTab, onCloseTab, onReorderTabs }: TabBarProps): React.JSX.Element | null {
   // Don't render if there are 0 or 1 tabs
   if (tabs.length <= 1) return null
 
@@ -25,6 +26,8 @@ export function TabBar({ tabs, activeIndex, onSwitchTab, onCloseTab }: TabBarPro
             isActive={index === activeIndex}
             onSwitch={onSwitchTab}
             onClose={onCloseTab}
+            onReorder={onReorderTabs}
+            totalTabs={tabs.length}
           />
         ))}
       </div>
@@ -38,9 +41,14 @@ interface TabItemProps {
   isActive: boolean
   onSwitch: (index: number) => void
   onClose: (index: number) => void
+  onReorder: (fromIndex: number, toIndex: number) => void
+  totalTabs: number
 }
 
-function TabItem({ tab, index, isActive, onSwitch, onClose }: TabItemProps): React.JSX.Element {
+function TabItem({ tab, index, isActive, onSwitch, onClose, onReorder, totalTabs }: TabItemProps): React.JSX.Element {
+  const [dragOver, setDragOver] = useState<'left' | 'right' | null>(null)
+  const tabRef = useRef<HTMLDivElement>(null)
+
   const handleClick = useCallback(() => {
     onSwitch(index)
   }, [onSwitch, index])
@@ -63,15 +71,97 @@ function TabItem({ tab, index, isActive, onSwitch, onClose }: TabItemProps): Rea
     [onClose, index]
   )
 
+  // ─── Drag-and-Drop ──────────────────────────────────────────────────────────
+
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/plain', String(index))
+      // Add a slight delay to allow the drag image to render
+      if (tabRef.current) {
+        tabRef.current.style.opacity = '0.5'
+      }
+    },
+    [index]
+  )
+
+  const handleDragEnd = useCallback(() => {
+    if (tabRef.current) {
+      tabRef.current.style.opacity = ''
+    }
+  }, [])
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+
+      // Determine drop side based on mouse position within the tab
+      if (tabRef.current) {
+        const rect = tabRef.current.getBoundingClientRect()
+        const midX = rect.left + rect.width / 2
+        setDragOver(e.clientX < midX ? 'left' : 'right')
+      }
+    },
+    []
+  )
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(null)
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setDragOver(null)
+      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10)
+      if (isNaN(fromIndex) || fromIndex === index) return
+
+      // Determine target index based on drop position
+      let toIndex = index
+      if (tabRef.current) {
+        const rect = tabRef.current.getBoundingClientRect()
+        const midX = rect.left + rect.width / 2
+        if (e.clientX > midX && fromIndex < index) {
+          toIndex = index
+        } else if (e.clientX <= midX && fromIndex > index) {
+          toIndex = index
+        } else if (e.clientX > midX) {
+          toIndex = Math.min(index + 1, totalTabs - 1)
+        } else {
+          toIndex = Math.max(index - 1, 0)
+        }
+      }
+
+      if (fromIndex !== toIndex) {
+        onReorder(fromIndex, toIndex)
+      }
+    },
+    [index, onReorder, totalTabs]
+  )
+
+  const dragIndicatorClass = dragOver === 'left'
+    ? styles.tabDragLeft
+    : dragOver === 'right'
+      ? styles.tabDragRight
+      : ''
+
   return (
     <div
-      className={`${styles.tab} ${isActive ? styles.tabActive : ''}`}
+      ref={tabRef}
+      className={`${styles.tab} ${isActive ? styles.tabActive : ''} ${dragIndicatorClass}`}
       onClick={handleClick}
       onMouseDown={handleMiddleClick}
       title={tab.repoPath}
       role="tab"
       aria-selected={isActive}
       tabIndex={0}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <GitBranch size={13} className={styles.tabIcon} />
       <span className={styles.tabName}>{tab.name}</span>

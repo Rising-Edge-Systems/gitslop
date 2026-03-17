@@ -10,7 +10,30 @@ export interface TabsState {
   activeIndex: number
 }
 
+/**
+ * Per-tab UI state that is preserved when switching between tabs.
+ * Stored in a Map<repoPath, TabPerTabState>.
+ */
+export interface TabPerTabState {
+  /** Selected commit hash (null = no commit selected) */
+  selectedCommitHash: string | null
+  /** Whether the sidebar is collapsed to icon rail */
+  sidebarCollapsed: boolean
+  /** Whether the detail panel is open */
+  detailPanelOpen: boolean
+  /** Commit graph scroll offset (pixels from top) */
+  graphScrollOffset: number
+}
+
+const DEFAULT_TAB_STATE: TabPerTabState = {
+  selectedCommitHash: null,
+  sidebarCollapsed: false,
+  detailPanelOpen: false,
+  graphScrollOffset: 0
+}
+
 const STORAGE_KEY = 'gitslop-repo-tabs'
+const TAB_STATE_STORAGE_KEY = 'gitslop-tab-states'
 
 const DEFAULT_STATE: TabsState = {
   tabs: [],
@@ -45,6 +68,26 @@ function saveTabs(state: TabsState): void {
   }
 }
 
+function loadTabStates(): Record<string, TabPerTabState> {
+  try {
+    const stored = localStorage.getItem(TAB_STATE_STORAGE_KEY)
+    if (stored) {
+      return JSON.parse(stored) as Record<string, TabPerTabState>
+    }
+  } catch {
+    // Ignore parse errors
+  }
+  return {}
+}
+
+function saveTabStates(states: Record<string, TabPerTabState>): void {
+  try {
+    localStorage.setItem(TAB_STATE_STORAGE_KEY, JSON.stringify(states))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export interface UseRepoTabsReturn {
   tabs: RepoTab[]
   activeTab: RepoTab | null
@@ -55,13 +98,18 @@ export interface UseRepoTabsReturn {
   switchTab: (index: number) => void
   nextTab: () => void
   prevTab: () => void
+  reorderTabs: (fromIndex: number, toIndex: number) => void
+  getTabState: (repoPath: string) => TabPerTabState
+  saveTabState: (repoPath: string, state: Partial<TabPerTabState>) => void
 }
 
 export function useRepoTabs(): UseRepoTabsReturn {
   const [state, setState] = useState<TabsState>(loadTabs)
+  const tabStatesRef = useRef<Record<string, TabPerTabState>>(loadTabStates())
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveStatesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Debounced save
+  // Debounced save for tab list
   useEffect(() => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
@@ -75,6 +123,37 @@ export function useRepoTabs(): UseRepoTabsReturn {
       }
     }
   }, [state])
+
+  const debouncedSaveTabStates = useCallback(() => {
+    if (saveStatesTimerRef.current) {
+      clearTimeout(saveStatesTimerRef.current)
+    }
+    saveStatesTimerRef.current = setTimeout(() => {
+      saveTabStates(tabStatesRef.current)
+    }, 300)
+  }, [])
+
+  // Cleanup save timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveStatesTimerRef.current) {
+        clearTimeout(saveStatesTimerRef.current)
+      }
+    }
+  }, [])
+
+  const getTabState = useCallback((repoPath: string): TabPerTabState => {
+    return tabStatesRef.current[repoPath] ?? { ...DEFAULT_TAB_STATE }
+  }, [])
+
+  const saveTabStateForRepo = useCallback((repoPath: string, partial: Partial<TabPerTabState>) => {
+    const existing = tabStatesRef.current[repoPath] ?? { ...DEFAULT_TAB_STATE }
+    tabStatesRef.current = {
+      ...tabStatesRef.current,
+      [repoPath]: { ...existing, ...partial }
+    }
+    debouncedSaveTabStates()
+  }, [debouncedSaveTabStates])
 
   const openTab = useCallback((repoPath: string) => {
     setState((prev) => {
@@ -94,6 +173,12 @@ export function useRepoTabs(): UseRepoTabsReturn {
   const closeTab = useCallback((index: number) => {
     setState((prev) => {
       if (index < 0 || index >= prev.tabs.length) return prev
+      // Clean up per-tab state for the closed tab
+      const closedPath = prev.tabs[index].repoPath
+      const { [closedPath]: _, ...rest } = tabStatesRef.current
+      tabStatesRef.current = rest
+      debouncedSaveTabStates()
+
       const newTabs = prev.tabs.filter((_, i) => i !== index)
       let newActiveIndex: number
       if (newTabs.length === 0) {
@@ -109,7 +194,7 @@ export function useRepoTabs(): UseRepoTabsReturn {
       }
       return { tabs: newTabs, activeIndex: newActiveIndex }
     })
-  }, [])
+  }, [debouncedSaveTabStates])
 
   const switchTab = useCallback((index: number) => {
     setState((prev) => {
@@ -134,6 +219,32 @@ export function useRepoTabs(): UseRepoTabsReturn {
     })
   }, [])
 
+  const reorderTabs = useCallback((fromIndex: number, toIndex: number) => {
+    setState((prev) => {
+      if (
+        fromIndex < 0 || fromIndex >= prev.tabs.length ||
+        toIndex < 0 || toIndex >= prev.tabs.length ||
+        fromIndex === toIndex
+      ) return prev
+
+      const newTabs = [...prev.tabs]
+      const [moved] = newTabs.splice(fromIndex, 1)
+      newTabs.splice(toIndex, 0, moved)
+
+      // Update activeIndex to follow the active tab
+      let newActiveIndex = prev.activeIndex
+      if (prev.activeIndex === fromIndex) {
+        newActiveIndex = toIndex
+      } else if (fromIndex < prev.activeIndex && toIndex >= prev.activeIndex) {
+        newActiveIndex = prev.activeIndex - 1
+      } else if (fromIndex > prev.activeIndex && toIndex <= prev.activeIndex) {
+        newActiveIndex = prev.activeIndex + 1
+      }
+
+      return { tabs: newTabs, activeIndex: newActiveIndex }
+    })
+  }, [])
+
   const activeTab = state.activeIndex >= 0 && state.activeIndex < state.tabs.length
     ? state.tabs[state.activeIndex]
     : null
@@ -147,6 +258,9 @@ export function useRepoTabs(): UseRepoTabsReturn {
     closeTab,
     switchTab,
     nextTab,
-    prevTab
+    prevTab,
+    reorderTabs,
+    getTabState,
+    saveTabState: saveTabStateForRepo
   }
 }

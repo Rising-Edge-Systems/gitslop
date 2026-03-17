@@ -118,3 +118,13 @@
   background-color: var(--bg-hover);
   color: var(--text-primary);
 }
+
+/* ─── Drag-and-drop indicators ──────────────────────────────────────── */
+
+.tabDragLeft {
+  border-left: 2px solid var(--accent);
+}
+
+.tabDragRight {
+  border-right: 2px solid var(--accent);
+}

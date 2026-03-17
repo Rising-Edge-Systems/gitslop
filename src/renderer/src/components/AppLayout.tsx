@@ -26,6 +26,7 @@ import {
   type ShortcutDefinition
 } from '../hooks/useKeyboardShortcuts'
 import type { CommitDetail } from './CommitGraph'
+import type { TabPerTabState } from '../hooks/useRepoTabs'
 
 interface AppLayoutProps {
   currentRepo: string | null
@@ -33,9 +34,11 @@ interface AppLayoutProps {
   onCloseRepo: () => void
   onOpenSettings: () => void
   settings: { sidebarPosition: 'left' | 'right'; autoFetchInterval: number }
+  getTabState: (repoPath: string) => TabPerTabState
+  saveTabState: (repoPath: string, state: Partial<TabPerTabState>) => void
 }
 
-export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings, settings: appSettings }: AppLayoutProps): React.JSX.Element {
+export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings, settings: appSettings, getTabState, saveTabState }: AppLayoutProps): React.JSX.Element {
   const {
     layout,
     setSidebarSize,
@@ -60,6 +63,38 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [selectedCommit, setSelectedCommit] = useState<CommitDetail | null>(null)
+
+  // ─── Per-Tab State Isolation ──────────────────────────────────────────────────
+  // Track the previously active repo so we can save its state before switching.
+  const prevRepoRef = useRef<string | null>(null)
+
+  // Save current tab state and restore new tab state when currentRepo changes
+  useEffect(() => {
+    const prevRepo = prevRepoRef.current
+
+    // Save state of previous tab
+    if (prevRepo && prevRepo !== currentRepo) {
+      saveTabState(prevRepo, {
+        selectedCommitHash: selectedCommit?.commit?.hash ?? null,
+        sidebarCollapsed: layout.sidebarCollapsed,
+        detailPanelOpen: selectedCommit !== null,
+        graphScrollOffset: 0 // CommitGraph manages its own scroll internally
+      })
+    }
+
+    // Restore state for new tab
+    if (currentRepo && currentRepo !== prevRepo) {
+      const restored = getTabState(currentRepo)
+      setSidebarCollapsed(restored.sidebarCollapsed)
+      // Clear selected commit — it will be re-selected by the commit graph if the hash matches.
+      // We can't restore the full CommitDetail object (it's not persisted), so we clear it.
+      // The detail panel open/closed state is derived from selectedCommit being non-null.
+      setSelectedCommit(null)
+    }
+
+    prevRepoRef.current = currentRepo
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRepo])
 
   // Responsive breakpoints
   const DETAIL_PANEL_BREAKPOINT = 1400
@@ -123,11 +158,23 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
   const handleCommitSelect = useCallback((detail: CommitDetail | null) => {
     setSelectedCommit(detail)
-  }, [])
+    if (currentRepo) {
+      saveTabState(currentRepo, {
+        selectedCommitHash: detail?.commit?.hash ?? null,
+        detailPanelOpen: detail !== null
+      })
+    }
+  }, [currentRepo, saveTabState])
 
   const handleCloseDetailPanel = useCallback(() => {
     setSelectedCommit(null)
-  }, [])
+    if (currentRepo) {
+      saveTabState(currentRepo, {
+        selectedCommitHash: null,
+        detailPanelOpen: false
+      })
+    }
+  }, [currentRepo, saveTabState])
 
   // Panel refs for double-click-to-reset on dividers
   const sidebarPanelRef = usePanelRef()

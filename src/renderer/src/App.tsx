@@ -33,7 +33,10 @@ function App(): React.JSX.Element {
     closeTab,
     switchTab,
     nextTab,
-    prevTab
+    prevTab,
+    reorderTabs,
+    getTabState,
+    saveTabState
   } = useRepoTabs()
 
   const handleRepoOpen = useCallback(
@@ -101,6 +104,7 @@ function App(): React.JSX.Element {
         activeIndex={activeIndex}
         onSwitchTab={switchTab}
         onCloseTab={closeTab}
+        onReorderTabs={reorderTabs}
       />
       <ErrorBoundary>
         <AppLayout
@@ -109,6 +113,8 @@ function App(): React.JSX.Element {
           onCloseRepo={handleCloseRepo}
           onOpenSettings={openSettings}
           settings={settings}
+          getTabState={getTabState}
+          saveTabState={saveTabState}
         />
         {settingsOpen && (
           <SettingsPanel
