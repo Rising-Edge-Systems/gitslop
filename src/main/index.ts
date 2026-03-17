@@ -33,7 +33,7 @@ function createWindow(): void {
     width: 1280,
     height: 800,
     minWidth: 800,
-    minHeight: 600,
+    minHeight: 500,
     frame: false,
     titleBarStyle: 'hidden',
     webPreferences: {

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 import {
   Group,
@@ -43,7 +43,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setRightPanelSize,
     toggleBottomPanel,
     toggleSidebar,
-    toggleSidebarCollapse
+    toggleSidebarCollapse,
+    setSidebarCollapsed
   } = useLayoutState()
 
   const {
@@ -60,10 +61,30 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [selectedCommit, setSelectedCommit] = useState<CommitDetail | null>(null)
 
-  // Hybrid detail panel: inline when wide, overlay when narrow
+  // Responsive breakpoints
   const DETAIL_PANEL_BREAKPOINT = 1400
+  const SIDEBAR_COLLAPSE_BREAKPOINT = 900
   const windowWidth = useWindowWidth()
+
+  // Hybrid detail panel: inline when wide, overlay when narrow
   const useOverlayDetailPanel = windowWidth < DETAIL_PANEL_BREAKPOINT
+
+  // Auto-collapse sidebar to icon rail on narrow windows
+  const autoCollapsedRef = useRef(false)
+  useEffect(() => {
+    if (windowWidth < SIDEBAR_COLLAPSE_BREAKPOINT) {
+      if (!layout.sidebarCollapsed) {
+        autoCollapsedRef.current = true
+        setSidebarCollapsed(true)
+      }
+    } else {
+      // Restore sidebar when window widens, but only if we auto-collapsed it
+      if (autoCollapsedRef.current && layout.sidebarCollapsed) {
+        autoCollapsedRef.current = false
+        setSidebarCollapsed(false)
+      }
+    }
+  }, [windowWidth, layout.sidebarCollapsed, setSidebarCollapsed])
 
   // Auto-fetch: fetches on configurable interval, tracks incoming changes
   const { incomingChanges, lastFetchTime, fetching: autoFetching, manualRefresh } = useAutoFetch({

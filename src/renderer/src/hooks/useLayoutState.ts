@@ -240,6 +240,7 @@ export function useLayoutState(): {
   toggleBottomPanel: () => void
   toggleSidebar: () => void
   toggleSidebarCollapse: () => void
+  setSidebarCollapsed: (collapsed: boolean) => void
 } {
   const [layout, setLayout] = useState<LayoutState>(loadLayout)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -283,6 +284,10 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, sidebarCollapsed: !prev.sidebarCollapsed }))
   }, [])
 
+  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
+    setLayout((prev) => ({ ...prev, sidebarCollapsed: collapsed }))
+  }, [])
+
   return {
     layout,
     setSidebarSize,
@@ -290,6 +295,7 @@ export function useLayoutState(): {
     setRightPanelSize,
     toggleBottomPanel,
     toggleSidebar,
-    toggleSidebarCollapse
+    toggleSidebarCollapse,
+    setSidebarCollapsed
   }
 }

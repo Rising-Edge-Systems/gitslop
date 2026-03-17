@@ -71,12 +71,6 @@
   max-width: 300px;
 }
 
-@media (max-width: 700px) {
-  .repoPath {
-    display: none;
-  }
-}
-
 .controls {
   display: flex;
   height: 100%;
@@ -119,4 +113,22 @@
 .btnTheme:hover {
   opacity: 1;
   background-color: var(--titlebar-btn-hover);
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .title {
+    font-size: var(--font-sm);
+  }
+
+  .repoPath {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .repoName {
+    max-width: 120px;
+  }
 }

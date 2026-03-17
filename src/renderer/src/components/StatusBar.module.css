@@ -46,6 +46,9 @@
   font-weight: 600;
   color: var(--accent);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
 .branchIcon {
@@ -336,4 +339,20 @@
   color: var(--text-muted);
   font-size: 10px;
   font-family: var(--font-mono);
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  .center {
+    display: none;
+  }
+
+  .branch {
+    max-width: 120px;
+  }
+
+  .sync {
+    display: none;
+  }
 }

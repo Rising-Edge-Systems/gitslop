@@ -563,8 +563,8 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
       // Reserve space for: settings btn (40px), spacer, overflow btn (36px), progress area (~160px), padding
       const reservedWidth = 240
       const availableWidth = toolbarWidth - reservedWidth
-      // Each button is roughly 80px with label, 36px icon-only
-      const buttonWidth = 80
+      // Each button is roughly 80px with label, 36px icon-only (< 700px)
+      const buttonWidth = window.innerWidth < 700 ? 36 : 80
       const maxButtons = Math.max(1, Math.floor(availableWidth / buttonWidth))
       if (maxButtons < repoButtons.length) {
         setOverflowIndex(maxButtons)
