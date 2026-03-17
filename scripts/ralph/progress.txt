@@ -416,3 +416,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Since panels are conditionally rendered with `&&`, mount-time @keyframes animations effectively animate expand
   - For collapse animations (unmount), React doesn't support animation-before-unmount natively — use mount animations only for visual polish
 ---
+## 2026-03-17 - US-055a
+- Enhanced ContextMenu component with CSS modules, scroll-close, and auto-separator before danger items
+- Created ContextMenu.module.css with scoped styles using design tokens (--radius-md, --shadow-lg, --space-*, --font-*, --transition-fast)
+- Added menuFadeIn animation (120ms ease-out scale + opacity) for polished appearance
+- Added focus-visible outline style for keyboard accessibility
+- Added scroll listener (capture phase) to close menu on any scroll event
+- Added auto-separator insertion before danger items via useMemo preprocessing of items array
+- Kept branch-ctx-menu-* styles in global.css — Sidebar.tsx and FileTree.tsx still use them directly (US-055b will migrate)
+- Files changed: ContextMenu.tsx (rewritten with CSS modules), ContextMenu.module.css (new)
+- **Learnings for future iterations:**
+  - `composes: item` in CSS modules lets itemDanger inherit base item styles without duplication
+  - Auto-separator before danger items uses a synthetic key `__danger-sep-${entry.key}` to avoid key collisions
+  - Scroll close uses `window.addEventListener('scroll', handler, true)` — the capture `true` is critical to catch scrolls from inner elements
+  - The ContextMenu component interface (props) is unchanged — existing consumers (StatusPanel) work without modification
+  - branch-ctx-menu-* in global.css is still needed by Sidebar.tsx and FileTree.tsx which build context menus with raw HTML instead of the ContextMenu component
+---

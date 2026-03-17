@@ -447,7 +447,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": "Reusable component — subsequent work will integrate it into commit graph, sidebar, and staging area."
     },
     {
