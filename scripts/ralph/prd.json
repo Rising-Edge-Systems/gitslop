@@ -258,7 +258,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "Fixes the current issue where sidebar content can become inaccessible. Depends on Lucide icons (US-042b) and sidebar CSS module (US-043c)."
     },
     {

@@ -247,3 +247,20 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - In-flight guards (refs tracking pending async calls) prevent overlapping network requests
   - CommitGraph can diff commits by comparing array length + first/last hashes to skip no-op state updates
 ---
+## 2026-03-17 - US-047
+- Restructured sidebar into flex layout with sticky header (collapse btn + tabs) and independent scrollable content area
+- Added `sidebarHeader` and `sidebarScrollArea` CSS classes for proper layout separation
+- Collapse toggle button is now always pinned at top (inside flex-shrink: 0 header) and never scrolls away
+- Chevron rotation animation uses 200ms ease-out for smooth expand/collapse
+- Added keyboard accessibility: branch items have tabIndex={0}, Enter to checkout, arrow keys to navigate items
+- Added ARIA attributes: role="region" on sections, role="listbox"/"option" on branch lists, aria-expanded on section headers
+- Applied same accessibility improvements to both expanded sidebar and collapsed rail overlay branch lists
+- SidebarSection now has `handleKeyDown` for ArrowDown from header to first item focus
+- Added focus-visible styles for branch/remote/tag/stash/submodule items
+- Files changed: Sidebar.tsx, Sidebar.module.css
+- **Learnings for future iterations:**
+  - Sidebar has two render paths: collapsed (icon rail) and expanded — changes to branch list need to be applied in BOTH
+  - `handleListKeyDown` must be defined before the collapsed render path (early return) since it's used in both
+  - Use `display: flex; flex-direction: column` + `overflow: hidden` on container with `flex: 1; overflow-y: auto` on scroll area for proper independent scrolling
+  - ARIA patterns: section headers use `aria-expanded`, lists use `role="listbox"`, items use `role="option"` + `aria-selected`
+---
