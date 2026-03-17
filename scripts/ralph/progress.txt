@@ -13,6 +13,8 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - ContextMenuItem.icon is `React.ReactNode` — pass Lucide components like `<Pencil size={14} />`
 - All emoji/unicode icons replaced with Lucide as of US-042c — zero emoji/unicode remaining in renderer
 - `→` in description strings and `&#123;`/`&#125;` for JSX curly braces are NOT icons — leave them
+- Design tokens in `src/renderer/src/styles/tokens.css` — use `--space-{xs,sm,md,lg,xl,2xl}`, `--font-{xs,sm,md,lg,xl}`, `--radius-{sm,md,lg}`, `--shadow-{sm,md,lg}`, `--transition-{fast,normal}` instead of hardcoded values
+- tokens.css is imported BEFORE global.css in main.tsx — all color/spacing/typography vars live there
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -62,4 +64,18 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Status indicators (M, S, U, !, D, A, R) in FileTree are letter abbreviations, not emoji — keep as strings
   - ContextMenuItem.icon is now React.ReactNode — pass Lucide components with size={14}
   - `−` (U+2212 minus sign) was used in button text labels — replace with <Minus> icon
+---
+## 2026-03-17 - US-043a
+- Created `src/renderer/src/styles/tokens.css` with design tokens: spacing (--space-xs to --space-2xl), font sizes (--font-xs to --font-xl), border radius (--radius-sm/md/lg), shadows (--shadow-sm/md/lg), transitions (--transition-fast/normal)
+- Moved all color variables from global.css :root and [data-theme="light"] into tokens.css
+- Both dark and light theme values defined in tokens.css via [data-theme="light"] selector
+- Light theme also gets adjusted shadow values (less opacity)
+- tokens.css imported before global.css in main.tsx
+- global.css now starts with a comment pointing to tokens.css, then the reset/global styles
+- Files changed: src/renderer/src/styles/tokens.css (new), src/renderer/src/styles/global.css, src/renderer/src/main.tsx
+- **Learnings for future iterations:**
+  - tokens.css is imported BEFORE global.css in main.tsx — order matters for cascading
+  - Design tokens available: --space-{xs,sm,md,lg,xl,2xl}, --font-{xs,sm,md,lg,xl}, --radius-{sm,md,lg}, --shadow-{sm,md,lg}, --transition-{fast,normal}
+  - When creating CSS modules, use design tokens instead of hardcoded px values
+  - global.css no longer has :root or [data-theme] blocks — all in tokens.css
 ---

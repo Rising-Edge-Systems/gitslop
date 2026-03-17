@@ -82,7 +82,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Create the token file and move color vars over. Do NOT split component CSS yet — that comes in subsequent stories."
     },
     {
