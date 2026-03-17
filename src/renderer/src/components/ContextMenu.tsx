@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react'
+import styles from './ContextMenu.module.css'
 
 export interface ContextMenuItem {
   /** Unique key for the item */
@@ -42,7 +43,8 @@ interface ContextMenuProps {
 /**
  * Reusable context menu component.
  * Renders a fixed-position dropdown menu at the given coordinates.
- * Closes on click outside, Escape key, or item selection.
+ * Closes on click outside, Escape key, scroll, or item selection.
+ * Automatically inserts a separator before danger items when not already preceded by one.
  */
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): React.JSX.Element {
   const menuRef = useRef<HTMLDivElement>(null)
@@ -99,23 +101,56 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): React.J
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
+  // Close on scroll (capture phase to catch scrolls from child elements)
+  useEffect(() => {
+    const handleScroll = (): void => {
+      onClose()
+    }
+    window.addEventListener('scroll', handleScroll, true)
+    return () => window.removeEventListener('scroll', handleScroll, true)
+  }, [onClose])
+
+  // Build effective items list, auto-inserting separator before danger items
+  const effectiveItems = React.useMemo(() => {
+    const result: ContextMenuEntry[] = []
+    for (let i = 0; i < items.length; i++) {
+      const entry = items[i]
+      if (!isSeparator(entry) && entry.danger) {
+        // Insert separator before danger item if previous entry isn't already a separator
+        const prev = result[result.length - 1]
+        if (prev && !isSeparator(prev)) {
+          result.push({ key: `__danger-sep-${entry.key}`, separator: true })
+        }
+      }
+      result.push(entry)
+    }
+    return result
+  }, [items])
+
   return (
     <div
       ref={menuRef}
-      className="branch-ctx-menu"
-      style={{ position: 'fixed', left: x, top: y, zIndex: 2000 }}
+      className={styles.menu}
+      style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >
-      {items.map((entry) => {
+      {effectiveItems.map((entry) => {
         if (isSeparator(entry)) {
-          return <div key={entry.key} className="branch-ctx-menu-separator" />
+          return <div key={entry.key} className={styles.separator} />
         }
 
         const item = entry as ContextMenuItem
+        const classNames = [
+          item.danger ? styles.itemDanger : styles.item,
+          item.disabled ? styles.itemDisabled : ''
+        ]
+          .filter(Boolean)
+          .join(' ')
+
         return (
           <button
             key={item.key}
-            className={`branch-ctx-menu-item ${item.danger ? 'branch-ctx-menu-item-danger' : ''} ${item.disabled ? 'branch-ctx-menu-item-disabled' : ''}`}
+            className={classNames}
             onClick={() => {
               if (!item.disabled) {
                 item.onClick()
@@ -124,10 +159,10 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): React.J
             }}
             disabled={item.disabled}
           >
-            {item.icon && <span className="branch-ctx-menu-icon">{item.icon}</span>}
-            <span className="branch-ctx-menu-label">{item.label}</span>
+            {item.icon && <span className={styles.icon}>{item.icon}</span>}
+            <span className={styles.label}>{item.label}</span>
             {item.shortcut && (
-              <span className="branch-ctx-menu-shortcut">{item.shortcut}</span>
+              <span className={styles.shortcut}>{item.shortcut}</span>
             )}
           </button>
         )
