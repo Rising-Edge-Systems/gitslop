@@ -7,6 +7,14 @@ import { autoUpdater } from 'electron-updater'
 import { registerGitIpcHandlers } from './git-ipc'
 import { gitService } from './git-service'
 import { registerTerminalIpcHandlers, killAllTerminals } from './terminal-manager'
+import {
+  createWatcherState,
+  suppressWatcher as _suppressWatcher,
+  gitOperationStarted as _gitOperationStarted,
+  gitOperationFinished as _gitOperationFinished,
+  isWatcherSuppressed as _isWatcherSuppressed,
+  shouldIgnorePath
+} from './watcher-utils'
 
 const isDev = !app.isPackaged
 
@@ -223,16 +231,14 @@ ipcMain.handle('file:write', async (_event, filePath: string, content: string) =
 // ─── File Watcher for repo changes (chokidar) ──────────────────────────────
 
 let activeWatcher: FSWatcher | null = null
-let watchDebounceTimer: ReturnType<typeof setTimeout> | null = null
-let watcherSuppressedUntil = 0
-let activeGitOperations = 0
+const watcherState = createWatcherState()
 
 /**
  * Suppress watcher events for a duration (ms) after git operations complete.
  * While suppressed, file change events are silently dropped.
  */
 export function suppressWatcher(durationMs = 1000): void {
-  watcherSuppressedUntil = Date.now() + durationMs
+  _suppressWatcher(watcherState, durationMs)
 }
 
 /**
@@ -241,32 +247,25 @@ export function suppressWatcher(durationMs = 1000): void {
  * events remain suppressed for 1 additional second.
  */
 export function gitOperationStarted(): void {
-  activeGitOperations++
+  _gitOperationStarted(watcherState)
 }
 
 export function gitOperationFinished(): void {
-  activeGitOperations = Math.max(0, activeGitOperations - 1)
-  if (activeGitOperations === 0) {
-    suppressWatcher(1000)
-  }
-}
-
-function isWatcherSuppressed(): boolean {
-  return activeGitOperations > 0 || Date.now() < watcherSuppressedUntil
+  _gitOperationFinished(watcherState)
 }
 
 function sendRepoChanged(): void {
   // Drop events while git operations are in progress or during suppression window
-  if (isWatcherSuppressed()) {
+  if (_isWatcherSuppressed(watcherState)) {
     return
   }
 
-  if (watchDebounceTimer) {
-    clearTimeout(watchDebounceTimer)
+  if (watcherState.debounceTimer) {
+    clearTimeout(watcherState.debounceTimer)
   }
-  watchDebounceTimer = setTimeout(() => {
+  watcherState.debounceTimer = setTimeout(() => {
     // Re-check suppression at send time (operation may have started during debounce)
-    if (isWatcherSuppressed()) {
+    if (_isWatcherSuppressed(watcherState)) {
       return
     }
     const win = BrowserWindow.getAllWindows()[0]
@@ -285,21 +284,7 @@ ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
 
   try {
     activeWatcher = chokidarWatch(repoPath, {
-      ignored: (path: string) => {
-        // Ignore ALL .git directory changes — git operations modify refs, objects,
-        // index, HEAD, etc. inside .git/ which causes infinite refresh loops
-        if (path.includes('/.git/') || path.includes('\\.git\\')) {
-          return true
-        }
-        if (path.endsWith('/.git') || path.endsWith('\\.git')) {
-          return true
-        }
-        // Ignore node_modules
-        if (path.includes('/node_modules/') || path.includes('\\node_modules\\')) {
-          return true
-        }
-        return false
-      },
+      ignored: (path: string) => shouldIgnorePath(path),
       ignoreInitial: true,
       persistent: true,
       awaitWriteFinish: {
