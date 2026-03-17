@@ -526,3 +526,16 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - TitleBar is kept outside ErrorBoundary so users can still close/minimize the window during crashes
   - Global error handlers (window.onerror, onunhandledrejection) catch non-React errors like async failures
 ---
+
+## 2026-03-17 - US-061
+- Fixed sidebar collapse/expand to ensure sidebar is always accessible
+- Three root causes fixed:
+  1. Auto-collapse useEffect in AppLayout.tsx re-triggered on sidebarCollapsed state changes, overriding manual user expansion at narrow widths. Changed to only trigger on window width threshold crossing using prevWidthNarrowRef.
+  2. Ctrl+B (toggleSidebar in useLayoutState.ts) toggled sidebarVisible which hid the icon rail entirely. Changed to cycle: expanded → collapsed (icon rail) → expanded.
+  3. toggleSidebarCollapse and setSidebarCollapsed now always set sidebarVisible=true so icon rail can never be hidden.
+- Files changed: `src/renderer/src/hooks/useLayoutState.ts`, `src/renderer/src/components/AppLayout.tsx`
+- **Learnings for future iterations:**
+  - The auto-collapse responsive logic must only react to window width threshold *crossing*, not to every state change, to avoid fighting user's manual toggles
+  - `sidebarVisible` controls whether sidebar renders at all (including icon rail); `sidebarCollapsed` controls whether it's icon rail vs full sidebar
+  - Always ensure sidebarVisible=true when changing collapse state to prevent the sidebar from becoming completely hidden
+---

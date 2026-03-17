@@ -574,7 +574,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 32,
-      "passes": false,
+      "passes": true,
       "notes": "Users report sidebar is completely inaccessible. Investigate: icon rail rendering, click handlers on rail icons, sidebarCollapsed state persistence, auto-collapse responsive logic in AppLayout.tsx."
     },
     {
