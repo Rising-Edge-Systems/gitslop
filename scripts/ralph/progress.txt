@@ -514,3 +514,15 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `-webkit-app-region: drag` on parent, `-webkit-app-region: no-drag` on interactive children is the Electron pattern for custom titlebars
   - StatusBar tracks last completed operation by saving activeOp state when it clears after timeout
 ---
+
+## 2026-03-17 - US-060
+- Created ErrorBoundary React class component with componentDidCatch
+- ErrorBoundary wraps AppLayout in App.tsx (TitleBar stays outside so window controls work during crashes)
+- Error screen shows: AlertOctagon icon, error message, collapsible stack trace, Reload App button
+- Added window.onerror and window.onunhandledrejection handlers in main.tsx
+- Files changed: ErrorBoundary.tsx, ErrorBoundary.module.css (new), App.tsx, main.tsx
+- **Learnings for future iterations:**
+  - ErrorBoundary must be a class component (React doesn't support error boundaries as function components)
+  - TitleBar is kept outside ErrorBoundary so users can still close/minimize the window during crashes
+  - Global error handlers (window.onerror, onunhandledrejection) catch non-React errors like async failures
+---

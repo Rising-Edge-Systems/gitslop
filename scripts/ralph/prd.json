@@ -540,6 +540,144 @@
       "priority": 30,
       "passes": true,
       "notes": "Redesigns existing TitleBar and StatusBar components. Depends on Lucide icons and CSS modules being in place."
+    },
+    {
+      "id": "US-060",
+      "title": "Add Error Boundary to Prevent Blank-Screen Crashes",
+      "description": "As a user, I don't want the entire app to become a blank unresponsive window when something goes wrong — I want a graceful error screen with a way to recover.",
+      "acceptanceCriteria": [
+        "Create an ErrorBoundary React component (class component with componentDidCatch)",
+        "ErrorBoundary wraps AppLayout in App.tsx so titlebar remains functional during crashes",
+        "Error screen shows: error message, collapsible stack trace, and Reload App button that calls window.location.reload()",
+        "Add window.onerror and window.onunhandledrejection handlers in main.tsx to catch non-React errors",
+        "Errors are logged to console with full stack trace",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 31,
+      "passes": true,
+      "notes": "CRITICAL stability fix. No ErrorBoundary exists — any unhandled render error crashes the entire app to a blank window. This must be done FIRST before other bug fixes."
+    },
+    {
+      "id": "US-061",
+      "title": "Fix Sidebar Collapse/Expand — Ensure Sidebar Is Always Accessible",
+      "description": "As a user, I need to be able to open the sidebar at all times — it currently locks shut and I cannot access branches, tags, or files.",
+      "acceptanceCriteria": [
+        "Icon rail (collapsed sidebar) renders with visible, clickable section icons at all window sizes",
+        "Clicking any icon in the rail opens the corresponding section as a floating overlay",
+        "The expand button (PanelLeftOpen) at top of icon rail restores the full sidebar",
+        "Auto-collapse at <900px includes a visible expand affordance that users can click",
+        "If sidebarCollapsed is persisted as true from previous session, icon rail renders with working expand controls",
+        "Ctrl+B toggles sidebar visibility regardless of collapsed state",
+        "Test: resize below 900px → sidebar collapses → click expand → sidebar opens → resize above 900px → sidebar stays open",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "Users report sidebar is completely inaccessible. Investigate: icon rail rendering, click handlers on rail icons, sidebarCollapsed state persistence, auto-collapse responsive logic in AppLayout.tsx."
+    },
+    {
+      "id": "US-062",
+      "title": "Fix Commit Graph Scroll Rendering",
+      "description": "As a user, I want the commit graph to render correctly at all scroll positions without nodes disappearing.",
+      "acceptanceCriteria": [
+        "Identify and fix sync issue between scrollOffset (manual scroll tracking) and visibleRange (react-window onRowsRendered)",
+        "SVG graph nodes render at correct Y positions at all scroll positions",
+        "Canvas fallback also renders correctly at all scroll positions",
+        "Scrolling through 1000+ commits shows continuous graph lines with no gaps or missing nodes",
+        "Buffer of rendered nodes above/below viewport is sufficient to prevent gaps during fast scrolling",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": "Root cause: scrollOffset from manual scroll events and visibleRange from react-window's onRowsRendered get out of sync. SVG line 231: Y position calculated as i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset — if scrollOffset doesn't match react-window's internal offset, nodes render at wrong positions."
+    },
+    {
+      "id": "US-063",
+      "title": "Fix Diff Viewer — Show Errors and Ensure Content Displays",
+      "description": "As a user, when I click a file to view its diff, I want to see the actual diff content or a clear error message — not a blank panel.",
+      "acceptanceCriteria": [
+        "When showCommitFileDiff IPC returns an error, display the error message in the diff area (not blank)",
+        "When IPC throws an exception, display 'Failed to load diff' with the error details",
+        "When diff content is empty string (no changes), show 'No changes in this file' message",
+        "Verify file.read IPC works for code editor — display error if it fails",
+        "Add loading spinner while diff is being fetched",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "Root cause: DetailPanel.tsx lines 184-190 silently swallow IPC errors with catch { setDiffContent('') }. Need to add error state and display it. Also check CodeEditor.tsx for similar silent failures."
+    },
+    {
+      "id": "US-064",
+      "title": "Fix File Watcher Infinite Loop",
+      "description": "As a developer, I need the file watcher to ignore changes caused by git operations to prevent infinite refresh loops that crash the app.",
+      "acceptanceCriteria": [
+        "File watcher in main process ignores changes inside .git/ directory",
+        "Only working tree file changes trigger repo:changed events",
+        "Add suppression window: when git operation is in progress, suppress watcher events for 1 second after completion",
+        "Multiple rapid watcher events debounced to single repo:changed event (increase debounce if needed)",
+        "Verify: performing a commit does not cause cascading refreshes across all components",
+        "Typecheck passes"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": "Root cause: watcher fires on .git/ changes (refs, objects, index) caused by git operations → triggers repo:changed → components call git commands → modify .git/ → watcher fires again → infinite loop → crash. Fix in src/main/index.ts watcher setup."
+    },
+    {
+      "id": "US-065a",
+      "title": "Multi-Repo Tabs — Tab Bar and State Management",
+      "description": "As a user, I want a tab bar showing my open repositories so I can switch between them.",
+      "acceptanceCriteria": [
+        "Tab bar rendered below the titlebar, above the toolbar",
+        "Each open repo displayed as a tab with: repo name and close (X) button",
+        "Active tab visually distinct (highlighted background or underline)",
+        "Click a tab to switch to that repo's view",
+        "Closing the last tab returns to the welcome screen",
+        "Tab state (which repos are open, which is active) persists across app restarts via electron-store",
+        "Keyboard shortcuts: Ctrl+Tab / Ctrl+Shift+Tab to cycle between tabs",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": "New feature. Create a TabBar component and a useRepoTabs hook. Each tab tracks repoPath. Opening a repo (welcome screen, toolbar) adds a new tab. State per tab (selected commit, scroll position, etc.) managed separately."
+    },
+    {
+      "id": "US-065b",
+      "title": "Multi-Repo Tabs — Per-Tab State Isolation",
+      "description": "As a user, I want each repo tab to maintain its own state so switching tabs preserves my context.",
+      "acceptanceCriteria": [
+        "Each tab maintains its own: selected commit, graph scroll position, staged files, sidebar collapse state, detail panel open/closed",
+        "Switching tabs restores the full UI state for that repo (scroll position, selected commit, etc.)",
+        "Opening a new repo via welcome screen, toolbar, or file picker adds a new tab instead of replacing current",
+        "File watcher correctly switches to the active tab's repo path when tabs change",
+        "Tabs are reorderable via drag-and-drop",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": "Depends on US-065a. This is the harder part — each tab needs isolated state. Consider a Map<repoPath, TabState> approach. File watcher must stop/start when switching tabs."
+    },
+    {
+      "id": "US-066",
+      "title": "Stability Test Suite",
+      "description": "As a developer, I need automated tests that verify the app doesn't crash during common operations.",
+      "acceptanceCriteria": [
+        "Unit test for ErrorBoundary: verify it catches render errors and displays fallback UI",
+        "Unit test for file watcher debouncing: verify rapid events are coalesced and .git/ is ignored",
+        "Unit test for lane assignment edge cases (verify existing tests are comprehensive)",
+        "Unit test for tab state management: open, close, switch, persist, restore",
+        "All tests pass with npm test",
+        "Typecheck passes"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": "Focus on unit tests that can run without Electron. Test ErrorBoundary, watcher logic, lane assignment, and tab state hooks."
     }
   ]
 }
