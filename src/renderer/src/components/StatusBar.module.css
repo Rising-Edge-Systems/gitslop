@@ -10,10 +10,15 @@
   border-top: 1px solid var(--border);
   padding: 0 var(--space-sm);
   font-size: var(--font-xs);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   flex-shrink: 0;
   position: relative;
   z-index: 100;
+  transition: color var(--transition-fast);
+}
+
+.statusBar:hover {
+  color: var(--text-secondary);
 }
 
 .left {
@@ -39,6 +44,8 @@
   flex-shrink: 0;
 }
 
+/* ─── Branch info ─────────────────────────────────────────────────────── */
+
 .branch {
   display: flex;
   align-items: center;
@@ -49,6 +56,12 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 200px;
+  opacity: 0.8;
+  transition: opacity var(--transition-fast);
+}
+
+.statusBar:hover .branch {
+  opacity: 1;
 }
 
 .branchIcon {
@@ -61,14 +74,26 @@
   gap: var(--space-xs);
   font-family: var(--font-mono);
   font-size: 10px;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.statusBar:hover .sync {
+  opacity: 1;
 }
 
 .ahead {
   color: var(--success);
+  display: flex;
+  align-items: center;
+  gap: 1px;
 }
 
 .behind {
   color: var(--warning);
+  display: flex;
+  align-items: center;
+  gap: 1px;
 }
 
 .incoming {
@@ -96,38 +121,7 @@
   color: var(--text-muted);
 }
 
-.lastFetch {
-  color: var(--text-muted);
-  font-size: 10px;
-  opacity: 0.7;
-}
-
-.refreshBtn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 0 var(--space-xs);
-  font-size: var(--font-sm);
-  line-height: 1;
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast), background var(--transition-fast);
-}
-
-.refreshBtn:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.refreshBtn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.text {
-  color: var(--text-muted);
-  font-style: italic;
-}
+/* ─── Center: operation status ───────────────────────────────────────── */
 
 .operation {
   display: flex;
@@ -137,7 +131,8 @@
 
 .spinner {
   animation: spinnerRotate 1s linear infinite;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   font-size: var(--font-sm);
 }
 
@@ -163,6 +158,67 @@
   border-radius: 2px;
   transition: width 0.2s ease;
 }
+
+.lastOpText {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  opacity: 0.6;
+  transition: opacity var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusBar:hover .lastOpText {
+  opacity: 1;
+}
+
+/* ─── Right section elements ─────────────────────────────────────────── */
+
+.indicator {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  padding: 0 var(--space-xs);
+  opacity: 0.6;
+  transition: opacity var(--transition-fast);
+  cursor: default;
+  white-space: nowrap;
+}
+
+.statusBar:hover .indicator {
+  opacity: 1;
+}
+
+.refreshBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 var(--space-xs);
+  font-size: var(--font-sm);
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  display: flex;
+  align-items: center;
+}
+
+.refreshBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.text {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── Notification button ────────────────────────────────────────────── */
 
 .notifBtn {
   display: flex;
@@ -206,7 +262,7 @@
   padding: 0 3px;
 }
 
-/* Notification History Dropdown */
+/* ─── Notification History Dropdown ──────────────────────────────────── */
 
 .historyBackdrop {
   position: fixed;
@@ -353,6 +409,10 @@
   }
 
   .sync {
+    display: none;
+  }
+
+  .indicator {
     display: none;
   }
 }

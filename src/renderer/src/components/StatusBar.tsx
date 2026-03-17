@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   GitBranch,
   ArrowUp,
@@ -21,6 +21,12 @@ interface ActiveOperation {
   percent: number | null
 }
 
+interface LastOperation {
+  type: string
+  phase: string
+  timestamp: number
+}
+
 interface StatusBarProps {
   currentRepo: string | null
   history: Notification[]
@@ -31,6 +37,18 @@ interface StatusBarProps {
   lastFetchTime?: number | null
   autoFetching?: boolean
   onManualRefresh?: () => Promise<void>
+}
+
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now()
+  const diff = Math.floor((now - timestamp) / 1000)
+  if (diff < 5) return 'just now'
+  if (diff < 60) return `${diff}s ago`
+  const mins = Math.floor(diff / 60)
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
 }
 
 export function StatusBar({
@@ -48,6 +66,9 @@ export function StatusBar({
   const [ahead, setAhead] = useState(0)
   const [behind, setBehind] = useState(0)
   const [activeOp, setActiveOp] = useState<ActiveOperation | null>(null)
+  const [lastOp, setLastOp] = useState<LastOperation | null>(null)
+  const [, setTick] = useState(0)
+  const lastOpRef = useRef<LastOperation | null>(null)
 
   // Fetch branch info
   const fetchBranchInfo = useCallback(async () => {
@@ -112,20 +133,54 @@ export function StatusBar({
     return cleanup
   }, [])
 
-  // Clear active op when progress stops (no updates for 2s)
+  // When active op clears, save as last operation
   useEffect(() => {
     if (!activeOp) return
     const timer = setTimeout(() => {
+      const completed: LastOperation = {
+        type: activeOp.type,
+        phase: activeOp.phase,
+        timestamp: Date.now()
+      }
+      lastOpRef.current = completed
+      setLastOp(completed)
       setActiveOp(null)
     }, 3000)
     return () => clearTimeout(timer)
   }, [activeOp])
+
+  // Periodically update relative time display for last operation
+  useEffect(() => {
+    if (!lastOp) return
+    const interval = setInterval(() => {
+      setTick((t) => t + 1)
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [lastOp])
 
   const unreadCount = history.filter((n) => !n.dismissed).length
 
   const formatTime = (ts: number): string => {
     const d = new Date(ts)
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
+  // Derive a user-friendly label for last operation
+  const getLastOpLabel = (): string | null => {
+    if (!lastOp) return null
+    const opNames: Record<string, string> = {
+      push: 'Pushed',
+      pull: 'Pulled',
+      fetch: 'Fetched',
+      commit: 'Committed',
+      merge: 'Merged',
+      rebase: 'Rebased',
+      checkout: 'Checked out',
+      stash: 'Stashed',
+      clone: 'Cloned'
+    }
+    const label = opNames[lastOp.type] || lastOp.type
+    return `${label} ${formatRelativeTime(lastOp.timestamp)}`
   }
 
   return (
@@ -157,11 +212,6 @@ export function StatusBar({
                 <Loader2 size={12} className={styles.spinner} />
               </span>
             )}
-            {lastFetchTime && (
-              <span className={styles.lastFetch} title={`Last fetched at ${formatTime(lastFetchTime)}`}>
-                Last fetch: {formatTime(lastFetchTime)}
-              </span>
-            )}
           </>
         )}
         {!currentRepo && (
@@ -169,9 +219,9 @@ export function StatusBar({
         )}
       </div>
 
-      {/* Center: active operation */}
+      {/* Center: last operation status or active operation */}
       <div className={styles.center}>
-        {activeOp && (
+        {activeOp ? (
           <div className={styles.operation}>
             <span className={styles.spinner}><Loader2 size={12} /></span>
             <span className={styles.opText}>{activeOp.phase}</span>
@@ -184,11 +234,25 @@ export function StatusBar({
               </div>
             )}
           </div>
-        )}
+        ) : getLastOpLabel() ? (
+          <span className={styles.lastOpText} title={lastOp ? `Last operation at ${formatTime(lastOp.timestamp)}` : undefined}>
+            {getLastOpLabel()}
+          </span>
+        ) : lastFetchTime ? (
+          <span className={styles.lastOpText} title={`Last fetched at ${formatTime(lastFetchTime)}`}>
+            Fetched {formatRelativeTime(lastFetchTime)}
+          </span>
+        ) : null}
       </div>
 
-      {/* Right section: refresh + notification history */}
+      {/* Right section: refresh + indicators + notification bell */}
       <div className={styles.right}>
+        {currentRepo && (
+          <>
+            <span className={styles.indicator} title="File encoding">UTF-8</span>
+            <span className={styles.indicator} title="Line endings">LF</span>
+          </>
+        )}
         {currentRepo && onManualRefresh && (
           <button
             className={styles.refreshBtn}

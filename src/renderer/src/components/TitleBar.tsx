@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Minus, Square, Copy, X, Sun, Moon } from 'lucide-react'
+import { Minus, Square, Copy, X, Sun, Moon, GitBranch } from 'lucide-react'
 import type { Theme } from '../hooks/useSettings'
 import styles from './TitleBar.module.css'
 
@@ -11,12 +11,49 @@ interface TitleBarProps {
 
 export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): React.JSX.Element {
   const [isMaximized, setIsMaximized] = useState(false)
+  const [branch, setBranch] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     window.electronAPI.window.isMaximized().then(setIsMaximized)
     const cleanup = window.electronAPI.window.onMaximizeChange(setIsMaximized)
     return cleanup
   }, [])
+
+  // Fetch current branch name
+  useEffect(() => {
+    if (!repoPath) {
+      setBranch(null)
+      return
+    }
+    let cancelled = false
+    const fetchBranch = async (): Promise<void> => {
+      try {
+        const result = await window.electronAPI.git.getCurrentBranch(repoPath)
+        if (!cancelled && result.success && result.data) {
+          setBranch(result.data)
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+    fetchBranch()
+
+    // Refresh on repo file changes
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const cleanup = window.electronAPI.onRepoChanged(() => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        fetchBranch()
+      }, 800)
+    })
+
+    return () => {
+      cancelled = true
+      cleanup()
+      if (timer) clearTimeout(timer)
+    }
+  }, [repoPath])
 
   const handleMinimize = useCallback(() => {
     window.electronAPI.window.minimize()
@@ -31,21 +68,55 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
     window.electronAPI.window.close()
   }, [])
 
+  const repoName = repoPath ? repoPath.split(/[/\\]/).pop() : null
+
+  const handleCopyRepoInfo = useCallback(async () => {
+    if (!repoName) return
+    const text = branch ? `${repoName} (${branch})` : repoName
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard may not be available
+    }
+  }, [repoName, branch])
+
   return (
     <div className={styles.titlebar}>
-      <div className={styles.drag}>
-        <div className={styles.brand}>
-          <span className={styles.icon}>GS</span>
-          <span className={styles.title}>GitSlop</span>
-          {repoPath && (
-            <span className={styles.repo} title={repoPath}>
-              <span className={styles.repoSeparator}>—</span>
-              <span className={styles.repoName}>{repoPath.split(/[/\\]/).pop()}</span>
-              <span className={styles.repoPath}>{repoPath}</span>
-            </span>
+      {/* Left: GitSlop wordmark */}
+      <div className={styles.left}>
+        <div className={styles.drag}>
+          <span className={styles.wordmark}>GitSlop</span>
+        </div>
+      </div>
+
+      {/* Center: repo name + branch (clickable to copy) */}
+      <div className={styles.center}>
+        <div className={styles.drag}>
+          {repoPath && repoName && (
+            <button
+              className={styles.repoInfo}
+              onClick={handleCopyRepoInfo}
+              title={copied ? 'Copied!' : `${repoPath} — click to copy`}
+            >
+              <span className={styles.repoName}>{repoName}</span>
+              {branch && (
+                <>
+                  <span className={styles.repoDivider}>/</span>
+                  <span className={styles.repoBranch}>
+                    <GitBranch size={12} className={styles.branchIcon} />
+                    {branch}
+                  </span>
+                </>
+              )}
+              {copied && <span className={styles.copiedBadge}>Copied!</span>}
+            </button>
           )}
         </div>
       </div>
+
+      {/* Right: window controls */}
       <div className={styles.controls}>
         {onToggleTheme && (
           <button
