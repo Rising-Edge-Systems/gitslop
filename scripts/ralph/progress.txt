@@ -39,6 +39,8 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - MainContent is wrapped in React.memo — avoid passing new object/function references as props unless necessary
 - SVG commit graph: `GraphSVG` component replaces canvas; uses `assignLanes()` from laneAssignment.ts; `node.color` is pre-computed per lane
 - GraphNode uses `lane` (not `column`) and `parentConnections` (not `parents`) — aligned with laneAssignment.ts types
+- All context menus use the reusable `ContextMenu` component — build items with `ContextMenuEntry[]` arrays, not custom menu components
+- `branch-ctx-menu-*` CSS has been removed from global.css — all context menus now use ContextMenu.module.css styles
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -431,4 +433,20 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Scroll close uses `window.addEventListener('scroll', handler, true)` — the capture `true` is critical to catch scrolls from inner elements
   - The ContextMenu component interface (props) is unchanged — existing consumers (StatusPanel) work without modification
   - branch-ctx-menu-* in global.css is still needed by Sidebar.tsx and FileTree.tsx which build context menus with raw HTML instead of the ContextMenu component
+---
+## 2026-03-17 - US-055b
+- Replaced ALL custom context menu implementations with the reusable ContextMenu component from US-055a
+- CommitGraph.tsx: Replaced CommitContextMenu and BranchRefContextMenu components with builder functions (buildCommitContextMenuItems, buildBranchRefContextMenuItems) that return ContextMenuEntry[]
+- Sidebar.tsx: Replaced BranchContextMenu, RemoteContextMenu, RemoteBranchContextMenu components with builder functions; replaced inline tag/stash/submodule context menus with ContextMenu component
+- FileTree.tsx: Replaced FileTreeContextMenu component with buildFileTreeContextMenuItems builder function
+- Removed ~570 lines of duplicated context menu code (click-outside handlers, escape key handlers, scroll handlers, menu rendering)
+- Removed unused branch-ctx-menu-* CSS from global.css (73 lines) and ctxMenu* CSS from CommitGraph.module.css (60 lines)
+- StatusPanel already used ContextMenu component — no changes needed there
+- Files changed: CommitGraph.tsx, CommitGraph.module.css, Sidebar.tsx, FileTree.tsx, global.css
+- **Learnings for future iterations:**
+  - Builder function pattern (returning ContextMenuEntry[]) is cleaner than wrapper components for context menus — the ContextMenu component handles all the dismiss/position logic
+  - When removing old context menu components, also remove their manual close-on-click-outside useEffect hooks since ContextMenu handles this internally
+  - Removing branch-ctx-menu-* from global.css is safe once all TSX files use the ContextMenu component — grep to verify zero references before deleting
+  - The `danger: true` property on ContextMenuEntry auto-inserts a separator before danger items — no need to add explicit separators before destructive actions
+  - Submodule context menu items are conditional on submodule status — use IIFE pattern `(() => { ... })()` to build items inline
 ---

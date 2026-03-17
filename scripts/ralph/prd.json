@@ -465,7 +465,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on ContextMenu component (US-055a). Replace existing context menu implementations with the new component."
     },
     {
