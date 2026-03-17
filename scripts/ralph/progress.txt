@@ -551,3 +551,16 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - scrollOffset must be derived from react-window's visibleRange to stay in sync
   - Generous render buffers (15+ rows) prevent gaps during fast scrolling
 ---
+
+## 2026-03-17 - US-063
+- Added `diffError` state to DetailPanel to track and display IPC errors
+- When `showCommitFileDiff` IPC returns an error, error message is now displayed with AlertCircle icon in red
+- When IPC throws an exception, "Failed to load diff: <message>" is shown
+- When diff content is empty (no changes), shows "No changes in this file" instead of "No diff available"
+- Added `.diffError` CSS class in DetailPanel.module.css with red styling and error background
+- CodeEditor.tsx already handles errors properly — no changes needed there
+- Files changed: `src/renderer/src/components/DetailPanel.tsx`, `src/renderer/src/components/DetailPanel.module.css`
+- **Learnings for future iterations:**
+  - DetailPanel error flow: `diffError` state is separate from `diffContent` — check error first in render, then binary, then content, then empty
+  - CodeEditor already has proper error handling with `setError` state — use as reference pattern
+---
