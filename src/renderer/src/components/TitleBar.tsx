@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { Minus, Square, Copy, X, Sun, Moon } from 'lucide-react'
 import type { Theme } from '../hooks/useSettings'
 
 interface TitleBarProps {
@@ -33,7 +34,7 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
     <div className="titlebar">
       <div className="titlebar-drag">
         <div className="titlebar-brand">
-          <span className="titlebar-icon">&#9673;</span>
+          <span className="titlebar-icon">GS</span>
           <span className="titlebar-title">GitSlop</span>
           {repoPath && (
             <span className="titlebar-repo" title={repoPath}>
@@ -52,7 +53,7 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
             aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme (Ctrl+Shift+T)`}
           >
-            {theme === 'dark' ? '☀' : '🌙'}
+            {theme === 'dark' ? <Sun size={14} className="lucide-icon" /> : <Moon size={14} className="lucide-icon" />}
           </button>
         )}
         <button
@@ -61,7 +62,7 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
           aria-label="Minimize"
           title="Minimize"
         >
-          &#x2500;
+          <Minus size={14} className="lucide-icon" />
         </button>
         <button
           className="titlebar-btn titlebar-btn-maximize"
@@ -69,7 +70,7 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
           aria-label={isMaximized ? 'Restore' : 'Maximize'}
           title={isMaximized ? 'Restore' : 'Maximize'}
         >
-          {isMaximized ? '\u29C9' : '\u25A1'}
+          {isMaximized ? <Copy size={14} className="lucide-icon" /> : <Square size={14} className="lucide-icon" />}
         </button>
         <button
           className="titlebar-btn titlebar-btn-close"
@@ -77,7 +78,7 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
           aria-label="Close"
           title="Close"
         >
-          &#x2715;
+          <X size={14} className="lucide-icon" />
         </button>
       </div>
     </div>

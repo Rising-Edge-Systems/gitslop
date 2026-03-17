@@ -1,5 +1,17 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
-import { Settings } from 'lucide-react'
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  RefreshCw,
+  GitBranch,
+  GitMerge,
+  Archive,
+  Settings,
+  AlertTriangle,
+  Check,
+  XCircle,
+  Loader2
+} from 'lucide-react'
 import { MergeDialog } from './MergeDialog'
 import {
   useKeyboardShortcuts,
@@ -373,9 +385,9 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
           disabled={!!activeOp}
         >
           {isOperationActive('pull') ? (
-            <span className="toolbar-btn-icon toolbar-spinner">⟳</span>
+            <span className="toolbar-btn-icon toolbar-spinner"><Loader2 size={18} className="lucide-icon" /></span>
           ) : (
-            <span className="toolbar-btn-icon">⬇</span>
+            <span className="toolbar-btn-icon"><ArrowDownToLine size={18} className="lucide-icon" /></span>
           )}
           <span className="toolbar-btn-label">Pull</span>
         </button>
@@ -390,9 +402,9 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
           disabled={!!activeOp}
         >
           {isOperationActive('push') ? (
-            <span className="toolbar-btn-icon toolbar-spinner">⟳</span>
+            <span className="toolbar-btn-icon toolbar-spinner"><Loader2 size={18} className="lucide-icon" /></span>
           ) : (
-            <span className="toolbar-btn-icon">⬆</span>
+            <span className="toolbar-btn-icon"><ArrowUpFromLine size={18} className="lucide-icon" /></span>
           )}
           <span className="toolbar-btn-label">Push</span>
         </button>
@@ -403,9 +415,9 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
           disabled={!!activeOp}
         >
           {isOperationActive('fetch') ? (
-            <span className="toolbar-btn-icon toolbar-spinner">⟳</span>
+            <span className="toolbar-btn-icon toolbar-spinner"><Loader2 size={18} className="lucide-icon" /></span>
           ) : (
-            <span className="toolbar-btn-icon">⟳</span>
+            <span className="toolbar-btn-icon"><RefreshCw size={18} className="lucide-icon" /></span>
           )}
           <span className="toolbar-btn-label">Fetch</span>
         </button>
@@ -413,7 +425,7 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
       <div className="toolbar-separator" />
       <div className="toolbar-group">
         <button className="toolbar-btn" title="Branch">
-          <span className="toolbar-btn-icon">⑂</span>
+          <span className="toolbar-btn-icon"><GitBranch size={18} className="lucide-icon" /></span>
           <span className="toolbar-btn-label">Branch</span>
         </button>
         <button
@@ -424,14 +436,14 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
           }}
           disabled={!currentRepo}
         >
-          <span className="toolbar-btn-icon">⤞</span>
+          <span className="toolbar-btn-icon"><GitMerge size={18} className="lucide-icon" /></span>
           <span className="toolbar-btn-label">Merge</span>
         </button>
       </div>
       <div className="toolbar-separator" />
       <div className="toolbar-group">
         <button className="toolbar-btn" title="Stash" onClick={openStashDialog}>
-          <span className="toolbar-btn-icon">📦</span>
+          <span className="toolbar-btn-icon"><Archive size={18} className="lucide-icon" /></span>
           <span className="toolbar-btn-label">Stash</span>
         </button>
       </div>
@@ -458,7 +470,7 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
       {/* Inline notification fallback (when no centralized notification system) */}
       {!onNotify && notification && (
         <div className={`toolbar-notification toolbar-notification-${notification.type}`}>
-          {notification.type === 'success' ? '✓' : '✗'} {notification.message}
+          {notification.type === 'success' ? <Check size={14} className="lucide-icon" /> : <XCircle size={14} className="lucide-icon" />} {notification.message}
         </div>
       )}
 
@@ -533,7 +545,7 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
             <div className="branch-dialog-title">Force Push</div>
 
             <div className="force-push-warning">
-              <span className="force-push-warning-icon">⚠️</span>
+              <span className="force-push-warning-icon"><AlertTriangle size={18} className="lucide-icon" /></span>
               <p>
                 <strong>Warning:</strong> Force push will overwrite the remote branch history.
                 This can cause data loss for other collaborators.
