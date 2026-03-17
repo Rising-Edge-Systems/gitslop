@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
-import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ResetDialog } from './ResetDialog'
 import { assignLanes, type ParsedRef, type ParentConnection } from './laneAssignment'
@@ -80,6 +80,19 @@ interface ContextMenuState {
   y: number
   commit: GitCommit
   refs: ParsedRef[]
+}
+
+interface BranchContextMenuState {
+  x: number
+  y: number
+  ref: ParsedRef
+  commitHash: string
+}
+
+interface TooltipState {
+  x: number
+  y: number
+  message: string
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -564,6 +577,9 @@ interface CommitRowProps {
   selectedHashes: Set<string>
   onRowClick: (index: number, event: React.MouseEvent) => void
   onRowContextMenu: (index: number, event: React.MouseEvent) => void
+  onRefContextMenu: (ref: ParsedRef, commitHash: string, event: React.MouseEvent) => void
+  onRowMouseEnter: (index: number, event: React.MouseEvent) => void
+  onRowMouseLeave: () => void
 }
 
 function CommitRowComponent(props: {
@@ -571,7 +587,7 @@ function CommitRowComponent(props: {
   index: number
   style: React.CSSProperties
 } & CommitRowProps): React.ReactElement {
-  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, onRowClick, onRowContextMenu } = props
+  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, onRowClick, onRowContextMenu, onRefContextMenu, onRowMouseEnter, onRowMouseLeave } = props
   const node = nodes[index]
   const { commit, refs } = node
   const isSelected = commit.hash === selectedHash || selectedHashes.has(commit.hash)
@@ -584,12 +600,24 @@ function CommitRowComponent(props: {
     onRowContextMenu(index, e)
   }, [index, onRowContextMenu])
 
+  const handleRefContextMenu = useCallback((ref: ParsedRef, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onRefContextMenu(ref, commit.hash, e)
+  }, [commit.hash, onRefContextMenu])
+
+  const handleMouseEnter = useCallback((e: React.MouseEvent) => {
+    onRowMouseEnter(index, e)
+  }, [index, onRowMouseEnter])
+
   return (
     <div
       className={`${styles.row}${isSelected ? ` ${styles.rowSelected}` : ''}`}
       style={style}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={onRowMouseLeave}
       data-index={index}
     >
       {/* Graph space (transparent — SVG draws underneath) */}
@@ -606,6 +634,7 @@ function CommitRowComponent(props: {
                 key={idx}
                 className={`${styles.ref} ${refTypeClass[ref.type] || ''}`}
                 title={ref.name}
+                onContextMenu={(e) => handleRefContextMenu(ref, e)}
               >
                 {ref.type === 'head' && <span className={styles.refHeadIcon}><CircleDot size={12} /> </span>}
                 {ref.name}
@@ -663,19 +692,27 @@ function CommitContextMenu({ state, multiSelectCount, onClose, onAction }: Commi
     const handleEscape = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose()
     }
+    const handleScroll = (): void => { onClose() }
     document.addEventListener('mousedown', handleClickOutside)
     document.addEventListener('keydown', handleEscape)
+    window.addEventListener('scroll', handleScroll, true)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleEscape)
+      window.removeEventListener('scroll', handleScroll, true)
     }
   }, [onClose])
 
-  // Adjust position if near edge of window
+  // Adjust position to stay within viewport bounds
+  const menuHeight = 280 // approximate
+  const menuWidth = 220
+  const adjustedX = Math.min(state.x, window.innerWidth - menuWidth - 8)
+  const adjustedY = state.y + menuHeight > window.innerHeight ? Math.max(8, state.y - menuHeight) : state.y
+
   const menuStyle: React.CSSProperties = {
     position: 'fixed',
-    left: state.x,
-    top: state.y,
+    left: adjustedX,
+    top: adjustedY,
     zIndex: 2000
   }
 
@@ -684,6 +721,8 @@ function CommitContextMenu({ state, multiSelectCount, onClose, onAction }: Commi
     : 'Cherry-pick'
 
   const items: { label: string; action: string; icon: React.ReactNode; shortcut: string }[] = [
+    { label: 'Checkout', action: 'checkout', icon: <LogOut size={14} />, shortcut: '' },
+    { label: '---', action: '', icon: null, shortcut: '' },
     { label: cherryPickLabel, action: 'cherry-pick', icon: <Cherry size={14} />, shortcut: '' },
     { label: 'Revert', action: 'revert', icon: <Undo2 size={14} />, shortcut: '' },
     { label: 'Reset current branch to here', action: 'reset', icon: <SkipBack size={14} />, shortcut: '' },
@@ -717,6 +756,153 @@ function CommitContextMenu({ state, multiSelectCount, onClose, onAction }: Commi
           </button>
         )
       })}
+    </div>
+  )
+}
+
+// ─── Branch/Ref Context Menu Component ──────────────────────────────────────
+
+interface BranchContextMenuProps {
+  state: BranchContextMenuState
+  repoPath: string
+  onClose: () => void
+  onRefresh: () => void
+}
+
+function BranchRefContextMenu({ state, repoPath, onClose, onRefresh }: BranchContextMenuProps): React.JSX.Element {
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+    const handleEscape = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onClose()
+    }
+    const handleScroll = (): void => { onClose() }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    window.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+      window.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [onClose])
+
+  const menuStyle: React.CSSProperties = {
+    position: 'fixed',
+    left: state.x,
+    top: state.y,
+    zIndex: 2000
+  }
+
+  const { ref } = state
+  const isBranch = ref.type === 'branch' || ref.type === 'head'
+  const isRemote = ref.type === 'remote'
+  const isTag = ref.type === 'tag'
+
+  const handleAction = async (action: string): Promise<void> => {
+    onClose()
+    try {
+      switch (action) {
+        case 'checkout':
+          await window.electronAPI.git.checkout(repoPath, ref.name)
+          onRefresh()
+          break
+        case 'merge':
+          await window.electronAPI.git.merge(repoPath, ref.name)
+          onRefresh()
+          break
+        case 'rebase':
+          await window.electronAPI.git.rebase(repoPath, ref.name)
+          onRefresh()
+          break
+        case 'delete':
+          if (isTag) {
+            await window.electronAPI.git.deleteTag(repoPath, ref.name)
+          } else {
+            await window.electronAPI.git.deleteBranch(repoPath, ref.name, { force: false })
+          }
+          onRefresh()
+          break
+        case 'push':
+          await window.electronAPI.git.push(repoPath, {})
+          onRefresh()
+          break
+        case 'copy-name':
+          navigator.clipboard.writeText(ref.name).catch(() => {})
+          break
+      }
+    } catch (err) {
+      console.error(`Branch action ${action} failed:`, err)
+    }
+  }
+
+  const items: { label: string; action: string; icon: React.ReactNode; shortcut: string }[] = []
+
+  if (isBranch || isRemote) {
+    items.push({ label: 'Checkout', action: 'checkout', icon: <LogOut size={14} />, shortcut: '' })
+    items.push({ label: 'Merge into current', action: 'merge', icon: <GitMerge size={14} />, shortcut: '' })
+    items.push({ label: 'Rebase onto', action: 'rebase', icon: <GitBranch size={14} />, shortcut: '' })
+    items.push({ label: '---', action: '', icon: null, shortcut: '' })
+    if (isBranch) {
+      items.push({ label: 'Delete', action: 'delete', icon: <Trash2 size={14} />, shortcut: '' })
+      items.push({ label: 'Push', action: 'push', icon: <ArrowUpFromLine size={14} />, shortcut: '' })
+    }
+    items.push({ label: '---', action: '', icon: null, shortcut: '' })
+  }
+
+  if (isTag) {
+    items.push({ label: 'Checkout', action: 'checkout', icon: <LogOut size={14} />, shortcut: '' })
+    items.push({ label: '---', action: '', icon: null, shortcut: '' })
+    items.push({ label: 'Delete tag', action: 'delete', icon: <Trash2 size={14} />, shortcut: '' })
+    items.push({ label: 'Push tag', action: 'push', icon: <ArrowUpFromLine size={14} />, shortcut: '' })
+    items.push({ label: '---', action: '', icon: null, shortcut: '' })
+  }
+
+  items.push({ label: 'Copy name', action: 'copy-name', icon: <Clipboard size={14} />, shortcut: '' })
+
+  return (
+    <div className={styles.ctxMenu} ref={menuRef} style={menuStyle}>
+      {items.map((item, idx) => {
+        if (item.label === '---') {
+          return <div key={idx} className={styles.ctxMenuSeparator} />
+        }
+        return (
+          <button
+            key={idx}
+            className={styles.ctxMenuItem}
+            onClick={() => handleAction(item.action)}
+          >
+            <span className={styles.ctxMenuIcon}>{item.icon}</span>
+            <span className={styles.ctxMenuLabel}>{item.label}</span>
+            {item.shortcut && (
+              <span className={styles.ctxMenuShortcut}>{item.shortcut}</span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Commit Tooltip Component ────────────────────────────────────────────────
+
+function CommitTooltip({ tooltip }: { tooltip: TooltipState }): React.JSX.Element {
+  return (
+    <div
+      className={styles.tooltip}
+      style={{
+        position: 'fixed',
+        left: tooltip.x,
+        top: tooltip.y,
+        zIndex: 3000
+      }}
+    >
+      {tooltip.message}
     </div>
   )
 }
@@ -919,6 +1105,9 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
   const [selectedHash, setSelectedHash] = useState<string | null>(null)
   const [commitDetail, setCommitDetail] = useState<CommitDetail | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [branchContextMenu, setBranchContextMenu] = useState<BranchContextMenuState | null>(null)
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null)
+  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set())
   const [cherryPickState, setCherryPickState] = useState<CherryPickState>({ status: 'idle', message: '' })
@@ -1111,6 +1300,59 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
     })
   }, [nodes, loadCommitDetail])
 
+  // Handle right-click on branch/tag ref label
+  const handleRefContextMenu = useCallback((ref: ParsedRef, commitHash: string, event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    // Close commit context menu if open
+    setContextMenu(null)
+    setBranchContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      ref,
+      commitHash
+    })
+  }, [])
+
+  // Tooltip on row hover
+  const handleRowMouseEnter = useCallback((index: number, event: React.MouseEvent) => {
+    const node = nodes[index]
+    if (!node) return
+    // Clear any pending tooltip timer
+    if (tooltipTimerRef.current) {
+      clearTimeout(tooltipTimerRef.current)
+    }
+    // Show tooltip after a small delay
+    tooltipTimerRef.current = setTimeout(() => {
+      const fullMessage = node.commit.body
+        ? `${node.commit.subject}\n\n${node.commit.body.trim()}`
+        : node.commit.subject
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+      setTooltip({
+        x: Math.min(rect.left + 100, window.innerWidth - 420),
+        y: rect.bottom + 4,
+        message: fullMessage.length > 300 ? fullMessage.substring(0, 300) + '...' : fullMessage
+      })
+    }, 600)
+  }, [nodes])
+
+  const handleRowMouseLeave = useCallback(() => {
+    if (tooltipTimerRef.current) {
+      clearTimeout(tooltipTimerRef.current)
+      tooltipTimerRef.current = null
+    }
+    setTooltip(null)
+  }, [])
+
+  // Clean up tooltip timer on unmount
+  useEffect(() => {
+    return () => {
+      if (tooltipTimerRef.current) {
+        clearTimeout(tooltipTimerRef.current)
+      }
+    }
+  }, [])
+
   // Canvas hit-testing callbacks
   const handleCanvasNodeHover = useCallback((index: number | null) => {
     setCanvasHoverIndex(index)
@@ -1294,8 +1536,16 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
   }, [repoPath, loadCommits])
 
   // Handle context menu actions
-  const handleContextAction = useCallback((action: string, commit: GitCommit) => {
+  const handleContextAction = useCallback(async (action: string, commit: GitCommit) => {
     switch (action) {
+      case 'checkout':
+        try {
+          await window.electronAPI.git.checkout(repoPath, commit.hash)
+          loadCommits()
+        } catch (err) {
+          console.error('Checkout failed:', err)
+        }
+        break
       case 'copy-sha':
         navigator.clipboard.writeText(commit.hash).catch(() => {
           // Clipboard write failed silently
@@ -1321,7 +1571,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
         console.log(`Action: ${action} on commit ${commit.shortHash}`)
         break
     }
-  }, [selectedHashes, handleCherryPick, handleRevert])
+  }, [repoPath, selectedHashes, handleCherryPick, handleRevert, loadCommits])
 
   // Keyboard navigation
   useEffect(() => {
@@ -1342,6 +1592,14 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
           e.preventDefault()
           newIndex = selectedIndex < 0 ? 0 : Math.max(selectedIndex - 1, 0)
           break
+        case 'Enter':
+          e.preventDefault()
+          // Open commit details for currently selected commit
+          if (selectedIndex >= 0 && nodes[selectedIndex]) {
+            const node = nodes[selectedIndex]
+            loadCommitDetail(node.commit.hash, node.refs)
+          }
+          return
         case 'Escape':
           setSelectedIndex(-1)
           setSelectedHash(null)
@@ -1372,6 +1630,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
     const target = event.currentTarget
     setScrollOffset(target.scrollTop)
+    // Close menus on scroll
+    setContextMenu(null)
+    setBranchContextMenu(null)
+    setTooltip(null)
   }, [])
 
   const handleRowsRendered = useCallback((
@@ -1398,8 +1660,11 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
     selectedHash,
     selectedHashes,
     onRowClick: handleRowClick,
-    onRowContextMenu: handleRowContextMenu
-  }), [nodes, graphWidth, selectedHash, selectedHashes, handleRowClick, handleRowContextMenu])
+    onRowContextMenu: handleRowContextMenu,
+    onRefContextMenu: handleRefContextMenu,
+    onRowMouseEnter: handleRowMouseEnter,
+    onRowMouseLeave: handleRowMouseLeave
+  }), [nodes, graphWidth, selectedHash, selectedHashes, handleRowClick, handleRowContextMenu, handleRefContextMenu, handleRowMouseEnter, handleRowMouseLeave])
 
   if (loading && commits.length === 0) {
     return (
@@ -1499,6 +1764,19 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
             onAction={handleContextAction}
           />
         )}
+
+        {/* Branch/ref context menu */}
+        {branchContextMenu && (
+          <BranchRefContextMenu
+            state={branchContextMenu}
+            repoPath={repoPath}
+            onClose={() => setBranchContextMenu(null)}
+            onRefresh={handleRefresh}
+          />
+        )}
+
+        {/* Hover tooltip */}
+        {tooltip && <CommitTooltip tooltip={tooltip} />}
 
         {/* Cherry-pick notification */}
         {cherryPickState.status !== 'idle' && (

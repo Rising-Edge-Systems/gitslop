@@ -371,6 +371,26 @@
   margin: var(--space-xs) var(--space-sm);
 }
 
+/* ─── Commit Tooltip ───────────────────────────────────────────────────── */
+
+.tooltip {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  max-width: 400px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+  pointer-events: none;
+  overflow: hidden;
+  max-height: 120px;
+  text-overflow: ellipsis;
+}
+
 /* ─── Commit Detail Panel ───────────────────────────────────────────────── */
 
 .detailWrapper {
