@@ -1,4 +1,32 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import {
+  ChevronRight,
+  GitBranch,
+  Globe,
+  Tag,
+  Archive,
+  Package,
+  FolderOpen,
+  ArrowRightLeft,
+  Pencil,
+  GitMerge,
+  RotateCcw,
+  ArrowUpFromLine,
+  Trash2,
+  X,
+  AlertTriangle,
+  RefreshCw,
+  Check,
+  Circle,
+  CircleDot,
+  ArrowDown,
+  ArrowUp,
+  ExternalLink,
+  CornerRightUp,
+  CornerUpRight,
+  Bell,
+  Download
+} from 'lucide-react'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
 import { FileTree } from './FileTree'
@@ -39,7 +67,7 @@ interface NewBranchDialogState {
 
 interface SidebarSectionProps {
   title: string
-  icon: string
+  icon: React.ReactNode
   defaultOpen?: boolean
   count?: number
   children: React.ReactNode
@@ -64,7 +92,7 @@ function SidebarSection({
     <div className="sidebar-section">
       <div className="sidebar-section-header-row">
         <button className="sidebar-section-header" onClick={toggle}>
-          <span className={`sidebar-section-chevron ${isOpen ? 'open' : ''}`}>&#9654;</span>
+          <span className={`sidebar-section-chevron ${isOpen ? 'open' : ''}`}><ChevronRight size={14} /></span>
           <span className="sidebar-section-icon">{icon}</span>
           <span className="sidebar-section-title">{title}</span>
           {count !== undefined && count > 0 && (
@@ -142,7 +170,7 @@ function BranchContextMenu({
             onClose()
           }}
         >
-          <span className="branch-ctx-menu-icon">&#10140;</span>
+          <span className="branch-ctx-menu-icon"><ArrowRightLeft size={14} /></span>
           <span className="branch-ctx-menu-label">Checkout</span>
         </button>
       )}
@@ -153,7 +181,7 @@ function BranchContextMenu({
           onClose()
         }}
       >
-        <span className="branch-ctx-menu-icon">&#9998;</span>
+        <span className="branch-ctx-menu-icon"><Pencil size={14} /></span>
         <span className="branch-ctx-menu-label">Rename</span>
       </button>
       {!isCurrent && (
@@ -166,7 +194,7 @@ function BranchContextMenu({
               onClose()
             }}
           >
-            <span className="branch-ctx-menu-icon">&#8623;</span>
+            <span className="branch-ctx-menu-icon"><GitMerge size={14} /></span>
             <span className="branch-ctx-menu-label">Merge into {currentBranch}</span>
           </button>
           <button
@@ -176,7 +204,7 @@ function BranchContextMenu({
               onClose()
             }}
           >
-            <span className="branch-ctx-menu-icon">&#8634;</span>
+            <span className="branch-ctx-menu-icon"><RotateCcw size={14} /></span>
             <span className="branch-ctx-menu-label">Rebase onto {state.branch.name}</span>
           </button>
         </>
@@ -190,7 +218,7 @@ function BranchContextMenu({
             onClose()
           }}
         >
-          <span className="branch-ctx-menu-icon">&#8682;</span>
+          <span className="branch-ctx-menu-icon"><ArrowUpFromLine size={14} /></span>
           <span className="branch-ctx-menu-label">Push</span>
           <span className="branch-ctx-menu-shortcut">Ctrl+Shift+P</span>
         </button>
@@ -203,7 +231,7 @@ function BranchContextMenu({
             onClose()
           }}
         >
-          <span className="branch-ctx-menu-icon">&#128465;</span>
+          <span className="branch-ctx-menu-icon"><Trash2 size={14} /></span>
           <span className="branch-ctx-menu-label">Delete</span>
         </button>
       )}
@@ -252,7 +280,7 @@ function NewBranchDialog({
         <div className="branch-dialog-header">
           <h3 className="branch-dialog-title">New Branch</h3>
           <button className="branch-dialog-close" onClick={onClose}>
-            &#10005;
+            <X size={14} />
           </button>
         </div>
         <div className="branch-dialog-body">
@@ -296,7 +324,7 @@ function NewBranchDialog({
           </label>
           {state.error && (
             <div className="branch-dialog-error">
-              <span>&#9888;</span> {state.error}
+              <AlertTriangle size={14} /> {state.error}
             </div>
           )}
         </div>
@@ -361,7 +389,7 @@ function RenameDialog({ oldName, onClose, onSubmit }: RenameDialogProps): React.
         <div className="branch-dialog-header">
           <h3 className="branch-dialog-title">Rename Branch</h3>
           <button className="branch-dialog-close" onClick={onClose}>
-            &#10005;
+            <X size={14} />
           </button>
         </div>
         <div className="branch-dialog-body">
@@ -380,7 +408,7 @@ function RenameDialog({ oldName, onClose, onSubmit }: RenameDialogProps): React.
           </div>
           {error && (
             <div className="branch-dialog-error">
-              <span>&#9888;</span> {error}
+              <AlertTriangle size={14} /> {error}
             </div>
           )}
         </div>
@@ -620,7 +648,7 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
     <>
       <SidebarSection
         title="Remotes"
-        icon="&#9729;"
+        icon={<Globe size={16} />}
         defaultOpen={false}
         count={remotes.length}
         headerAction={
@@ -655,7 +683,7 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
                     }}
                     title={`${remote.name}\nFetch: ${remote.fetchUrl}\nPush: ${remote.pushUrl}`}
                   >
-                    <span className={`sidebar-section-chevron ${isExpanded ? 'open' : ''}`}>&#9654;</span>
+                    <span className={`sidebar-section-chevron ${isExpanded ? 'open' : ''}`}><ChevronRight size={14} /></span>
                     <span className="sidebar-remote-name">{remote.name}</span>
                     <span className="sidebar-section-count">{branches.length}</span>
                   </div>
@@ -724,7 +752,7 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
             <div className="branch-dialog-header">
               <h3 className="branch-dialog-title">Add Remote</h3>
               <button className="branch-dialog-close" onClick={() => setAddRemoteDialog((p) => ({ ...p, open: false }))}>
-                &#10005;
+                <X size={14} />
               </button>
             </div>
             <div className="branch-dialog-body">
@@ -753,7 +781,7 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
               </div>
               {addRemoteDialog.error && (
                 <div className="branch-dialog-error">
-                  <span>&#9888;</span> {addRemoteDialog.error}
+                  <AlertTriangle size={14} /> {addRemoteDialog.error}
                 </div>
               )}
             </div>
@@ -787,7 +815,7 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
             <div className="branch-dialog-header">
               <h3 className="branch-dialog-title">Edit Remote: {editRemoteDialog.name}</h3>
               <button className="branch-dialog-close" onClick={() => setEditRemoteDialog((p) => ({ ...p, open: false }))}>
-                &#10005;
+                <X size={14} />
               </button>
             </div>
             <div className="branch-dialog-body">
@@ -804,7 +832,7 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
               </div>
               {editRemoteDialog.error && (
                 <div className="branch-dialog-error">
-                  <span>&#9888;</span> {editRemoteDialog.error}
+                  <AlertTriangle size={14} /> {editRemoteDialog.error}
                 </div>
               )}
             </div>
@@ -862,16 +890,16 @@ function RemoteContextMenu({ state, onClose, onFetch, onEdit, onRemove }: Remote
       style={{ position: 'fixed', left: state.x, top: state.y, zIndex: 2000 }}
     >
       <button className="branch-ctx-menu-item" onClick={() => onFetch(state.remote.name)}>
-        <span className="branch-ctx-menu-icon">&#8635;</span>
+        <span className="branch-ctx-menu-icon"><RefreshCw size={14} /></span>
         <span className="branch-ctx-menu-label">Fetch</span>
       </button>
       <button className="branch-ctx-menu-item" onClick={() => onEdit(state.remote)}>
-        <span className="branch-ctx-menu-icon">&#9998;</span>
+        <span className="branch-ctx-menu-icon"><Pencil size={14} /></span>
         <span className="branch-ctx-menu-label">Edit URL</span>
       </button>
       <div className="branch-ctx-menu-separator" />
       <button className="branch-ctx-menu-item branch-ctx-menu-item-danger" onClick={() => onRemove(state.remote.name)}>
-        <span className="branch-ctx-menu-icon">&#128465;</span>
+        <span className="branch-ctx-menu-icon"><Trash2 size={14} /></span>
         <span className="branch-ctx-menu-label">Remove</span>
       </button>
     </div>
@@ -913,16 +941,16 @@ function RemoteBranchContextMenu({ state, onClose, onCheckout, onDelete, onFetch
       style={{ position: 'fixed', left: state.x, top: state.y, zIndex: 2000 }}
     >
       <button className="branch-ctx-menu-item" onClick={() => onCheckout(state.remote, state.branch)}>
-        <span className="branch-ctx-menu-icon">&#10140;</span>
+        <span className="branch-ctx-menu-icon"><ArrowRightLeft size={14} /></span>
         <span className="branch-ctx-menu-label">Checkout as local branch</span>
       </button>
       <button className="branch-ctx-menu-item" onClick={() => onFetch(state.remote)}>
-        <span className="branch-ctx-menu-icon">&#8635;</span>
+        <span className="branch-ctx-menu-icon"><RefreshCw size={14} /></span>
         <span className="branch-ctx-menu-label">Fetch</span>
       </button>
       <div className="branch-ctx-menu-separator" />
       <button className="branch-ctx-menu-item branch-ctx-menu-item-danger" onClick={() => onDelete(state.remote, state.branch)}>
-        <span className="branch-ctx-menu-icon">&#128465;</span>
+        <span className="branch-ctx-menu-icon"><Trash2 size={14} /></span>
         <span className="branch-ctx-menu-label">Delete remote branch</span>
       </button>
     </div>
@@ -1129,7 +1157,7 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
     <>
       <SidebarSection
         title="Tags"
-        icon="&#127991;"
+        icon={<Tag size={16} />}
         defaultOpen={false}
         count={tags.length}
         headerAction={
@@ -1204,7 +1232,7 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
               setContextMenu(null)
             }}
           >
-            <span className="branch-ctx-menu-icon">&#10004;</span>
+            <span className="branch-ctx-menu-icon"><Check size={14} /></span>
             <span className="branch-ctx-menu-label">Checkout tag</span>
           </button>
           <div className="branch-ctx-menu-separator" />
@@ -1215,7 +1243,7 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
               setContextMenu(null)
             }}
           >
-            <span className="branch-ctx-menu-icon">&#128465;</span>
+            <span className="branch-ctx-menu-icon"><Trash2 size={14} /></span>
             <span className="branch-ctx-menu-label">Delete tag</span>
           </button>
           <button
@@ -1225,7 +1253,7 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
               setContextMenu(null)
             }}
           >
-            <span className="branch-ctx-menu-icon">&#8593;</span>
+            <span className="branch-ctx-menu-icon"><ArrowUpFromLine size={14} /></span>
             <span className="branch-ctx-menu-label">Push tag</span>
           </button>
         </div>
@@ -1499,7 +1527,7 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
     <>
       <SidebarSection
         title="Stashes"
-        icon="&#128230;"
+        icon={<Archive size={16} />}
         defaultOpen={false}
         count={stashes.length}
         headerAction={
@@ -1531,7 +1559,7 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
                 onContextMenu={(e) => handleStashContextMenu(e, stash)}
                 title={`stash@{${stash.index}}: ${stash.message}`}
               >
-                <span className="sidebar-stash-icon">&#128230;</span>
+                <span className="sidebar-stash-icon"><Archive size={14} /></span>
                 <div className="sidebar-stash-info">
                   <span className="sidebar-stash-message">
                     {stash.message || `stash@{${stash.index}}`}
@@ -1552,7 +1580,7 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
           <div className="stash-diff-panel" onClick={(e) => e.stopPropagation()}>
             <div className="stash-diff-header">
               <span>stash@&#123;{selectedStash.index}&#125;: {selectedStash.message}</span>
-              <button className="stash-diff-close" onClick={() => { setSelectedStash(null); setStashDiff(null) }}>✕</button>
+              <button className="stash-diff-close" onClick={() => { setSelectedStash(null); setStashDiff(null) }}><X size={14} /></button>
             </div>
             <pre className="stash-diff-content">{stashDiff}</pre>
           </div>
@@ -1570,14 +1598,14 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
             className="branch-ctx-menu-item"
             onClick={() => { handleApply(contextMenu.stash.index); setContextMenu(null) }}
           >
-            <span className="branch-ctx-menu-icon">&#10548;</span>
+            <span className="branch-ctx-menu-icon"><CornerRightUp size={14} /></span>
             <span className="branch-ctx-menu-label">Apply</span>
           </button>
           <button
             className="branch-ctx-menu-item"
             onClick={() => { handlePop(contextMenu.stash.index); setContextMenu(null) }}
           >
-            <span className="branch-ctx-menu-icon">&#8599;</span>
+            <span className="branch-ctx-menu-icon"><CornerUpRight size={14} /></span>
             <span className="branch-ctx-menu-label">Pop</span>
           </button>
           <div className="branch-ctx-menu-separator" />
@@ -1585,7 +1613,7 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
             className="branch-ctx-menu-item branch-ctx-menu-item-danger"
             onClick={() => { handleDrop(contextMenu.stash.index); setContextMenu(null) }}
           >
-            <span className="branch-ctx-menu-icon">&#128465;</span>
+            <span className="branch-ctx-menu-icon"><Trash2 size={14} /></span>
             <span className="branch-ctx-menu-label">Drop</span>
           </button>
         </div>
@@ -1762,16 +1790,16 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
     [currentRepo]
   )
 
-  const statusIcon = (status: GitSubmodule['status']): string => {
+  const statusIcon = (status: GitSubmodule['status']): React.ReactNode => {
     switch (status) {
       case 'initialized':
-        return '✓'
+        return <Check size={12} />
       case 'uninitialized':
-        return '○'
+        return <Circle size={12} />
       case 'dirty':
-        return '●'
+        return <CircleDot size={12} />
       case 'out-of-date':
-        return '↓'
+        return <ArrowDown size={12} />
       default:
         return '?'
     }
@@ -1797,7 +1825,7 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
 
   return (
     <>
-      <SidebarSection title="Submodules" icon="📦" defaultOpen={true} count={submodules.length}>
+      <SidebarSection title="Submodules" icon={<Package size={16} />} defaultOpen={true} count={submodules.length}>
         <div className="sidebar-list">
           {submodules.map((sm) => (
             <div
@@ -1846,7 +1874,7 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
                 setContextMenu(null)
               }}
             >
-              <span className="branch-ctx-menu-icon">⬇</span>
+              <span className="branch-ctx-menu-icon"><Download size={14} /></span>
               <span className="branch-ctx-menu-label">
                 {contextMenu.submodule.status === 'uninitialized'
                   ? 'Init & Update'
@@ -1863,7 +1891,7 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
                 setContextMenu(null)
               }}
             >
-              <span className="branch-ctx-menu-icon">🔄</span>
+              <span className="branch-ctx-menu-icon"><RefreshCw size={14} /></span>
               <span className="branch-ctx-menu-label">Update</span>
             </button>
           )}
@@ -1875,7 +1903,7 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
               setContextMenu(null)
             }}
           >
-            <span className="branch-ctx-menu-icon">↗</span>
+            <span className="branch-ctx-menu-icon"><ExternalLink size={14} /></span>
             <span className="branch-ctx-menu-label">Open as Repository</span>
           </button>
         </div>
@@ -2089,14 +2117,14 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
           onClick={() => setActiveTab('git')}
           title="Git"
         >
-          &#9922; Git
+          <GitBranch size={14} /> Git
         </button>
         <button
           className={`sidebar-tab ${activeTab === 'files' ? 'sidebar-tab-active' : ''}`}
           onClick={() => setActiveTab('files')}
           title="Files"
         >
-          &#128193; Files
+          <FolderOpen size={14} /> Files
         </button>
       </div>
 
@@ -2117,7 +2145,7 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
       <>
       <SidebarSection
         title="Branches"
-        icon="&#9922;"
+        icon={<GitBranch size={16} />}
         defaultOpen={true}
         count={branches.length}
         headerAction={
@@ -2152,7 +2180,7 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
                     className="sidebar-search-clear"
                     onClick={() => setSearchFilter('')}
                   >
-                    &#10005;
+                    <X size={12} />
                   </button>
                 )}
               </div>
@@ -2172,19 +2200,19 @@ export function Sidebar({ currentRepo }: SidebarProps): React.JSX.Element {
                     title={`${branch.name}${branch.upstream ? ` → ${branch.upstream}` : ''}`}
                   >
                     <span className="sidebar-branch-indicator">
-                      {branch.current ? '●' : ''}
+                      {branch.current ? <CircleDot size={12} /> : ''}
                     </span>
                     <span className="sidebar-branch-name">{branch.name}</span>
                     {(branch.ahead > 0 || branch.behind > 0) && branch.upstream && (
                       <span className="sidebar-branch-tracking">
                         {branch.ahead > 0 && (
                           <span className="sidebar-branch-ahead" title={`${branch.ahead} ahead`}>
-                            &#8593;{branch.ahead}
+                            <ArrowUp size={10} />{branch.ahead}
                           </span>
                         )}
                         {branch.behind > 0 && (
                           <span className="sidebar-branch-behind" title={`${branch.behind} behind`}>
-                            &#8595;{branch.behind}
+                            <ArrowDown size={10} />{branch.behind}
                           </span>
                         )}
                       </span>

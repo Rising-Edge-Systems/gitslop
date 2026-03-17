@@ -1,4 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import {
+  GitBranch,
+  ArrowUp,
+  ArrowDown,
+  ArrowDownToLine,
+  RefreshCw,
+  Loader2,
+  Bell,
+  Check,
+  XCircle,
+  AlertTriangle,
+  Info
+} from 'lucide-react'
 import type { Notification } from '../hooks/useNotifications'
 
 interface ActiveOperation {
@@ -114,13 +127,13 @@ export function StatusBar({
         {currentRepo && branch && (
           <>
             <span className="status-bar-branch" title={`Current branch: ${branch}`}>
-              <span className="status-bar-branch-icon">⑂</span>
+              <span className="status-bar-branch-icon"><GitBranch size={14} /></span>
               {branch}
             </span>
             {(ahead > 0 || behind > 0) && (
               <span className="status-bar-sync" title={`${ahead} ahead, ${behind} behind`}>
-                {ahead > 0 && <span className="status-bar-ahead">↑{ahead}</span>}
-                {behind > 0 && <span className="status-bar-behind">↓{behind}</span>}
+                {ahead > 0 && <span className="status-bar-ahead"><ArrowUp size={10} />{ahead}</span>}
+                {behind > 0 && <span className="status-bar-behind"><ArrowDown size={10} />{behind}</span>}
               </span>
             )}
             {incomingChanges > 0 && (
@@ -128,12 +141,12 @@ export function StatusBar({
                 className="status-bar-incoming"
                 title={`${incomingChanges} incoming commit${incomingChanges > 1 ? 's' : ''} — pull to update`}
               >
-                ⬇ {incomingChanges} incoming
+                <ArrowDownToLine size={12} /> {incomingChanges} incoming
               </span>
             )}
             {autoFetching && (
               <span className="status-bar-fetching" title="Auto-fetching...">
-                ⟳
+                <Loader2 size={12} className="status-bar-spin" />
               </span>
             )}
             {lastFetchTime && (
@@ -152,7 +165,7 @@ export function StatusBar({
       <div className="status-bar-center">
         {activeOp && (
           <div className="status-bar-operation">
-            <span className="status-bar-spinner">⟳</span>
+            <span className="status-bar-spinner"><Loader2 size={12} className="status-bar-spin" /></span>
             <span className="status-bar-op-text">{activeOp.phase}</span>
             {activeOp.percent !== null && (
               <div className="status-bar-progress">
@@ -176,9 +189,9 @@ export function StatusBar({
             title="Manual refresh — fetch from remotes and reload"
           >
             {autoFetching ? (
-              <span className="status-bar-spinner">⟳</span>
+              <span className="status-bar-spinner"><Loader2 size={14} className="status-bar-spin" /></span>
             ) : (
-              '⟳'
+              <RefreshCw size={14} />
             )}
           </button>
         )}
@@ -187,7 +200,7 @@ export function StatusBar({
           onClick={onToggleHistory}
           title={`Notifications${unreadCount > 0 ? ` (${unreadCount} new)` : ''}`}
         >
-          🔔
+          <Bell size={14} />
           {unreadCount > 0 && (
             <span className="status-bar-notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
           )}
@@ -214,7 +227,7 @@ export function StatusBar({
                 history.map((n) => (
                   <div key={n.id} className={`status-bar-history-item status-bar-history-item-${n.type}`}>
                     <span className="status-bar-history-icon">
-                      {n.type === 'success' ? '✓' : n.type === 'error' ? '✗' : n.type === 'warning' ? '⚠' : 'ℹ'}
+                      {n.type === 'success' ? <Check size={14} /> : n.type === 'error' ? <XCircle size={14} /> : n.type === 'warning' ? <AlertTriangle size={14} /> : <Info size={14} />}
                     </span>
                     <span className="status-bar-history-message">{n.message}</span>
                     <span className="status-bar-history-time">{formatTime(n.timestamp)}</span>
