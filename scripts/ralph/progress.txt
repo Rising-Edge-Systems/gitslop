@@ -19,3 +19,14 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - The SettingsPanel.tsx also has a gear emoji (line 36) in its tab config — will need updating in US-042c
   - FileTree.tsx has unicode gear symbols for yml/rs file types — these are file type indicators, not UI icons
 ---
+
+## 2026-03-16 - US-042a
+- Replaced all emoji/unicode icons in Toolbar.tsx with Lucide icons: ArrowDownToLine (pull), ArrowUpFromLine (push), RefreshCw (fetch), GitBranch (branch), GitMerge (merge), Archive (stash), Loader2 (spinner), AlertTriangle (warning), Check/XCircle (notifications)
+- Replaced all emoji/unicode icons in TitleBar.tsx with Lucide icons: Sun/Moon (theme toggle), Minus (minimize), Square/Copy (maximize/restore), X (close), "GS" text wordmark (logo)
+- Files changed: src/renderer/src/components/Toolbar.tsx, src/renderer/src/components/TitleBar.tsx
+- **Learnings for future iterations:**
+  - Toolbar icons use size={18}, TitleBar icons use size={14} for consistent sizing
+  - Loader2 icon is better than RefreshCw for spinner animations (has CSS animation support)
+  - The force push dialog warning icon was also an emoji (⚠️) — don't forget dialog content when replacing icons
+  - TitleBar logo replaced with "GS" text wordmark rather than an icon
+---
