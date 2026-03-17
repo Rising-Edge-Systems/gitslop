@@ -219,9 +219,9 @@ const GraphSVG = React.memo(function GraphSVG({
 
   const hashIndex = useMemo(() => buildHashIndex(nodes), [nodes])
 
-  // Render a buffer around visible range
-  const renderStart = Math.max(0, visibleStartIndex - 5)
-  const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 5)
+  // Render a buffer around visible range — generous buffer prevents gaps during fast scrolling
+  const renderStart = Math.max(0, visibleStartIndex - 15)
+  const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 15)
 
   const lines: React.JSX.Element[] = []
   const circles: React.JSX.Element[] = []
@@ -374,9 +374,9 @@ const GraphCanvas = React.memo(function GraphCanvas({
 
   const hashIndex = useMemo(() => buildHashIndex(nodes), [nodes])
 
-  // Render a buffer around visible range
-  const renderStart = Math.max(0, visibleStartIndex - 10)
-  const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 10)
+  // Render a buffer around visible range — generous buffer prevents gaps during fast scrolling
+  const renderStart = Math.max(0, visibleStartIndex - 15)
+  const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 15)
 
   // Draw on canvas whenever visible range or data changes
   useEffect(() => {
@@ -989,8 +989,12 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
   const [commits, setCommits] = useState<GitCommit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [scrollOffset, setScrollOffset] = useState(0)
   const [visibleRange, setVisibleRange] = useState({ start: 0, stop: 0 })
+  // Derive scrollOffset from visibleRange to stay in sync with react-window's
+  // internal scroll position. Previously, scrollOffset was tracked via a separate
+  // onScroll handler on the viewport div (which has overflow:hidden and never
+  // actually scrolls), causing it to desync from react-window's onRowsRendered.
+  const scrollOffset = visibleRange.start * ROW_HEIGHT
   const containerRef = useRef<HTMLDivElement>(null)
   const [listRef, setListRef] = useListCallbackRef()
   const [containerHeight, setContainerHeight] = useState(400)
@@ -1523,9 +1527,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
     return () => container.removeEventListener('keydown', handleKeyDown)
   }, [nodes, selectedIndex, listRef, loadCommitDetail, onCommitSelect])
 
-  const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    const target = event.currentTarget
-    setScrollOffset(target.scrollTop)
+  const handleScroll = useCallback(() => {
     // Close menus on scroll
     setContextMenu(null)
     setBranchContextMenu(null)
