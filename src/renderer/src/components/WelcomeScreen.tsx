@@ -160,24 +160,27 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
           <span className={styles.welcomeActionIcon}><FolderOpen size={24} /></span>
           <span className={styles.welcomeActionLabel}>Open Repository</span>
           <span className={styles.welcomeActionDesc}>Open an existing git repository</span>
+          <kbd className={styles.welcomeActionShortcut}>Ctrl+O</kbd>
         </button>
 
         <button className={styles.welcomeActionBtn} onClick={handleCloneRepo}>
           <span className={styles.welcomeActionIcon}><GitBranch size={24} /></span>
           <span className={styles.welcomeActionLabel}>Clone Repository</span>
           <span className={styles.welcomeActionDesc}>Clone a remote repository</span>
+          <kbd className={styles.welcomeActionShortcut}>Ctrl+Shift+C</kbd>
         </button>
 
         <button className={styles.welcomeActionBtn} onClick={handleInitRepo}>
           <span className={styles.welcomeActionIcon}><FolderPlus size={24} /></span>
           <span className={styles.welcomeActionLabel}>Init Repository</span>
           <span className={styles.welcomeActionDesc}>Initialize a new git repository</span>
+          <kbd className={styles.welcomeActionShortcut}>Ctrl+Shift+I</kbd>
         </button>
       </div>
 
-      {recentRepos.length > 0 && (
-        <div className={styles.welcomeRecent}>
-          <h2 className={styles.welcomeRecentTitle}>Recent Repositories</h2>
+      <div className={styles.welcomeRecent}>
+        <h2 className={styles.welcomeRecentTitle}>Recent Repositories</h2>
+        {recentRepos.length > 0 ? (
           <div className={styles.welcomeRecentList}>
             {recentRepos.map((repo) => (
               <button
@@ -203,8 +206,10 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
               </button>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className={styles.welcomeRecentEmpty}>No recent repositories</p>
+        )}
+      </div>
 
       {showCloneDialog && (
         <CloneDialog
