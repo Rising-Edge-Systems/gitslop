@@ -502,3 +502,15 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `notifications.slice(-MAX_VISIBLE_TOASTS)` shows the most recent N toasts (newest at bottom)
   - useNotifications returns pre-sliced `visibleNotifications` — consumers don't need to worry about limiting
 ---
+
+## 2026-03-17 - US-059
+- Redesigned TitleBar with three-section layout: left (GitSlop wordmark), center (repo name + branch with click-to-copy), right (theme toggle + window controls)
+- Redesigned StatusBar with: left (branch + ahead/behind), center (last operation status with relative time), right (encoding/line ending indicators + refresh + notification bell)
+- Status bar text is muted by default and becomes visible on hover
+- Added relative time formatting for last completed operation (e.g., "Pushed 2m ago")
+- Files changed: TitleBar.tsx, TitleBar.module.css, StatusBar.tsx, StatusBar.module.css
+- **Learnings for future iterations:**
+  - TitleBar fetches its own branch info via `window.electronAPI.git.getCurrentBranch` — self-contained, no need to thread branch through App.tsx
+  - `-webkit-app-region: drag` on parent, `-webkit-app-region: no-drag` on interactive children is the Electron pattern for custom titlebars
+  - StatusBar tracks last completed operation by saving activeOp state when it clears after timeout
+---

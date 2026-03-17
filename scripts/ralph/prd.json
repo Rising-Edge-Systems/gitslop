@@ -538,7 +538,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": "Redesigns existing TitleBar and StatusBar components. Depends on Lucide icons and CSS modules being in place."
     }
   ]
