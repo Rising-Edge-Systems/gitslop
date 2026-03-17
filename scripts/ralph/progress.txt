@@ -117,3 +117,21 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - The `.sidebar-section-title` responsive rule in the @media query also needed removal from global.css
   - Stash items use a `selected` class conditionally — handle with separate camelCase class (stashItemSelected)
 ---
+## 2026-03-17 - US-043d
+- Created CommitGraph.module.css with all commit graph, context menu, detail panel, cherry-pick, and revert notification styles (~650 lines)
+- Created StatusPanel.module.css with all status panel, status sections, file items, hunk diff viewer, and staging tab bar styles (~500 lines)
+- Created DiffViewer.module.css with all diff viewer, inline/side-by-side view, word diff, binary, and truncation styles (~300 lines)
+- Updated CommitGraph.tsx with styles import and lookup maps (refTypeClass, signatureClass, cherryPickStatusClass, revertStatusClass)
+- Updated StatusPanel.tsx with styles import and lookup maps (sectionClassMap, iconClassMap, hunkLineTypeClass)
+- Updated DiffViewer.tsx with styles import and lookup maps (lineTypeClass, sbsLineTypeClass)
+- Removed ~1900 lines of extracted styles from global.css (4346 lines remaining)
+- Kept syn-* syntax highlighting classes in global.css (used dynamically by highlightLine())
+- Files changed: CommitGraph.module.css (new), StatusPanel.module.css (new), DiffViewer.module.css (new), CommitGraph.tsx, StatusPanel.tsx, DiffViewer.tsx, global.css
+- **Learnings for future iterations:**
+  - Dynamic CSS class names (e.g., `className-${type}`) need lookup maps when converting to CSS modules: `const typeClass: Record<string, string> = { added: styles.lineAdded, ... }`
+  - Syntax highlighting token classes (syn-*) must stay global since they're returned as string values from pure functions
+  - Cherry-pick and revert notification styles (~200 lines each) are part of CommitGraph component even though they were in separate global.css sections
+  - `:global()` selector in CSS modules handles cross-module class references (e.g., `.detailDiff :global(.diff-viewer)`)
+  - StatusPanel includes hunk-diff-viewer styles (~200 lines) for line-level staging functionality
+  - After extracting 3 components, global.css is ~4346 lines — still has many component styles to extract
+---

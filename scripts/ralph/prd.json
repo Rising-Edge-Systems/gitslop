@@ -137,7 +137,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "These are the three largest remaining components with significant CSS."
     },
     {
