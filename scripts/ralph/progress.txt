@@ -450,3 +450,20 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - The `danger: true` property on ContextMenuEntry auto-inserts a separator before danger items — no need to add explicit separators before destructive actions
   - Submodule context menu items are conditional on submodule status — use IIFE pattern `(() => { ... })()` to build items inline
 ---
+## 2026-03-17 - US-056
+- Created reusable Skeleton component system: Skeleton (base), SkeletonRow, SkeletonList, SidebarSkeleton, CommitGraphSkeleton, DiffSkeleton, RepoViewSkeleton
+- Replaced loading spinner in RepoView with RepoViewSkeleton (summary cards + graph skeleton)
+- Replaced loading spinner in CommitGraph with CommitGraphSkeleton (header + 12 commit rows with lanes)
+- Replaced loading diff spinner in DetailPanel with DiffSkeleton (header + 8 code lines)
+- Replaced "Loading branches..." text in Sidebar with SkeletonList (both collapsed rail and expanded paths)
+- Removed unused Loader2 import from RepoView and DetailPanel
+- Skeleton uses CSS pulse animation (1.5s ease-in-out) with --text-secondary at varying opacity
+- StatusBar already had progress display for long operations (percentage + operation name)
+- Files changed: Skeleton.tsx (new), Skeleton.module.css (new), RepoView.tsx, CommitGraph.tsx, DetailPanel.tsx, Sidebar.tsx
+- **Learnings for future iterations:**
+  - Skeleton components use `aria-hidden="true"` for accessibility — screen readers skip them
+  - VARIED_WIDTHS array provides natural-looking varied skeleton row widths
+  - Skeleton pulse animation uses opacity 0.15-0.4 range on --text-secondary for subtle effect
+  - Skeleton components are composable: SidebarSkeleton uses SkeletonList, RepoViewSkeleton uses CommitGraphSkeleton
+  - StatusBar already implements operation progress with percentage — no additional work needed for that criterion
+---
