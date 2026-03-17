@@ -32,10 +32,13 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - Sidebar props: `collapsed: boolean` and `onToggleCollapse: () => void` — both required
 - `useWindowWidth()` hook tracks window.innerWidth — use for responsive breakpoints (e.g., DETAIL_PANEL_BREAKPOINT = 1400px)
 - Detail panel overlay: `overlay` prop switches between inline (resizable column) and overlay (fixed + backdrop) modes
+- Lane assignment: `assignLanes()` from `laneAssignment.ts` — pure function, takes `LaneCommit[]`, returns `LaneAssignmentResult[]` with lane, color, parentConnections
 - Data refresh: components use `window.electronAPI.onRepoChanged()` with debounced timeouts (500-2000ms), NOT setInterval polling
 - Loading state: only show loading spinner on initial mount (track via `initialLoadDone` ref), refresh silently in background
 - In-flight guards: use refs (`refreshInFlightRef`) to prevent overlapping async calls in the same component
 - MainContent is wrapped in React.memo — avoid passing new object/function references as props unless necessary
+- SVG commit graph: `GraphSVG` component replaces canvas; uses `assignLanes()` from laneAssignment.ts; `node.color` is pre-computed per lane
+- GraphNode uses `lane` (not `column`) and `parentConnections` (not `parents`) — aligned with laneAssignment.ts types
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -279,4 +282,23 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - The existing `GraphNode` type in CommitGraph.tsx maps closely to `LaneAssignmentResult` — can be replaced
   - Second pass to resolve parent toLane is needed because merge parents may not yet be placed when first encountered
   - LANE_COLORS is the same palette as in CommitGraph.tsx — keep in sync or replace
+---
+## 2026-03-17 - US-048b
+- Replaced Canvas-based `GraphCanvas` with SVG-based `GraphSVG` component using `<svg>`, `<line>`, `<path>`, and `<circle>` elements
+- Replaced local `computeGraphLayout()` and `parseRefs()` with imports from `laneAssignment.ts` (`assignLanes()`)
+- Removed duplicate `LANE_COLORS`, `ParsedRef`, `GraphNode` definitions — now imported from laneAssignment.ts
+- HEAD commit rendered with larger node (6px) + highlighted glow ring (9px, 35% opacity)
+- Merge commits rendered as hollow circles (bg-primary fill, colored stroke)
+- Normal commits rendered as filled colored circles (4px radius)
+- Branch lines use bezier curves for merge connections (`<path>` with cubic bezier)
+- SVG is React.memo'd for performance; uses `buildHashIndex` Map for O(1) parent lookups instead of findIndex
+- GraphNode type now uses `lane` and `color` from laneAssignment instead of `column`
+- Files changed: CommitGraph.tsx, CommitGraph.module.css
+- **Learnings for future iterations:**
+  - SVG overlay uses same positioning pattern as Canvas (position: absolute, pointerEvents: none, z-index: 1)
+  - `assignLanes()` returns `LaneCommit` not `GitCommit` — map back to full commit data after calling
+  - Build a `Map<hash, index>` for O(1) parent lookups instead of repeated `findIndex`
+  - `node.color` from lane assignment is pre-computed — no need to index into LANE_COLORS manually
+  - React.memo on GraphSVG prevents unnecessary re-renders when parent state changes
+  - SVG `overflow: visible` ensures lines extending beyond viewport boundaries render correctly
 ---
