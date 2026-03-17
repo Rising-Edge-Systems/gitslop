@@ -89,6 +89,7 @@ const GRAPH_COL_WIDTH = 16
 const GRAPH_LEFT_PAD = 12
 const NODE_RADIUS = 4
 const GRAPH_MIN_WIDTH = 40
+const CANVAS_THRESHOLD = 50000 // Switch from SVG to Canvas above this commit count
 
 // ─── Graph Layout: uses assignLanes from laneAssignment.ts ───────────────────
 
@@ -311,6 +312,214 @@ const GraphSVG = React.memo(function GraphSVG({
       {/* Nodes rendered on top */}
       {circles}
     </svg>
+  )
+})
+
+// ─── Canvas Graph Renderer (fallback for large repos) ────────────────────────
+
+interface GraphCanvasProps {
+  nodes: GraphNode[]
+  maxColumns: number
+  height: number
+  scrollOffset: number
+  visibleStartIndex: number
+  visibleStopIndex: number
+  onNodeHover?: (index: number | null) => void
+  onNodeClick?: (index: number) => void
+}
+
+/**
+ * Canvas-based commit graph renderer for repos with 50,000+ commits.
+ * Produces visually identical output to GraphSVG but uses Canvas 2D for performance.
+ * Uses offscreen rendering for visible viewport + buffer only.
+ */
+const GraphCanvas = React.memo(function GraphCanvas({
+  nodes,
+  maxColumns,
+  height,
+  scrollOffset,
+  visibleStartIndex,
+  visibleStopIndex,
+  onNodeHover,
+  onNodeClick
+}: GraphCanvasProps): React.JSX.Element {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const width = Math.max(GRAPH_MIN_WIDTH, GRAPH_LEFT_PAD + maxColumns * GRAPH_COL_WIDTH + GRAPH_LEFT_PAD)
+
+  const hashIndex = useMemo(() => buildHashIndex(nodes), [nodes])
+
+  // Render a buffer around visible range
+  const renderStart = Math.max(0, visibleStartIndex - 10)
+  const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 10)
+
+  // Draw on canvas whenever visible range or data changes
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    // Handle high-DPI displays
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = width * dpr
+    canvas.height = height * dpr
+    ctx.scale(dpr, dpr)
+    ctx.clearRect(0, 0, width, height)
+
+    // Draw lines first (below nodes)
+    for (let i = renderStart; i <= renderStop; i++) {
+      const node = nodes[i]
+      if (!node) continue
+      const y = i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+
+      for (let p = 0; p < node.parentConnections.length; p++) {
+        const conn = node.parentConnections[p]
+        const fromX = GRAPH_LEFT_PAD + conn.fromLane * GRAPH_COL_WIDTH
+        const toX = GRAPH_LEFT_PAD + conn.toLane * GRAPH_COL_WIDTH
+        const parentIdx = hashIndex.get(conn.parentHash)
+        const lineColor = node.color
+
+        ctx.strokeStyle = lineColor
+        ctx.lineWidth = 2
+        ctx.beginPath()
+
+        if (parentIdx === undefined) {
+          // Parent not in data — draw line going down off screen
+          const endY = height + ROW_HEIGHT - scrollOffset
+          if (fromX === toX) {
+            ctx.moveTo(fromX, y)
+            ctx.lineTo(toX, endY)
+          } else {
+            ctx.moveTo(fromX, y)
+            ctx.bezierCurveTo(
+              fromX, y + ROW_HEIGHT * 0.5,
+              toX, y + ROW_HEIGHT * 0.5,
+              toX, y + ROW_HEIGHT
+            )
+            ctx.moveTo(toX, y + ROW_HEIGHT)
+            ctx.lineTo(toX, endY)
+          }
+        } else {
+          const parentY = parentIdx * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+          if (fromX === toX) {
+            ctx.moveTo(fromX, y)
+            ctx.lineTo(toX, parentY)
+          } else {
+            const midY = y + ROW_HEIGHT * 0.7
+            ctx.moveTo(fromX, y)
+            ctx.bezierCurveTo(fromX, midY, toX, midY, toX, parentY)
+          }
+        }
+        ctx.stroke()
+      }
+    }
+
+    // Draw nodes on top
+    for (let i = renderStart; i <= renderStop; i++) {
+      const node = nodes[i]
+      if (!node) continue
+      const y = i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+      const x = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
+      const hasHead = node.refs.some((r) => r.type === 'head')
+
+      if (hasHead) {
+        // HEAD: glow ring
+        ctx.beginPath()
+        ctx.arc(x, y, HEAD_RING_RADIUS, 0, Math.PI * 2)
+        ctx.strokeStyle = node.color
+        ctx.lineWidth = 2
+        ctx.globalAlpha = 0.35
+        ctx.stroke()
+        ctx.globalAlpha = 1.0
+
+        // HEAD: filled node with border
+        ctx.beginPath()
+        ctx.arc(x, y, HEAD_NODE_RADIUS, 0, Math.PI * 2)
+        ctx.fillStyle = node.color
+        ctx.fill()
+        ctx.strokeStyle = '#cdd6f4'
+        ctx.lineWidth = 2
+        ctx.stroke()
+      } else if (node.isMerge) {
+        // Merge: hollow node
+        ctx.beginPath()
+        ctx.arc(x, y, NODE_RADIUS, 0, Math.PI * 2)
+        // Use a CSS-like fallback for bg-primary
+        ctx.fillStyle = '#1e1e2e'
+        ctx.fill()
+        ctx.strokeStyle = node.color
+        ctx.lineWidth = 2
+        ctx.stroke()
+      } else {
+        // Normal node: filled
+        ctx.beginPath()
+        ctx.arc(x, y, NODE_RADIUS, 0, Math.PI * 2)
+        ctx.fillStyle = node.color
+        ctx.fill()
+      }
+    }
+  }, [nodes, hashIndex, width, height, scrollOffset, renderStart, renderStop])
+
+  // Hit-testing: map canvas coordinates to commit node indices
+  const hitTest = useCallback((clientX: number, clientY: number): number | null => {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    const x = clientX - rect.left
+    const y = clientY - rect.top
+
+    // Check nodes in visible range (reverse order so top-most wins)
+    for (let i = renderStop; i >= renderStart; i--) {
+      const node = nodes[i]
+      if (!node) continue
+      const nodeX = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
+      const nodeY = i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+      const hasHead = node.refs.some((r) => r.type === 'head')
+      const hitRadius = hasHead ? HEAD_RING_RADIUS + 2 : NODE_RADIUS + 4 // Generous hit area
+
+      const dx = x - nodeX
+      const dy = y - nodeY
+      if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+        return i
+      }
+    }
+    return null
+  }, [nodes, scrollOffset, renderStart, renderStop])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!onNodeHover) return
+    const idx = hitTest(e.clientX, e.clientY)
+    onNodeHover(idx)
+  }, [hitTest, onNodeHover])
+
+  const handleMouseLeave = useCallback(() => {
+    onNodeHover?.(null)
+  }, [onNodeHover])
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (!onNodeClick) return
+    const idx = hitTest(e.clientX, e.clientY)
+    if (idx !== null) {
+      onNodeClick(idx)
+    }
+  }, [hitTest, onNodeClick])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={styles.svgGraph}
+      style={{
+        width,
+        height,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        pointerEvents: 'auto'
+      }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
+    />
   )
 })
 
@@ -804,6 +1013,12 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
   const graphWidth = Math.max(GRAPH_MIN_WIDTH, GRAPH_LEFT_PAD + maxColumns * GRAPH_COL_WIDTH + GRAPH_LEFT_PAD)
 
+  // Use Canvas renderer for large repos (50,000+ commits)
+  const useCanvas = nodes.length >= CANVAS_THRESHOLD
+
+  // Canvas hit-testing: hover state for tooltip cursor
+  const [canvasHoverIndex, setCanvasHoverIndex] = useState<number | null>(null)
+
   // Load commit detail when selected
   const loadCommitDetail = useCallback(async (hash: string, refs: ParsedRef[]) => {
     setLoadingDetail(true)
@@ -895,6 +1110,28 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
       refs: node.refs
     })
   }, [nodes, loadCommitDetail])
+
+  // Canvas hit-testing callbacks
+  const handleCanvasNodeHover = useCallback((index: number | null) => {
+    setCanvasHoverIndex(index)
+  }, [])
+
+  const handleCanvasNodeClick = useCallback((index: number) => {
+    // Delegate to the same row click handler (simulating a normal left click)
+    const node = nodes[index]
+    if (!node) return
+    setSelectedHashes(new Set())
+    if (selectedHash === node.commit.hash) {
+      setSelectedIndex(-1)
+      setSelectedHash(null)
+      setCommitDetail(null)
+      onCommitSelect?.(null)
+    } else {
+      setSelectedIndex(index)
+      setSelectedHash(node.commit.hash)
+      loadCommitDetail(node.commit.hash, node.refs)
+    }
+  }, [nodes, selectedHash, loadCommitDetail, onCommitSelect])
 
   // Cherry-pick handler
   const handleCherryPick = useCallback(async (hashes: string[]) => {
@@ -1217,15 +1454,28 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
           </button>
         </div>
 
-        <div className={styles.viewport} onScroll={handleScroll}>
-          <GraphSVG
-            nodes={nodes}
-            maxColumns={maxColumns}
-            height={viewportHeight}
-            scrollOffset={scrollOffset}
-            visibleStartIndex={visibleRange.start}
-            visibleStopIndex={visibleRange.stop}
-          />
+        <div className={styles.viewport} onScroll={handleScroll} style={canvasHoverIndex !== null ? { cursor: 'pointer' } : undefined}>
+          {useCanvas ? (
+            <GraphCanvas
+              nodes={nodes}
+              maxColumns={maxColumns}
+              height={viewportHeight}
+              scrollOffset={scrollOffset}
+              visibleStartIndex={visibleRange.start}
+              visibleStopIndex={visibleRange.stop}
+              onNodeHover={handleCanvasNodeHover}
+              onNodeClick={handleCanvasNodeClick}
+            />
+          ) : (
+            <GraphSVG
+              nodes={nodes}
+              maxColumns={maxColumns}
+              height={viewportHeight}
+              scrollOffset={scrollOffset}
+              visibleStartIndex={visibleRange.start}
+              visibleStopIndex={visibleRange.stop}
+            />
+          )}
 
           <List<CommitRowProps>
             listRef={setListRef}
