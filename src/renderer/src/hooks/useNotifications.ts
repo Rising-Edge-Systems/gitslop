@@ -7,9 +7,16 @@ export interface Notification {
   details?: string
   timestamp: number
   dismissed: boolean
+  /** Set to true when the toast is animating out (fade-out before removal) */
+  exiting?: boolean
 }
 
 let nextId = 1
+
+/** Max visible toasts at once */
+const MAX_VISIBLE_TOASTS = 3
+/** Max items kept in notification history */
+const MAX_HISTORY = 50
 
 export interface NotificationActions {
   notifications: Notification[]
@@ -33,7 +40,13 @@ export function useNotifications(): NotificationActions {
       clearTimeout(timer)
       timersRef.current.delete(id)
     }
-    setNotifications((prev) => prev.filter((n) => n.id !== id))
+    // Start exit animation, then remove after animation completes
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, exiting: true } : n))
+    )
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id))
+    }, 300) // Match CSS exit animation duration
   }, [])
 
   const addNotification = useCallback(
@@ -49,10 +62,10 @@ export function useNotifications(): NotificationActions {
       }
 
       setNotifications((prev) => [...prev, notification])
-      setHistory((prev) => [notification, ...prev].slice(0, 100)) // Keep last 100
+      setHistory((prev) => [notification, ...prev].slice(0, MAX_HISTORY))
 
-      // Auto-dismiss after timeout (errors stay longer)
-      const timeout = type === 'error' ? 8000 : 4000
+      // Auto-dismiss: errors and warnings stay longer (8s), info/success shorter (4s)
+      const timeout = type === 'error' || type === 'warning' ? 8000 : 4000
       const timer = setTimeout(() => {
         dismissNotification(id)
       }, timeout)
@@ -65,8 +78,11 @@ export function useNotifications(): NotificationActions {
     setHistory([])
   }, [])
 
+  // Only show the most recent MAX_VISIBLE_TOASTS (non-exiting + exiting)
+  const visibleNotifications = notifications.slice(-MAX_VISIBLE_TOASTS)
+
   return {
-    notifications,
+    notifications: visibleNotifications,
     history,
     addNotification,
     dismissNotification,

@@ -25,8 +25,14 @@ const typeClass: Record<string, string> = {
 function ToastItem({ notification, onDismiss }: { notification: Notification; onDismiss: (id: string) => void }): React.JSX.Element {
   const [detailsExpanded, setDetailsExpanded] = useState(false)
 
+  const toastClassName = [
+    styles.toast,
+    typeClass[notification.type] ?? '',
+    notification.exiting ? styles.toastExiting : ''
+  ].filter(Boolean).join(' ')
+
   return (
-    <div className={`${styles.toast} ${typeClass[notification.type] ?? ''}`}>
+    <div className={toastClassName}>
       <div className={styles.main}>
         <span className={styles.icon}>{TOAST_ICONS[notification.type]}</span>
         <span className={styles.message}>{notification.message}</span>
