@@ -24,6 +24,9 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - ALL component styles are now in CSS modules — global.css has only reset, layout, shared branch-dialog/ctx-menu, resize handles, syn-* tokens, and slideUp animation
 - Cross-component CSS module imports are fine: e.g., RepoView imports blameStyles, conflictStyles, editorStyles for child component wrappers
 - File watcher: all mutating git IPC handlers are wrapped with `withWatcherSuppression()` from git-ipc.ts; watcher ignores ALL `.git/` and `node_modules/` changes
+- File watcher pure logic is in `src/main/watcher-utils.ts` — testable without Electron imports
+- Tests: use `// @vitest-environment happy-dom` comment for renderer tests, no vitest.config.ts needed
+- Tests: install `@testing-library/react`, `@testing-library/dom`, `happy-dom` for React component/hook tests
 - global.css is ~448 lines (8.5KB) — the branch-dialog/ctx-menu shared styles are the bulk
 - Three-column layout: Group(vertical) > [Group(horizontal) > Sidebar | Center | DetailPanel] | Terminal — terminal spans full width
 - `onCommitSelect` callback chain: AppLayout → MainContent → RepoView → CommitGraph — lifts selected commit to layout level
@@ -614,4 +617,20 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Per-tab state uses `useRef` (not `useState`) to avoid re-renders on every state save — only the active tab's state drives UI
   - File watcher already switches correctly because RepoView's useEffect cleanup calls `watcher.stop()` and the new mount calls `watcher.start(newRepoPath)`
   - Tab reordering with drag-and-drop: use native HTML5 drag events, track drag position relative to tab midpoint for left/right indicators
+---
+
+## 2026-03-17 14:10 - US-066
+- Implemented comprehensive stability test suite
+- Created ErrorBoundary tests (6 tests): catches render errors, displays fallback UI, toggles stack trace, reload button works, logs errors
+- Created watcher-utils tests (17 tests): shouldIgnorePath for .git/node_modules filtering, suppression state machine, debounced event coalescing
+- Created useRepoTabs tests (23 tests): open/close/switch/reorder tabs, per-tab state isolation, localStorage persistence and restoration
+- Verified existing lane assignment tests (56 tests) are comprehensive
+- Extracted watcher logic from src/main/index.ts into src/main/watcher-utils.ts for testability
+- Files changed: src/main/watcher-utils.ts (new), src/main/index.ts (refactored), src/main/__tests__/watcher-utils.test.ts (new), src/renderer/src/components/__tests__/ErrorBoundary.test.tsx (new), src/renderer/src/hooks/__tests__/useRepoTabs.test.ts (new), package.json
+- **Learnings for future iterations:**
+  - vitest v4 with forks pool has issues with vi.useFakeTimers() in afterEach hooks — use real timers with short delays for debounce tests
+  - jsdom has ESM compatibility issues with vitest v4 — use happy-dom instead (`@vitest-environment happy-dom` comment)
+  - @testing-library/react requires @testing-library/dom as a peer dependency — install both
+  - Use `cleanup()` from @testing-library/react in afterEach for happy-dom environment
+  - No vitest.config.ts needed — tests work without it using electron-vite defaults; per-file `@vitest-environment` comments work for setting jsdom/happy-dom
 ---
