@@ -486,3 +486,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Electron `minHeight`/`minWidth` in BrowserWindow config enforces minimum window size at OS level
   - The DETAIL_PANEL_BREAKPOINT (1400px) already covers the <1200px overlay criterion — no additional breakpoint needed
 ---
+## 2026-03-17 - US-058
+- Redesigned notification toast system with slide-in/fade-out animations and max 3 visible toasts
+- Changed toast entrance from translateY to translateX(100%) slide-in from right (0.25s ease-out)
+- Added exit animation: toast gets `exiting` flag → CSS transition fades opacity + slides right over 300ms → removed from DOM after animation
+- Limited visible toasts to 3 (MAX_VISIBLE_TOASTS const) — older toasts hidden, newest shown
+- Changed history limit from 100 to 50 (MAX_HISTORY const)
+- Warning notifications now auto-dismiss at 8s (same as errors), up from 4s
+- Notification bell in status bar already had unread count badge — no changes needed
+- History dropdown already existed with proper styling — no changes needed
+- Files changed: useNotifications.ts, NotificationToast.tsx, NotificationToast.module.css
+- **Learnings for future iterations:**
+  - Exit animations in React require a two-phase approach: set `exiting` flag → CSS transition → setTimeout removal
+  - The 300ms removal timeout must match the CSS transition duration for smooth exit
+  - `notifications.slice(-MAX_VISIBLE_TOASTS)` shows the most recent N toasts (newest at bottom)
+  - useNotifications returns pre-sliced `visibleNotifications` — consumers don't need to worry about limiting
+---

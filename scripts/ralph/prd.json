@@ -520,7 +520,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": "Redesigns existing NotificationToast component and notification bell in StatusBar."
     },
     {
