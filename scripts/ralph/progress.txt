@@ -398,3 +398,21 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `<kbd>` element is semantically correct for keyboard shortcut hints
   - The existing toolbar uses Ctrl+O for Open Repository — keep shortcut hints consistent with toolbar tooltips
 ---
+## 2026-03-17 - US-054
+- Added smooth 200ms ease-out animations for all panel collapse/expand transitions
+- Sidebar: fadeIn animation on expanded sidebar, railSlideIn animation on icon rail, railOverlaySlideIn on floating overlay
+- Detail panel: fadeIn animation on inline mode (overlay already had slideInFromRight)
+- Terminal panel: fadeIn animation on bottom panel content, slideInFromBottom animation class on panel wrapper
+- Added panelContentFadeIn, slideInFromLeft, slideInFromBottom keyframes to global.css
+- Added panel animation classes (panel-animate-sidebar, panel-animate-detail, panel-animate-terminal) applied via react-resizable-panels className prop
+- Implemented double-click on dividers to reset panels to default sizes using usePanelRef imperative API (resize method)
+- Added cursor: col-resize / row-resize to resize handles for better UX
+- Files changed: AppLayout.tsx, BottomPanel.module.css, DetailPanel.module.css, Sidebar.module.css, global.css
+- **Learnings for future iterations:**
+  - react-resizable-panels v4 supports `panelRef` with imperative `resize()`, `collapse()`, `expand()` methods
+  - `usePanelRef()` hook from react-resizable-panels creates a ref that can be passed to Panel's `panelRef` prop
+  - Separator accepts `...rest` HTML props including `onDoubleClick` for double-click-to-reset
+  - CSS animations on panel wrappers (via Panel `className`) trigger on mount, providing smooth expand transitions
+  - Since panels are conditionally rendered with `&&`, mount-time @keyframes animations effectively animate expand
+  - For collapse animations (unmount), React doesn't support animation-before-unmount natively — use mount animations only for visual polish
+---

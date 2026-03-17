@@ -428,7 +428,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": "Polish story. May need CSS transitions on the panel wrapper elements and react-resizable-panels animation support."
     },
     {
