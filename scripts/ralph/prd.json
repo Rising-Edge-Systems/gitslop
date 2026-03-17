@@ -501,7 +501,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on three-column layout (US-044a), icon rail (US-044b), and hybrid panel (US-044c). Uses window resize observer."
     },
     {

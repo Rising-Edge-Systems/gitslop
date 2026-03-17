@@ -467,3 +467,22 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Skeleton components are composable: SidebarSkeleton uses SkeletonList, RepoViewSkeleton uses CommitGraphSkeleton
   - StatusBar already implements operation progress with percentage — no additional work needed for that criterion
 ---
+## 2026-03-17 - US-057
+- Implemented responsive layout for small windows with three breakpoint tiers
+- < 900px: Sidebar auto-collapses to icon rail mode (auto-restores when window widens if auto-collapsed)
+- < 700px: Toolbar buttons collapse to icon-only (CSS media query already existed), overflow detection uses 36px per icon-only button; TitleBar hides repo path and constrains name width; StatusBar hides center section and sync indicators
+- Minimum window size: Changed from 800x600 to 800x500 in Electron main process
+- Added `setSidebarCollapsed(boolean)` to useLayoutState hook for programmatic sidebar collapse
+- Added `autoCollapsedRef` pattern to AppLayout to track whether sidebar was auto-collapsed vs user-collapsed
+- Text truncation with ellipsis added to StatusBar branch name (max-width 200px, 120px at <700px)
+- TitleBar repo path hidden at 900px (was previously 700px), repo name constrained at 700px
+- Detail panel overlay at <1200px already covered by existing 1400px DETAIL_PANEL_BREAKPOINT
+- Panel min-width constraints already enforced by react-resizable-panels minSize props
+- Files changed: AppLayout.tsx, Toolbar.tsx, StatusBar.module.css, TitleBar.module.css, useLayoutState.ts, src/main/index.ts
+- **Learnings for future iterations:**
+  - Use `autoCollapsedRef` pattern to distinguish between user-initiated and responsive auto-collapse — only auto-restore if auto-collapsed
+  - Toolbar overflow calculation needs to account for icon-only mode at < 700px (36px vs 80px per button)
+  - StatusBar `.branch` is a flex item — needs `overflow: hidden` + `text-overflow: ellipsis` + `max-width` for proper truncation
+  - Electron `minHeight`/`minWidth` in BrowserWindow config enforces minimum window size at OS level
+  - The DETAIL_PANEL_BREAKPOINT (1400px) already covers the <1200px overlay criterion — no additional breakpoint needed
+---
