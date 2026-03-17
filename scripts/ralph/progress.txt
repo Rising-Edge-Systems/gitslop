@@ -367,3 +367,21 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `initialMode` prop on DiffViewer sets the starting mode — pass the current mode state for mode sync
   - File navigation uses `findIndex` on `fileDetails` array to determine current position
 ---
+## 2026-03-17 - US-052
+- Redesigned StatusPanel from vertical three-section layout (Staged/Unstaged/Untracked) to two-column layout (Unstaged left, Staged right)
+- Integrated commit form (subject, body, amend, sign-off, GPG, commit & push) into the bottom of the staged column, replacing the separate CommitDialog component
+- Made the entire staging area collapsible with a chevron toggle header showing file count badge
+- Merged unstaged + untracked files into a single "Unstaged Changes" column on the left
+- Added discard button (Trash2 icon) per file in the unstaged column alongside the stage (+) button
+- Added "Copy Path" to the file context menu
+- Repositioned StatusPanel below CommitGraph in RepoView (staging area at bottom of center panel)
+- Removed CommitDialog import from RepoView since commit form is now integrated into StatusPanel
+- Kept all existing functionality: drag-and-drop, hunk staging, context menus, keyboard shortcuts, diff viewer with staging/enhanced tabs
+- Files changed: StatusPanel.tsx (rewritten), StatusPanel.module.css (rewritten), RepoView.tsx (moved StatusPanel below graph, removed CommitDialog)
+- **Learnings for future iterations:**
+  - StatusPanel now imports from useSettings and useKeyboardShortcuts hooks for commit functionality
+  - The commit form Ctrl+Enter shortcut is scoped to the panel via panelRef.current.contains(active)
+  - Two-column layout uses `display: flex` with `flex: 1` on each column and a border between them
+  - CommitDialog.tsx is no longer used by RepoView but still exists — could be removed in a cleanup pass
+  - The `_forStaging` parameter in buildLinesPatch was prefixed with underscore since it's unused (lint compliance)
+---
