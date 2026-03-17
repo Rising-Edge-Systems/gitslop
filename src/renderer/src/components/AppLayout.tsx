@@ -69,22 +69,29 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   // Hybrid detail panel: inline when wide, overlay when narrow
   const useOverlayDetailPanel = windowWidth < DETAIL_PANEL_BREAKPOINT
 
-  // Auto-collapse sidebar to icon rail on narrow windows
+  // Auto-collapse sidebar to icon rail on narrow windows.
+  // Only trigger on window-width threshold crossing — not on sidebar state changes —
+  // so that manual user toggles are never overridden.
   const autoCollapsedRef = useRef(false)
+  const prevWidthNarrowRef = useRef(windowWidth < SIDEBAR_COLLAPSE_BREAKPOINT)
+
   useEffect(() => {
-    if (windowWidth < SIDEBAR_COLLAPSE_BREAKPOINT) {
-      if (!layout.sidebarCollapsed) {
-        autoCollapsedRef.current = true
-        setSidebarCollapsed(true)
-      }
-    } else {
-      // Restore sidebar when window widens, but only if we auto-collapsed it
-      if (autoCollapsedRef.current && layout.sidebarCollapsed) {
+    const isNarrow = windowWidth < SIDEBAR_COLLAPSE_BREAKPOINT
+    const wasNarrow = prevWidthNarrowRef.current
+    prevWidthNarrowRef.current = isNarrow
+
+    if (isNarrow && !wasNarrow) {
+      // Just crossed below threshold — auto-collapse
+      autoCollapsedRef.current = true
+      setSidebarCollapsed(true)
+    } else if (!isNarrow && wasNarrow) {
+      // Just crossed above threshold — restore if we auto-collapsed
+      if (autoCollapsedRef.current) {
         autoCollapsedRef.current = false
         setSidebarCollapsed(false)
       }
     }
-  }, [windowWidth, layout.sidebarCollapsed, setSidebarCollapsed])
+  }, [windowWidth, setSidebarCollapsed])
 
   // Auto-fetch: fetches on configurable interval, tracks incoming changes
   const { incomingChanges, lastFetchTime, fetching: autoFetching, manualRefresh } = useAutoFetch({

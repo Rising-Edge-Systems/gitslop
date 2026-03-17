@@ -277,15 +277,31 @@ export function useLayoutState(): {
   }, [])
 
   const toggleSidebar = useCallback(() => {
-    setLayout((prev) => ({ ...prev, sidebarVisible: !prev.sidebarVisible }))
+    setLayout((prev) => {
+      if (!prev.sidebarVisible) {
+        // Sidebar hidden → show expanded
+        return { ...prev, sidebarVisible: true, sidebarCollapsed: false }
+      }
+      if (prev.sidebarCollapsed) {
+        // Icon rail visible → expand to full sidebar
+        return { ...prev, sidebarCollapsed: false }
+      }
+      // Full sidebar visible → collapse to icon rail
+      return { ...prev, sidebarCollapsed: true }
+    })
   }, [])
 
   const toggleSidebarCollapse = useCallback(() => {
-    setLayout((prev) => ({ ...prev, sidebarCollapsed: !prev.sidebarCollapsed }))
+    setLayout((prev) => ({
+      ...prev,
+      sidebarCollapsed: !prev.sidebarCollapsed,
+      // Ensure sidebar is visible when toggling collapse
+      sidebarVisible: true
+    }))
   }, [])
 
   const setSidebarCollapsed = useCallback((collapsed: boolean) => {
-    setLayout((prev) => ({ ...prev, sidebarCollapsed: collapsed }))
+    setLayout((prev) => ({ ...prev, sidebarCollapsed: collapsed, sidebarVisible: true }))
   }, [])
 
   return {
