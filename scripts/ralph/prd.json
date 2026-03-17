@@ -660,7 +660,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 37,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-065a. This is the harder part — each tab needs isolated state. Consider a Map<repoPath, TabState> approach. File watcher must stop/start when switching tabs."
     },
     {

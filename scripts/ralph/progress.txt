@@ -599,3 +599,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - openTab() deduplicates by repoPath — if already open, just switches to it
   - App.tsx now delegates to useRepoTabs instead of useState<string | null>
 ---
+
+## 2026-03-17 14:00 - US-065b
+- Implemented per-tab state isolation for multi-repo tabs
+- Added `TabPerTabState` interface and `saveTabState`/`getTabState` to useRepoTabs hook
+- Per-tab state stored in localStorage (`gitslop-tab-states`) as a Record<repoPath, TabPerTabState>
+- AppLayout saves selectedCommit, sidebarCollapsed, detailPanelOpen when switching tabs and restores on tab switch
+- Added drag-and-drop tab reordering to TabBar with visual drop indicators
+- Added `reorderTabs` function to useRepoTabs hook with correct activeIndex tracking
+- File watcher already correctly switches via RepoView useEffect cleanup
+- Files changed: useRepoTabs.ts, TabBar.tsx, TabBar.module.css, AppLayout.tsx, App.tsx
+- **Learnings for future iterations:**
+  - `useRef` does NOT support lazy initializers like `useState` — must call the function: `useRef(loadFn())` not `useRef(loadFn)`
+  - Per-tab state uses `useRef` (not `useState`) to avoid re-renders on every state save — only the active tab's state drives UI
+  - File watcher already switches correctly because RepoView's useEffect cleanup calls `watcher.stop()` and the new mount calls `watcher.start(newRepoPath)`
+  - Tab reordering with drag-and-drop: use native HTML5 drag events, track drag position relative to tab midpoint for left/right indicators
+---
