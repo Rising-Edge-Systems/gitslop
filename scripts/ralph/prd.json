@@ -118,7 +118,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Sidebar is 2,272 lines with many style classes — this is a big extraction but scoped to one component."
     },
     {

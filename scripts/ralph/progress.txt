@@ -19,6 +19,8 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - CSS module class names use camelCase (e.g., `styles.btnActive`) instead of kebab-case
 - Shared dialog styles (`branch-dialog-*`) stay in global.css — don't move them into component modules
 - `branch-dialog-btn-primary`, `branch-dialog-btn-secondary`, `branch-dialog-btn-danger` are shared across Toolbar, Sidebar, MergeDialog, RebaseDialog, SearchPalette
+- `branch-ctx-menu-*` styles are shared across Sidebar, FileTree, ContextMenu — keep in global.css
+- FileTree.tsx imports sidebarStyles for shared classes (placeholder, searchBox, searchInput, searchClear) — update FileTree when modifying sidebar styles
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -99,4 +101,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - The original `toolbar-spinner-rotate` keyframe was never defined in global.css (broken reference) — fixed by defining `spinnerRotate` in StatusBar.module.css
   - When converting to CSS modules, keep global class names for shared dialogs but use module classes for component-specific styles
   - `@keyframes slideUp` is shared by multiple components — keep in global.css
+---
+## 2026-03-17 - US-043c
+- Created `Sidebar.module.css` with all sidebar-related styles extracted from global.css
+- Converted all sidebar-specific classNames in Sidebar.tsx to use `styles.xxx` scoped pattern
+- Updated FileTree.tsx to import `sidebarStyles` from Sidebar.module.css for shared classes (placeholder, searchBox, searchInput, searchClear)
+- Removed all sidebar-*, stash-diff-*, sidebar-submodule-* styles from global.css
+- Kept branch-ctx-menu-* and branch-dialog-* styles in global.css (shared across Sidebar, FileTree, ContextMenu, MergeDialog, etc.)
+- Replaced hardcoded pixel values with design tokens (--space-*, --font-*, --radius-*, --transition-*)
+- Files changed: Sidebar.module.css (new), Sidebar.tsx, FileTree.tsx, global.css
+- **Learnings for future iterations:**
+  - FileTree.tsx uses some sidebar classes (placeholder, search-box/input/clear) — when extracting sidebar styles, also update FileTree
+  - Cross-component imports of CSS modules are fine: `import sidebarStyles from './Sidebar.module.css'` works for sharing scoped styles
+  - branch-ctx-menu-* and branch-dialog-* are shared across 5+ components — keep in global.css until a shared module is created
+  - The `.sidebar-section-title` responsive rule in the @media query also needed removal from global.css
+  - Stash items use a `selected` class conditionally — handle with separate camelCase class (stashItemSelected)
 ---
