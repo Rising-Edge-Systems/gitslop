@@ -172,7 +172,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Set up the three-column structure. Don't implement hybrid overlay or icon rail yet — those come in later stories."
     },
     {

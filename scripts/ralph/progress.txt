@@ -24,6 +24,10 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - ALL component styles are now in CSS modules — global.css has only reset, layout, shared branch-dialog/ctx-menu, resize handles, syn-* tokens, and slideUp animation
 - Cross-component CSS module imports are fine: e.g., RepoView imports blameStyles, conflictStyles, editorStyles for child component wrappers
 - global.css is ~448 lines (8.5KB) — the branch-dialog/ctx-menu shared styles are the bulk
+- Three-column layout: Group(vertical) > [Group(horizontal) > Sidebar | Center | DetailPanel] | Terminal — terminal spans full width
+- `onCommitSelect` callback chain: AppLayout → MainContent → RepoView → CommitGraph — lifts selected commit to layout level
+- CommitDetail type exported from CommitGraph.tsx — use for detail panel props
+- Layout state (useLayoutState) persists sidebar, bottom panel, and right panel sizes to localStorage
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -152,4 +156,23 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `:has()` CSS selectors break when child class names become scoped — use modifier classes instead
   - After full CSS module extraction, global.css should only contain: reset, body, app layout, shared cross-component styles, syntax highlighting tokens, and shared keyframes
   - Responsive media queries referencing module-scoped classes must move to the module file
+---
+## 2026-03-17 - US-044a
+- Restructured AppLayout into three-column layout using react-resizable-panels: left sidebar, center panel, right detail panel
+- Terminal panel moved outside horizontal group to span full width below all three columns
+- Layout hierarchy: Group(vertical) > [Group(horizontal) > Sidebar | Center | DetailPanel] | Terminal
+- Created DetailPanel.tsx + DetailPanel.module.css — placeholder commit detail panel that shows when a commit is selected
+- Updated useLayoutState to include `rightPanelSize` (default 25%) persisted to localStorage
+- Wired `onCommitSelect` callback through MainContent → RepoView → CommitGraph to lift selected commit state to AppLayout
+- Right panel collapses completely when no commit is selected (conditionally rendered)
+- All dividers use existing resize-handle classes with visible grab handles
+- Min sizes enforced via Panel minSize/maxSize props (sidebar 12-40%, center min 30%, detail 15-50%)
+- Files changed: AppLayout.tsx, MainContent.tsx, RepoView.tsx, useLayoutState.ts, DetailPanel.tsx (new), DetailPanel.module.css (new)
+- **Learnings for future iterations:**
+  - The outer Group must be vertical to allow terminal to span full width below the horizontal column group
+  - react-resizable-panels uses percentage-based sizes, not pixel sizes — min/max constraints enforce reasonable proportions
+  - CommitDetail type is exported from CommitGraph.tsx — import it from there
+  - The `onCommitSelect` callback chain: AppLayout → MainContent → RepoView → CommitGraph
+  - DetailPanel receives the full CommitDetail object and a close handler
+  - Layout state localStorage key is 'gitslop-layout-state' — new fields get defaults via spread
 ---
