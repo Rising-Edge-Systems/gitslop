@@ -275,7 +275,7 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "Pure data/logic — no rendering. This algorithm will be shared between SVG and Canvas renderers. Output: array of { commit, lane, color, parentConnections[] }."
     },
     {

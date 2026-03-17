@@ -264,3 +264,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Use `display: flex; flex-direction: column` + `overflow: hidden` on container with `flex: 1; overflow-y: auto` on scroll area for proper independent scrolling
   - ARIA patterns: section headers use `aria-expanded`, lists use `role="listbox"`, items use `role="option"` + `aria-selected`
 ---
+## 2026-03-17 - US-048a
+- Created `laneAssignment.ts` — pure lane assignment algorithm extracted as a standalone module
+- Exports: `assignLanes()`, `parseRefs()`, `getMaxLane()`, `LANE_COLORS`, and all types (`LaneCommit`, `ParsedRef`, `ParentConnection`, `LaneAssignmentResult`)
+- Algorithm walks commits (newest first), assigns lanes, handles merges, frees/reuses lanes
+- HEAD commit pre-reserved in lane 0 (leftmost) via pre-scan
+- 10-color Catppuccin-inspired palette, cycling for additional branches
+- Second pass resolves actual parent toLane values after all commits are placed
+- Created 29 unit tests covering: parseRefs, linear history, feature branches, merge commits, octopus merges, HEAD assignment, color assignment, lane reuse, root commits, getMaxLane
+- Files changed: laneAssignment.ts (new), __tests__/laneAssignment.test.ts (new)
+- **Learnings for future iterations:**
+  - `assignLanes()` takes `LaneCommit[]` (hash, parentHashes, refs) — lighter than full GitCommit
+  - CommitGraph.tsx has its own `computeGraphLayout` and `parseRefs` — US-048b should replace those with imports from laneAssignment.ts
+  - The existing `GraphNode` type in CommitGraph.tsx maps closely to `LaneAssignmentResult` — can be replaced
+  - Second pass to resolve parent toLane is needed because merge parents may not yet be placed when first encountered
+  - LANE_COLORS is the same palette as in CommitGraph.tsx — keep in sync or replace
+---
