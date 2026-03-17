@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import { X, GitCommit, User, Calendar, FileText, ShieldCheck, ShieldAlert } from 'lucide-react'
 import styles from './DetailPanel.module.css'
 import type { CommitDetail } from './CommitGraph'
@@ -6,6 +6,8 @@ import type { CommitDetail } from './CommitGraph'
 interface DetailPanelProps {
   detail: CommitDetail
   onClose: () => void
+  /** When true, renders as a sliding overlay instead of an inline panel */
+  overlay?: boolean
 }
 
 function formatRelativeDate(dateStr: string): string {
@@ -24,14 +26,41 @@ function formatRelativeDate(dateStr: string): string {
   return date.toLocaleDateString()
 }
 
-export function DetailPanel({ detail, onClose }: DetailPanelProps): React.JSX.Element {
+export function DetailPanel({ detail, onClose, overlay = false }: DetailPanelProps): React.JSX.Element {
   const { commit, files, refs } = detail
   const sigOk = commit.signatureStatus === 'good'
   const sigBad = commit.signatureStatus === 'bad' || commit.signatureStatus === 'error'
   const hasSig = commit.signatureStatus !== 'none'
+  const panelRef = useRef<HTMLDivElement>(null)
 
-  return (
-    <div className={styles.detailPanel}>
+  // Close on Escape key when in overlay mode
+  useEffect(() => {
+    if (!overlay) return
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [overlay, onClose])
+
+  // Click outside handler for overlay backdrop
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent) => {
+      // Only close if clicking the backdrop itself, not the panel content
+      if (e.target === e.currentTarget) {
+        onClose()
+      }
+    },
+    [onClose]
+  )
+
+  const panelContent = (
+    <div
+      ref={panelRef}
+      className={`${styles.detailPanel} ${overlay ? styles.detailPanelOverlay : ''}`}
+    >
       <div className={styles.header}>
         <span className={styles.headerTitle}>Commit Details</span>
         <button className={styles.closeBtn} onClick={onClose} title="Close detail panel">
@@ -101,4 +130,14 @@ export function DetailPanel({ detail, onClose }: DetailPanelProps): React.JSX.El
       </div>
     </div>
   )
+
+  if (overlay) {
+    return (
+      <div className={styles.overlayBackdrop} onClick={handleBackdropClick}>
+        {panelContent}
+      </div>
+    )
+  }
+
+  return panelContent
 }

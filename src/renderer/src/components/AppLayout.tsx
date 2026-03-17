@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
+import { useWindowWidth } from '../hooks/useWindowWidth'
 import {
   Group,
   Panel,
@@ -57,6 +58,11 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [selectedCommit, setSelectedCommit] = useState<CommitDetail | null>(null)
+
+  // Hybrid detail panel: inline when wide, overlay when narrow
+  const DETAIL_PANEL_BREAKPOINT = 1400
+  const windowWidth = useWindowWidth()
+  const useOverlayDetailPanel = windowWidth < DETAIL_PANEL_BREAKPOINT
 
   // Auto-fetch: fetches on configurable interval, tracks incoming changes
   const { incomingChanges, lastFetchTime, fetching: autoFetching, manualRefresh } = useAutoFetch({
@@ -216,7 +222,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   onCommitSelect={handleCommitSelect}
                 />
               </Panel>
-              {rightPanelVisible && (
+              {rightPanelVisible && !useOverlayDetailPanel && (
                 <>
                   <Separator className="resize-handle resize-handle-horizontal" />
                   <Panel
@@ -269,6 +275,15 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
           <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
         )}
       </div>
+
+      {/* Overlay detail panel for narrow windows */}
+      {rightPanelVisible && useOverlayDetailPanel && (
+        <DetailPanel
+          detail={selectedCommit}
+          onClose={handleCloseDetailPanel}
+          overlay
+        />
+      )}
 
       {/* Status Bar */}
       <StatusBar

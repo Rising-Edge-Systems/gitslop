@@ -1,3 +1,34 @@
+/* ===== Overlay backdrop ===== */
+.overlayBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.3);
+  animation: fadeIn 200ms ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    background: rgba(0, 0, 0, 0);
+  }
+  to {
+    background: rgba(0, 0, 0, 0.3);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* ===== Base panel (inline mode) ===== */
 .detailPanel {
   display: flex;
   flex-direction: column;
@@ -7,6 +38,19 @@
   overflow: hidden;
 }
 
+/* ===== Overlay mode overrides ===== */
+.detailPanelOverlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 85vw);
+  z-index: 101;
+  box-shadow: var(--shadow-lg, -8px 0 24px rgba(0, 0, 0, 0.25));
+  animation: slideInFromRight 200ms ease-out;
+}
+
+/* ===== Header ===== */
 .header {
   display: flex;
   align-items: center;
@@ -40,6 +84,7 @@
   color: var(--text-primary);
 }
 
+/* ===== Content ===== */
 .content {
   flex: 1;
   overflow-y: auto;
@@ -54,6 +99,7 @@
   line-height: 1.4;
 }
 
+/* ===== Refs badges ===== */
 .refs {
   display: flex;
   flex-wrap: wrap;
@@ -92,6 +138,7 @@
   color: var(--remote-color, #4a9ee8);
 }
 
+/* ===== Metadata ===== */
 .meta {
   display: flex;
   flex-direction: column;
@@ -134,6 +181,7 @@
   flex-shrink: 0;
 }
 
+/* ===== Body ===== */
 .body {
   font-size: var(--font-sm);
   color: var(--text-secondary);
@@ -149,6 +197,7 @@
   overflow-y: auto;
 }
 
+/* ===== Files section ===== */
 .filesSection {
   border-top: 1px solid var(--border);
   padding-top: var(--space-md);
