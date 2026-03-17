@@ -1,12 +1,19 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useMemo } from 'react'
 import { TitleBar } from './components/TitleBar'
+import { TabBar } from './components/TabBar'
 import { AppLayout } from './components/AppLayout'
 import { SettingsPanel } from './components/SettingsPanel'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useSettings } from './hooks/useSettings'
+import { useRepoTabs } from './hooks/useRepoTabs'
+import {
+  useKeyboardShortcuts,
+  useShortcutHandler,
+  defineShortcut,
+  type ShortcutDefinition
+} from './hooks/useKeyboardShortcuts'
 
 function App(): React.JSX.Element {
-  const [currentRepo, setCurrentRepo] = useState<string | null>(null)
   const {
     settings,
     updateSettings,
@@ -17,13 +24,30 @@ function App(): React.JSX.Element {
     toggleTheme
   } = useSettings()
 
-  const handleRepoOpen = useCallback((repoPath: string) => {
-    setCurrentRepo(repoPath)
-  }, [])
+  const {
+    tabs,
+    activeTab,
+    activeIndex,
+    activeRepoPath,
+    openTab,
+    closeTab,
+    switchTab,
+    nextTab,
+    prevTab
+  } = useRepoTabs()
+
+  const handleRepoOpen = useCallback(
+    (repoPath: string) => {
+      openTab(repoPath)
+    },
+    [openTab]
+  )
 
   const handleCloseRepo = useCallback(() => {
-    setCurrentRepo(null)
-  }, [])
+    if (activeIndex >= 0) {
+      closeTab(activeIndex)
+    }
+  }, [activeIndex, closeTab])
 
   // Listen for 'open-repo' custom events (e.g., from submodule "Open as Repository")
   useEffect(() => {
@@ -37,12 +61,50 @@ function App(): React.JSX.Element {
     return () => window.removeEventListener('open-repo', handler)
   }, [handleRepoOpen])
 
+  // Tab keyboard shortcuts
+  const handleNextTab = useShortcutHandler(nextTab)
+  const handlePrevTab = useShortcutHandler(prevTab)
+
+  const tabShortcuts: ShortcutDefinition[] = useMemo(
+    () => [
+      defineShortcut(
+        'next-tab',
+        'Next Tab',
+        'Navigation',
+        'Ctrl+Tab',
+        { ctrl: true, key: 'Tab' },
+        handleNextTab
+      ),
+      defineShortcut(
+        'prev-tab',
+        'Previous Tab',
+        'Navigation',
+        'Ctrl+Shift+Tab',
+        { ctrl: true, shift: true, key: 'Tab' },
+        handlePrevTab
+      )
+    ],
+    [handleNextTab, handlePrevTab]
+  )
+
+  useKeyboardShortcuts(tabShortcuts)
+
   return (
     <div className="app">
-      <TitleBar repoPath={currentRepo} theme={settings.theme} onToggleTheme={toggleTheme} />
+      <TitleBar
+        repoPath={activeRepoPath}
+        theme={settings.theme}
+        onToggleTheme={toggleTheme}
+      />
+      <TabBar
+        tabs={tabs}
+        activeIndex={activeIndex}
+        onSwitchTab={switchTab}
+        onCloseTab={closeTab}
+      />
       <ErrorBoundary>
         <AppLayout
-          currentRepo={currentRepo}
+          currentRepo={activeRepoPath}
           onRepoOpen={handleRepoOpen}
           onCloseRepo={handleCloseRepo}
           onOpenSettings={openSettings}

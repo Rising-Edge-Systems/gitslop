@@ -1,0 +1,120 @@
+/* =============================================================================
+   TabBar — CSS Module
+   ============================================================================= */
+
+.tabBar {
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+}
+
+.tabList {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  gap: 1px;
+  scrollbar-width: none;
+}
+
+.tabList::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Individual tab ─────────────────────────────────────────────────── */
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 0 var(--space-sm);
+  min-width: 100px;
+  max-width: 200px;
+  cursor: pointer;
+  border: none;
+  background-color: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  white-space: nowrap;
+  position: relative;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.tab:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.tab:hover .tabClose {
+  opacity: 1;
+}
+
+/* ─── Active tab ─────────────────────────────────────────────────────── */
+
+.tabActive {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.tabActive::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--accent);
+}
+
+/* ─── Tab elements ───────────────────────────────────────────────────── */
+
+.tabIcon {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.tabActive .tabIcon {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.tabName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.tabClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.tabActive .tabClose {
+  opacity: 0.6;
+}
+
+.tabClose:hover {
+  opacity: 1;
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
