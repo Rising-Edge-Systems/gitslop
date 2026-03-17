@@ -580,3 +580,22 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - The watcher double-checks suppression state both at event time and at debounced send time
   - `awaitWriteFinish.stabilityThreshold` is 300ms — files must be stable for 300ms before triggering events
 ---
+
+## 2026-03-17 - US-065a
+- Implemented multi-repo tab bar with state management
+- Files changed: App.tsx (refactored to use tabs), new TabBar.tsx + TabBar.module.css, new useRepoTabs.ts hook
+- TabBar renders below titlebar, shows only when 2+ tabs are open
+- Each tab shows repo name with GitBranch icon and close (X) button
+- Active tab highlighted with accent underline
+- Middle-click to close tabs
+- Tab state persists in localStorage (gitslop-repo-tabs key)
+- Opening a repo adds a new tab or switches to existing
+- Closing last tab returns to welcome screen
+- Ctrl+Tab / Ctrl+Shift+Tab keyboard shortcuts for cycling tabs
+- **Learnings for future iterations:**
+  - useRepoTabs hook uses localStorage similar to useLayoutState pattern
+  - TabBar returns null when <=1 tab (no visual change for single-repo users)
+  - Tab state: { tabs: RepoTab[], activeIndex: number } with debounced persistence
+  - openTab() deduplicates by repoPath — if already open, just switches to it
+  - App.tsx now delegates to useRepoTabs instead of useState<string | null>
+---

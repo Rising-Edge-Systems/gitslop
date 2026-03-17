@@ -643,7 +643,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 36,
-      "passes": false,
+      "passes": true,
       "notes": "New feature. Create a TabBar component and a useRepoTabs hook. Each tab tracks repoPath. Opening a repo (welcome screen, toolbar) adds a new tab. State per tab (selected commit, scroll position, etc.) managed separately."
     },
     {
