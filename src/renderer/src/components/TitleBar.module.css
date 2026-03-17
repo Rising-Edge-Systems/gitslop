@@ -1,0 +1,122 @@
+/* =============================================================================
+   TitleBar — CSS Module
+   ============================================================================= */
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  background-color: var(--titlebar-bg);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.drag {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  -webkit-app-region: drag;
+  padding-left: var(--space-md);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.icon {
+  font-size: var(--font-xl);
+  color: var(--accent);
+}
+
+.title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+
+.repo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 2px;
+  overflow: hidden;
+}
+
+.repoSeparator {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+
+.repoName {
+  font-size: var(--font-md);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.repoPath {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+@media (max-width: 700px) {
+  .repoPath {
+    display: none;
+  }
+}
+
+.controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.btn {
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast);
+}
+
+.btn:hover {
+  background-color: var(--titlebar-btn-hover);
+}
+
+.btn:active {
+  background-color: var(--border);
+}
+
+.btnClose:hover {
+  background-color: var(--close-hover);
+  color: var(--text-primary);
+}
+
+.btnTheme {
+  font-size: 14px;
+  margin-right: var(--space-xs);
+  opacity: 0.8;
+}
+
+.btnTheme:hover {
+  opacity: 1;
+  background-color: var(--titlebar-btn-hover);
+}

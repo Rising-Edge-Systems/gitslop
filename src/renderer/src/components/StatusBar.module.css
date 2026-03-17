@@ -1,0 +1,339 @@
+/* =============================================================================
+   StatusBar — CSS Module
+   ============================================================================= */
+
+.statusBar {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  padding: 0 var(--space-sm);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 100;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.branch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.branchIcon {
+  font-size: var(--font-sm);
+}
+
+.sync {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.ahead {
+  color: var(--success);
+}
+
+.behind {
+  color: var(--warning);
+}
+
+.incoming {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--info);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: rgba(var(--info-rgb, 100, 180, 255), 0.15);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  cursor: default;
+}
+
+@keyframes spinnerRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.fetching {
+  animation: spinnerRotate 1s linear infinite;
+  display: inline-block;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.lastFetch {
+  color: var(--text-muted);
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.refreshBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 var(--space-xs);
+  font-size: var(--font-sm);
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.refreshBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.text {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.operation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spinner {
+  animation: spinnerRotate 1s linear infinite;
+  display: inline-block;
+  font-size: var(--font-sm);
+}
+
+.opText {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.progress {
+  width: 80px;
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+}
+
+.notifBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.notifBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.notifBtnActive {
+  color: var(--accent);
+}
+
+.notifBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-size: 8px;
+  font-weight: 700;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0 3px;
+}
+
+/* Notification History Dropdown */
+
+.historyBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+.history {
+  position: absolute;
+  bottom: 100%;
+  right: var(--space-xs);
+  width: 340px;
+  max-height: 400px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.15s ease-out;
+  margin-bottom: var(--space-xs);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.historyTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.historyClear {
+  background: none;
+  border: none;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.historyClear:hover {
+  color: var(--error);
+}
+
+.historyList {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.historyEmpty {
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.historyItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: 6px var(--space-md);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-xs);
+  transition: background-color 0.1s ease;
+}
+
+.historyItem:last-child {
+  border-bottom: none;
+}
+
+.historyItem:hover {
+  background: var(--bg-tertiary);
+}
+
+.historyIcon {
+  flex-shrink: 0;
+  width: var(--space-lg);
+  text-align: center;
+  font-size: var(--font-xs);
+  margin-top: 1px;
+}
+
+.historyItemSuccess .historyIcon {
+  color: var(--success);
+}
+
+.historyItemError .historyIcon {
+  color: var(--error);
+}
+
+.historyItemWarning .historyIcon {
+  color: var(--warning);
+}
+
+.historyItemInfo .historyIcon {
+  color: var(--info);
+}
+
+.historyMessage {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.historyTime {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}

@@ -13,6 +13,7 @@ import {
   Info
 } from 'lucide-react'
 import type { Notification } from '../hooks/useNotifications'
+import styles from './StatusBar.module.css'
 
 interface ActiveOperation {
   type: string
@@ -121,56 +122,56 @@ export function StatusBar({
   }
 
   return (
-    <div className="status-bar">
+    <div className={styles.statusBar}>
       {/* Left section: branch + sync status */}
-      <div className="status-bar-left">
+      <div className={styles.left}>
         {currentRepo && branch && (
           <>
-            <span className="status-bar-branch" title={`Current branch: ${branch}`}>
-              <span className="status-bar-branch-icon"><GitBranch size={14} /></span>
+            <span className={styles.branch} title={`Current branch: ${branch}`}>
+              <span className={styles.branchIcon}><GitBranch size={14} /></span>
               {branch}
             </span>
             {(ahead > 0 || behind > 0) && (
-              <span className="status-bar-sync" title={`${ahead} ahead, ${behind} behind`}>
-                {ahead > 0 && <span className="status-bar-ahead"><ArrowUp size={10} />{ahead}</span>}
-                {behind > 0 && <span className="status-bar-behind"><ArrowDown size={10} />{behind}</span>}
+              <span className={styles.sync} title={`${ahead} ahead, ${behind} behind`}>
+                {ahead > 0 && <span className={styles.ahead}><ArrowUp size={10} />{ahead}</span>}
+                {behind > 0 && <span className={styles.behind}><ArrowDown size={10} />{behind}</span>}
               </span>
             )}
             {incomingChanges > 0 && (
               <span
-                className="status-bar-incoming"
+                className={styles.incoming}
                 title={`${incomingChanges} incoming commit${incomingChanges > 1 ? 's' : ''} — pull to update`}
               >
                 <ArrowDownToLine size={12} /> {incomingChanges} incoming
               </span>
             )}
             {autoFetching && (
-              <span className="status-bar-fetching" title="Auto-fetching...">
-                <Loader2 size={12} className="status-bar-spin" />
+              <span className={styles.fetching} title="Auto-fetching...">
+                <Loader2 size={12} className={styles.spinner} />
               </span>
             )}
             {lastFetchTime && (
-              <span className="status-bar-last-fetch" title={`Last fetched at ${formatTime(lastFetchTime)}`}>
+              <span className={styles.lastFetch} title={`Last fetched at ${formatTime(lastFetchTime)}`}>
                 Last fetch: {formatTime(lastFetchTime)}
               </span>
             )}
           </>
         )}
         {!currentRepo && (
-          <span className="status-bar-text">No repository open</span>
+          <span className={styles.text}>No repository open</span>
         )}
       </div>
 
       {/* Center: active operation */}
-      <div className="status-bar-center">
+      <div className={styles.center}>
         {activeOp && (
-          <div className="status-bar-operation">
-            <span className="status-bar-spinner"><Loader2 size={12} className="status-bar-spin" /></span>
-            <span className="status-bar-op-text">{activeOp.phase}</span>
+          <div className={styles.operation}>
+            <span className={styles.spinner}><Loader2 size={12} /></span>
+            <span className={styles.opText}>{activeOp.phase}</span>
             {activeOp.percent !== null && (
-              <div className="status-bar-progress">
+              <div className={styles.progress}>
                 <div
-                  className="status-bar-progress-fill"
+                  className={styles.progressFill}
                   style={{ width: `${activeOp.percent}%` }}
                 />
               </div>
@@ -180,29 +181,29 @@ export function StatusBar({
       </div>
 
       {/* Right section: refresh + notification history */}
-      <div className="status-bar-right">
+      <div className={styles.right}>
         {currentRepo && onManualRefresh && (
           <button
-            className="status-bar-refresh-btn"
+            className={styles.refreshBtn}
             onClick={onManualRefresh}
             disabled={autoFetching}
             title="Manual refresh — fetch from remotes and reload"
           >
             {autoFetching ? (
-              <span className="status-bar-spinner"><Loader2 size={14} className="status-bar-spin" /></span>
+              <span className={styles.spinner}><Loader2 size={14} /></span>
             ) : (
               <RefreshCw size={14} />
             )}
           </button>
         )}
         <button
-          className={`status-bar-notif-btn ${unreadCount > 0 ? 'status-bar-notif-btn-active' : ''}`}
+          className={`${styles.notifBtn} ${unreadCount > 0 ? styles.notifBtnActive : ''}`}
           onClick={onToggleHistory}
           title={`Notifications${unreadCount > 0 ? ` (${unreadCount} new)` : ''}`}
         >
           <Bell size={14} />
           {unreadCount > 0 && (
-            <span className="status-bar-notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+            <span className={styles.notifBadge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
           )}
         </button>
       </div>
@@ -210,27 +211,27 @@ export function StatusBar({
       {/* Notification history dropdown */}
       {historyOpen && (
         <>
-          <div className="status-bar-history-backdrop" onClick={onToggleHistory} />
-          <div className="status-bar-history">
-            <div className="status-bar-history-header">
-              <span className="status-bar-history-title">Notifications</span>
+          <div className={styles.historyBackdrop} onClick={onToggleHistory} />
+          <div className={styles.history}>
+            <div className={styles.historyHeader}>
+              <span className={styles.historyTitle}>Notifications</span>
               {history.length > 0 && (
-                <button className="status-bar-history-clear" onClick={onClearHistory}>
+                <button className={styles.historyClear} onClick={onClearHistory}>
                   Clear All
                 </button>
               )}
             </div>
-            <div className="status-bar-history-list">
+            <div className={styles.historyList}>
               {history.length === 0 ? (
-                <div className="status-bar-history-empty">No notifications</div>
+                <div className={styles.historyEmpty}>No notifications</div>
               ) : (
                 history.map((n) => (
-                  <div key={n.id} className={`status-bar-history-item status-bar-history-item-${n.type}`}>
-                    <span className="status-bar-history-icon">
+                  <div key={n.id} className={`${styles.historyItem} ${n.type === 'success' ? styles.historyItemSuccess : n.type === 'error' ? styles.historyItemError : n.type === 'warning' ? styles.historyItemWarning : styles.historyItemInfo}`}>
+                    <span className={styles.historyIcon}>
                       {n.type === 'success' ? <Check size={14} /> : n.type === 'error' ? <XCircle size={14} /> : n.type === 'warning' ? <AlertTriangle size={14} /> : <Info size={14} />}
                     </span>
-                    <span className="status-bar-history-message">{n.message}</span>
-                    <span className="status-bar-history-time">{formatTime(n.timestamp)}</span>
+                    <span className={styles.historyMessage}>{n.message}</span>
+                    <span className={styles.historyTime}>{formatTime(n.timestamp)}</span>
                   </div>
                 ))
               )}

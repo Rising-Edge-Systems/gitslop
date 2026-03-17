@@ -19,6 +19,7 @@ import {
   defineShortcut,
   type ShortcutDefinition
 } from '../hooks/useKeyboardShortcuts'
+import styles from './Toolbar.module.css'
 
 interface StashDialogState {
   open: boolean
@@ -372,10 +373,10 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
   const isOperationActive = (type: string): boolean => activeOp?.type === type
 
   return (
-    <div className="toolbar">
-      <div className="toolbar-group">
+    <div className={styles.toolbar}>
+      <div className={styles.toolbarGroup}>
         <button
-          className={`toolbar-btn ${isOperationActive('pull') ? 'toolbar-btn-active' : ''}`}
+          className={`${styles.btn} ${isOperationActive('pull') ? styles.btnActive : ''}`}
           title="Pull (Ctrl+Shift+L)"
           onClick={handlePull}
           onContextMenu={(e) => {
@@ -385,14 +386,14 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
           disabled={!!activeOp}
         >
           {isOperationActive('pull') ? (
-            <span className="toolbar-btn-icon toolbar-spinner"><Loader2 size={18} className="lucide-icon" /></span>
+            <span className={`${styles.btnIcon} ${styles.spinner}`}><Loader2 size={18} className="lucide-icon" /></span>
           ) : (
-            <span className="toolbar-btn-icon"><ArrowDownToLine size={18} className="lucide-icon" /></span>
+            <span className={styles.btnIcon}><ArrowDownToLine size={18} className="lucide-icon" /></span>
           )}
-          <span className="toolbar-btn-label">Pull</span>
+          <span className={styles.btnLabel}>Pull</span>
         </button>
         <button
-          className={`toolbar-btn ${isOperationActive('push') ? 'toolbar-btn-active' : ''}`}
+          className={`${styles.btn} ${isOperationActive('push') ? styles.btnActive : ''}`}
           title="Push (Ctrl+Shift+P) — Right-click for force push"
           onClick={handlePush}
           onContextMenu={(e) => {
@@ -402,64 +403,64 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
           disabled={!!activeOp}
         >
           {isOperationActive('push') ? (
-            <span className="toolbar-btn-icon toolbar-spinner"><Loader2 size={18} className="lucide-icon" /></span>
+            <span className={`${styles.btnIcon} ${styles.spinner}`}><Loader2 size={18} className="lucide-icon" /></span>
           ) : (
-            <span className="toolbar-btn-icon"><ArrowUpFromLine size={18} className="lucide-icon" /></span>
+            <span className={styles.btnIcon}><ArrowUpFromLine size={18} className="lucide-icon" /></span>
           )}
-          <span className="toolbar-btn-label">Push</span>
+          <span className={styles.btnLabel}>Push</span>
         </button>
         <button
-          className={`toolbar-btn ${isOperationActive('fetch') ? 'toolbar-btn-active' : ''}`}
+          className={`${styles.btn} ${isOperationActive('fetch') ? styles.btnActive : ''}`}
           title="Fetch (Ctrl+Shift+F)"
           onClick={handleFetch}
           disabled={!!activeOp}
         >
           {isOperationActive('fetch') ? (
-            <span className="toolbar-btn-icon toolbar-spinner"><Loader2 size={18} className="lucide-icon" /></span>
+            <span className={`${styles.btnIcon} ${styles.spinner}`}><Loader2 size={18} className="lucide-icon" /></span>
           ) : (
-            <span className="toolbar-btn-icon"><RefreshCw size={18} className="lucide-icon" /></span>
+            <span className={styles.btnIcon}><RefreshCw size={18} className="lucide-icon" /></span>
           )}
-          <span className="toolbar-btn-label">Fetch</span>
+          <span className={styles.btnLabel}>Fetch</span>
         </button>
       </div>
-      <div className="toolbar-separator" />
-      <div className="toolbar-group">
-        <button className="toolbar-btn" title="Branch">
-          <span className="toolbar-btn-icon"><GitBranch size={18} className="lucide-icon" /></span>
-          <span className="toolbar-btn-label">Branch</span>
+      <div className={styles.separator} />
+      <div className={styles.toolbarGroup}>
+        <button className={styles.btn} title="Branch">
+          <span className={styles.btnIcon}><GitBranch size={18} className="lucide-icon" /></span>
+          <span className={styles.btnLabel}>Branch</span>
         </button>
         <button
-          className="toolbar-btn"
+          className={styles.btn}
           title="Merge"
           onClick={() => {
             if (currentRepo) setMergeDialogOpen(true)
           }}
           disabled={!currentRepo}
         >
-          <span className="toolbar-btn-icon"><GitMerge size={18} className="lucide-icon" /></span>
-          <span className="toolbar-btn-label">Merge</span>
+          <span className={styles.btnIcon}><GitMerge size={18} className="lucide-icon" /></span>
+          <span className={styles.btnLabel}>Merge</span>
         </button>
       </div>
-      <div className="toolbar-separator" />
-      <div className="toolbar-group">
-        <button className="toolbar-btn" title="Stash" onClick={openStashDialog}>
-          <span className="toolbar-btn-icon"><Archive size={18} className="lucide-icon" /></span>
-          <span className="toolbar-btn-label">Stash</span>
+      <div className={styles.separator} />
+      <div className={styles.toolbarGroup}>
+        <button className={styles.btn} title="Stash" onClick={openStashDialog}>
+          <span className={styles.btnIcon}><Archive size={18} className="lucide-icon" /></span>
+          <span className={styles.btnLabel}>Stash</span>
         </button>
       </div>
-      <div className="toolbar-spacer" />
+      <div className={styles.spacer} />
 
       {/* Active operation progress indicator */}
       {activeOp && (
-        <div className="toolbar-progress">
-          <span className="toolbar-progress-text">
+        <div className={styles.progress}>
+          <span className={styles.progressText}>
             {activeOp.phase}
             {activeOp.percent !== null ? ` ${activeOp.percent}%` : ''}
           </span>
           {activeOp.percent !== null && (
-            <div className="toolbar-progress-bar">
+            <div className={styles.progressBar}>
               <div
-                className="toolbar-progress-fill"
+                className={styles.progressFill}
                 style={{ width: `${activeOp.percent}%` }}
               />
             </div>
@@ -469,14 +470,14 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
 
       {/* Inline notification fallback (when no centralized notification system) */}
       {!onNotify && notification && (
-        <div className={`toolbar-notification toolbar-notification-${notification.type}`}>
+        <div className={`${styles.notification} ${notification.type === 'success' ? styles.notificationSuccess : styles.notificationError}`}>
           {notification.type === 'success' ? <Check size={14} className="lucide-icon" /> : <XCircle size={14} className="lucide-icon" />} {notification.message}
         </div>
       )}
 
-      <div className="toolbar-group">
-        <button className="toolbar-btn" title="Settings (Ctrl+,)" onClick={onOpenSettings}>
-          <span className="toolbar-btn-icon"><Settings size={18} className="lucide-icon" /></span>
+      <div className={styles.toolbarGroup}>
+        <button className={styles.btn} title="Settings (Ctrl+,)" onClick={onOpenSettings}>
+          <span className={styles.btnIcon}><Settings size={18} className="lucide-icon" /></span>
         </button>
       </div>
 
@@ -508,7 +509,7 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
               />
             </label>
 
-            <label className="stash-dialog-checkbox">
+            <label className={styles.stashDialogCheckbox}>
               <input
                 type="checkbox"
                 checked={stashDialog.includeUntracked}
@@ -544,8 +545,8 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
           <div className="branch-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="branch-dialog-title">Force Push</div>
 
-            <div className="force-push-warning">
-              <span className="force-push-warning-icon"><AlertTriangle size={18} className="lucide-icon" /></span>
+            <div className={styles.forcePushWarning}>
+              <span className={styles.forcePushWarningIcon}><AlertTriangle size={18} className="lucide-icon" /></span>
               <p>
                 <strong>Warning:</strong> Force push will overwrite the remote branch history.
                 This can cause data loss for other collaborators.
@@ -580,7 +581,7 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
         <div className="branch-dialog-overlay" onClick={() => setUpstreamDialog((prev) => ({ ...prev, open: false }))}>
           <div className="branch-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="branch-dialog-title">Set Upstream & Push</div>
-            <p className="upstream-dialog-desc">
+            <p className={styles.upstreamDialogDesc}>
               This branch has no tracking branch. Choose a remote to push to:
             </p>
 
@@ -662,8 +663,8 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
               <div className="branch-dialog-error">{pullDialog.error}</div>
             )}
 
-            <div className="pull-strategy-options">
-              <label className="pull-strategy-option">
+            <div className={styles.pullStrategyOptions}>
+              <label className={styles.pullStrategyOption}>
                 <input
                   type="radio"
                   name="pullStrategy"
@@ -672,10 +673,10 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
                 />
                 <div>
                   <strong>Merge</strong>
-                  <span className="pull-strategy-desc">Create a merge commit if needed</span>
+                  <span className={styles.pullStrategyDesc}>Create a merge commit if needed</span>
                 </div>
               </label>
-              <label className="pull-strategy-option">
+              <label className={styles.pullStrategyOption}>
                 <input
                   type="radio"
                   name="pullStrategy"
@@ -684,7 +685,7 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
                 />
                 <div>
                   <strong>Rebase</strong>
-                  <span className="pull-strategy-desc">Rebase your local commits on top of remote</span>
+                  <span className={styles.pullStrategyDesc}>Rebase your local commits on top of remote</span>
                 </div>
               </label>
             </div>

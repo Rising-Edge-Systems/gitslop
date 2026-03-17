@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Minus, Square, Copy, X, Sun, Moon } from 'lucide-react'
 import type { Theme } from '../hooks/useSettings'
+import styles from './TitleBar.module.css'
 
 interface TitleBarProps {
   repoPath?: string | null
@@ -31,24 +32,24 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
   }, [])
 
   return (
-    <div className="titlebar">
-      <div className="titlebar-drag">
-        <div className="titlebar-brand">
-          <span className="titlebar-icon">GS</span>
-          <span className="titlebar-title">GitSlop</span>
+    <div className={styles.titlebar}>
+      <div className={styles.drag}>
+        <div className={styles.brand}>
+          <span className={styles.icon}>GS</span>
+          <span className={styles.title}>GitSlop</span>
           {repoPath && (
-            <span className="titlebar-repo" title={repoPath}>
-              <span className="titlebar-repo-separator">—</span>
-              <span className="titlebar-repo-name">{repoPath.split(/[/\\]/).pop()}</span>
-              <span className="titlebar-repo-path">{repoPath}</span>
+            <span className={styles.repo} title={repoPath}>
+              <span className={styles.repoSeparator}>—</span>
+              <span className={styles.repoName}>{repoPath.split(/[/\\]/).pop()}</span>
+              <span className={styles.repoPath}>{repoPath}</span>
             </span>
           )}
         </div>
       </div>
-      <div className="titlebar-controls">
+      <div className={styles.controls}>
         {onToggleTheme && (
           <button
-            className="titlebar-btn titlebar-btn-theme"
+            className={`${styles.btn} ${styles.btnTheme}`}
             onClick={onToggleTheme}
             aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme (Ctrl+Shift+T)`}
@@ -57,7 +58,7 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
           </button>
         )}
         <button
-          className="titlebar-btn titlebar-btn-minimize"
+          className={`${styles.btn} ${styles.btnMinimize}`}
           onClick={handleMinimize}
           aria-label="Minimize"
           title="Minimize"
@@ -65,7 +66,7 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
           <Minus size={14} className="lucide-icon" />
         </button>
         <button
-          className="titlebar-btn titlebar-btn-maximize"
+          className={`${styles.btn} ${styles.btnMaximize}`}
           onClick={handleMaximize}
           aria-label={isMaximized ? 'Restore' : 'Maximize'}
           title={isMaximized ? 'Restore' : 'Maximize'}
@@ -73,7 +74,7 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
           {isMaximized ? <Copy size={14} className="lucide-icon" /> : <Square size={14} className="lucide-icon" />}
         </button>
         <button
-          className="titlebar-btn titlebar-btn-close"
+          className={`${styles.btn} ${styles.btnClose}`}
           onClick={handleClose}
           aria-label="Close"
           title="Close"
