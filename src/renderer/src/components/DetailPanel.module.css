@@ -537,6 +537,18 @@
   font-style: italic;
 }
 
+.diffError {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  color: var(--error, #f87171);
+  font-size: var(--font-sm);
+  background: rgba(248, 113, 113, 0.08);
+  border-radius: var(--radius-sm);
+  margin: var(--space-sm);
+}
+
 .diffBinary {
   display: flex;
   align-items: center;

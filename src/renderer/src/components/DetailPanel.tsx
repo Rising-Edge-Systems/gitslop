@@ -13,7 +13,7 @@ import {
   FileSymlink,
   Copy,
   Check,
-
+  AlertCircle,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
@@ -102,6 +102,7 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
   const [isDiffCollapsed, setIsDiffCollapsed] = useState(false)
   const [isBinaryFile, setIsBinaryFile] = useState(false)
   const [diffLineCount, setDiffLineCount] = useState(0)
+  const [diffError, setDiffError] = useState<string | null>(null)
 
   // Reset selected file when commit changes
   useEffect(() => {
@@ -110,6 +111,7 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
     setIsBinaryFile(false)
     setDiffLineCount(0)
     setIsDiffCollapsed(false)
+    setDiffError(null)
   }, [commit.hash])
 
   // Close on Escape key when in overlay mode
@@ -156,6 +158,7 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
       setIsBinaryFile(false)
       setDiffLineCount(0)
       setIsDiffCollapsed(false)
+      setDiffError(null)
       return
     }
 
@@ -164,6 +167,7 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
     setIsBinaryFile(false)
     setDiffLineCount(0)
     setIsDiffCollapsed(false)
+    setDiffError(null)
     try {
       const result = await window.electronAPI.git.showCommitFileDiff(repoPath, commit.hash, file.path)
       if (result.success && result.data) {
@@ -181,11 +185,19 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
             setIsDiffCollapsed(true)
           }
         }
-      } else {
+      } else if (result.success && !result.data) {
+        // IPC succeeded but returned empty data — no changes
         setDiffContent('')
+        setDiffError(null)
+      } else {
+        // IPC returned an error
+        setDiffContent('')
+        setDiffError(result.error || 'Failed to load diff')
       }
-    } catch {
+    } catch (err: unknown) {
       setDiffContent('')
+      const message = err instanceof Error ? err.message : String(err)
+      setDiffError(`Failed to load diff: ${message}`)
     } finally {
       setLoadingDiff(false)
     }
@@ -407,6 +419,11 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
                         {/* Diff content */}
                         {loadingDiff ? (
                           <DiffSkeleton />
+                        ) : diffError ? (
+                          <div className={styles.diffError}>
+                            <AlertCircle size={16} />
+                            <span>{diffError}</span>
+                          </div>
                         ) : isBinaryFile ? (
                           <div className={styles.diffBinary}>
                             <Package size={18} />
@@ -433,7 +450,7 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
                             />
                           )
                         ) : (
-                          <div className={styles.diffEmpty}>No diff available</div>
+                          <div className={styles.diffEmpty}>No changes in this file</div>
                         )}
                       </div>
                     )}
