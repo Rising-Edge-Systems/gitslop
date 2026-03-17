@@ -209,3 +209,18 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Transition between inline and overlay is instant (React conditional rendering) — the slide-in animation only applies to overlay appearance
   - DETAIL_PANEL_BREAKPOINT (1400px) is defined as a const in AppLayout for easy adjustment
 ---
+## 2026-03-17 - US-045
+- Implemented context-aware toolbar with two modes: no-repo mode (Open, Clone, Init) and repo mode (Pull, Push, Fetch, Branch, Merge, Stash)
+- Added remote detection: buttons requiring remotes (pull, push, fetch) are hidden when no remotes configured
+- Disabled buttons show explanatory tooltip (e.g., "Push — No remotes configured")
+- Active operations show inline spinner next to button text instead of replacing the icon
+- Added overflow menu (... button) using ResizeObserver to detect when toolbar is too narrow for all buttons
+- Added CloneDialog integration in toolbar for no-repo mode
+- Files changed: Toolbar.tsx, Toolbar.module.css, AppLayout.tsx
+- **Learnings for future iterations:**
+  - `window.electronAPI.git.getRemotes()` returns array of `{ name, fetchUrl, pushUrl }` — check length for "has remotes"
+  - CloneDialog accepts `onClose` and `onCloneComplete(repoPath)` props
+  - Toolbar now accepts `onRepoOpen` prop for opening/cloning/initializing repos
+  - ToolbarButton interface pattern is useful for building dynamic button lists with grouping
+  - ResizeObserver on toolbar container detects overflow — buttonWidth ~80px per button with label
+---
