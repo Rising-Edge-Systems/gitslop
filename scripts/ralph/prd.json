@@ -624,7 +624,7 @@
         "Typecheck passes"
       ],
       "priority": 35,
-      "passes": false,
+      "passes": true,
       "notes": "Root cause: watcher fires on .git/ changes (refs, objects, index) caused by git operations → triggers repo:changed → components call git commands → modify .git/ → watcher fires again → infinite loop → crash. Fix in src/main/index.ts watcher setup."
     },
     {

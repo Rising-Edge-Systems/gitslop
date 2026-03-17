@@ -23,6 +23,7 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - FileTree.tsx imports sidebarStyles for shared classes (placeholder, searchBox, searchInput, searchClear) — update FileTree when modifying sidebar styles
 - ALL component styles are now in CSS modules — global.css has only reset, layout, shared branch-dialog/ctx-menu, resize handles, syn-* tokens, and slideUp animation
 - Cross-component CSS module imports are fine: e.g., RepoView imports blameStyles, conflictStyles, editorStyles for child component wrappers
+- File watcher: all mutating git IPC handlers are wrapped with `withWatcherSuppression()` from git-ipc.ts; watcher ignores ALL `.git/` and `node_modules/` changes
 - global.css is ~448 lines (8.5KB) — the branch-dialog/ctx-menu shared styles are the bulk
 - Three-column layout: Group(vertical) > [Group(horizontal) > Sidebar | Center | DetailPanel] | Terminal — terminal spans full width
 - `onCommitSelect` callback chain: AppLayout → MainContent → RepoView → CommitGraph — lifts selected commit to layout level
@@ -563,4 +564,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - **Learnings for future iterations:**
   - DetailPanel error flow: `diffError` state is separate from `diffContent` — check error first in render, then binary, then content, then empty
   - CodeEditor already has proper error handling with `setError` state — use as reference pattern
+---
+
+## 2026-03-17 13:50 - US-064
+- Fixed file watcher infinite loop that caused app crashes
+- Files changed: `src/main/index.ts`, `src/main/git-ipc.ts`
+- Three-pronged fix:
+  1. Watcher now ignores ALL `.git/` directory changes (previously allowed `.git/refs` through)
+  2. Increased debounce from 300ms to 500ms
+  3. Added operation-level suppression: `gitOperationStarted()`/`gitOperationFinished()` wraps all mutating git IPC handlers, suppressing watcher events during operations and for 1s after the last operation completes
+- Also ignores `node_modules/` in watcher
+- **Learnings for future iterations:**
+  - `src/main/index.ts` exports `suppressWatcher()`, `gitOperationStarted()`, `gitOperationFinished()` — use these from git-ipc.ts via `withWatcherSuppression()` helper
+  - All mutating git IPC handlers are wrapped with `withWatcherSuppression()` to prevent cascading refreshes
+  - The watcher double-checks suppression state both at event time and at debounced send time
+  - `awaitWriteFinish.stabilityThreshold` is 300ms — files must be stable for 300ms before triggering events
 ---
