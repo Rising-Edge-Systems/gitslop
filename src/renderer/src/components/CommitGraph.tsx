@@ -3,6 +3,7 @@ import { List, useListCallbackRef } from 'react-window'
 import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ResetDialog } from './ResetDialog'
+import { assignLanes, type ParsedRef, type ParentConnection } from './laneAssignment'
 import styles from './CommitGraph.module.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,17 +28,14 @@ interface GitCommit {
   signingKey: string
 }
 
+/** Full graph node: lane assignment result extended with the full GitCommit */
 interface GraphNode {
   commit: GitCommit
-  column: number
-  parents: { hash: string; fromCol: number; toCol: number }[]
+  lane: number
+  color: string
+  parentConnections: ParentConnection[]
   isMerge: boolean
   refs: ParsedRef[]
-}
-
-interface ParsedRef {
-  name: string
-  type: 'head' | 'branch' | 'remote' | 'tag'
 }
 
 export interface CommitDetail {
@@ -84,21 +82,6 @@ interface ContextMenuState {
   refs: ParsedRef[]
 }
 
-// ─── Colors for branch lanes ──────────────────────────────────────────────────
-
-const LANE_COLORS = [
-  '#89b4fa', // blue
-  '#a6e3a1', // green
-  '#f9e2af', // yellow
-  '#fab387', // peach
-  '#cba6f7', // mauve
-  '#f38ba8', // red
-  '#94e2d5', // teal
-  '#f5c2e7', // pink
-  '#74c7ec', // sapphire
-  '#eba0ac', // maroon
-]
-
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ROW_HEIGHT = 34
@@ -107,108 +90,29 @@ const GRAPH_LEFT_PAD = 12
 const NODE_RADIUS = 4
 const GRAPH_MIN_WIDTH = 40
 
-// ─── Graph Layout Algorithm ───────────────────────────────────────────────────
+// ─── Graph Layout: uses assignLanes from laneAssignment.ts ───────────────────
 
 function computeGraphLayout(commits: GitCommit[]): GraphNode[] {
   if (commits.length === 0) return []
 
-  const nodes: GraphNode[] = []
-  // Track which columns are "active" (have a branch line running through them)
-  const activeLanes: (string | null)[] = []
+  // Map full GitCommit to minimal LaneCommit for algorithm
+  const laneCommits = commits.map((c) => ({
+    hash: c.hash,
+    parentHashes: c.parentHashes,
+    refs: c.refs
+  }))
 
-  for (let i = 0; i < commits.length; i++) {
-    const commit = commits[i]
-    const refs = parseRefs(commit.refs)
+  const laneResults = assignLanes(laneCommits)
 
-    // Find the column for this commit (it should already be reserved by a parent)
-    let column = activeLanes.indexOf(commit.hash)
-    if (column === -1) {
-      // New branch head — find first empty lane
-      column = activeLanes.indexOf(null)
-      if (column === -1) {
-        column = activeLanes.length
-        activeLanes.push(commit.hash)
-      } else {
-        activeLanes[column] = commit.hash
-      }
-    }
-
-    const parentLinks: GraphNode['parents'] = []
-    const isMerge = commit.parentHashes.length > 1
-
-    if (commit.parentHashes.length === 0) {
-      // Root commit — free this lane
-      activeLanes[column] = null
-    } else {
-      // First parent continues in the same column
-      const firstParent = commit.parentHashes[0]
-      activeLanes[column] = firstParent
-
-      parentLinks.push({
-        hash: firstParent,
-        fromCol: column,
-        toCol: column
-      })
-
-      // Additional parents (merge commits) get their own lanes
-      for (let p = 1; p < commit.parentHashes.length; p++) {
-        const parentHash = commit.parentHashes[p]
-        let parentCol = activeLanes.indexOf(parentHash)
-
-        if (parentCol === -1) {
-          // Assign to first empty lane, or create new
-          parentCol = activeLanes.indexOf(null)
-          if (parentCol === -1) {
-            parentCol = activeLanes.length
-            activeLanes.push(parentHash)
-          } else {
-            activeLanes[parentCol] = parentHash
-          }
-        }
-
-        parentLinks.push({
-          hash: parentHash,
-          fromCol: column,
-          toCol: parentCol
-        })
-      }
-    }
-
-    // Trim trailing null lanes
-    while (activeLanes.length > 0 && activeLanes[activeLanes.length - 1] === null) {
-      activeLanes.pop()
-    }
-
-    nodes.push({
-      commit,
-      column,
-      parents: parentLinks,
-      isMerge,
-      refs
-    })
-  }
-
-  return nodes
-}
-
-function parseRefs(refString: string): ParsedRef[] {
-  if (!refString.trim()) return []
-
-  return refString.split(',').map((r) => r.trim()).filter(Boolean).map((ref) => {
-    if (ref.startsWith('HEAD -> ')) {
-      return { name: ref.replace('HEAD -> ', ''), type: 'head' as const }
-    }
-    if (ref === 'HEAD') {
-      return { name: 'HEAD', type: 'head' as const }
-    }
-    if (ref.startsWith('tag: ')) {
-      return { name: ref.replace('tag: ', ''), type: 'tag' as const }
-    }
-    if (ref.includes('/')) {
-      return { name: ref, type: 'remote' as const }
-    }
-    return { name: ref, type: 'branch' as const }
-  })
+  // Join results back with full GitCommit data
+  return laneResults.map((result, i) => ({
+    commit: commits[i],
+    lane: result.lane,
+    color: result.color,
+    parentConnections: result.parentConnections,
+    isMerge: result.isMerge,
+    refs: result.refs
+  }))
 }
 
 function getRelativeTime(dateStr: string): string {
@@ -253,9 +157,12 @@ function formatDate(dateStr: string): string {
   }
 }
 
-// ─── Graph Canvas Renderer ────────────────────────────────────────────────────
+// ─── SVG Graph Renderer ───────────────────────────────────────────────────────
 
-interface GraphCanvasProps {
+const HEAD_NODE_RADIUS = 6
+const HEAD_RING_RADIUS = 9
+
+interface GraphSVGProps {
   nodes: GraphNode[]
   maxColumns: number
   height: number
@@ -264,112 +171,148 @@ interface GraphCanvasProps {
   visibleStopIndex: number
 }
 
-function GraphCanvas({
+/** Build a hash→index lookup for fast parent resolution */
+function buildHashIndex(nodes: GraphNode[]): Map<string, number> {
+  const map = new Map<string, number>()
+  for (let i = 0; i < nodes.length; i++) {
+    map.set(nodes[i].commit.hash, i)
+  }
+  return map
+}
+
+const GraphSVG = React.memo(function GraphSVG({
   nodes,
   maxColumns,
   height,
   scrollOffset,
   visibleStartIndex,
   visibleStopIndex
-}: GraphCanvasProps): React.JSX.Element {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+}: GraphSVGProps): React.JSX.Element {
   const width = Math.max(GRAPH_MIN_WIDTH, GRAPH_LEFT_PAD + maxColumns * GRAPH_COL_WIDTH + GRAPH_LEFT_PAD)
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+  const hashIndex = useMemo(() => buildHashIndex(nodes), [nodes])
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+  // Render a buffer around visible range
+  const renderStart = Math.max(0, visibleStartIndex - 5)
+  const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 5)
 
-    const dpr = window.devicePixelRatio || 1
-    canvas.width = width * dpr
-    canvas.height = height * dpr
-    ctx.scale(dpr, dpr)
-    ctx.clearRect(0, 0, width, height)
+  const lines: React.JSX.Element[] = []
+  const circles: React.JSX.Element[] = []
 
-    // Render a buffer around visible range
-    const renderStart = Math.max(0, visibleStartIndex - 5)
-    const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 5)
+  for (let i = renderStart; i <= renderStop; i++) {
+    const node = nodes[i]
+    const y = i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+    const x = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
+    const hasHead = node.refs.some((r) => r.type === 'head')
 
-    for (let i = renderStart; i <= renderStop; i++) {
-      const node = nodes[i]
-      const y = i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
-      const x = GRAPH_LEFT_PAD + node.column * GRAPH_COL_WIDTH
+    // Draw lines to parents
+    for (let p = 0; p < node.parentConnections.length; p++) {
+      const conn = node.parentConnections[p]
+      const fromX = GRAPH_LEFT_PAD + conn.fromLane * GRAPH_COL_WIDTH
+      const toX = GRAPH_LEFT_PAD + conn.toLane * GRAPH_COL_WIDTH
+      const parentIdx = hashIndex.get(conn.parentHash)
+      const lineColor = node.color
 
-      // Draw lines to parents
-      for (const parent of node.parents) {
-        const parentIdx = nodes.findIndex((n) => n.commit.hash === parent.hash)
-        const fromX = GRAPH_LEFT_PAD + parent.fromCol * GRAPH_COL_WIDTH
-        const toX = GRAPH_LEFT_PAD + parent.toCol * GRAPH_COL_WIDTH
-
-        ctx.beginPath()
-        ctx.strokeStyle = LANE_COLORS[parent.toCol % LANE_COLORS.length]
-        ctx.lineWidth = 2
-
-        if (parentIdx === -1) {
-          // Parent not in visible data — draw line going down off screen
-          const endY = height + ROW_HEIGHT - scrollOffset
-
-          if (fromX === toX) {
-            ctx.moveTo(fromX, y)
-            ctx.lineTo(toX, endY)
-          } else {
-            ctx.moveTo(fromX, y)
-            ctx.bezierCurveTo(fromX, y + ROW_HEIGHT * 0.5, toX, y + ROW_HEIGHT * 0.5, toX, y + ROW_HEIGHT)
-            ctx.moveTo(toX, y + ROW_HEIGHT)
-            ctx.lineTo(toX, endY)
-          }
+      if (parentIdx === undefined) {
+        // Parent not in data — draw line going down off screen
+        const endY = height + ROW_HEIGHT - scrollOffset
+        if (fromX === toX) {
+          lines.push(
+            <line
+              key={`l-${i}-${p}`}
+              x1={fromX} y1={y} x2={toX} y2={endY}
+              stroke={lineColor} strokeWidth={2} fill="none"
+            />
+          )
         } else {
-          const parentY = parentIdx * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
-
-          if (fromX === toX) {
-            ctx.moveTo(fromX, y)
-            ctx.lineTo(toX, parentY)
-          } else {
-            const midY = y + ROW_HEIGHT * 0.7
-            ctx.moveTo(fromX, y)
-            ctx.bezierCurveTo(fromX, midY, toX, midY, toX, parentY)
-          }
+          lines.push(
+            <path
+              key={`l-${i}-${p}`}
+              d={`M ${fromX} ${y} C ${fromX} ${y + ROW_HEIGHT * 0.5}, ${toX} ${y + ROW_HEIGHT * 0.5}, ${toX} ${y + ROW_HEIGHT} L ${toX} ${endY}`}
+              stroke={lineColor} strokeWidth={2} fill="none"
+            />
+          )
         }
-        ctx.stroke()
-      }
-
-      // Draw node circle
-      ctx.beginPath()
-      ctx.arc(x, y, NODE_RADIUS, 0, Math.PI * 2)
-
-      const hasHead = node.refs.some((r) => r.type === 'head')
-
-      if (hasHead) {
-        ctx.fillStyle = LANE_COLORS[node.column % LANE_COLORS.length]
-        ctx.fill()
-        ctx.strokeStyle = '#cdd6f4'
-        ctx.lineWidth = 2
-        ctx.stroke()
-      } else if (node.isMerge) {
-        ctx.fillStyle = '#1e1e2e'
-        ctx.fill()
-        ctx.strokeStyle = LANE_COLORS[node.column % LANE_COLORS.length]
-        ctx.lineWidth = 2
-        ctx.stroke()
       } else {
-        ctx.fillStyle = LANE_COLORS[node.column % LANE_COLORS.length]
-        ctx.fill()
+        const parentY = parentIdx * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+        if (fromX === toX) {
+          lines.push(
+            <line
+              key={`l-${i}-${p}`}
+              x1={fromX} y1={y} x2={toX} y2={parentY}
+              stroke={lineColor} strokeWidth={2} fill="none"
+            />
+          )
+        } else {
+          const midY = y + ROW_HEIGHT * 0.7
+          lines.push(
+            <path
+              key={`l-${i}-${p}`}
+              d={`M ${fromX} ${y} C ${fromX} ${midY}, ${toX} ${midY}, ${toX} ${parentY}`}
+              stroke={lineColor} strokeWidth={2} fill="none"
+            />
+          )
+        }
       }
     }
-  }, [nodes, maxColumns, height, scrollOffset, visibleStartIndex, visibleStopIndex, width])
+
+    // Draw node circle
+    if (hasHead) {
+      // HEAD: larger node with highlighted glow ring
+      circles.push(
+        <React.Fragment key={`n-${i}`}>
+          <circle
+            cx={x} cy={y} r={HEAD_RING_RADIUS}
+            fill="none"
+            stroke={node.color}
+            strokeWidth={2}
+            opacity={0.35}
+          />
+          <circle
+            cx={x} cy={y} r={HEAD_NODE_RADIUS}
+            fill={node.color}
+            stroke="#cdd6f4"
+            strokeWidth={2}
+          />
+        </React.Fragment>
+      )
+    } else if (node.isMerge) {
+      // Merge: hollow node
+      circles.push(
+        <circle
+          key={`n-${i}`}
+          cx={x} cy={y} r={NODE_RADIUS}
+          fill="var(--bg-primary, #1e1e2e)"
+          stroke={node.color}
+          strokeWidth={2}
+        />
+      )
+    } else {
+      // Normal node: filled
+      circles.push(
+        <circle
+          key={`n-${i}`}
+          cx={x} cy={y} r={NODE_RADIUS}
+          fill={node.color}
+        />
+      )
+    }
+  }
 
   return (
-    <canvas
-      ref={canvasRef}
+    <svg
       width={width}
       height={height}
-      className={styles.canvas}
+      className={styles.svgGraph}
       style={{ width, height, position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
-    />
+    >
+      {/* Lines rendered first (below nodes) */}
+      {lines}
+      {/* Nodes rendered on top */}
+      {circles}
+    </svg>
   )
-}
+})
 
 // ─── Lookup Maps for Dynamic CSS Module Classes ──────────────────────────────
 
@@ -440,7 +383,7 @@ function CommitRowComponent(props: {
       onContextMenu={handleContextMenu}
       data-index={index}
     >
-      {/* Graph space (transparent — canvas draws underneath) */}
+      {/* Graph space (transparent — SVG draws underneath) */}
       <div className={styles.lane} style={{ minWidth: graphWidth, width: graphWidth }} />
 
       {/* Commit info */}
@@ -856,7 +799,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
   const maxColumns = useMemo(() => {
     if (nodes.length === 0) return 1
-    return Math.max(1, ...nodes.map((n) => n.column + 1))
+    return Math.max(1, ...nodes.map((n) => n.lane + 1))
   }, [nodes])
 
   const graphWidth = Math.max(GRAPH_MIN_WIDTH, GRAPH_LEFT_PAD + maxColumns * GRAPH_COL_WIDTH + GRAPH_LEFT_PAD)
@@ -1275,7 +1218,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
         </div>
 
         <div className={styles.viewport} onScroll={handleScroll}>
-          <GraphCanvas
+          <GraphSVG
             nodes={nodes}
             maxColumns={maxColumns}
             height={viewportHeight}
