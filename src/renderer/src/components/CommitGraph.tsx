@@ -1201,7 +1201,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
     return (
       <div className={styles.container} ref={containerRef}>
         <div className={styles.loading}>
-          <span className="repo-view-spinner"><Loader2 size={16} /></span>
+          <span className={styles.spinner}><Loader2 size={16} /></span>
           Loading commit history...
         </div>
       </div>
@@ -1288,7 +1288,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
           <div className={`${styles.cherryPickNotification} ${cherryPickStatusClass[cherryPickState.status] || ''}`}>
             <div className={styles.cherryPickNotificationContent}>
               {cherryPickState.status === 'picking' && (
-                <span className="repo-view-spinner"><Loader2 size={14} /></span>
+                <span className={styles.spinner}><Loader2 size={14} /></span>
               )}
               {cherryPickState.status === 'success' && <span><Check size={14} /></span>}
               {cherryPickState.status === 'conflict' && <span><AlertTriangle size={14} /></span>}
@@ -1339,7 +1339,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
         <div className={`${styles.revertNotification} ${revertStatusClass[revertState.status] || ''}`}>
           <div className={styles.revertNotificationContent}>
             {revertState.status === 'reverting' && (
-              <span className="repo-view-spinner"><Loader2 size={14} /></span>
+              <span className={styles.spinner}><Loader2 size={14} /></span>
             )}
             {revertState.status === 'success' && <span><Check size={14} /></span>}
             {revertState.status === 'conflict' && <span><AlertTriangle size={14} /></span>}
@@ -1434,7 +1434,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
                 <button className={styles.detailClose} onClick={handleCloseDetail}><X size={16} /></button>
               </div>
               <div className={styles.detailLoading}>
-                <span className="repo-view-spinner"><Loader2 size={16} /></span>
+                <span className={styles.spinner}><Loader2 size={16} /></span>
                 Loading...
               </div>
             </div>

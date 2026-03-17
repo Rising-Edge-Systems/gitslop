@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Folder, FileCode, FileJson, FileText, Palette, Globe, Image, Settings, Lock, Terminal, FileType, Coffee, File, Ban, KeyRound, ChevronRight, Pencil, Clock, User, Clipboard, X } from 'lucide-react'
 import sidebarStyles from './Sidebar.module.css'
+import styles from './FileTree.module.css'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -73,22 +74,22 @@ function getFileIcon(name: string, isDirectory: boolean): React.ReactNode {
 
 // ─── Status indicator ────────────────────────────────────────────────────────
 
-function getStatusIndicator(status: FileStatus): { symbol: string; className: string; title: string } | null {
+function getStatusIndicator(status: FileStatus): { symbol: string; moduleClass: string; title: string } | null {
   switch (status) {
     case 'modified':
-      return { symbol: 'M', className: 'file-status-modified', title: 'Modified' }
+      return { symbol: 'M', moduleClass: styles.statusModified, title: 'Modified' }
     case 'staged':
-      return { symbol: 'S', className: 'file-status-staged', title: 'Staged' }
+      return { symbol: 'S', moduleClass: styles.statusStaged, title: 'Staged' }
     case 'untracked':
-      return { symbol: 'U', className: 'file-status-untracked', title: 'Untracked' }
+      return { symbol: 'U', moduleClass: styles.statusUntracked, title: 'Untracked' }
     case 'conflicted':
-      return { symbol: '!', className: 'file-status-conflicted', title: 'Conflicted' }
+      return { symbol: '!', moduleClass: styles.statusConflicted, title: 'Conflicted' }
     case 'deleted':
-      return { symbol: 'D', className: 'file-status-deleted', title: 'Deleted' }
+      return { symbol: 'D', moduleClass: styles.statusDeleted, title: 'Deleted' }
     case 'added':
-      return { symbol: 'A', className: 'file-status-added', title: 'Added' }
+      return { symbol: 'A', moduleClass: styles.statusAdded, title: 'Added' }
     case 'renamed':
-      return { symbol: 'R', className: 'file-status-renamed', title: 'Renamed' }
+      return { symbol: 'R', moduleClass: styles.statusRenamed, title: 'Renamed' }
     default:
       return null
   }
@@ -252,7 +253,7 @@ function TreeNode({
   return (
     <>
       <div
-        className={`file-tree-node ${entry.isDirectory ? 'file-tree-dir' : 'file-tree-file'} ${statusIndicator ? statusIndicator.className : ''}`}
+        className={`${styles.node}${entry.isDirectory ? ` ${styles.dir}` : ''}${statusIndicator ? ` ${statusIndicator.moduleClass}` : ''}`}
         style={{ paddingLeft: `${12 + depth * 16}px` }}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
@@ -260,18 +261,18 @@ function TreeNode({
         title={entry.path}
       >
         {entry.isDirectory && (
-          <span className={`file-tree-chevron ${isExpanded ? 'open' : ''}`}><ChevronRight size={12} /></span>
+          <span className={`${styles.chevron}${isExpanded ? ` ${styles.chevronOpen}` : ''}`}><ChevronRight size={12} /></span>
         )}
-        <span className="file-tree-icon">{getFileIcon(entry.name, entry.isDirectory)}</span>
-        <span className="file-tree-name">{entry.name}</span>
+        <span className={styles.icon}>{getFileIcon(entry.name, entry.isDirectory)}</span>
+        <span className={styles.name}>{entry.name}</span>
         {statusIndicator && (
-          <span className={`file-tree-status ${statusIndicator.className}`} title={statusIndicator.title}>
+          <span className={`${styles.status} ${statusIndicator.moduleClass}`} title={statusIndicator.title}>
             {statusIndicator.symbol}
           </span>
         )}
       </div>
       {entry.isDirectory && isExpanded && (
-        <div className="file-tree-children">
+        <div className={styles.children}>
           {entry.children.map((child) => (
             <TreeNode
               key={child.path}
@@ -550,14 +551,14 @@ export function FileTree({ currentRepo, onOpenFile, onShowHistory, onShowBlame }
 
   if (!currentRepo) {
     return (
-      <div className="file-tree-container">
+      <div className={styles.container}>
         <div className={sidebarStyles.placeholder}>No repository open</div>
       </div>
     )
   }
 
   return (
-    <div className="file-tree-container">
+    <div className={styles.container}>
       {/* Search / filter */}
       <div className={sidebarStyles.searchBox}>
         <input
@@ -575,7 +576,7 @@ export function FileTree({ currentRepo, onOpenFile, onShowHistory, onShowBlame }
       </div>
 
       {/* File tree */}
-      <div className="file-tree-list">
+      <div className={styles.list}>
         {loading && files.length === 0 ? (
           <div className={sidebarStyles.placeholder}>Loading files...</div>
         ) : filteredTree.length === 0 ? (

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import styles from './RebaseDialog.module.css'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -281,30 +282,30 @@ export function RebaseDialog({
 
   return (
     <div className="branch-dialog-overlay" onClick={onClose}>
-      <div className="branch-dialog rebase-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className={`branch-dialog ${styles.rebaseDialog}`} onClick={(e) => e.stopPropagation()}>
         <div className="branch-dialog-title">
           {state.rebasing ? <><AlertTriangle size={16} /> Rebase in Progress</> : 'Rebase Branch'}
         </div>
 
         {/* In-progress rebase state */}
         {state.rebasing && (
-          <div className="rebase-conflict-section">
-            <p className="rebase-conflict-info">
+          <div className={styles.rebaseConflictSection}>
+            <p className={styles.rebaseConflictInfo}>
               A rebase is in progress on <strong>{currentBranch}</strong>.
               {state.progress && (
-                <span className="rebase-progress-indicator">
+                <span className={styles.rebaseProgressIndicator}>
                   {' '}Step {state.progress.current} of {state.progress.total}
                 </span>
               )}
             </p>
 
             {state.conflicts && state.conflicts.length > 0 && (
-              <div className="rebase-conflict-files">
-                <div className="rebase-conflict-files-header">Conflicted Files:</div>
-                <ul className="rebase-conflict-file-list">
+              <div className={styles.rebaseConflictFiles}>
+                <div className={styles.rebaseConflictFilesHeader}>Conflicted Files:</div>
+                <ul className={styles.rebaseConflictFileList}>
                   {state.conflicts.map((file) => (
-                    <li key={file} className="rebase-conflict-file-item">
-                      <span className="rebase-conflict-file-icon">!</span>
+                    <li key={file} className={styles.rebaseConflictFileItem}>
+                      <span className={styles.rebaseConflictFileIcon}>!</span>
                       {file}
                     </li>
                   ))}
@@ -316,7 +317,7 @@ export function RebaseDialog({
               <div className="branch-dialog-error">{state.error}</div>
             )}
 
-            <p className="rebase-conflict-hint">
+            <p className={styles.rebaseConflictHint}>
               Resolve conflicts in each file, stage the resolved files, then continue the rebase.
             </p>
 
@@ -349,7 +350,7 @@ export function RebaseDialog({
         {/* Normal rebase dialog */}
         {!state.rebasing && (
           <>
-            <p className="rebase-dialog-desc">
+            <p className={styles.rebaseDialogDesc}>
               Rebase <strong>{currentBranch}</strong> onto:
             </p>
 
@@ -382,8 +383,8 @@ export function RebaseDialog({
 
             {/* Published commits warning */}
             {state.preview?.isPublished && state.preview.commitCount > 0 && (
-              <div className="rebase-published-warning">
-                <span className="rebase-published-warning-icon"><AlertTriangle size={16} /></span>
+              <div className={styles.rebasePublishedWarning}>
+                <span className={styles.rebasePublishedWarningIcon}><AlertTriangle size={16} /></span>
                 <span>
                   <strong>Warning:</strong> You are rebasing commits that have been pushed to a remote.
                   This will rewrite history and may cause issues for collaborators.
@@ -393,12 +394,12 @@ export function RebaseDialog({
 
             {/* Rebase preview */}
             {state.selectedBranch && (
-              <div className="rebase-preview">
+              <div className={styles.rebasePreview}>
                 {state.loadingPreview ? (
-                  <span className="rebase-preview-loading">Analyzing rebase...</span>
+                  <span className={styles.rebasePreviewLoading}>Analyzing rebase...</span>
                 ) : state.preview ? (
-                  <div className="rebase-preview-info">
-                    <span className="rebase-preview-count">
+                  <div className={styles.rebasePreviewInfo}>
+                    <span className={styles.rebasePreviewCount}>
                       {state.preview.commitCount === 0
                         ? 'Already up to date — nothing to rebase'
                         : `${state.preview.commitCount} commit${state.preview.commitCount !== 1 ? 's' : ''} will be replayed`}
@@ -410,7 +411,7 @@ export function RebaseDialog({
 
             {/* Interactive toggle */}
             {state.preview && state.preview.commitCount > 0 && (
-              <label className="rebase-interactive-toggle">
+              <label className={styles.rebaseInteractiveToggle}>
                 <input
                   type="checkbox"
                   checked={state.interactive}
@@ -424,16 +425,16 @@ export function RebaseDialog({
 
             {/* Interactive rebase commit list */}
             {state.interactive && state.commitActions.length > 0 && (
-              <div className="rebase-interactive-commits">
-                <div className="rebase-interactive-header">
-                  <span className="rebase-interactive-col-action">Action</span>
-                  <span className="rebase-interactive-col-hash">Hash</span>
-                  <span className="rebase-interactive-col-message">Message</span>
+              <div className={styles.rebaseInteractiveCommits}>
+                <div className={styles.rebaseInteractiveHeader}>
+                  <span>Action</span>
+                  <span>Hash</span>
+                  <span>Message</span>
                 </div>
                 {state.commitActions.map((ca) => (
-                  <div key={ca.hash} className="rebase-interactive-row">
+                  <div key={ca.hash} className={styles.rebaseInteractiveRow}>
                     <select
-                      className="rebase-interactive-action-select"
+                      className={styles.rebaseInteractiveActionSelect}
                       value={ca.action}
                       onChange={(e) => setCommitAction(ca.hash, e.target.value as RebaseAction)}
                     >
@@ -444,8 +445,8 @@ export function RebaseDialog({
                       <option value="edit">edit</option>
                       <option value="drop">drop</option>
                     </select>
-                    <span className="rebase-interactive-hash">{ca.hash.substring(0, 7)}</span>
-                    <span className="rebase-interactive-message">{ca.subject}</span>
+                    <span className={styles.rebaseInteractiveHash}>{ca.hash.substring(0, 7)}</span>
+                    <span className={styles.rebaseInteractiveMessage}>{ca.subject}</span>
                   </div>
                 ))}
               </div>

@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { RefreshCw, X, Loader2, AlertTriangle, GitBranch, Pencil, FileEdit, HelpCircle, FileText } from 'lucide-react'
+import styles from './RepoView.module.css'
+import blameStyles from './BlameView.module.css'
+import conflictStyles from './ConflictResolver.module.css'
+import editorStyles from './CodeEditor.module.css'
 import { BlameView } from './BlameView'
 import { CodeEditor } from './CodeEditor'
 import { CommitDialog } from './CommitDialog'
@@ -137,81 +141,81 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
   const currentBranch = branches.find((b) => b.current)?.name || status?.branch || '—'
 
   return (
-    <div className="repo-view">
-      <div className="repo-view-header">
-        <div className="repo-view-info">
-          <h2 className="repo-view-name">{repoName}</h2>
-          <span className="repo-view-path" title={repoPath}>
+    <div className={styles.repoView}>
+      <div className={styles.repoViewHeader}>
+        <div className={styles.repoViewInfo}>
+          <h2 className={styles.repoViewName}>{repoName}</h2>
+          <span className={styles.repoViewPath} title={repoPath}>
             {repoPath}
           </span>
         </div>
-        <div className="repo-view-actions">
-          <button className="repo-view-refresh" onClick={loadRepoData} title="Refresh">
+        <div className={styles.repoViewActions}>
+          <button className={styles.repoViewRefresh} onClick={loadRepoData} title="Refresh">
             <RefreshCw size={14} />
           </button>
-          <button className="repo-view-close" onClick={onCloseRepo} title="Close repository">
+          <button className={styles.repoViewClose} onClick={onCloseRepo} title="Close repository">
             <X size={14} /> Close
           </button>
         </div>
       </div>
 
       {loading && (
-        <div className="repo-view-loading">
-          <span className="repo-view-spinner"><Loader2 size={16} /></span>
+        <div className={styles.repoViewLoading}>
+          <span className={styles.repoViewSpinner}><Loader2 size={16} /></span>
           Loading repository...
         </div>
       )}
 
       {error && (
-        <div className="repo-view-error">
+        <div className={styles.repoViewError}>
           <span><AlertTriangle size={14} /></span> {error}
           <button onClick={loadRepoData}>Retry</button>
         </div>
       )}
 
       {!loading && !error && (
-        <div className="repo-view-content">
-          <div className="repo-view-summary">
-            <div className="repo-view-card">
-              <span className="repo-view-card-icon"><GitBranch size={18} /></span>
-              <div className="repo-view-card-info">
-                <span className="repo-view-card-label">Current Branch</span>
-                <span className="repo-view-card-value">{currentBranch}</span>
+        <div className={styles.repoViewContent}>
+          <div className={styles.repoViewSummary}>
+            <div className={styles.repoViewCard}>
+              <span className={styles.repoViewCardIcon}><GitBranch size={18} /></span>
+              <div className={styles.repoViewCardInfo}>
+                <span className={styles.repoViewCardLabel}>Current Branch</span>
+                <span className={styles.repoViewCardValue}>{currentBranch}</span>
               </div>
             </div>
 
-            <div className="repo-view-card">
-              <span className="repo-view-card-icon"><Pencil size={18} /></span>
-              <div className="repo-view-card-info">
-                <span className="repo-view-card-label">Staged</span>
-                <span className="repo-view-card-value">{status?.staged ?? 0} files</span>
+            <div className={styles.repoViewCard}>
+              <span className={styles.repoViewCardIcon}><Pencil size={18} /></span>
+              <div className={styles.repoViewCardInfo}>
+                <span className={styles.repoViewCardLabel}>Staged</span>
+                <span className={styles.repoViewCardValue}>{status?.staged ?? 0} files</span>
               </div>
             </div>
 
-            <div className="repo-view-card">
-              <span className="repo-view-card-icon"><FileEdit size={18} /></span>
-              <div className="repo-view-card-info">
-                <span className="repo-view-card-label">Unstaged</span>
-                <span className="repo-view-card-value">{status?.unstaged ?? 0} files</span>
+            <div className={styles.repoViewCard}>
+              <span className={styles.repoViewCardIcon}><FileEdit size={18} /></span>
+              <div className={styles.repoViewCardInfo}>
+                <span className={styles.repoViewCardLabel}>Unstaged</span>
+                <span className={styles.repoViewCardValue}>{status?.unstaged ?? 0} files</span>
               </div>
             </div>
 
-            <div className="repo-view-card">
-              <span className="repo-view-card-icon"><HelpCircle size={18} /></span>
-              <div className="repo-view-card-info">
-                <span className="repo-view-card-label">Untracked</span>
-                <span className="repo-view-card-value">{status?.untracked ?? 0} files</span>
+            <div className={styles.repoViewCard}>
+              <span className={styles.repoViewCardIcon}><HelpCircle size={18} /></span>
+              <div className={styles.repoViewCardInfo}>
+                <span className={styles.repoViewCardLabel}>Untracked</span>
+                <span className={styles.repoViewCardValue}>{status?.untracked ?? 0} files</span>
               </div>
             </div>
           </div>
 
           {/* Conflict Banner */}
           {hasConflicts && !showConflictResolver && (
-            <div className="conflict-banner">
-              <span className="conflict-banner-icon"><AlertTriangle size={16} /></span>
+            <div className={conflictStyles.conflictBanner}>
+              <span className={conflictStyles.conflictBannerIcon}><AlertTriangle size={16} /></span>
               <span>Merge conflicts detected. Resolve them to continue.</span>
               <button
-                className="conflict-banner-btn"
+                className={conflictStyles.conflictBannerBtn}
                 onClick={() => setShowConflictResolver(true)}
               >
                 Open Conflict Resolver
@@ -244,7 +248,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
 
           {/* Blame View */}
           {blameFilePath && (
-            <div className="blame-view-panel">
+            <div className={blameStyles.viewPanel}>
               <BlameView
                 repoPath={repoPath}
                 filePath={blameFilePath}
@@ -260,9 +264,9 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
           )}
 
           {/* Editor Toggle + Panel */}
-          <div className="editor-toggle-bar">
+          <div className={editorStyles.editorToggleBar}>
             <button
-              className={`editor-toggle-btn ${showEditor ? 'active' : ''}`}
+              className={`${editorStyles.editorToggleBtn} ${showEditor ? editorStyles.editorToggleBtnActive : ''}`}
               onClick={() => setShowEditor((prev) => !prev)}
               title="Toggle Code Editor"
             >
@@ -270,7 +274,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
             </button>
           </div>
           {showEditor && (
-            <div className="code-editor-panel">
+            <div className={editorStyles.codeEditorPanel}>
               <CodeEditor repoPath={repoPath} onFileSaved={loadRepoData} />
             </div>
           )}

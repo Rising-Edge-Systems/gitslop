@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import styles from './MergeDialog.module.css'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -181,15 +182,15 @@ export function MergeDialog({
 
   return (
     <div className="branch-dialog-overlay" onClick={onClose}>
-      <div className="branch-dialog merge-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className={`branch-dialog ${styles.mergeDialog}`} onClick={(e) => e.stopPropagation()}>
         <div className="branch-dialog-title">
           {state.merging ? <><AlertTriangle size={16} /> Merge in Progress</> : 'Merge Branch'}
         </div>
 
         {/* In-progress merge state */}
         {state.merging && (
-          <div className="merge-conflict-section">
-            <p className="merge-conflict-info">
+          <div className={styles.conflictSection}>
+            <p className={styles.conflictInfo}>
               A merge is in progress on <strong>{currentBranch}</strong>.
               {state.conflicts && state.conflicts.length > 0 && (
                 <> There {state.conflicts.length === 1 ? 'is' : 'are'}{' '}
@@ -198,12 +199,12 @@ export function MergeDialog({
             </p>
 
             {state.conflicts && state.conflicts.length > 0 && (
-              <div className="merge-conflict-files">
-                <div className="merge-conflict-files-header">Conflicted Files:</div>
-                <ul className="merge-conflict-file-list">
+              <div className={styles.conflictFiles}>
+                <div className={styles.conflictFilesHeader}>Conflicted Files:</div>
+                <ul className={styles.conflictFileList}>
                   {state.conflicts.map((file) => (
-                    <li key={file} className="merge-conflict-file-item">
-                      <span className="merge-conflict-file-icon">!</span>
+                    <li key={file} className={styles.conflictFileItem}>
+                      <span className={styles.conflictFileIcon}>!</span>
                       {file}
                     </li>
                   ))}
@@ -215,7 +216,7 @@ export function MergeDialog({
               <div className="branch-dialog-error">{state.error}</div>
             )}
 
-            <p className="merge-conflict-hint">
+            <p className={styles.conflictHint}>
               Resolve conflicts in each file, stage the resolved files, then commit to complete the merge.
             </p>
 
@@ -240,7 +241,7 @@ export function MergeDialog({
         {/* Normal merge dialog */}
         {!state.merging && (
           <>
-            <p className="merge-dialog-desc">
+            <p className={styles.desc}>
               Merge into <strong>{currentBranch}</strong>
             </p>
 
@@ -273,18 +274,18 @@ export function MergeDialog({
 
             {/* Merge preview */}
             {state.selectedBranch && (
-              <div className="merge-preview">
+              <div className={styles.preview}>
                 {state.loadingPreview ? (
-                  <span className="merge-preview-loading">Analyzing merge...</span>
+                  <span className={styles.previewLoading}>Analyzing merge...</span>
                 ) : state.preview ? (
-                  <div className="merge-preview-info">
-                    <span className="merge-preview-count">
+                  <div className={styles.previewInfo}>
+                    <span className={styles.previewCount}>
                       {state.preview.commitCount === 0
                         ? 'Already up to date — nothing to merge'
                         : `${state.preview.commitCount} commit${state.preview.commitCount !== 1 ? 's' : ''} will be merged`}
                     </span>
                     {state.preview.fastForward && state.preview.commitCount > 0 && (
-                      <span className="merge-preview-ff">Fast-forward possible</span>
+                      <span className={styles.previewFf}>Fast-forward possible</span>
                     )}
                   </div>
                 ) : null}
@@ -292,9 +293,9 @@ export function MergeDialog({
             )}
 
             {/* Merge strategy */}
-            <div className="merge-strategy-options">
-              <div className="merge-strategy-title">Strategy:</div>
-              <label className="merge-strategy-option">
+            <div className={styles.strategyOptions}>
+              <div className={styles.strategyTitle}>Strategy:</div>
+              <label className={styles.strategyOption}>
                 <input
                   type="radio"
                   name="mergeStrategy"
@@ -303,10 +304,10 @@ export function MergeDialog({
                 />
                 <div>
                   <strong>Auto</strong>
-                  <span className="merge-strategy-desc">Fast-forward if possible, otherwise create a merge commit</span>
+                  <span className={styles.strategyDesc}>Fast-forward if possible, otherwise create a merge commit</span>
                 </div>
               </label>
-              <label className="merge-strategy-option">
+              <label className={styles.strategyOption}>
                 <input
                   type="radio"
                   name="mergeStrategy"
@@ -315,10 +316,10 @@ export function MergeDialog({
                 />
                 <div>
                   <strong>No fast-forward</strong>
-                  <span className="merge-strategy-desc">Always create a merge commit</span>
+                  <span className={styles.strategyDesc}>Always create a merge commit</span>
                 </div>
               </label>
-              <label className="merge-strategy-option">
+              <label className={styles.strategyOption}>
                 <input
                   type="radio"
                   name="mergeStrategy"
@@ -327,7 +328,7 @@ export function MergeDialog({
                 />
                 <div>
                   <strong>Fast-forward only</strong>
-                  <span className="merge-strategy-desc">Fail if fast-forward is not possible</span>
+                  <span className={styles.strategyDesc}>Fail if fast-forward is not possible</span>
                 </div>
               </label>
             </div>

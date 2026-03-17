@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
+import styles from './CloneDialog.module.css'
 
 interface CloneDialogProps {
   onClose: () => void
@@ -127,12 +128,12 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
   const isValid = url.trim() && destination.trim() && repoName.trim()
 
   return (
-    <div className="clone-dialog-overlay" onKeyDown={handleKeyDown}>
-      <div className="clone-dialog">
-        <div className="clone-dialog-header">
-          <h2 className="clone-dialog-title">Clone Repository</h2>
+    <div className={styles.overlay} onKeyDown={handleKeyDown}>
+      <div className={styles.dialog}>
+        <div className={styles.header}>
+          <h2 className={styles.title}>Clone Repository</h2>
           <button
-            className="clone-dialog-close"
+            className={styles.close}
             onClick={cloning ? handleCancel : onClose}
             aria-label="Close"
           >
@@ -140,16 +141,16 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
           </button>
         </div>
 
-        <div className="clone-dialog-body">
-          <div className="clone-dialog-field">
-            <label className="clone-dialog-label" htmlFor="clone-url">
+        <div className={styles.body}>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="clone-url">
               Repository URL
             </label>
             <input
               ref={urlInputRef}
               id="clone-url"
               type="text"
-              className="clone-dialog-input"
+              className={styles.input}
               placeholder="https://github.com/user/repo.git or git@github.com:user/repo.git"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -157,18 +158,18 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
               spellCheck={false}
               autoComplete="off"
             />
-            <span className="clone-dialog-hint">Supports HTTPS and SSH URLs</span>
+            <span className={styles.hint}>Supports HTTPS and SSH URLs</span>
           </div>
 
-          <div className="clone-dialog-field">
-            <label className="clone-dialog-label" htmlFor="clone-dest">
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="clone-dest">
               Destination Folder
             </label>
-            <div className="clone-dialog-input-group">
+            <div className={styles.inputGroup}>
               <input
                 id="clone-dest"
                 type="text"
-                className="clone-dialog-input"
+                className={styles.input}
                 placeholder="/path/to/parent/folder"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
@@ -177,7 +178,7 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
                 autoComplete="off"
               />
               <button
-                className="clone-dialog-browse"
+                className={styles.browse}
                 onClick={handleBrowseDestination}
                 disabled={cloning}
               >
@@ -186,14 +187,14 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
             </div>
           </div>
 
-          <div className="clone-dialog-field">
-            <label className="clone-dialog-label" htmlFor="clone-name">
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="clone-name">
               Repository Name
             </label>
             <input
               id="clone-name"
               type="text"
-              className="clone-dialog-input"
+              className={styles.input}
               placeholder="repo-name"
               value={repoName}
               onChange={handleNameChange}
@@ -202,33 +203,33 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
               autoComplete="off"
             />
             {destination && repoName && (
-              <span className="clone-dialog-hint">
+              <span className={styles.hint}>
                 Will clone to: {destination}{destination.endsWith('/') ? '' : '/'}{repoName}
               </span>
             )}
           </div>
 
           {error && (
-            <div className="clone-dialog-error">
-              <span className="clone-dialog-error-icon"><AlertTriangle size={14} /></span>
-              <span className="clone-dialog-error-text">{error}</span>
+            <div className={styles.error}>
+              <span className={styles.errorIcon}><AlertTriangle size={14} /></span>
+              <span className={styles.errorText}>{error}</span>
             </div>
           )}
 
           {cloning && progress && (
-            <div className="clone-dialog-progress">
-              <div className="clone-dialog-progress-text">
+            <div className={styles.progress}>
+              <div className={styles.progressText}>
                 {progress.phase}
                 {progress.percent !== null && ` ${progress.percent}%`}
                 {progress.current !== null && progress.total !== null && (
-                  <span className="clone-dialog-progress-count">
+                  <span className={styles.progressCount}>
                     {' '}({progress.current}/{progress.total})
                   </span>
                 )}
               </div>
-              <div className="clone-dialog-progress-bar">
+              <div className={styles.progressBar}>
                 <div
-                  className="clone-dialog-progress-fill"
+                  className={styles.progressFill}
                   style={{ width: `${progress.percent ?? 0}%` }}
                 />
               </div>
@@ -236,15 +237,15 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
           )}
         </div>
 
-        <div className="clone-dialog-footer">
+        <div className={styles.footer}>
           <button
-            className="clone-dialog-btn clone-dialog-btn-cancel"
+            className={`${styles.btn} ${styles.btnCancel}`}
             onClick={cloning ? handleCancel : onClose}
           >
             {cloning ? 'Cancel' : 'Close'}
           </button>
           <button
-            className="clone-dialog-btn clone-dialog-btn-clone"
+            className={`${styles.btn} ${styles.btnClone}`}
             onClick={handleClone}
             disabled={cloning || !isValid}
           >

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { GitCommitHorizontal, FileText, GitBranch, Tag, Search, Loader2, ArrowUp, ArrowDown } from 'lucide-react'
+import styles from './SearchPalette.module.css'
 
 type SearchMode = 'all' | 'commits' | 'files' | 'branches'
 
@@ -43,7 +44,7 @@ export function SearchPalette({
   // Scroll selected item into view
   useEffect(() => {
     if (resultsRef.current) {
-      const selected = resultsRef.current.querySelector('.search-result-item.selected')
+      const selected = resultsRef.current.querySelector('[data-selected="true"]')
       if (selected) {
         selected.scrollIntoView({ block: 'nearest' })
       }
@@ -383,15 +384,15 @@ export function SearchPalette({
   }
 
   return (
-    <div className="search-palette-overlay" onClick={onClose}>
-      <div className="search-palette" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
+    <div className={styles.overlay} onClick={onClose}>
+      <div className={styles.palette} onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
         {/* Checkout confirmation */}
         {confirmCheckout && (
-          <div className="search-palette-confirm">
+          <div className={styles.confirm}>
             <p>
               Check out branch <strong>{confirmCheckout}</strong>?
             </p>
-            <div className="search-palette-confirm-actions">
+            <div className={styles.confirmActions}>
               <button
                 className="branch-dialog-btn branch-dialog-btn-secondary"
                 onClick={() => setConfirmCheckout(null)}
@@ -411,21 +412,21 @@ export function SearchPalette({
         {/* Search input */}
         {!confirmCheckout && (
           <>
-            <div className="search-palette-header">
-              <span className="search-palette-icon"><Search size={16} /></span>
+            <div className={styles.header}>
+              <span className={styles.icon}><Search size={16} /></span>
               <input
                 ref={inputRef}
-                className="search-palette-input"
+                className={styles.input}
                 type="text"
                 placeholder={`Search ${mode === 'all' ? 'everything' : mode}... (Tab to switch mode)`}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              {loading && <span className="search-palette-spinner"><Loader2 size={14} /></span>}
+              {loading && <span className={styles.spinner}><Loader2 size={14} /></span>}
             </div>
 
             {/* Mode tabs */}
-            <div className="search-palette-modes">
+            <div className={styles.modes}>
               {(
                 [
                   ['all', 'All'],
@@ -436,7 +437,7 @@ export function SearchPalette({
               ).map(([m, label]) => (
                 <button
                   key={m}
-                  className={`search-palette-mode-btn ${mode === m ? 'active' : ''}`}
+                  className={`${styles.modeBtn}${mode === m ? ` ${styles.modeBtnActive}` : ''}`}
                   onClick={() => setMode(m)}
                 >
                   {label}
@@ -445,37 +446,39 @@ export function SearchPalette({
             </div>
 
             {/* Results */}
-            <div className="search-palette-results" ref={resultsRef}>
+            <div className={styles.results} ref={resultsRef}>
               {!query.trim() && (
-                <div className="search-palette-empty">
+                <div className={styles.empty}>
                   Type to search commits, files, branches, and tags
                 </div>
               )}
               {query.trim() && results.length === 0 && !loading && (
-                <div className="search-palette-empty">No results found</div>
+                <div className={styles.empty}>No results found</div>
               )}
               {(() => {
                 globalIdx = 0
                 return groupedResults.map((group) => (
-                  <div key={group.type} className="search-palette-group">
-                    <div className="search-palette-group-header">
+                  <div key={group.type} className={styles.group}>
+                    <div className={styles.groupHeader}>
                       {getTypeIcon(group.type)} {getTypeLabel(group.type)}s ({group.items.length})
                     </div>
                     {group.items.map((result) => {
                       const idx = globalIdx++
+                      const isSelected = idx === selectedIndex
                       return (
                         <div
                           key={`${result.type}-${result.value}-${idx}`}
-                          className={`search-result-item ${idx === selectedIndex ? 'selected' : ''}`}
+                          className={`${styles.resultItem}${isSelected ? ` ${styles.resultItemSelected}` : ''}`}
+                          data-selected={isSelected ? 'true' : undefined}
                           onClick={() => handleSelect(result)}
                           onMouseEnter={() => setSelectedIndex(idx)}
                         >
-                          <span className="search-result-icon">{getTypeIcon(result.type)}</span>
-                          <div className="search-result-content">
-                            <span className="search-result-label">{result.label}</span>
-                            <span className="search-result-description">{result.description}</span>
+                          <span className={styles.resultIcon}>{getTypeIcon(result.type)}</span>
+                          <div className={styles.resultContent}>
+                            <span className={styles.resultLabel}>{result.label}</span>
+                            <span className={styles.resultDescription}>{result.description}</span>
                           </div>
-                          <span className="search-result-type-badge">{getTypeLabel(result.type)}</span>
+                          <span className={styles.resultTypeBadge}>{getTypeLabel(result.type)}</span>
                         </div>
                       )
                     })}
@@ -485,7 +488,7 @@ export function SearchPalette({
             </div>
 
             {/* Footer */}
-            <div className="search-palette-footer">
+            <div className={styles.footer}>
               <span>
                 <kbd><ArrowUp size={12} /></kbd>
                 <kbd><ArrowDown size={12} /></kbd> navigate

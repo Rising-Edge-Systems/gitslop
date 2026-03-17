@@ -11,7 +11,7 @@ interface MainContentProps {
 export function MainContent({ currentRepo, onRepoOpen, onCloseRepo }: MainContentProps): React.JSX.Element {
   if (!currentRepo) {
     return (
-      <div className="main-content">
+      <div className="main-content main-content--centered">
         <WelcomeScreen onRepoOpen={onRepoOpen} />
       </div>
     )

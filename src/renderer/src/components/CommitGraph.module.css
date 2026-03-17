@@ -1,5 +1,17 @@
 /* CommitGraph.module.css — Scoped styles for CommitGraph component */
 
+/* ─── Spinner ──────────────────────────────────────────────────────────── */
+
+.spinner {
+  display: inline-block;
+  animation: commitGraphSpin 1s linear infinite;
+}
+
+@keyframes commitGraphSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ─── Commit Graph Container ────────────────────────────────────────────── */
 
 .wrapper {

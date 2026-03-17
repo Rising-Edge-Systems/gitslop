@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { AlertTriangle, X, Check, Circle, ChevronLeft, ChevronRight } from 'lucide-react'
+import styles from './ConflictResolver.module.css'
 
 interface ConflictResolverProps {
   repoPath: string
@@ -371,17 +372,11 @@ export function ConflictResolver({
   const unresolvedCount = files.filter((f) => !f.resolved).length
   const hasConflictMarkers = resultContent.includes('<<<<<<<')
 
-  // Syntax-highlight a line for display
+  // Return the CSS module class for a line's highlight type
   const highlightLine = (line: string, type: 'ours' | 'theirs' | 'base' | 'result'): string => {
-    const typeClass =
-      type === 'ours'
-        ? 'conflict-line-ours'
-        : type === 'theirs'
-          ? 'conflict-line-theirs'
-          : type === 'base'
-            ? 'conflict-line-base'
-            : ''
-    return typeClass
+    if (type === 'ours') return styles.conflictLineOurs
+    if (type === 'theirs') return styles.conflictLineTheirs
+    return ''
   }
 
   const opLabel = activeOp
@@ -389,20 +384,20 @@ export function ConflictResolver({
     : 'Operation'
 
   return (
-    <div className="conflict-resolver-overlay">
-      <div className="conflict-resolver">
+    <div className={styles.conflictResolverOverlay}>
+      <div className={styles.conflictResolver}>
         {/* Header */}
-        <div className="conflict-resolver-header">
-          <div className="conflict-resolver-title">
-            <span className="conflict-resolver-icon"><AlertTriangle size={16} /></span>
+        <div className={styles.conflictResolverHeader}>
+          <div className={styles.conflictResolverTitle}>
+            <span className={styles.conflictResolverIcon}><AlertTriangle size={16} /></span>
             <h3>{opLabel} Conflict Resolution</h3>
-            <span className="conflict-resolver-file-count">
+            <span className={styles.conflictResolverFileCount}>
               {unresolvedCount} of {files.length} file{files.length !== 1 ? 's' : ''} unresolved
             </span>
           </div>
-          <div className="conflict-resolver-header-actions">
+          <div className={styles.conflictResolverHeaderActions}>
             <button
-              className="conflict-resolver-btn conflict-resolver-btn-abort"
+              className={`${styles.conflictResolverBtn} ${styles.conflictResolverBtnAbort}`}
               onClick={abortOperation}
               disabled={resolving}
               title={`Abort ${opLabel}`}
@@ -410,7 +405,7 @@ export function ConflictResolver({
               Abort {opLabel}
             </button>
             <button
-              className="conflict-resolver-btn conflict-resolver-btn-close"
+              className={`${styles.conflictResolverBtn} ${styles.conflictResolverBtnClose}`}
               onClick={onClose}
               title="Close (keep conflicts)"
             >
@@ -420,27 +415,27 @@ export function ConflictResolver({
         </div>
 
         {error && (
-          <div className="conflict-resolver-error">
+          <div className={styles.conflictResolverError}>
             <span><AlertTriangle size={14} /></span> {error}
             <button onClick={() => setError(null)}><X size={14} /></button>
           </div>
         )}
 
-        <div className="conflict-resolver-body">
+        <div className={styles.conflictResolverBody}>
           {/* File List Sidebar */}
-          <div className="conflict-resolver-file-list">
-            <div className="conflict-resolver-file-list-header">Conflicted Files</div>
+          <div className={styles.conflictResolverFileList}>
+            <div className={styles.conflictResolverFileListHeader}>Conflicted Files</div>
             {files.map((file) => (
               <button
                 key={file.path}
-                className={`conflict-resolver-file-item ${selectedFile === file.path ? 'active' : ''} ${file.resolved ? 'resolved' : ''}`}
+                className={`${styles.conflictResolverFileItem}${selectedFile === file.path ? ` ${styles.active}` : ''}${file.resolved ? ` ${styles.resolved}` : ''}`}
                 onClick={() => setSelectedFile(file.path)}
                 title={file.path}
               >
-                <span className={`conflict-file-status ${file.resolved ? 'resolved' : 'unresolved'}`}>
+                <span className={`${styles.conflictFileStatus}${file.resolved ? ` ${styles.resolved}` : ` ${styles.unresolved}`}`}>
                   {file.resolved ? <Check size={12} /> : <Circle size={12} />}
                 </span>
-                <span className="conflict-file-name">
+                <span className={styles.conflictFileName}>
                   {file.path.split('/').pop()}
                 </span>
               </button>
@@ -449,24 +444,24 @@ export function ConflictResolver({
 
           {/* Main Content Area */}
           {selectedFile && !loading && (
-            <div className="conflict-resolver-content">
+            <div className={styles.conflictResolverContent}>
               {/* Conflict Navigation Bar */}
-              <div className="conflict-resolver-nav">
-                <span className="conflict-nav-info">
+              <div className={styles.conflictResolverNav}>
+                <span className={styles.conflictNavInfo}>
                   {conflicts.length > 0
                     ? `Conflict ${currentConflictIndex + 1} of ${conflicts.length}`
                     : 'No conflict markers remaining'}
                 </span>
-                <div className="conflict-nav-buttons">
+                <div className={styles.conflictNavButtons}>
                   <button
-                    className="conflict-nav-btn"
+                    className={styles.conflictNavBtn}
                     onClick={() => goToConflict('prev')}
                     disabled={conflicts.length === 0 || currentConflictIndex === 0}
                   >
                     <ChevronLeft size={14} /> Prev
                   </button>
                   <button
-                    className="conflict-nav-btn"
+                    className={styles.conflictNavBtn}
                     onClick={() => goToConflict('next')}
                     disabled={
                       conflicts.length === 0 || currentConflictIndex >= conflicts.length - 1
@@ -476,23 +471,23 @@ export function ConflictResolver({
                   </button>
                 </div>
                 {conflicts.length > 0 && (
-                  <div className="conflict-nav-resolve-btns">
+                  <div className={styles.conflictNavResolveBtns}>
                     <button
-                      className="conflict-nav-btn conflict-accept-ours"
+                      className={`${styles.conflictNavBtn} ${styles.conflictAcceptOurs}`}
                       onClick={() => resolveConflictBlock(currentConflictIndex, 'ours')}
                       title="Accept Ours for this conflict"
                     >
                       Accept Ours
                     </button>
                     <button
-                      className="conflict-nav-btn conflict-accept-theirs"
+                      className={`${styles.conflictNavBtn} ${styles.conflictAcceptTheirs}`}
                       onClick={() => resolveConflictBlock(currentConflictIndex, 'theirs')}
                       title="Accept Theirs for this conflict"
                     >
                       Accept Theirs
                     </button>
                     <button
-                      className="conflict-nav-btn conflict-accept-both"
+                      className={`${styles.conflictNavBtn} ${styles.conflictAcceptBoth}`}
                       onClick={() => resolveConflictBlock(currentConflictIndex, 'both')}
                       title="Accept Both for this conflict"
                     >
@@ -503,58 +498,58 @@ export function ConflictResolver({
               </div>
 
               {/* 3-Pane View */}
-              <div className="conflict-panes">
+              <div className={styles.conflictPanes}>
                 {/* Ours Pane (left) */}
-                <div className="conflict-pane conflict-pane-ours">
-                  <div className="conflict-pane-header">
-                    <span className="conflict-pane-label">Ours (Current)</span>
+                <div className={`${styles.conflictPane} ${styles.conflictPaneOurs}`}>
+                  <div className={styles.conflictPaneHeader}>
+                    <span className={styles.conflictPaneLabel}>Ours (Current)</span>
                     <button
-                      className="conflict-pane-action"
+                      className={styles.conflictPaneAction}
                       onClick={() => resolveFileWith('ours')}
                       title="Accept entire ours version"
                     >
                       Accept All Ours
                     </button>
                   </div>
-                  <div className="conflict-pane-content">
-                    <pre className="conflict-pane-code">
+                  <div className={styles.conflictPaneContent}>
+                    <pre className={styles.conflictPaneCode}>
                       {oursContent !== null ? (
                         oursContent.split('\n').map((line, idx) => (
-                          <div key={idx} className={`conflict-code-line ${highlightLine(line, 'ours')}`}>
-                            <span className="conflict-line-num">{idx + 1}</span>
-                            <span className="conflict-line-text">{line}</span>
+                          <div key={idx} className={`${styles.conflictCodeLine} ${highlightLine(line, 'ours')}`}>
+                            <span className={styles.conflictLineNum}>{idx + 1}</span>
+                            <span className={styles.conflictLineText}>{line}</span>
                           </div>
                         ))
                       ) : (
-                        <div className="conflict-pane-empty">File not available on ours side</div>
+                        <div className={styles.conflictPaneEmpty}>File not available on ours side</div>
                       )}
                     </pre>
                   </div>
                 </div>
 
                 {/* Theirs Pane (right) */}
-                <div className="conflict-pane conflict-pane-theirs">
-                  <div className="conflict-pane-header">
-                    <span className="conflict-pane-label">Theirs (Incoming)</span>
+                <div className={`${styles.conflictPane} ${styles.conflictPaneTheirs}`}>
+                  <div className={styles.conflictPaneHeader}>
+                    <span className={styles.conflictPaneLabel}>Theirs (Incoming)</span>
                     <button
-                      className="conflict-pane-action"
+                      className={styles.conflictPaneAction}
                       onClick={() => resolveFileWith('theirs')}
                       title="Accept entire theirs version"
                     >
                       Accept All Theirs
                     </button>
                   </div>
-                  <div className="conflict-pane-content">
-                    <pre className="conflict-pane-code">
+                  <div className={styles.conflictPaneContent}>
+                    <pre className={styles.conflictPaneCode}>
                       {theirsContent !== null ? (
                         theirsContent.split('\n').map((line, idx) => (
-                          <div key={idx} className={`conflict-code-line ${highlightLine(line, 'theirs')}`}>
-                            <span className="conflict-line-num">{idx + 1}</span>
-                            <span className="conflict-line-text">{line}</span>
+                          <div key={idx} className={`${styles.conflictCodeLine} ${highlightLine(line, 'theirs')}`}>
+                            <span className={styles.conflictLineNum}>{idx + 1}</span>
+                            <span className={styles.conflictLineText}>{line}</span>
                           </div>
                         ))
                       ) : (
-                        <div className="conflict-pane-empty">
+                        <div className={styles.conflictPaneEmpty}>
                           File not available on theirs side
                         </div>
                       )}
@@ -564,19 +559,19 @@ export function ConflictResolver({
               </div>
 
               {/* Result Pane (bottom) */}
-              <div className="conflict-pane conflict-pane-result">
-                <div className="conflict-pane-header">
-                  <span className="conflict-pane-label">
+              <div className={`${styles.conflictPane} ${styles.conflictPaneResult}`}>
+                <div className={styles.conflictPaneHeader}>
+                  <span className={styles.conflictPaneLabel}>
                     Result
                     {hasConflictMarkers && (
-                      <span className="conflict-markers-warning">
+                      <span className={styles.conflictMarkersWarning}>
                         {' '}
                         <AlertTriangle size={12} /> Contains conflict markers
                       </span>
                     )}
                   </span>
                   <button
-                    className="conflict-pane-action conflict-mark-resolved"
+                    className={`${styles.conflictPaneAction} ${styles.conflictMarkResolved}`}
                     onClick={markFileResolved}
                     disabled={resolving || hasConflictMarkers}
                     title={
@@ -590,7 +585,7 @@ export function ConflictResolver({
                 </div>
                 <textarea
                   ref={resultTextareaRef}
-                  className="conflict-result-editor"
+                  className={styles.conflictResultEditor}
                   value={resultContent}
                   onChange={(e) => {
                     setResultContent(e.target.value)
@@ -603,18 +598,18 @@ export function ConflictResolver({
           )}
 
           {loading && (
-            <div className="conflict-resolver-loading">Loading conflict data...</div>
+            <div className={styles.conflictResolverLoading}>Loading conflict data...</div>
           )}
         </div>
 
         {/* Footer */}
         {allResolved && (
-          <div className="conflict-resolver-footer">
-            <div className="conflict-resolver-footer-msg">
+          <div className={styles.conflictResolverFooter}>
+            <div className={styles.conflictResolverFooterMsg}>
               All conflicts resolved! Continue the {opLabel.toLowerCase()} operation?
             </div>
             <button
-              className="conflict-resolver-btn conflict-resolver-btn-continue"
+              className={`${styles.conflictResolverBtn} ${styles.conflictResolverBtnContinue}`}
               onClick={continueOperation}
               disabled={resolving}
             >

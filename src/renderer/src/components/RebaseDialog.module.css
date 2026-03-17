@@ -1,0 +1,212 @@
+/* =============================================================================
+   RebaseDialog — CSS Module
+   ============================================================================= */
+
+.rebaseDialog {
+  min-width: 500px;
+  max-width: 650px;
+}
+
+.rebaseDialogDesc {
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-md) 0;
+}
+
+.rebasePreview {
+  margin: var(--space-sm) 0 var(--space-md) 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+}
+
+.rebasePreviewLoading {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.rebasePreviewInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.rebasePreviewCount {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.rebasePublishedWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: 10px var(--space-md);
+  margin: var(--space-sm) 0;
+  background: rgba(231, 76, 60, 0.12);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.rebasePublishedWarningIcon {
+  flex-shrink: 0;
+  font-size: var(--font-lg);
+}
+
+.rebaseInteractiveToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-md);
+  color: var(--text-primary);
+  cursor: pointer;
+  margin: var(--space-sm) 0;
+}
+
+.rebaseInteractiveToggle input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.rebaseInteractiveCommits {
+  margin: var(--space-sm) 0 var(--space-md) 0;
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+}
+
+.rebaseInteractiveHeader {
+  display: grid;
+  grid-template-columns: 90px 70px 1fr;
+  gap: var(--space-sm);
+  padding: 6px 10px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rebaseInteractiveRow {
+  display: grid;
+  grid-template-columns: 90px 70px 1fr;
+  gap: var(--space-sm);
+  padding: 5px 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.rebaseInteractiveRow:last-child {
+  border-bottom: none;
+}
+
+.rebaseInteractiveActionSelect {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  font-size: var(--font-sm);
+  font-family: monospace;
+}
+
+.rebaseInteractiveHash {
+  font-family: monospace;
+  color: var(--accent);
+  font-size: var(--font-sm);
+}
+
+.rebaseInteractiveMessage {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rebase conflict section (in-progress rebase) */
+
+.rebaseConflictSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.rebaseConflictInfo {
+  font-size: var(--font-md);
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.rebaseProgressIndicator {
+  display: inline-block;
+  margin-left: var(--space-xs);
+  padding: 2px var(--space-sm);
+  background: var(--accent);
+  color: white;
+  border-radius: 10px;
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+.rebaseConflictFiles {
+  margin: 0;
+}
+
+.rebaseConflictFilesHeader {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.rebaseConflictFileList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.rebaseConflictFileItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-sm);
+  font-family: monospace;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+
+.rebaseConflictFileItem:last-child {
+  border-bottom: none;
+}
+
+.rebaseConflictFileIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--btn-danger-bg);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.rebaseConflictHint {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  margin: 0;
+  font-style: italic;
+  line-height: 1.4;
+}

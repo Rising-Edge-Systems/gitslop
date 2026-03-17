@@ -1,0 +1,238 @@
+/* =============================================================================
+   CommitFilterBar — CSS Module
+   ============================================================================= */
+
+.filterBar {
+  margin: 0 0 var(--space-xs) 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.filterHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 10px;
+  flex-wrap: wrap;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  transition: background var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.toggle:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.toggleActive {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.toggleIcon {
+  font-size: 8px;
+  transition: transform 0.2s;
+}
+
+.toggleExpanded .toggleIcon {
+  transform: rotate(180deg);
+}
+
+.badge {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  text-align: center;
+  line-height: 16px;
+}
+
+.chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2px var(--space-sm);
+  font-size: var(--font-xs);
+  color: var(--text-primary);
+  max-width: 220px;
+}
+
+.chipLabel {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.chipValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+
+.chipRemove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.chipRemove:hover {
+  color: var(--close-hover);
+}
+
+.clearAll {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: var(--font-xs);
+  font-family: var(--font-family);
+  padding: 2px var(--space-xs);
+}
+
+.clearAll:hover {
+  text-decoration: underline;
+}
+
+.indicator {
+  font-size: var(--font-xs);
+  color: var(--accent);
+  font-style: italic;
+  margin-left: auto;
+}
+
+.form {
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.rowDates {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.dateField {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+}
+
+.label {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  min-width: 60px;
+  font-weight: 500;
+}
+
+.input {
+  flex: 1;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px var(--space-sm);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Date inputs styling */
+.input[type='date'] {
+  color-scheme: dark;
+}
+
+.input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  margin-top: var(--space-xs);
+}
+
+.applyBtn {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 5px 14px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.applyBtn:hover {
+  background: var(--accent-hover);
+}
+
+.clearBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 14px;
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.clearBtn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}

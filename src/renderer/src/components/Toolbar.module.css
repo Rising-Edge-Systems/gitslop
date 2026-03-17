@@ -229,3 +229,14 @@
   accent-color: var(--accent);
   cursor: pointer;
 }
+
+/* Responsive — collapse at small sizes */
+@media (max-width: 700px) {
+  .btnLabel {
+    display: none;
+  }
+
+  .btn {
+    padding: var(--space-xs) 6px;
+  }
+}

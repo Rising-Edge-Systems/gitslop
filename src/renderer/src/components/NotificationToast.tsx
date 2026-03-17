@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, Info, ChevronUp, ChevronDown, X } from 'lucide-react'
 import type { Notification } from '../hooks/useNotifications'
+import styles from './NotificationToast.module.css'
 
 interface NotificationToastProps {
   notifications: Notification[]
@@ -14,18 +15,25 @@ const TOAST_ICONS: Record<string, React.ReactNode> = {
   info: <Info size={16} />
 }
 
+const typeClass: Record<string, string> = {
+  success: styles.success,
+  error: styles.error,
+  warning: styles.warning,
+  info: styles.info
+}
+
 function ToastItem({ notification, onDismiss }: { notification: Notification; onDismiss: (id: string) => void }): React.JSX.Element {
   const [detailsExpanded, setDetailsExpanded] = useState(false)
 
   return (
-    <div className={`toast toast-${notification.type}`}>
-      <div className="toast-main">
-        <span className="toast-icon">{TOAST_ICONS[notification.type]}</span>
-        <span className="toast-message">{notification.message}</span>
-        <div className="toast-actions">
+    <div className={`${styles.toast} ${typeClass[notification.type] ?? ''}`}>
+      <div className={styles.main}>
+        <span className={styles.icon}>{TOAST_ICONS[notification.type]}</span>
+        <span className={styles.message}>{notification.message}</span>
+        <div className={styles.actions}>
           {notification.details && (
             <button
-              className="toast-details-btn"
+              className={styles.detailsBtn}
               onClick={() => setDetailsExpanded(!detailsExpanded)}
               title={detailsExpanded ? 'Hide Details' : 'Show Details'}
             >
@@ -33,7 +41,7 @@ function ToastItem({ notification, onDismiss }: { notification: Notification; on
             </button>
           )}
           <button
-            className="toast-dismiss-btn"
+            className={styles.dismissBtn}
             onClick={() => onDismiss(notification.id)}
             title="Dismiss"
           >
@@ -42,8 +50,8 @@ function ToastItem({ notification, onDismiss }: { notification: Notification; on
         </div>
       </div>
       {detailsExpanded && notification.details && (
-        <div className="toast-details">
-          <pre className="toast-details-text">{notification.details}</pre>
+        <div className={styles.details}>
+          <pre className={styles.detailsText}>{notification.details}</pre>
         </div>
       )}
     </div>
@@ -54,7 +62,7 @@ export function NotificationToast({ notifications, onDismiss }: NotificationToas
   if (notifications.length === 0) return null
 
   return (
-    <div className="toast-container">
+    <div className={styles.container}>
       {notifications.map((n) => (
         <ToastItem key={n.id} notification={n} onDismiss={onDismiss} />
       ))}

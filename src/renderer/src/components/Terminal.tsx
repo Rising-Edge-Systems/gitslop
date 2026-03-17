@@ -3,6 +3,7 @@ import { Terminal as TerminalIcon, X } from 'lucide-react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
+import styles from './BottomPanel.module.css'
 
 interface TerminalTab {
   id: string
@@ -276,21 +277,21 @@ export function TerminalPanel({ currentRepo, onToggle }: TerminalPanelProps): Re
   }, [currentRepo])
 
   return (
-    <div className="bottom-panel">
-      <div className="bottom-panel-header">
-        <div className="terminal-tabs-bar">
+    <div className={styles.bottomPanel}>
+      <div className={styles.bottomPanelHeader}>
+        <div className={styles.terminalTabsBar}>
           {tabs.map(tab => (
             <div
               key={tab.id}
-              className={`terminal-tab ${tab.id === activeTabId ? 'terminal-tab-active' : ''}`}
+              className={`${styles.terminalTab} ${tab.id === activeTabId ? styles.terminalTabActive : ''}`}
               onClick={() => {
                 setActiveTabId(tab.id)
               }}
             >
-              <span className="terminal-tab-icon"><TerminalIcon size={12} /></span>
-              <span className="terminal-tab-title">{tab.title}</span>
+              <span className={styles.terminalTabIcon}><TerminalIcon size={12} /></span>
+              <span className={styles.terminalTabTitle}>{tab.title}</span>
               <button
-                className="terminal-tab-close"
+                className={styles.terminalTabClose}
                 onClick={(e) => {
                   e.stopPropagation()
                   closeTab(tab.id)
@@ -302,20 +303,20 @@ export function TerminalPanel({ currentRepo, onToggle }: TerminalPanelProps): Re
             </div>
           ))}
           <button
-            className="terminal-new-tab"
+            className={styles.terminalNewTab}
             onClick={createTab}
             title="New Terminal"
           >
             +
           </button>
         </div>
-        <button className="bottom-panel-close" onClick={onToggle} title="Close Terminal (Ctrl+`)">
+        <button className={styles.bottomPanelClose} onClick={onToggle} title="Close Terminal (Ctrl+`)">
           <X size={14} />
         </button>
       </div>
-      <div className="bottom-panel-content terminal-content" ref={termContainerRef}>
+      <div className={`${styles.bottomPanelContent} ${styles.terminalContent}`} ref={termContainerRef}>
         {tabs.length === 0 && !currentRepo && (
-          <div className="terminal-placeholder">
+          <div className={styles.terminalPlaceholder}>
             <span>Open a repository to use the terminal</span>
           </div>
         )}

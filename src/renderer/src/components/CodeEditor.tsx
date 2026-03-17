@@ -8,6 +8,7 @@ import {
   defineShortcut,
   type ShortcutDefinition
 } from '../hooks/useKeyboardShortcuts'
+import styles from './CodeEditor.module.css'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -269,10 +270,10 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
 
   if (tabs.length === 0) {
     return (
-      <div className="code-editor-empty">
-        <div className="code-editor-empty-icon"><FileText size={32} /></div>
+      <div className={styles.codeEditorEmpty}>
+        <div className={styles.codeEditorEmptyIcon}><FileText size={32} /></div>
         <p>No files open</p>
-        <p className="code-editor-empty-hint">
+        <p className={styles.codeEditorEmptyHint}>
           Open files from the file tree, diff viewer, or commit details
         </p>
       </div>
@@ -280,21 +281,21 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
   }
 
   return (
-    <div className="code-editor">
+    <div className={styles.codeEditor}>
       {/* Tab bar */}
-      <div className="code-editor-tabs">
-        <div className="code-editor-tabs-list">
+      <div className={styles.codeEditorTabs}>
+        <div className={styles.codeEditorTabsList}>
           {tabs.map((tab, index) => (
             <div
               key={tab.filePath}
-              className={`code-editor-tab ${index === activeTabIndex ? 'active' : ''} ${tab.modified ? 'modified' : ''}`}
+              className={`${styles.codeEditorTab}${index === activeTabIndex ? ` ${styles.codeEditorTabActive}` : ''}`}
               onClick={() => setActiveTabIndex(index)}
               title={tab.filePath}
             >
-              <span className="code-editor-tab-name">{tab.fileName}</span>
-              {tab.modified && <span className="code-editor-tab-dot" title="Unsaved changes" />}
+              <span className={styles.codeEditorTabName}>{tab.fileName}</span>
+              {tab.modified && <span className={styles.codeEditorTabDot} title="Unsaved changes" />}
               <button
-                className="code-editor-tab-close"
+                className={styles.codeEditorTabClose}
                 onClick={(e) => closeTab(index, e)}
                 title="Close"
               >
@@ -303,16 +304,16 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
             </div>
           ))}
         </div>
-        <div className="code-editor-tabs-actions">
+        <div className={styles.codeEditorTabsActions}>
           <button
-            className="code-editor-action-btn"
+            className={styles.codeEditorActionBtn}
             onClick={() => setWordWrap((prev) => (prev === 'on' ? 'off' : 'on'))}
             title={`Word Wrap: ${wordWrap}`}
           >
             {wordWrap === 'on' ? <WrapText size={14} /> : <ArrowRight size={14} />}
           </button>
           <button
-            className="code-editor-action-btn"
+            className={styles.codeEditorActionBtn}
             onClick={() => setShowMinimap((prev) => !prev)}
             title={`Minimap: ${showMinimap ? 'On' : 'Off'}`}
           >
@@ -323,7 +324,7 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
 
       {/* Error banner */}
       {error && (
-        <div className="code-editor-error">
+        <div className={styles.codeEditorError}>
           <span><AlertTriangle size={14} /> {error}</span>
           <button onClick={() => setError(null)}><X size={14} /></button>
         </div>
@@ -331,12 +332,12 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
 
       {/* Saving indicator */}
       {saving && (
-        <div className="code-editor-saving">Saving...</div>
+        <div className={styles.codeEditorSaving}>Saving...</div>
       )}
 
       {/* Editor */}
       {activeTab && (
-        <div className="code-editor-monaco">
+        <div className={styles.codeEditorMonaco}>
           <Editor
             key={activeTab.filePath}
             defaultValue={activeTab.content}

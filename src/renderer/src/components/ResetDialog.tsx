@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import { X, AlertTriangle, Check } from 'lucide-react'
+import styles from './ResetDialog.module.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,29 +73,33 @@ export function ResetDialog({
   }, [canReset, isResetting, repoPath, targetHash, mode, onResetComplete, onClose])
 
   return (
-    <div className="reset-dialog-overlay" onClick={onClose}>
-      <div className="reset-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="reset-dialog-header">
+    <div className={styles.overlay} onClick={onClose}>
+      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.header}>
           <h3>Reset Current Branch</h3>
-          <button className="reset-dialog-close" onClick={onClose} title="Close"><X size={16} /></button>
+          <button className={styles.closeBtn} onClick={onClose} title="Close"><X size={16} /></button>
         </div>
 
-        <div className="reset-dialog-body">
+        <div className={styles.body}>
           {/* Target commit info */}
-          <div className="reset-dialog-target">
-            <span className="reset-dialog-target-label">Reset to:</span>
-            <code className="reset-dialog-target-hash">{targetHash.substring(0, 7)}</code>
-            <span className="reset-dialog-target-subject">{targetSubject}</span>
+          <div className={styles.target}>
+            <span className={styles.targetLabel}>Reset to:</span>
+            <code className={styles.targetHash}>{targetHash.substring(0, 7)}</code>
+            <span className={styles.targetSubject}>{targetSubject}</span>
           </div>
 
           {/* Mode selection */}
-          <div className="reset-dialog-modes">
+          <div className={styles.modes}>
             {(['soft', 'mixed', 'hard'] as ResetMode[]).map((m) => {
               const info = MODE_DESCRIPTIONS[m]
               return (
                 <label
                   key={m}
-                  className={`reset-dialog-mode${mode === m ? ' reset-dialog-mode-selected' : ''}${m === 'hard' ? ' reset-dialog-mode-hard' : ''}`}
+                  className={[
+                    styles.mode,
+                    mode === m ? styles.modeSelected : '',
+                    m === 'hard' ? styles.modeHard : ''
+                  ].join(' ')}
                 >
                   <input
                     type="radio"
@@ -106,14 +111,14 @@ export function ResetDialog({
                       setHardConfirmation('')
                     }}
                   />
-                  <div className="reset-dialog-mode-content">
-                    <div className="reset-dialog-mode-title">
+                  <div className={styles.modeContent}>
+                    <div className={styles.modeTitle}>
                       {info.title}
-                      {m === 'mixed' && <span className="reset-dialog-mode-default">(default)</span>}
+                      {m === 'mixed' && <span className={styles.modeDefault}>(default)</span>}
                     </div>
-                    <div className="reset-dialog-mode-description">{info.description}</div>
+                    <div className={styles.modeDescription}>{info.description}</div>
                     {info.warning && (
-                      <div className="reset-dialog-mode-warning"><AlertTriangle size={14} /> {info.warning}</div>
+                      <div className={styles.modeWarning}><AlertTriangle size={14} /> {info.warning}</div>
                     )}
                   </div>
                 </label>
@@ -123,13 +128,13 @@ export function ResetDialog({
 
           {/* Hard reset confirmation */}
           {mode === 'hard' && (
-            <div className="reset-dialog-hard-confirm">
-              <label className="reset-dialog-hard-confirm-label">
+            <div className={styles.hardConfirm}>
+              <label className={styles.hardConfirmLabel}>
                 Type <strong>HARD</strong> to confirm destructive reset:
               </label>
               <input
                 type="text"
-                className="reset-dialog-hard-confirm-input"
+                className={styles.hardConfirmInput}
                 value={hardConfirmation}
                 onChange={(e) => setHardConfirmation(e.target.value)}
                 placeholder="Type HARD to confirm"
@@ -140,23 +145,23 @@ export function ResetDialog({
 
           {/* Error */}
           {error && (
-            <div className="reset-dialog-error"><AlertTriangle size={14} /> {error}</div>
+            <div className={styles.errorMsg}><AlertTriangle size={14} /> {error}</div>
           )}
 
           {/* Success */}
           {success && (
-            <div className="reset-dialog-success">
+            <div className={styles.successMsg}>
               <Check size={14} /> Reset ({mode}) to {targetHash.substring(0, 7)} successful!
             </div>
           )}
         </div>
 
-        <div className="reset-dialog-footer">
-          <button className="reset-dialog-btn reset-dialog-btn-cancel" onClick={onClose} disabled={isResetting}>
+        <div className={styles.footer}>
+          <button className={`${styles.btn} ${styles.btnCancel}`} onClick={onClose} disabled={isResetting}>
             Cancel
           </button>
           <button
-            className={`reset-dialog-btn reset-dialog-btn-reset${mode === 'hard' ? ' reset-dialog-btn-hard' : ''}`}
+            className={[styles.btn, styles.btnReset, mode === 'hard' ? styles.btnHard : ''].join(' ')}
             onClick={handleReset}
             disabled={!canReset || isResetting || success}
           >

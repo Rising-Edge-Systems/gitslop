@@ -1,0 +1,242 @@
+/* =============================================================================
+   CloneDialog — CSS Module
+   ============================================================================= */
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 520px;
+  max-width: 90vw;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg) 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-md);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.close:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.input {
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: var(--font-md);
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color var(--transition-fast);
+  width: 100%;
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-family);
+}
+
+.inputGroup {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.inputGroup .input {
+  flex: 1;
+}
+
+.browse {
+  padding: var(--space-sm) 14px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.browse:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.browse:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-family: var(--font-family);
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: 10px 14px;
+  background-color: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-md);
+  color: var(--error);
+}
+
+.errorIcon {
+  font-size: var(--font-md);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.errorText {
+  flex: 1;
+  word-break: break-word;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.progressText {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+}
+
+.progressCount {
+  color: var(--text-muted);
+}
+
+.progressBar {
+  height: 4px;
+  background-color: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background-color: var(--accent);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+  min-width: 2%;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-lg) 20px;
+  border-top: 1px solid var(--border);
+}
+
+.btn {
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: 6px;
+  font-size: var(--font-md);
+  font-family: var(--font-family);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.btnCancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.btnCancel:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.btnClone {
+  background-color: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg-tertiary);
+}
+
+.btnClone:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btnClone:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import { ChevronDown, X } from 'lucide-react'
+import styles from './CommitFilterBar.module.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,29 +101,29 @@ export function CommitFilterBar({
   )
 
   return (
-    <div className="commit-filter-bar">
-      <div className="commit-filter-header">
+    <div className={styles.filterBar}>
+      <div className={styles.filterHeader}>
         <button
-          className={`commit-filter-toggle ${expanded ? 'expanded' : ''} ${active ? 'active' : ''}`}
+          className={`${styles.toggle}${expanded ? ` ${styles.toggleExpanded}` : ''}${active ? ` ${styles.toggleActive}` : ''}`}
           onClick={() => setExpanded((prev) => !prev)}
           title="Toggle commit filters"
         >
-          <span className="commit-filter-icon"><ChevronDown size={14} /></span>
+          <span className={styles.toggleIcon}><ChevronDown size={14} /></span>
           <span>Filter History</span>
           {active && (
-            <span className="commit-filter-badge">{activeChips.length}</span>
+            <span className={styles.badge}>{activeChips.length}</span>
           )}
         </button>
 
         {/* Active filter chips */}
         {active && (
-          <div className="commit-filter-chips">
+          <div className={styles.chips}>
             {activeChips.map((key) => (
-              <span key={key} className="commit-filter-chip">
-                <span className="commit-filter-chip-label">{filterLabel(key)}:</span>
-                <span className="commit-filter-chip-value">{filters[key]}</span>
+              <span key={key} className={styles.chip}>
+                <span className={styles.chipLabel}>{filterLabel(key)}:</span>
+                <span className={styles.chipValue}>{filters[key]}</span>
                 <button
-                  className="commit-filter-chip-remove"
+                  className={styles.chipRemove}
                   onClick={() => removeFilter(key)}
                   title={`Remove ${filterLabel(key)} filter`}
                 >
@@ -130,28 +131,28 @@ export function CommitFilterBar({
                 </button>
               </span>
             ))}
-            <button className="commit-filter-clear-all" onClick={handleClearAll}>
+            <button className={styles.clearAll} onClick={handleClearAll}>
               Clear all
             </button>
           </div>
         )}
 
         {active && !expanded && (
-          <div className="commit-filter-indicator">
+          <div className={styles.indicator}>
             Showing filtered history
           </div>
         )}
       </div>
 
       {expanded && (
-        <div className="commit-filter-form" onKeyDown={handleKeyDown}>
-          <div className="commit-filter-row">
-            <label className="commit-filter-label" htmlFor="filter-author">
+        <div className={styles.form} onKeyDown={handleKeyDown}>
+          <div className={styles.row}>
+            <label className={styles.label} htmlFor="filter-author">
               Author
             </label>
             <input
               id="filter-author"
-              className="commit-filter-input"
+              className={styles.input}
               type="text"
               placeholder="e.g. John Doe or john@example.com"
               value={draft.author}
@@ -159,13 +160,13 @@ export function CommitFilterBar({
             />
           </div>
 
-          <div className="commit-filter-row">
-            <label className="commit-filter-label" htmlFor="filter-message">
+          <div className={styles.row}>
+            <label className={styles.label} htmlFor="filter-message">
               Message
             </label>
             <input
               id="filter-message"
-              className="commit-filter-input"
+              className={styles.input}
               type="text"
               placeholder="Search commit messages..."
               value={draft.grep}
@@ -173,26 +174,26 @@ export function CommitFilterBar({
             />
           </div>
 
-          <div className="commit-filter-row commit-filter-row-dates">
-            <div className="commit-filter-date-field">
-              <label className="commit-filter-label" htmlFor="filter-since">
+          <div className={`${styles.row} ${styles.rowDates}`}>
+            <div className={styles.dateField}>
+              <label className={styles.label} htmlFor="filter-since">
                 Since
               </label>
               <input
                 id="filter-since"
-                className="commit-filter-input"
+                className={styles.input}
                 type="date"
                 value={draft.since}
                 onChange={(e) => setDraft((d) => ({ ...d, since: e.target.value }))}
               />
             </div>
-            <div className="commit-filter-date-field">
-              <label className="commit-filter-label" htmlFor="filter-until">
+            <div className={styles.dateField}>
+              <label className={styles.label} htmlFor="filter-until">
                 Until
               </label>
               <input
                 id="filter-until"
-                className="commit-filter-input"
+                className={styles.input}
                 type="date"
                 value={draft.until}
                 onChange={(e) => setDraft((d) => ({ ...d, until: e.target.value }))}
@@ -200,13 +201,13 @@ export function CommitFilterBar({
             </div>
           </div>
 
-          <div className="commit-filter-row">
-            <label className="commit-filter-label" htmlFor="filter-path">
+          <div className={styles.row}>
+            <label className={styles.label} htmlFor="filter-path">
               File Path
             </label>
             <input
               id="filter-path"
-              className="commit-filter-input"
+              className={styles.input}
               type="text"
               placeholder="e.g. src/main/index.ts"
               value={draft.path}
@@ -214,11 +215,11 @@ export function CommitFilterBar({
             />
           </div>
 
-          <div className="commit-filter-actions">
-            <button className="commit-filter-apply" onClick={handleApply}>
+          <div className={styles.actions}>
+            <button className={styles.applyBtn} onClick={handleApply}>
               Apply Filters
             </button>
-            <button className="commit-filter-clear" onClick={handleClearAll}>
+            <button className={styles.clearBtn} onClick={handleClearAll}>
               Clear All
             </button>
           </div>

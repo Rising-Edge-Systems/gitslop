@@ -1,0 +1,135 @@
+/* =============================================================================
+   NotificationToast — CSS Module
+   ============================================================================= */
+
+.container {
+  position: fixed;
+  bottom: var(--space-2xl);
+  right: var(--space-md);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: toastIn 0.2s ease-out;
+  overflow: hidden;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.success {
+  border-left: 3px solid var(--success);
+}
+
+.error {
+  border-left: 3px solid var(--error);
+}
+
+.warning {
+  border-left: 3px solid var(--warning);
+}
+
+.info {
+  border-left: 3px solid var(--info);
+}
+
+.main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 10px;
+}
+
+.icon {
+  flex-shrink: 0;
+  font-size: var(--font-md);
+  width: 18px;
+  text-align: center;
+}
+
+.success .icon {
+  color: var(--success);
+}
+
+.error .icon {
+  color: var(--error);
+}
+
+.warning .icon {
+  color: var(--warning);
+}
+
+.info .icon {
+  color: var(--info);
+}
+
+.message {
+  flex: 1;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.detailsBtn,
+.dismissBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px var(--space-xs);
+  border-radius: 3px;
+  line-height: 1;
+  transition: color var(--transition-fast) ease, background-color var(--transition-fast) ease;
+}
+
+.detailsBtn:hover,
+.dismissBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.details {
+  padding: 0 10px var(--space-sm) 10px;
+  border-top: 1px solid var(--border);
+  margin-top: 0;
+}
+
+.detailsText {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+  margin: 6px 0 0 0;
+  padding: 0;
+  background: none;
+}

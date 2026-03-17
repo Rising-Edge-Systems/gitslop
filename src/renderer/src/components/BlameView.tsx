@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
+import styles from './BlameView.module.css'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -155,24 +156,24 @@ export function BlameView({
 
   if (loading) {
     return (
-      <div className="blame-view">
-        <div className="blame-view-header">
-          <span className="blame-view-title">Blame: {fileName}</span>
-          <button className="blame-view-close" onClick={onClose}><X size={14} /></button>
+      <div className={styles.view}>
+        <div className={styles.header}>
+          <span className={styles.title}>Blame: {fileName}</span>
+          <button className={styles.closeBtn} onClick={onClose}><X size={14} /></button>
         </div>
-        <div className="blame-view-loading">Loading blame data...</div>
+        <div className={styles.loading}>Loading blame data...</div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="blame-view">
-        <div className="blame-view-header">
-          <span className="blame-view-title">Blame: {fileName}</span>
-          <button className="blame-view-close" onClick={onClose}><X size={14} /></button>
+      <div className={styles.view}>
+        <div className={styles.header}>
+          <span className={styles.title}>Blame: {fileName}</span>
+          <button className={styles.closeBtn} onClick={onClose}><X size={14} /></button>
         </div>
-        <div className="blame-view-error">
+        <div className={styles.error}>
           <span><AlertTriangle size={14} /> {error}</span>
           <button onClick={loadBlame}>Retry</button>
         </div>
@@ -181,33 +182,33 @@ export function BlameView({
   }
 
   return (
-    <div className="blame-view">
-      <div className="blame-view-header">
-        <span className="blame-view-title">Blame: {fileName}</span>
-        <span className="blame-view-path" title={filePath}>{filePath}</span>
-        <div className="blame-view-actions">
+    <div className={styles.view}>
+      <div className={styles.header}>
+        <span className={styles.title}>Blame: {fileName}</span>
+        <span className={styles.path} title={filePath}>{filePath}</span>
+        <div className={styles.actions}>
           <button
-            className={`blame-color-toggle ${colorMode === 'age' ? 'active' : ''}`}
+            className={`${styles.colorToggle} ${colorMode === 'age' ? styles.colorToggleActive : ''}`}
             onClick={() => setColorMode('age')}
             title="Color by age"
           >
             Age
           </button>
           <button
-            className={`blame-color-toggle ${colorMode === 'author' ? 'active' : ''}`}
+            className={`${styles.colorToggle} ${colorMode === 'author' ? styles.colorToggleActive : ''}`}
             onClick={() => setColorMode('author')}
             title="Color by author"
           >
             Author
           </button>
-          <button className="blame-view-close" onClick={onClose} title="Close blame">
+          <button className={styles.closeBtn} onClick={onClose} title="Close blame">
             <X size={14} />
           </button>
         </div>
       </div>
 
-      <div className="blame-view-content">
-        <div className="blame-view-lines">
+      <div className={styles.content}>
+        <div className={styles.lines}>
           {blameLines.map((line, idx) => {
             const group = groupedLines[idx]
             const isFirstInGroup = group.isFirstInGroup
@@ -222,13 +223,13 @@ export function BlameView({
             return (
               <div
                 key={`${line.lineNumber}-${idx}`}
-                className={`blame-line ${isHovered ? 'hovered' : ''} ${isFirstInGroup ? 'group-start' : ''}`}
+                className={`${styles.line} ${isHovered ? styles.lineHovered : ''} ${isFirstInGroup ? styles.lineGroupStart : ''}`}
                 onMouseEnter={() => setHoveredHash(line.hash)}
                 onMouseLeave={() => setHoveredHash(null)}
               >
                 {/* Blame gutter */}
                 <div
-                  className="blame-gutter"
+                  className={styles.gutter}
                   style={{ borderLeftColor: gutterColor }}
                   onMouseEnter={(e) => handleBlameHover(line, e)}
                   onMouseLeave={handleBlameLeave}
@@ -236,26 +237,26 @@ export function BlameView({
                 >
                   {isFirstInGroup ? (
                     <>
-                      <span className="blame-gutter-hash" title={`Click to view commit ${line.shortHash}`}>
+                      <span className={styles.gutterHash} title={`Click to view commit ${line.shortHash}`}>
                         {isUncommitted ? 'uncommitted' : line.shortHash}
                       </span>
-                      <span className="blame-gutter-author">
+                      <span className={styles.gutterAuthor}>
                         {line.author.length > 16 ? line.author.slice(0, 15) + '\u2026' : line.author}
                       </span>
-                      <span className="blame-gutter-date">
+                      <span className={styles.gutterDate}>
                         {formatRelativeDate(line.authorDate)}
                       </span>
                     </>
                   ) : (
-                    <span className="blame-gutter-spacer" />
+                    <span className={styles.gutterSpacer} />
                   )}
                 </div>
 
                 {/* Line number */}
-                <span className="blame-line-number">{line.lineNumber}</span>
+                <span className={styles.lineNumber}>{line.lineNumber}</span>
 
                 {/* Content */}
-                <pre className="blame-line-content">{line.content || ' '}</pre>
+                <pre className={styles.lineContent}>{line.content || ' '}</pre>
               </div>
             )
           })}
@@ -265,15 +266,15 @@ export function BlameView({
       {/* Tooltip */}
       {tooltipInfo && (
         <div
-          className="blame-tooltip"
+          className={styles.tooltip}
           style={{
             left: Math.min(tooltipInfo.x + 12, window.innerWidth - 340),
             top: Math.min(tooltipInfo.y + 12, window.innerHeight - 120)
           }}
         >
-          <div className="blame-tooltip-hash">{tooltipInfo.line.shortHash}</div>
-          <div className="blame-tooltip-summary">{tooltipInfo.line.summary}</div>
-          <div className="blame-tooltip-meta">
+          <div className={styles.tooltipHash}>{tooltipInfo.line.shortHash}</div>
+          <div className={styles.tooltipSummary}>{tooltipInfo.line.summary}</div>
+          <div className={styles.tooltipMeta}>
             <span>{tooltipInfo.line.author}</span>
             <span>{tooltipInfo.line.authorDate ? new Date(tooltipInfo.line.authorDate).toLocaleString() : ''}</span>
           </div>

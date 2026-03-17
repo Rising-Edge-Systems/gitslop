@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { X } from 'lucide-react'
+import styles from './KeyboardShortcutsPanel.module.css'
 import {
   getRegisteredShortcuts,
   subscribeToRegistry,
@@ -25,11 +26,11 @@ function groupByCategory(shortcuts: ShortcutDefinition[]): Map<string, ShortcutD
 function KeyCombo({ keys }: { keys: string }): React.JSX.Element {
   const parts = keys.split('+')
   return (
-    <span className="shortcut-keys">
+    <span className={styles.shortcutKeys}>
       {parts.map((part, i) => (
         <React.Fragment key={part}>
-          {i > 0 && <span className="shortcut-plus">+</span>}
-          <kbd className="shortcut-kbd">{part}</kbd>
+          {i > 0 && <span className={styles.shortcutPlus}>+</span>}
+          <kbd className={styles.shortcutKbd}>{part}</kbd>
         </React.Fragment>
       ))}
     </span>
@@ -66,17 +67,17 @@ export function KeyboardShortcutsPanel({ onClose }: KeyboardShortcutsPanelProps)
 
   return (
     <div className="branch-dialog-overlay" onClick={onClose}>
-      <div className="shortcuts-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="shortcuts-panel-header">
-          <h2 className="shortcuts-panel-title">Keyboard Shortcuts</h2>
-          <button className="shortcuts-panel-close" onClick={onClose} title="Close (Escape)">
+      <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.panelHeader}>
+          <h2 className={styles.panelTitle}>Keyboard Shortcuts</h2>
+          <button className={styles.panelClose} onClick={onClose} title="Close (Escape)">
             <X size={16} />
           </button>
         </div>
 
-        <div className="shortcuts-panel-search">
+        <div className={styles.panelSearch}>
           <input
-            className="shortcuts-panel-filter"
+            className={styles.panelFilter}
             type="text"
             placeholder="Filter shortcuts..."
             value={filter}
@@ -85,7 +86,7 @@ export function KeyboardShortcutsPanel({ onClose }: KeyboardShortcutsPanelProps)
           />
         </div>
 
-        <div className="shortcuts-panel-body">
+        <div className={styles.panelBody}>
           {CATEGORY_ORDER.map((category) => {
             const items = groups.get(category)
             if (!items) return null
@@ -101,12 +102,12 @@ export function KeyboardShortcutsPanel({ onClose }: KeyboardShortcutsPanelProps)
             if (filtered.length === 0) return null
 
             return (
-              <div key={category} className="shortcuts-category">
-                <h3 className="shortcuts-category-title">{category}</h3>
-                <div className="shortcuts-list">
+              <div key={category} className={styles.category}>
+                <h3 className={styles.categoryTitle}>{category}</h3>
+                <div className={styles.list}>
                   {filtered.map((s) => (
-                    <div key={s.id} className="shortcuts-item">
-                      <span className="shortcuts-item-label">{s.label}</span>
+                    <div key={s.id} className={styles.item}>
+                      <span className={styles.itemLabel}>{s.label}</span>
                       <KeyCombo keys={s.keys} />
                     </div>
                   ))}
@@ -116,7 +117,7 @@ export function KeyboardShortcutsPanel({ onClose }: KeyboardShortcutsPanelProps)
           })}
 
           {shortcuts.length === 0 && (
-            <div className="shortcuts-empty">No shortcuts registered.</div>
+            <div className={styles.empty}>No shortcuts registered.</div>
           )}
         </div>
       </div>

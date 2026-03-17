@@ -1,0 +1,183 @@
+/* =============================================================================
+   CommitDialog — CSS Module
+   ============================================================================= */
+
+.commitDialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.error {
+  background: rgba(255, 85, 85, 0.15);
+  color: var(--error);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.success {
+  background: rgba(80, 250, 123, 0.15);
+  color: var(--success);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.subjectRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: 6px;
+}
+
+.subject {
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: var(--font-md);
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.subject:focus {
+  border-color: var(--accent);
+}
+
+.subjectOverLimit {
+  border-color: var(--warning);
+}
+
+.charCount {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  min-width: 50px;
+  text-align: right;
+}
+
+.charCountOverLimit {
+  color: var(--warning);
+}
+
+.expandBody {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 6px;
+}
+
+.expandBody:hover {
+  color: var(--text-primary);
+}
+
+.body {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: var(--font-md);
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+  min-height: 60px;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast);
+}
+
+.body:focus {
+  border-color: var(--accent);
+}
+
+.options {
+  display: flex;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-sm);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.option input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  color: var(--text-primary);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btnSecondary {
+  background: var(--bg-tertiary, var(--bg-primary));
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.hint {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 6px;
+  font-style: italic;
+}

@@ -1,0 +1,209 @@
+/* =============================================================================
+   RepoView — CSS Module
+   ============================================================================= */
+
+.repoView {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px 24px;
+}
+
+.repoViewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2xl);
+  flex-shrink: 0;
+}
+
+.repoViewInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.repoViewName {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.repoViewPath {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repoViewActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.repoViewRefresh,
+.repoViewClose {
+  padding: 6px var(--space-md);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.repoViewRefresh:hover,
+.repoViewClose:hover {
+  background-color: var(--bg-secondary);
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.repoViewLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.repoViewSpinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.repoViewError {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  background-color: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--error);
+  font-size: var(--font-md);
+}
+
+.repoViewError button {
+  padding: 4px 10px;
+  border: 1px solid rgba(243, 139, 168, 0.4);
+  background: transparent;
+  color: var(--error);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+}
+
+.repoViewError button:hover {
+  background-color: rgba(243, 139, 168, 0.15);
+}
+
+.repoViewContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.repoViewSummary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-md);
+}
+
+.repoViewCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.repoViewCardIcon {
+  font-size: 20px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.repoViewCardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.repoViewCardLabel {
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.repoViewCardValue {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repoViewBranches h3 {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.repoViewBranchList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.repoViewBranchItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--space-md);
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.repoViewBranchItem:hover {
+  background-color: var(--bg-secondary);
+}
+
+.repoViewBranchCurrent {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.repoViewBranchIndicator {
+  font-size: 8px;
+  color: var(--accent);
+}

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { Settings, Palette, GitBranch, Pencil, Keyboard, X } from 'lucide-react'
 import type { AppSettings } from '../hooks/useSettings'
 import { DEFAULT_SETTINGS } from '../hooks/useSettings'
+import styles from './SettingsPanel.module.css'
 
 type SettingsSection = 'general' | 'appearance' | 'git' | 'editor' | 'keybindings'
 
@@ -49,36 +50,36 @@ export function SettingsPanel({
   }, [onUpdate])
 
   return (
-    <div className="settings-overlay" onClick={onClose}>
+    <div className={styles.overlay} onClick={onClose}>
       <div
-        className="settings-panel"
+        className={styles.panel}
         ref={panelRef}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="settings-header">
-          <h2 className="settings-title">Settings</h2>
-          <button className="settings-close-btn" onClick={onClose} title="Close (Esc)">
+        <div className={styles.header}>
+          <h2 className={styles.title}>Settings</h2>
+          <button className={styles.closeBtn} onClick={onClose} title="Close (Esc)">
             <X size={16} />
           </button>
         </div>
 
-        <div className="settings-body">
+        <div className={styles.body}>
           {/* Sidebar nav */}
-          <nav className="settings-nav">
+          <nav className={styles.nav}>
             {sections.map((s) => (
               <button
                 key={s.id}
-                className={`settings-nav-item ${activeSection === s.id ? 'settings-nav-item-active' : ''}`}
+                className={`${styles.navItem} ${activeSection === s.id ? styles.navItemActive : ''}`}
                 onClick={() => setActiveSection(s.id)}
               >
-                <span className="settings-nav-icon">{s.icon}</span>
+                <span className={styles.navIcon}>{s.icon}</span>
                 {s.label}
               </button>
             ))}
           </nav>
 
           {/* Content */}
-          <div className="settings-content">
+          <div className={styles.content}>
             {activeSection === 'general' && (
               <GeneralSection
                 settings={settings}
@@ -101,8 +102,8 @@ export function SettingsPanel({
           </div>
         </div>
 
-        <div className="settings-footer">
-          <button className="settings-reset-btn" onClick={onReset}>
+        <div className={styles.footer}>
+          <button className={styles.resetBtn} onClick={onReset}>
             Reset to Defaults
           </button>
         </div>
@@ -123,41 +124,41 @@ function GeneralSection({
   onBrowseCloneDir: () => void
 }): React.JSX.Element {
   return (
-    <div className="settings-section">
-      <h3 className="settings-section-title">General</h3>
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>General</h3>
 
       <SettingsRow label="Default Clone Directory" description="Default folder for cloned repositories">
-        <div className="settings-input-with-btn">
+        <div className={styles.inputWithBtn}>
           <input
-            className="settings-input"
+            className={styles.input}
             type="text"
             value={settings.defaultCloneDirectory}
             onChange={(e) => onUpdate({ defaultCloneDirectory: e.target.value })}
             placeholder="Not set (will use system default)"
           />
-          <button className="settings-browse-btn" onClick={onBrowseCloneDir}>
+          <button className={styles.browseBtn} onClick={onBrowseCloneDir}>
             Browse
           </button>
         </div>
       </SettingsRow>
 
       <SettingsRow label="Auto-Fetch Interval" description="How often to fetch from remotes (0 to disable)">
-        <div className="settings-input-group">
+        <div className={styles.inputGroup}>
           <input
-            className="settings-input settings-input-small"
+            className={`${styles.input} ${styles.inputSmall}`}
             type="number"
             min={0}
             max={60}
             value={settings.autoFetchInterval}
             onChange={(e) => onUpdate({ autoFetchInterval: Math.max(0, parseInt(e.target.value) || 0) })}
           />
-          <span className="settings-input-suffix">minutes</span>
+          <span className={styles.inputSuffix}>minutes</span>
         </div>
       </SettingsRow>
 
       <SettingsRow label="Proxy URL" description="HTTP/SOCKS proxy for git operations (e.g. http://proxy:8080)">
         <input
-          className="settings-input"
+          className={styles.input}
           type="text"
           value={settings.proxyUrl}
           onChange={(e) => onUpdate({ proxyUrl: e.target.value })}
@@ -178,12 +179,12 @@ function AppearanceSection({
   onUpdate: (partial: Partial<AppSettings>) => void
 }): React.JSX.Element {
   return (
-    <div className="settings-section">
-      <h3 className="settings-section-title">Appearance</h3>
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>Appearance</h3>
 
       <SettingsRow label="Theme" description="Choose between dark and light theme">
         <select
-          className="settings-select"
+          className={styles.select}
           value={settings.theme}
           onChange={(e) => onUpdate({ theme: e.target.value as 'dark' | 'light' })}
         >
@@ -194,7 +195,7 @@ function AppearanceSection({
 
       <SettingsRow label="Font Family" description="Override the application font (leave empty for default)">
         <input
-          className="settings-input"
+          className={styles.input}
           type="text"
           value={settings.fontFamily}
           onChange={(e) => onUpdate({ fontFamily: e.target.value })}
@@ -203,9 +204,9 @@ function AppearanceSection({
       </SettingsRow>
 
       <SettingsRow label="Font Size" description="Base font size for the application">
-        <div className="settings-input-group">
+        <div className={styles.inputGroup}>
           <input
-            className="settings-input settings-input-small"
+            className={`${styles.input} ${styles.inputSmall}`}
             type="number"
             min={10}
             max={24}
@@ -215,13 +216,13 @@ function AppearanceSection({
               onUpdate({ fontSize: Math.min(24, Math.max(10, val)) })
             }}
           />
-          <span className="settings-input-suffix">px</span>
+          <span className={styles.inputSuffix}>px</span>
         </div>
       </SettingsRow>
 
       <SettingsRow label="Sidebar Position" description="Place the sidebar on the left or right side">
         <select
-          className="settings-select"
+          className={styles.select}
           value={settings.sidebarPosition}
           onChange={(e) => onUpdate({ sidebarPosition: e.target.value as 'left' | 'right' })}
         >
@@ -273,12 +274,12 @@ function GitSection({
   }, [settings.signCommits])
 
   return (
-    <div className="settings-section">
-      <h3 className="settings-section-title">Git</h3>
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>Git</h3>
 
       <SettingsRow label="Default Pull Strategy" description="How to integrate remote changes when pulling">
         <select
-          className="settings-select"
+          className={styles.select}
           value={settings.defaultPullStrategy}
           onChange={(e) => onUpdate({ defaultPullStrategy: e.target.value as 'merge' | 'rebase' })}
         >
@@ -297,12 +298,12 @@ function GitSection({
       {settings.signCommits && (
         <SettingsRow label="GPG Signing Key" description="Select which GPG key to use for signing commits">
           {gpgKeysLoading ? (
-            <span className="settings-row-desc">Loading GPG keys...</span>
+            <span className={styles.rowDesc}>Loading GPG keys...</span>
           ) : gpgKeysError ? (
-            <span className="settings-row-desc" style={{ color: 'var(--color-error, #f44)' }}>{gpgKeysError}</span>
+            <span className={styles.rowDesc} style={{ color: 'var(--color-error, #f44)' }}>{gpgKeysError}</span>
           ) : (
             <select
-              className="settings-select"
+              className={styles.select}
               value={settings.gpgKeyId}
               onChange={(e) => onUpdate({ gpgKeyId: e.target.value })}
             >
@@ -326,7 +327,7 @@ function GitSection({
 
       <SettingsRow label="Default Branch Name" description="Name for new branches when initializing a repository">
         <input
-          className="settings-input settings-input-medium"
+          className={`${styles.input} ${styles.inputMedium}`}
           type="text"
           value={settings.defaultBranchName}
           onChange={(e) => onUpdate({ defaultBranchName: e.target.value })}
@@ -347,12 +348,12 @@ function EditorSection({
   onUpdate: (partial: Partial<AppSettings>) => void
 }): React.JSX.Element {
   return (
-    <div className="settings-section">
-      <h3 className="settings-section-title">Editor</h3>
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>Editor</h3>
 
       <SettingsRow label="Tab Size" description="Number of spaces per tab">
         <select
-          className="settings-select"
+          className={styles.select}
           value={settings.tabSize}
           onChange={(e) => onUpdate({ tabSize: parseInt(e.target.value) || 4 })}
         >
@@ -412,20 +413,20 @@ function KeybindingsSection(): React.JSX.Element {
   }, {})
 
   return (
-    <div className="settings-section">
-      <h3 className="settings-section-title">Keybindings</h3>
-      <p className="settings-section-desc">
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>Keybindings</h3>
+      <p className={styles.sectionDesc}>
         All currently registered keyboard shortcuts. Customization coming soon.
       </p>
 
       {Object.entries(grouped).map(([category, items]) => (
-        <div key={category} className="settings-keybindings-group">
-          <h4 className="settings-keybindings-category">{category}</h4>
-          <div className="settings-keybindings-list">
+        <div key={category} className={styles.keybindingsGroup}>
+          <h4 className={styles.keybindingsCategory}>{category}</h4>
+          <div className={styles.keybindingsList}>
             {items.map((s) => (
-              <div key={s.id} className="settings-keybinding-row">
-                <span className="settings-keybinding-label">{s.label}</span>
-                <kbd className="settings-keybinding-keys">{s.keys}</kbd>
+              <div key={s.id} className={styles.keybindingRow}>
+                <span className={styles.keybindingLabel}>{s.label}</span>
+                <kbd className={styles.keybindingKeys}>{s.keys}</kbd>
               </div>
             ))}
           </div>
@@ -447,12 +448,12 @@ function SettingsRow({
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <div className="settings-row">
-      <div className="settings-row-info">
-        <label className="settings-row-label">{label}</label>
-        {description && <span className="settings-row-desc">{description}</span>}
+    <div className={styles.row}>
+      <div className={styles.rowInfo}>
+        <label className={styles.rowLabel}>{label}</label>
+        {description && <span className={styles.rowDesc}>{description}</span>}
       </div>
-      <div className="settings-row-control">{children}</div>
+      <div className={styles.rowControl}>{children}</div>
     </div>
   )
 }
@@ -466,12 +467,12 @@ function SettingsToggle({
 }): React.JSX.Element {
   return (
     <button
-      className={`settings-toggle ${checked ? 'settings-toggle-on' : ''}`}
+      className={`${styles.toggle} ${checked ? styles.toggleOn : ''}`}
       onClick={() => onChange(!checked)}
       role="switch"
       aria-checked={checked}
     >
-      <span className="settings-toggle-thumb" />
+      <span className={styles.toggleThumb} />
     </button>
   )
 }

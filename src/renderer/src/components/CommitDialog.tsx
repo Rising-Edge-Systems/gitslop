@@ -6,6 +6,7 @@ import {
   type ShortcutDefinition
 } from '../hooks/useKeyboardShortcuts'
 import { DEFAULT_SETTINGS, type AppSettings } from '../hooks/useSettings'
+import styles from './CommitDialog.module.css'
 
 function getAppSettings(): AppSettings {
   try {
@@ -121,10 +122,11 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
   }, [canCommit, buildMessage, repoPath, amend, signoff, gpgSign, onCommitDone])
 
   // Global Ctrl+Enter shortcut — scoped to commit panel focus
+  const commitDialogRef = useRef<HTMLDivElement>(null)
+
   const stableCommit = useShortcutHandler(() => {
     const active = document.activeElement
-    const panel = document.querySelector('.commit-dialog')
-    if (panel?.contains(active) && canCommit) {
+    if (commitDialogRef.current?.contains(active) && canCommit) {
       handleCommit(false)
     }
   })
@@ -149,30 +151,30 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
   const subjectOverLimit = subjectLength > SUBJECT_WARN_LENGTH
 
   return (
-    <div className="commit-dialog">
-      <div className="commit-dialog-header">
-        <h3 className="commit-dialog-title">Commit</h3>
+    <div ref={commitDialogRef} className={styles.commitDialog}>
+      <div className={styles.header}>
+        <h3 className={styles.title}>Commit</h3>
       </div>
 
       {error && (
-        <div className="commit-dialog-error">{error}</div>
+        <div className={styles.error}>{error}</div>
       )}
       {success && (
-        <div className="commit-dialog-success">{success}</div>
+        <div className={styles.success}>{success}</div>
       )}
 
       {/* Subject line */}
-      <div className="commit-dialog-subject-row">
+      <div className={styles.subjectRow}>
         <input
           ref={subjectRef}
-          className={`commit-dialog-subject ${subjectOverLimit ? 'over-limit' : ''}`}
+          className={`${styles.subject} ${subjectOverLimit ? styles.subjectOverLimit : ''}`}
           type="text"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           placeholder="Commit message subject..."
           disabled={committing}
         />
-        <span className={`commit-dialog-char-count ${subjectOverLimit ? 'over-limit' : ''}`}>
+        <span className={`${styles.charCount} ${subjectOverLimit ? styles.charCountOverLimit : ''}`}>
           {subjectLength}/{SUBJECT_WARN_LENGTH}
         </span>
       </div>
@@ -180,7 +182,7 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
       {/* Body (expandable) */}
       {!bodyExpanded ? (
         <button
-          className="commit-dialog-expand-body"
+          className={styles.expandBody}
           onClick={() => setBodyExpanded(true)}
           disabled={committing}
         >
@@ -188,7 +190,7 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
         </button>
       ) : (
         <textarea
-          className="commit-dialog-body"
+          className={styles.body}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="Extended description (optional)..."
@@ -198,8 +200,8 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
       )}
 
       {/* Options */}
-      <div className="commit-dialog-options">
-        <label className="commit-dialog-option">
+      <div className={styles.options}>
+        <label className={styles.option}>
           <input
             type="checkbox"
             checked={amend}
@@ -208,7 +210,7 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
           />
           Amend last commit
         </label>
-        <label className="commit-dialog-option">
+        <label className={styles.option}>
           <input
             type="checkbox"
             checked={signoff}
@@ -217,7 +219,7 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
           />
           Sign-off
         </label>
-        <label className="commit-dialog-option" title="Sign this commit with GPG key">
+        <label className={styles.option} title="Sign this commit with GPG key">
           <input
             type="checkbox"
             checked={gpgSign}
@@ -229,9 +231,9 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
       </div>
 
       {/* Actions */}
-      <div className="commit-dialog-actions">
+      <div className={styles.actions}>
         <button
-          className="commit-dialog-btn commit-dialog-btn-primary"
+          className={`${styles.btn} ${styles.btnPrimary}`}
           onClick={() => handleCommit(false)}
           disabled={!canCommit}
           title="Commit (Ctrl+Enter)"
@@ -239,7 +241,7 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
           {committing ? 'Committing...' : amend ? 'Amend Commit' : 'Commit'}
         </button>
         <button
-          className="commit-dialog-btn commit-dialog-btn-secondary"
+          className={`${styles.btn} ${styles.btnSecondary}`}
           onClick={() => handleCommit(true)}
           disabled={!canCommit}
           title="Commit and push to remote"
@@ -249,7 +251,7 @@ export function CommitDialog({ repoPath, stagedCount, onCommitDone }: CommitDial
       </div>
 
       {stagedCount === 0 && !amend && (
-        <div className="commit-dialog-hint">
+        <div className={styles.hint}>
           No staged changes. Stage files above to commit.
         </div>
       )}

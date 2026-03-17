@@ -1,0 +1,248 @@
+/* =============================================================================
+   SearchPalette — CSS Module
+   ============================================================================= */
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 80px;
+  z-index: 9999;
+  animation: overlayFadeIn 0.15s ease;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.palette {
+  width: 580px;
+  max-width: 90vw;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 500px;
+}
+
+/* ─── Header ─────────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+}
+
+.icon {
+  font-size: var(--font-lg);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: var(--font-lg);
+  font-family: var(--font-family);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.spinner {
+  font-size: 14px;
+  animation: paletteSpin 1s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes paletteSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Mode tabs ──────────────────────────────────────────────────────────────── */
+
+.modes {
+  display: flex;
+  gap: 2px;
+  padding: 6px var(--space-md);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
+}
+
+.modeBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  padding: var(--space-xs) 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font-family);
+  transition: all var(--transition-fast);
+}
+
+.modeBtn:hover {
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+}
+
+.modeBtnActive {
+  color: var(--accent);
+  background: var(--bg-primary);
+}
+
+/* ─── Results list ───────────────────────────────────────────────────────────── */
+
+.results {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-xs) 0;
+  min-height: 60px;
+  max-height: 340px;
+}
+
+.empty {
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+}
+
+/* ─── Result groups ──────────────────────────────────────────────────────────── */
+
+.group {
+  margin-bottom: var(--space-xs);
+}
+
+.groupHeader {
+  padding: 6px var(--space-lg) var(--space-xs);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/* ─── Result items ───────────────────────────────────────────────────────────── */
+
+.resultItem {
+  display: flex;
+  align-items: center;
+  padding: var(--space-sm) var(--space-lg);
+  cursor: pointer;
+  gap: 10px;
+  transition: background 0.1s;
+}
+
+.resultItem:hover,
+.resultItemSelected {
+  background: var(--bg-primary);
+}
+
+.resultItemSelected {
+  border-left: 2px solid var(--accent);
+  padding-left: 14px;
+}
+
+.resultIcon {
+  font-size: 14px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+
+.resultContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.resultLabel {
+  font-size: var(--font-md);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+}
+
+.resultDescription {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultTypeBadge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ─── Footer ─────────────────────────────────────────────────────────────────── */
+
+.footer {
+  display: flex;
+  gap: var(--space-lg);
+  padding: var(--space-sm) var(--space-lg);
+  border-top: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+.footer kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  margin-right: 3px;
+}
+
+/* ─── Checkout confirmation ───────────────────────────────────────────────────── */
+
+.confirm {
+  padding: 20px var(--space-lg);
+  text-align: center;
+}
+
+.confirm p {
+  margin-bottom: var(--space-lg);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.confirmActions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: center;
+}
