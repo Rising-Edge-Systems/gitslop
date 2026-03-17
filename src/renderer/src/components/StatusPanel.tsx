@@ -101,9 +101,13 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
   const panelRef = useRef<HTMLDivElement>(null)
+  const statusLoadInFlightRef = useRef(false)
 
   const loadStatus = useCallback(async () => {
     if (!mountedRef.current) return
+    // Prevent overlapping requests
+    if (statusLoadInFlightRef.current) return
+    statusLoadInFlightRef.current = true
     try {
       const result = await window.electronAPI.git.getStatus(repoPath)
       if (!mountedRef.current) return
@@ -121,28 +125,24 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
       if (mountedRef.current) {
         setLoading(false)
       }
+      statusLoadInFlightRef.current = false
     }
   }, [repoPath])
 
-  // Initial load and auto-refresh every 3 seconds
+  // Initial load
   useEffect(() => {
     mountedRef.current = true
     loadStatus()
 
-    const interval = setInterval(() => {
-      loadStatus()
-    }, 3000)
-
     return () => {
       mountedRef.current = false
-      clearInterval(interval)
       if (refreshTimerRef.current) {
         clearTimeout(refreshTimerRef.current)
       }
     }
   }, [loadStatus])
 
-  // Listen for file-watcher refresh events
+  // Listen for file-watcher refresh events — debounced to avoid cascading updates
   useEffect(() => {
     const cleanup = window.electronAPI.onRepoChanged?.(() => {
       if (refreshTimerRef.current) {
@@ -150,14 +150,13 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
       }
       refreshTimerRef.current = setTimeout(() => {
         loadStatus()
-        onRefresh?.()
-      }, 300)
+      }, 500)
     })
 
     return () => {
       cleanup?.()
     }
-  }, [loadStatus, onRefresh])
+  }, [loadStatus])
 
   // Keyboard shortcuts for stage/unstage
   useEffect(() => {

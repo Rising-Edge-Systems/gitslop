@@ -497,13 +497,20 @@ export function FileTree({ currentRepo, onOpenFile, onShowHistory, onShowBlame }
     loadFiles()
   }, [loadFiles])
 
-  // Refresh on repo changes
+  // Refresh on repo changes (debounced)
   useEffect(() => {
     if (!currentRepo) return
+    let timer: ReturnType<typeof setTimeout> | null = null
     const cleanup = window.electronAPI.onRepoChanged(() => {
-      loadFiles()
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        loadFiles()
+      }, 600)
     })
-    return cleanup
+    return () => {
+      cleanup()
+      if (timer) clearTimeout(timer)
+    }
   }, [currentRepo, loadFiles])
 
   // ─── Tree data ───────────────────────────────────────────────────────────

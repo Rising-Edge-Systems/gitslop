@@ -10,7 +10,7 @@ interface MainContentProps {
   onCommitSelect?: (detail: CommitDetail | null) => void
 }
 
-export function MainContent({ currentRepo, onRepoOpen, onCloseRepo, onCommitSelect }: MainContentProps): React.JSX.Element {
+export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCloseRepo, onCommitSelect }: MainContentProps): React.JSX.Element {
   if (!currentRepo) {
     return (
       <div className="main-content main-content--centered">
@@ -24,4 +24,4 @@ export function MainContent({ currentRepo, onRepoOpen, onCloseRepo, onCommitSele
       <RepoView repoPath={currentRepo} onCloseRepo={onCloseRepo} onCommitSelect={onCommitSelect} />
     </div>
   )
-}
+})

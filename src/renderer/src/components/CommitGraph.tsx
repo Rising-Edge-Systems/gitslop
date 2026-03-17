@@ -772,10 +772,18 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
   const [cherryPickState, setCherryPickState] = useState<CherryPickState>({ status: 'idle', message: '' })
   const [revertState, setRevertState] = useState<RevertState>({ status: 'idle', message: '' })
   const [resetTarget, setResetTarget] = useState<{ hash: string; subject: string } | null>(null)
+  const initialCommitLoadDone = useRef(false)
+  const refreshInFlightRef = useRef(false)
 
-  // Load commits
+  // Load commits — only shows loading on initial load, silent on refreshes
   const loadCommits = useCallback(async () => {
-    setLoading(true)
+    // Prevent overlapping refresh calls
+    if (refreshInFlightRef.current && initialCommitLoadDone.current) return
+    refreshInFlightRef.current = true
+
+    if (!initialCommitLoadDone.current) {
+      setLoading(true)
+    }
     setError(null)
     try {
       const logOpts: { all: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string } = { all: true }
@@ -787,7 +795,19 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
       const result = await window.electronAPI.git.log(repoPath, logOpts)
       if (result.success && Array.isArray(result.data)) {
-        setCommits(result.data as GitCommit[])
+        setCommits((prev) => {
+          const newData = result.data as GitCommit[]
+          // Skip state update if commits haven't changed (compare by first+last hash and length)
+          if (
+            prev.length === newData.length &&
+            prev.length > 0 &&
+            prev[0].hash === newData[0].hash &&
+            prev[prev.length - 1].hash === newData[newData.length - 1].hash
+          ) {
+            return prev
+          }
+          return newData
+        })
       } else {
         setCommits([])
         if (result.error) {
@@ -798,19 +818,23 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
       setError(err instanceof Error ? err.message : 'Failed to load commits')
     } finally {
       setLoading(false)
+      initialCommitLoadDone.current = true
+      refreshInFlightRef.current = false
     }
   }, [repoPath, filters])
 
   useEffect(() => {
+    // Reset initial load flag when repo/filters change
+    initialCommitLoadDone.current = false
     loadCommits()
   }, [loadCommits])
 
-  // Auto-refresh via interval
+  // Listen for file watcher events instead of polling
   useEffect(() => {
-    const interval = setInterval(() => {
+    const cleanup = window.electronAPI.onRepoChanged?.(() => {
       loadCommits()
-    }, 5000)
-    return () => clearInterval(interval)
+    })
+    return () => cleanup?.()
   }, [loadCommits])
 
   // Observe container size

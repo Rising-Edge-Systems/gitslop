@@ -84,13 +84,20 @@ export function StatusBar({
     fetchBranchInfo()
   }, [fetchBranchInfo])
 
-  // Listen for repo file changes to refresh
+  // Listen for repo file changes to refresh (debounced)
   useEffect(() => {
     if (!currentRepo) return
+    let timer: ReturnType<typeof setTimeout> | null = null
     const cleanup = window.electronAPI.onRepoChanged(() => {
-      fetchBranchInfo()
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        fetchBranchInfo()
+      }, 800)
     })
-    return cleanup
+    return () => {
+      cleanup()
+      if (timer) clearTimeout(timer)
+    }
   }, [currentRepo, fetchBranchInfo])
 
   // Listen for operation progress

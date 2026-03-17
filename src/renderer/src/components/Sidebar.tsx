@@ -524,11 +524,18 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
     loadRemotes()
   }, [loadRemotes])
 
-  // Auto-refresh every 5 seconds
+  // Refresh remotes on repo file changes
   useEffect(() => {
     if (!currentRepo) return
-    const interval = setInterval(loadRemotes, 5000)
-    return () => clearInterval(interval)
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const cleanup = window.electronAPI.onRepoChanged(() => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(loadRemotes, 1000)
+    })
+    return () => {
+      cleanup()
+      if (timer) clearTimeout(timer)
+    }
   }, [currentRepo, loadRemotes])
 
   const toggleRemote = useCallback((name: string) => {
@@ -1021,19 +1028,19 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
     }
   }, [currentRepo])
 
-  // Load tags on mount and auto-refresh
+  // Load tags on mount and refresh on repo changes
   useEffect(() => {
     loadTags()
 
-    const startRefresh = (): void => {
-      refreshTimerRef.current = setInterval(() => {
-        loadTags()
-      }, 5000)
-    }
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const cleanup = window.electronAPI.onRepoChanged?.(() => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(loadTags, 1000)
+    })
 
-    startRefresh()
     return () => {
-      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current)
+      cleanup?.()
+      if (timer) clearTimeout(timer)
     }
   }, [loadTags])
 
@@ -1391,10 +1398,16 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
 
   useEffect(() => {
     loadStashes()
-    // Auto-refresh every 5 seconds
-    const interval = setInterval(loadStashes, 5000)
+
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const cleanup = window.electronAPI.onRepoChanged?.(() => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(loadStashes, 1000)
+    })
+
     return () => {
-      clearInterval(interval)
+      cleanup?.()
+      if (timer) clearTimeout(timer)
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
     }
   }, [loadStashes])
@@ -1730,8 +1743,15 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
 
   useEffect(() => {
     loadSubmodules()
-    const interval = setInterval(loadSubmodules, 10000)
-    return () => clearInterval(interval)
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const cleanup = window.electronAPI.onRepoChanged?.(() => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(loadSubmodules, 2000)
+    })
+    return () => {
+      cleanup?.()
+      if (timer) clearTimeout(timer)
+    }
   }, [loadSubmodules])
 
   // Close context menu on click outside / Escape
@@ -1984,11 +2004,18 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
     loadBranches()
   }, [loadBranches])
 
-  // Auto-refresh every 5 seconds
+  // Refresh branches on repo file changes
   useEffect(() => {
     if (!currentRepo) return
-    const interval = setInterval(loadBranches, 5000)
-    return () => clearInterval(interval)
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const cleanup = window.electronAPI.onRepoChanged(() => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(loadBranches, 800)
+    })
+    return () => {
+      cleanup()
+      if (timer) clearTimeout(timer)
+    }
   }, [currentRepo, loadBranches])
 
   // ─── Derived data ───────────────────────────────────────────────────────

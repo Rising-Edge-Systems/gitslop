@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { RefreshCw, X, Loader2, AlertTriangle, GitBranch, Pencil, FileEdit, HelpCircle, FileText } from 'lucide-react'
 import styles from './RepoView.module.css'
 import blameStyles from './BlameView.module.css'
@@ -42,8 +42,13 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect }: RepoViewProp
   const [commitFilters, setCommitFilters] = useState<CommitFilters>(EMPTY_FILTERS)
   const [fileHistoryPath, setFileHistoryPath] = useState<string | undefined>(undefined)
 
+  const initialLoadDone = useRef(false)
+
   const loadRepoData = useCallback(async () => {
-    setLoading(true)
+    // Only show loading spinner on initial load, not on refreshes
+    if (!initialLoadDone.current) {
+      setLoading(true)
+    }
     setError(null)
     try {
       // Load status
@@ -81,6 +86,7 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect }: RepoViewProp
       setError(err instanceof Error ? err.message : 'Failed to load repository data')
     } finally {
       setLoading(false)
+      initialLoadDone.current = true
     }
   }, [repoPath])
 
