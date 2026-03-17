@@ -10,6 +10,9 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - PRD branch is `ralph/ui-overhaul`, created from `ralph/gitslop-v1`
 - SidebarSection `icon` prop is `React.ReactNode` — pass icons as `icon={<IconName size={16} />}`
 - Context menu icons: 14px, section header icons: 16px, inline small icons: 10-12px, status bar icons: 14px
+- ContextMenuItem.icon is `React.ReactNode` — pass Lucide components like `<Pencil size={14} />`
+- All emoji/unicode icons replaced with Lucide as of US-042c — zero emoji/unicode remaining in renderer
+- `→` in description strings and `&#123;`/`&#125;` for JSX curly braces are NOT icons — leave them
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -44,4 +47,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `stash@&#123;...&#125;` in Sidebar.tsx are JSX escapes for curly braces, not emoji — don't replace
   - `→` in title attributes is a text arrow for tooltips, not an icon — don't replace
   - Sidebar has many nested context menu components (BranchContextMenu, RemoteContextMenu, RemoteBranchContextMenu, TagsSection, StashesSection, SubmodulesSection) — each has its own icon replacements
+---
+## 2026-03-17 - US-042c
+- Replaced ALL emoji/unicode icons in every remaining renderer component with Lucide icons
+- Files changed: NotificationToast.tsx, StatusPanel.tsx, CommitGraph.tsx, WelcomeScreen.tsx, SearchPalette.tsx, SettingsPanel.tsx, BlameView.tsx, ConflictResolver.tsx, Terminal.tsx, RebaseDialog.tsx, MergeDialog.tsx, KeyboardShortcutsPanel.tsx, BottomPanel.tsx, CommitFilterBar.tsx, RepoView.tsx, ResetDialog.tsx, DiffViewer.tsx, CodeEditor.tsx, FileTree.tsx, CloneDialog.tsx, Sidebar.tsx (missed tag icon), ContextMenu.tsx (icon prop type)
+- Changed ContextMenuItem.icon type from `string` to `React.ReactNode` to support JSX Lucide icons
+- Changed StatusSection.stageActionIcon type from `string` to `React.ReactNode`
+- Grep for emoji/unicode patterns returns zero matches in src/renderer/src/
+- **Learnings for future iterations:**
+  - `→` in description strings (like "Branch → upstream") are text, not icons — leave them as-is
+  - `&#123;` and `&#125;` in Sidebar.tsx are JSX-safe curly braces for stash display, not icons
+  - `\u2026` (ellipsis) in BlameView is text truncation, not an icon
+  - FileTree getFileIcon returns ReactNode now, not string — downstream consumers already used it in JSX so no changes needed
+  - Status indicators (M, S, U, !, D, A, R) in FileTree are letter abbreviations, not emoji — keep as strings
+  - ContextMenuItem.icon is now React.ReactNode — pass Lucide components with size={14}
+  - `−` (U+2212 minus sign) was used in button text labels — replace with <Minus> icon
 ---

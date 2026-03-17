@@ -65,7 +65,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Final emoji cleanup pass. After this, zero emoji/unicode icon symbols should remain in any renderer source file."
     },
     {
