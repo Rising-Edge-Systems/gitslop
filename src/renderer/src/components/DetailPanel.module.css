@@ -28,6 +28,15 @@
   }
 }
 
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ===== Base panel (inline mode) ===== */
 .detailPanel {
   display: flex;
@@ -169,6 +178,43 @@
   word-break: break-all;
   cursor: pointer;
   user-select: all;
+  transition: background-color var(--transition-fast);
+}
+
+.sha:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.copyBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.copyBtn:hover {
+  color: var(--text-primary);
+}
+
+.copySuccess {
+  color: var(--success, #4ade80);
+}
+
+.dateAbsolute {
+  color: var(--text-secondary);
+}
+
+.dateRelative {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
 }
 
 .sigGood {
@@ -211,6 +257,36 @@
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: var(--space-sm);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  width: 100%;
+  text-align: left;
+  transition: background-color var(--transition-fast);
+}
+
+.filesHeader:hover {
+  background: var(--bg-hover);
+}
+
+.filesTitle {
+  flex: 1;
+}
+
+.statsSummary {
+  font-size: var(--font-xs);
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.statsAdded {
+  color: var(--success, #4ade80);
+}
+
+.statsRemoved {
+  color: var(--error, #f87171);
 }
 
 .fileList {
@@ -227,21 +303,104 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background-color var(--transition-fast);
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
 }
 
 .fileItem:hover {
   background: var(--bg-hover);
 }
 
-.fileIcon {
-  color: var(--text-muted);
+.fileItemSelected {
+  background: var(--bg-tertiary);
+}
+
+.fileItemSelected:hover {
+  background: var(--bg-tertiary);
+}
+
+/* ===== File status icons ===== */
+.fileAdded {
+  color: var(--success, #4ade80);
+  flex-shrink: 0;
+}
+
+.fileDeleted {
+  color: var(--error, #f87171);
+  flex-shrink: 0;
+}
+
+.fileModified {
+  color: var(--warning, #fbbf24);
+  flex-shrink: 0;
+}
+
+.fileRenamed {
+  color: var(--info, #60a5fa);
   flex-shrink: 0;
 }
 
 .fileName {
-  font-size: var(--font-sm);
-  color: var(--text-secondary);
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-xs);
+}
+
+.fileDir {
+  color: var(--text-muted);
+}
+
+.fileStats {
+  display: flex;
+  gap: var(--space-xs);
+  font-size: var(--font-xs);
+  font-family: var(--font-mono, monospace);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ===== Inline diff viewer ===== */
+.diffContainer {
+  margin: var(--space-xs) 0 var(--space-sm) 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.diffLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+.diffEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-style: italic;
+}
+
+.inlineDiff {
+  border: none;
+  border-radius: 0;
 }

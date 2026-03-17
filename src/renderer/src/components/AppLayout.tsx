@@ -235,6 +235,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   >
                     <DetailPanel
                       detail={selectedCommit}
+                      repoPath={currentRepo}
                       onClose={handleCloseDetailPanel}
                     />
                   </Panel>
@@ -281,6 +282,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       {rightPanelVisible && useOverlayDetailPanel && (
         <DetailPanel
           detail={selectedCommit}
+          repoPath={currentRepo}
           onClose={handleCloseDetailPanel}
           overlay
         />

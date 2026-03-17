@@ -546,13 +546,19 @@ export class GitService {
   }
 
   /**
-   * Get commit details including changed files.
+   * Get commit details including changed files with status and stats.
    */
   async showCommit(
     repoPath: string,
     hash: string,
     options?: { signal?: AbortSignal }
-  ): Promise<{ commit: GitCommit; files: string[] }> {
+  ): Promise<{
+    commit: GitCommit
+    files: string[]
+    fileDetails: Array<{ path: string; status: string; insertions: number; deletions: number; oldPath?: string }>
+    totalInsertions: number
+    totalDeletions: number
+  }> {
     const SEPARATOR = '<<<SEP>>>'
     const format = [
       '%H', '%h', '%P', '%an', '%ae', '%aI',
@@ -560,6 +566,7 @@ export class GitService {
       '%G?', '%GS', '%GK'
     ].join(SEPARATOR)
 
+    // Run show with --stat for basic file list
     const result = await this.exec(
       ['show', '--format=' + format, '--stat', '--stat-width=200', hash],
       repoPath,
@@ -583,7 +590,77 @@ export class GitService {
       }
     }
 
-    return { commit, files }
+    // Get name-status and numstat for file details
+    let fileDetails: Array<{ path: string; status: string; insertions: number; deletions: number; oldPath?: string }> = []
+    let totalInsertions = 0
+    let totalDeletions = 0
+
+    try {
+      // Run --name-status and --numstat in one call using --format=
+      const statusResult = await this.exec(
+        ['show', '--format=', '--name-status', hash],
+        repoPath,
+        { signal: options?.signal }
+      )
+      const numstatResult = await this.exec(
+        ['show', '--format=', '--numstat', hash],
+        repoPath,
+        { signal: options?.signal }
+      )
+
+      // Parse name-status: "M\tfile.txt" or "R100\told.txt\tnew.txt"
+      const statusMap = new Map<string, { status: string; oldPath?: string }>()
+      for (const line of statusResult.stdout.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        const parts = trimmed.split('\t')
+        if (parts.length >= 2) {
+          const statusCode = parts[0].charAt(0) // M, A, D, R, C
+          if (statusCode === 'R' || statusCode === 'C') {
+            // Renamed/Copied: R100\told\tnew
+            statusMap.set(parts[2], { status: statusCode, oldPath: parts[1] })
+          } else {
+            statusMap.set(parts[1], { status: statusCode })
+          }
+        }
+      }
+
+      // Parse numstat: "5\t3\tfile.txt" or "-\t-\tbinary.bin"
+      const numstatMap = new Map<string, { insertions: number; deletions: number }>()
+      for (const line of numstatResult.stdout.split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        const parts = trimmed.split('\t')
+        if (parts.length >= 3) {
+          const ins = parts[0] === '-' ? 0 : parseInt(parts[0], 10) || 0
+          const del = parts[1] === '-' ? 0 : parseInt(parts[1], 10) || 0
+          // Handle renames: "old => new" or "{old => new}/path"
+          const filePath = parts.slice(2).join('\t')
+          numstatMap.set(filePath, { insertions: ins, deletions: del })
+          totalInsertions += ins
+          totalDeletions += del
+        }
+      }
+
+      // Merge status and numstat data
+      const allPaths = new Set([...statusMap.keys(), ...numstatMap.keys(), ...files])
+      fileDetails = Array.from(allPaths).map((filePath) => {
+        const statusInfo = statusMap.get(filePath)
+        const numstat = numstatMap.get(filePath)
+        return {
+          path: filePath,
+          status: statusInfo?.status || 'M',
+          insertions: numstat?.insertions || 0,
+          deletions: numstat?.deletions || 0,
+          oldPath: statusInfo?.oldPath
+        }
+      })
+    } catch {
+      // Fallback: just use file names with no status info
+      fileDetails = files.map((f) => ({ path: f, status: 'M', insertions: 0, deletions: 0 }))
+    }
+
+    return { commit, files, fileDetails, totalInsertions, totalDeletions }
   }
 
   /**

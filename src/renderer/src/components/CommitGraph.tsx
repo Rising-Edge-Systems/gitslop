@@ -38,9 +38,20 @@ interface GraphNode {
   refs: ParsedRef[]
 }
 
+export interface CommitFileDetail {
+  path: string
+  status: string // M, A, D, R, C
+  insertions: number
+  deletions: number
+  oldPath?: string
+}
+
 export interface CommitDetail {
   commit: GitCommit
   files: string[]
+  fileDetails: CommitFileDetail[]
+  totalInsertions: number
+  totalDeletions: number
   refs: ParsedRef[]
 }
 
@@ -1217,6 +1228,9 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
         const detail: CommitDetail = {
           commit: result.data.commit as GitCommit,
           files: result.data.files as string[],
+          fileDetails: (result.data.fileDetails as CommitFileDetail[]) || [],
+          totalInsertions: (result.data.totalInsertions as number) || 0,
+          totalDeletions: (result.data.totalDeletions as number) || 0,
           refs
         }
         setCommitDetail(detail)
