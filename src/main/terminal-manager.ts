@@ -1,9 +1,14 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import * as pty from 'node-pty'
+import { createRequire } from 'module'
 import * as os from 'os'
 
+// Use createRequire to load node-pty at runtime, bypassing the bundler.
+// node-pty contains native .node binaries that Rollup/Vite cannot bundle.
+const _require = createRequire(import.meta.url)
+const pty = _require('node-pty') as typeof import('node-pty')
+
 interface TerminalInstance {
-  ptyProcess: pty.IPty
+  ptyProcess: import('node-pty').IPty
   id: string
 }
 

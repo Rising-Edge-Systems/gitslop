@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react'
+import { ChevronDown, X } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ export function CommitFilterBar({
           onClick={() => setExpanded((prev) => !prev)}
           title="Toggle commit filters"
         >
-          <span className="commit-filter-icon">&#9660;</span>
+          <span className="commit-filter-icon"><ChevronDown size={14} /></span>
           <span>Filter History</span>
           {active && (
             <span className="commit-filter-badge">{activeChips.length}</span>
@@ -125,7 +126,7 @@ export function CommitFilterBar({
                   onClick={() => removeFilter(key)}
                   title={`Remove ${filterLabel(key)} filter`}
                 >
-                  &#x2715;
+                  <X size={12} />
                 </button>
               </span>
             ))}

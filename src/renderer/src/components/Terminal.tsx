@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react'
+import { Terminal as TerminalIcon, X } from 'lucide-react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
@@ -286,7 +287,7 @@ export function TerminalPanel({ currentRepo, onToggle }: TerminalPanelProps): Re
                 setActiveTabId(tab.id)
               }}
             >
-              <span className="terminal-tab-icon">&#xf120;</span>
+              <span className="terminal-tab-icon"><TerminalIcon size={12} /></span>
               <span className="terminal-tab-title">{tab.title}</span>
               <button
                 className="terminal-tab-close"
@@ -296,7 +297,7 @@ export function TerminalPanel({ currentRepo, onToggle }: TerminalPanelProps): Re
                 }}
                 title="Close terminal"
               >
-                ✕
+                <X size={12} />
               </button>
             </div>
           ))}
@@ -309,7 +310,7 @@ export function TerminalPanel({ currentRepo, onToggle }: TerminalPanelProps): Re
           </button>
         </div>
         <button className="bottom-panel-close" onClick={onToggle} title="Close Terminal (Ctrl+`)">
-          ✕
+          <X size={14} />
         </button>
       </div>
       <div className="bottom-panel-content terminal-content" ref={termContainerRef}>

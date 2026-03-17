@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { FolderOpen, GitBranch, FolderPlus, Folder, AlertTriangle, X } from 'lucide-react'
 import type { RecentRepo } from '../hooks/useLayoutState'
 import { CloneDialog } from './CloneDialog'
 
@@ -129,14 +130,14 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
   return (
     <div className="welcome-screen">
       <div className="welcome-hero">
-        <span className="welcome-logo">&#9673;</span>
+        <span className="welcome-logo">GS</span>
         <h1 className="welcome-title">GitSlop</h1>
         <p className="welcome-subtitle">A powerful, open-source Git client</p>
       </div>
 
       {error && (
         <div className="welcome-error">
-          <span className="welcome-error-icon">&#9888;</span>
+          <span className="welcome-error-icon"><AlertTriangle size={16} /></span>
           <span className="welcome-error-text">{error}</span>
           {error.includes('not a git repository') && (
             <button className="welcome-error-action" onClick={handleInitFromError}>
@@ -148,26 +149,26 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
             onClick={() => setError(null)}
             aria-label="Dismiss"
           >
-            &#x2715;
+            <X size={14} />
           </button>
         </div>
       )}
 
       <div className="welcome-actions">
         <button className="welcome-action-btn" onClick={handleOpenRepo}>
-          <span className="welcome-action-icon">&#128194;</span>
+          <span className="welcome-action-icon"><FolderOpen size={24} /></span>
           <span className="welcome-action-label">Open Repository</span>
           <span className="welcome-action-desc">Open an existing git repository</span>
         </button>
 
         <button className="welcome-action-btn" onClick={handleCloneRepo}>
-          <span className="welcome-action-icon">&#8595;</span>
+          <span className="welcome-action-icon"><GitBranch size={24} /></span>
           <span className="welcome-action-label">Clone Repository</span>
           <span className="welcome-action-desc">Clone a remote repository</span>
         </button>
 
         <button className="welcome-action-btn" onClick={handleInitRepo}>
-          <span className="welcome-action-icon">&#43;</span>
+          <span className="welcome-action-icon"><FolderPlus size={24} /></span>
           <span className="welcome-action-label">Init Repository</span>
           <span className="welcome-action-desc">Initialize a new git repository</span>
         </button>
@@ -184,7 +185,7 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
                 onClick={() => handleRecentClick(repo)}
                 title={repo.path}
               >
-                <span className="welcome-recent-icon">&#128193;</span>
+                <span className="welcome-recent-icon"><Folder size={18} /></span>
                 <div className="welcome-recent-info">
                   <span className="welcome-recent-name">{repo.name}</span>
                   <span className="welcome-recent-path">{repo.path}</span>
@@ -196,7 +197,7 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
                   aria-label={`Remove ${repo.name} from recent`}
                   title="Remove from recent"
                 >
-                  &#x2715;
+                  <X size={14} />
                 </button>
               </button>
             ))}

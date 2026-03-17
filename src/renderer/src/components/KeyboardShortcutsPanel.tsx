@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
+import { X } from 'lucide-react'
 import {
   getRegisteredShortcuts,
   subscribeToRegistry,
@@ -69,7 +70,7 @@ export function KeyboardShortcutsPanel({ onClose }: KeyboardShortcutsPanelProps)
         <div className="shortcuts-panel-header">
           <h2 className="shortcuts-panel-title">Keyboard Shortcuts</h2>
           <button className="shortcuts-panel-close" onClick={onClose} title="Close (Escape)">
-            ✕
+            <X size={16} />
           </button>
         </div>
 

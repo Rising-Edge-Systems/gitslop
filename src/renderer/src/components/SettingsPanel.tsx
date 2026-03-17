@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { Settings, Palette, GitBranch, Pencil, Keyboard, X } from 'lucide-react'
 import type { AppSettings } from '../hooks/useSettings'
 import { DEFAULT_SETTINGS } from '../hooks/useSettings'
 
@@ -32,12 +33,12 @@ export function SettingsPanel({
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  const sections: { id: SettingsSection; label: string; icon: string }[] = [
-    { id: 'general', label: 'General', icon: '⚙' },
-    { id: 'appearance', label: 'Appearance', icon: '🎨' },
-    { id: 'git', label: 'Git', icon: '⑂' },
-    { id: 'editor', label: 'Editor', icon: '✏' },
-    { id: 'keybindings', label: 'Keybindings', icon: '⌨' }
+  const sections: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
+    { id: 'general', label: 'General', icon: <Settings size={16} /> },
+    { id: 'appearance', label: 'Appearance', icon: <Palette size={16} /> },
+    { id: 'git', label: 'Git', icon: <GitBranch size={16} /> },
+    { id: 'editor', label: 'Editor', icon: <Pencil size={16} /> },
+    { id: 'keybindings', label: 'Keybindings', icon: <Keyboard size={16} /> }
   ]
 
   const handleBrowseCloneDir = useCallback(async () => {
@@ -57,7 +58,7 @@ export function SettingsPanel({
         <div className="settings-header">
           <h2 className="settings-title">Settings</h2>
           <button className="settings-close-btn" onClick={onClose} title="Close (Esc)">
-            ✕
+            <X size={16} />
           </button>
         </div>
 

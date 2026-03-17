@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
+import { AlertTriangle } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -282,7 +283,7 @@ export function RebaseDialog({
     <div className="branch-dialog-overlay" onClick={onClose}>
       <div className="branch-dialog rebase-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="branch-dialog-title">
-          {state.rebasing ? '⚠ Rebase in Progress' : 'Rebase Branch'}
+          {state.rebasing ? <><AlertTriangle size={16} /> Rebase in Progress</> : 'Rebase Branch'}
         </div>
 
         {/* In-progress rebase state */}
@@ -382,7 +383,7 @@ export function RebaseDialog({
             {/* Published commits warning */}
             {state.preview?.isPublished && state.preview.commitCount > 0 && (
               <div className="rebase-published-warning">
-                <span className="rebase-published-warning-icon">⚠️</span>
+                <span className="rebase-published-warning-icon"><AlertTriangle size={16} /></span>
                 <span>
                   <strong>Warning:</strong> You are rebasing commits that have been pushed to a remote.
                   This will rewrite history and may cause issues for collaborators.

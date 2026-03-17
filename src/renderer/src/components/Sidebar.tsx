@@ -25,7 +25,8 @@ import {
   CornerRightUp,
   CornerUpRight,
   Bell,
-  Download
+  Download,
+  Bookmark
 } from 'lucide-react'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
@@ -1205,7 +1206,7 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
                   onContextMenu={(e) => handleContextMenu(e, tag)}
                 >
                   <span className="sidebar-tag-icon">
-                    {tag.isAnnotated ? '\u{1F3F7}' : '\u{1F516}'}
+                    {tag.isAnnotated ? <Tag size={14} /> : <Bookmark size={14} />}
                   </span>
                   <span className="sidebar-tag-name">{tag.name}</span>
                   {tag.taggerDate && (

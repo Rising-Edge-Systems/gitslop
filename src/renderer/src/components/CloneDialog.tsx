@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { X, AlertTriangle } from 'lucide-react'
 
 interface CloneDialogProps {
   onClose: () => void
@@ -135,7 +136,7 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
             onClick={cloning ? handleCancel : onClose}
             aria-label="Close"
           >
-            &#x2715;
+            <X size={16} />
           </button>
         </div>
 
@@ -209,7 +210,7 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
 
           {error && (
             <div className="clone-dialog-error">
-              <span className="clone-dialog-error-icon">&#9888;</span>
+              <span className="clone-dialog-error-icon"><AlertTriangle size={14} /></span>
               <span className="clone-dialog-error-text">{error}</span>
             </div>
           )}

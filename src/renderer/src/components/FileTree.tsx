@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { Folder, FileCode, FileJson, FileText, Palette, Globe, Image, Settings, Lock, Terminal, FileType, Coffee, File, Ban, KeyRound, ChevronRight, Pencil, Clock, User, Clipboard, X } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -28,45 +29,45 @@ interface FileContextMenuState {
 
 // ─── File Icon Helper ────────────────────────────────────────────────────────
 
-function getFileIcon(name: string, isDirectory: boolean): string {
-  if (isDirectory) return '\u{1F4C1}' // folder
+function getFileIcon(name: string, isDirectory: boolean): React.ReactNode {
+  if (isDirectory) return <Folder size={14} />
 
   const ext = name.split('.').pop()?.toLowerCase() || ''
-  const iconMap: Record<string, string> = {
-    ts: '\u{1F7E6}',      // blue square
-    tsx: '\u{269B}',       // atom (react)
-    js: '\u{1F7E8}',      // yellow square
-    jsx: '\u{269B}',      // atom
-    json: '\u{1F4CB}',    // clipboard
-    md: '\u{1F4DD}',      // memo
-    css: '\u{1F3A8}',     // palette
-    scss: '\u{1F3A8}',
-    html: '\u{1F310}',    // globe
-    svg: '\u{1F5BC}',     // framed picture
-    png: '\u{1F5BC}',
-    jpg: '\u{1F5BC}',
-    jpeg: '\u{1F5BC}',
-    gif: '\u{1F5BC}',
-    ico: '\u{1F5BC}',
-    yml: '\u2699\uFE0F',  // gear
-    yaml: '\u2699\uFE0F',
-    toml: '\u2699\uFE0F',
-    lock: '\u{1F512}',    // lock
-    sh: '\u{1F4DF}',      // terminal-like
-    bash: '\u{1F4DF}',
-    zsh: '\u{1F4DF}',
-    py: '\u{1F40D}',      // snake
-    rs: '\u2699\uFE0F',   // gear
-    go: '\u{1F7E6}',
-    java: '\u2615',       // coffee
-    c: '\u{1F7E6}',
-    cpp: '\u{1F7E6}',
-    h: '\u{1F7E6}',
-    txt: '\u{1F4C4}',     // page
-    gitignore: '\u{1F6AB}', // no entry
-    env: '\u{1F510}',     // locked key
+  const iconMap: Record<string, React.ReactNode> = {
+    ts: <FileCode size={14} />,
+    tsx: <FileCode size={14} />,
+    js: <FileCode size={14} />,
+    jsx: <FileCode size={14} />,
+    json: <FileJson size={14} />,
+    md: <FileText size={14} />,
+    css: <Palette size={14} />,
+    scss: <Palette size={14} />,
+    html: <Globe size={14} />,
+    svg: <Image size={14} />,
+    png: <Image size={14} />,
+    jpg: <Image size={14} />,
+    jpeg: <Image size={14} />,
+    gif: <Image size={14} />,
+    ico: <Image size={14} />,
+    yml: <Settings size={14} />,
+    yaml: <Settings size={14} />,
+    toml: <Settings size={14} />,
+    lock: <Lock size={14} />,
+    sh: <Terminal size={14} />,
+    bash: <Terminal size={14} />,
+    zsh: <Terminal size={14} />,
+    py: <FileCode size={14} />,
+    rs: <FileCode size={14} />,
+    go: <FileCode size={14} />,
+    java: <Coffee size={14} />,
+    c: <FileCode size={14} />,
+    cpp: <FileCode size={14} />,
+    h: <FileCode size={14} />,
+    txt: <File size={14} />,
+    gitignore: <Ban size={14} />,
+    env: <KeyRound size={14} />,
   }
-  return iconMap[ext] || '\u{1F4C4}' // default: page
+  return iconMap[ext] || <File size={14} />
 }
 
 // ─── Status indicator ────────────────────────────────────────────────────────
@@ -258,7 +259,7 @@ function TreeNode({
         title={entry.path}
       >
         {entry.isDirectory && (
-          <span className={`file-tree-chevron ${isExpanded ? 'open' : ''}`}>&#9654;</span>
+          <span className={`file-tree-chevron ${isExpanded ? 'open' : ''}`}><ChevronRight size={12} /></span>
         )}
         <span className="file-tree-icon">{getFileIcon(entry.name, entry.isDirectory)}</span>
         <span className="file-tree-name">{entry.name}</span>
@@ -344,7 +345,7 @@ function FileTreeContextMenu({
             onClose()
           }}
         >
-          <span className="branch-ctx-menu-icon">&#9998;</span>
+          <span className="branch-ctx-menu-icon"><Pencil size={14} /></span>
           <span className="branch-ctx-menu-label">Open in Editor</span>
         </button>
       )}
@@ -356,7 +357,7 @@ function FileTreeContextMenu({
             onClose()
           }}
         >
-          <span className="branch-ctx-menu-icon">&#128337;</span>
+          <span className="branch-ctx-menu-icon"><Clock size={14} /></span>
           <span className="branch-ctx-menu-label">Show History</span>
         </button>
       )}
@@ -368,7 +369,7 @@ function FileTreeContextMenu({
             onClose()
           }}
         >
-          <span className="branch-ctx-menu-icon">&#128100;</span>
+          <span className="branch-ctx-menu-icon"><User size={14} /></span>
           <span className="branch-ctx-menu-label">Show Blame</span>
         </button>
       )}
@@ -380,7 +381,7 @@ function FileTreeContextMenu({
           onClose()
         }}
       >
-        <span className="branch-ctx-menu-icon">&#128203;</span>
+        <span className="branch-ctx-menu-icon"><Clipboard size={14} /></span>
         <span className="branch-ctx-menu-label">Copy Path</span>
       </button>
     </div>
@@ -567,7 +568,7 @@ export function FileTree({ currentRepo, onOpenFile, onShowHistory, onShowBlame }
         />
         {filter && (
           <button className="sidebar-search-clear" onClick={() => setFilter('')}>
-            &#10005;
+            <X size={12} />
           </button>
         )}
       </div>

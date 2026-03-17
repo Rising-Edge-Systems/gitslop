@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import { X, AlertTriangle, Check } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -75,7 +76,7 @@ export function ResetDialog({
       <div className="reset-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="reset-dialog-header">
           <h3>Reset Current Branch</h3>
-          <button className="reset-dialog-close" onClick={onClose} title="Close">&#x2715;</button>
+          <button className="reset-dialog-close" onClick={onClose} title="Close"><X size={16} /></button>
         </div>
 
         <div className="reset-dialog-body">
@@ -112,7 +113,7 @@ export function ResetDialog({
                     </div>
                     <div className="reset-dialog-mode-description">{info.description}</div>
                     {info.warning && (
-                      <div className="reset-dialog-mode-warning">&#x26A0; {info.warning}</div>
+                      <div className="reset-dialog-mode-warning"><AlertTriangle size={14} /> {info.warning}</div>
                     )}
                   </div>
                 </label>
@@ -139,13 +140,13 @@ export function ResetDialog({
 
           {/* Error */}
           {error && (
-            <div className="reset-dialog-error">&#x26A0; {error}</div>
+            <div className="reset-dialog-error"><AlertTriangle size={14} /> {error}</div>
           )}
 
           {/* Success */}
           {success && (
             <div className="reset-dialog-success">
-              &#x2714; Reset ({mode}) to {targetHash.substring(0, 7)} successful!
+              <Check size={14} /> Reset ({mode}) to {targetHash.substring(0, 7)} successful!
             </div>
           )}
         </div>

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, Copy, HelpCircle, EyeOff, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, Trash2 } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { openFileInEditor } from './CodeEditor'
@@ -27,14 +28,14 @@ interface StatusPanelProps {
   onRefresh?: () => void
 }
 
-const STATUS_ICONS: Record<string, string> = {
-  added: '+',
-  modified: '~',
-  deleted: '−',
-  renamed: '→',
-  copied: '⊕',
-  untracked: '?',
-  ignored: '!'
+const STATUS_ICONS: Record<string, React.ReactNode> = {
+  added: <FilePlus size={14} />,
+  modified: <FileEdit size={14} />,
+  deleted: <FileMinus size={14} />,
+  renamed: <ArrowRightLeft size={14} />,
+  copied: <Copy size={14} />,
+  untracked: <HelpCircle size={14} />,
+  ignored: <EyeOff size={14} />
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -299,7 +300,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
         items.push({
           key: 'unstage',
           label: 'Unstage',
-          icon: '−',
+          icon: <Minus size={14} />,
           shortcut: 'U',
           onClick: () => unstageFiles([file.path])
         })
@@ -307,7 +308,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
         items.push({
           key: 'stage',
           label: 'Stage',
-          icon: '+',
+          icon: <Plus size={14} />,
           shortcut: 'S',
           onClick: () => stageFiles([file.path])
         })
@@ -319,7 +320,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
         items.push({
           key: 'discard',
           label: isUntracked ? 'Delete File' : 'Discard Changes',
-          icon: '✕',
+          icon: <Trash2 size={14} />,
           danger: true,
           onClick: () => discardFile(file)
         })
@@ -329,7 +330,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
       items.push({
         key: 'openInEditor',
         label: 'Open in Editor',
-        icon: '✎',
+        icon: <Pencil size={14} />,
         onClick: () => {
           const fullPath = repoPath + '/' + file.path
           openFileInEditor(fullPath)
@@ -340,7 +341,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
         items.push({
           key: 'showHistory',
           label: 'Show History',
-          icon: '🕐',
+          icon: <Clock size={14} />,
           onClick: () => {
             window.dispatchEvent(
               new CustomEvent('commit-filter:file-history', { detail: { path: file.path } })
@@ -560,7 +561,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
     return (
       <div className="status-panel">
         <div className="status-panel-error">
-          <span>⚠</span> {error}
+          <span><AlertTriangle size={14} /></span> {error}
           <button onClick={loadStatus}>Retry</button>
         </div>
       </div>
@@ -589,7 +590,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
               disabled={operationInProgress}
               title="Unstage All"
             >
-              − Unstage All
+              <Minus size={14} /> Unstage All
             </button>
           )}
           {hasUnstagedOrUntracked && (
@@ -599,18 +600,18 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
               disabled={operationInProgress}
               title="Discard All Changes (irreversible)"
             >
-              ✕ Discard All
+              <X size={14} /> Discard All
             </button>
           )}
           <button className="status-panel-refresh" onClick={loadStatus} title="Refresh status">
-            &#x21BB;
+            <RefreshCw size={14} />
           </button>
         </div>
       </div>
 
       {isClean ? (
         <div className="status-panel-clean">
-          <span className="status-panel-clean-icon">✓</span>
+          <span className="status-panel-clean-icon"><Check size={16} /></span>
           <span className="status-panel-clean-text">Working directory clean</span>
         </div>
       ) : (
@@ -624,7 +625,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
             onToggle={() => toggleSection('staged')}
             onFileClick={(f, e) => handleFileClick(f, false, 'staged', e)}
             onStageAction={(file) => unstageFiles([file.path])}
-            stageActionIcon="−"
+            stageActionIcon={<Minus size={14} />}
             stageActionTitle="Unstage"
             selectedFile={selectedFile}
             selectedFiles={selectedFiles}
@@ -651,7 +652,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
             onToggle={() => toggleSection('unstaged')}
             onFileClick={(f, e) => handleFileClick(f, false, 'unstaged', e)}
             onStageAction={(file) => stageFiles([file.path])}
-            stageActionIcon="+"
+            stageActionIcon={<Plus size={14} />}
             stageActionTitle="Stage"
             selectedFile={selectedFile}
             selectedFiles={selectedFiles}
@@ -678,7 +679,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
             onToggle={() => toggleSection('untracked')}
             onFileClick={(f, e) => handleFileClick(f, true, 'untracked', e)}
             onStageAction={(file) => stageFiles([file.path])}
-            stageActionIcon="+"
+            stageActionIcon={<Plus size={14} />}
             stageActionTitle="Stage"
             selectedFile={selectedFile}
             selectedFiles={selectedFiles}
@@ -714,7 +715,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
               }}
               title="Close diff"
             >
-              ✕
+              <X size={14} />
             </button>
           </div>
           <div className="status-diff-content">
@@ -1086,7 +1087,7 @@ function HunkDiffViewer({
                     disabled={operationInProgress}
                     title={`Unstage ${hunkSelectedLines!.size} selected line(s)`}
                   >
-                    − Unstage Lines ({hunkSelectedLines!.size})
+                    <Minus size={14} /> Unstage Lines ({hunkSelectedLines!.size})
                   </button>
                 )}
                 {!staged && !isUntracked && (
@@ -1106,7 +1107,7 @@ function HunkDiffViewer({
                     disabled={operationInProgress}
                     title="Discard this hunk (irreversible)"
                   >
-                    ✕ Discard Hunk
+                    <X size={14} /> Discard Hunk
                   </button>
                 )}
                 {staged && (
@@ -1116,7 +1117,7 @@ function HunkDiffViewer({
                     disabled={operationInProgress}
                     title="Unstage this hunk"
                   >
-                    − Unstage Hunk
+                    <Minus size={14} /> Unstage Hunk
                   </button>
                 )}
               </div>
@@ -1146,7 +1147,7 @@ function HunkDiffViewer({
                     </span>
                     {isSelectable && (
                       <span className={`hunk-line-checkbox ${isSelected ? 'checked' : ''}`}>
-                        {isSelected ? '☑' : '☐'}
+                        {isSelected ? <Check size={12} /> : <span className="hunk-line-unchecked" />}
                       </span>
                     )}
                     {!isSelectable && <span className="hunk-line-checkbox-spacer" />}
@@ -1227,7 +1228,7 @@ interface StatusSectionProps {
   onToggle: () => void
   onFileClick: (file: FileStatus, e: React.MouseEvent) => void
   onStageAction: (file: FileStatus) => void
-  stageActionIcon: string
+  stageActionIcon: React.ReactNode
   stageActionTitle: string
   selectedFile: { path: string; staged: boolean; isUntracked: boolean } | null
   selectedFiles: Set<string>
@@ -1295,7 +1296,7 @@ function StatusSection({
       }}
     >
       <button className="status-section-header" onClick={onToggle}>
-        <span className={`status-section-arrow ${collapsed ? '' : 'expanded'}`}>&#9654;</span>
+        <span className={`status-section-arrow ${collapsed ? '' : 'expanded'}`}><ChevronRight size={14} /></span>
         <span className="status-section-title">{title}</span>
         <span className="status-section-count">{count}</span>
       </button>

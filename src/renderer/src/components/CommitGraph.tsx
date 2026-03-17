@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
+import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ResetDialog } from './ResetDialog'
 
@@ -421,7 +422,7 @@ function CommitRowComponent(props: {
                 className={`commit-graph-ref commit-graph-ref-${ref.type}`}
                 title={ref.name}
               >
-                {ref.type === 'head' && <span className="commit-graph-ref-head-icon">&#x25CF; </span>}
+                {ref.type === 'head' && <span className="commit-graph-ref-head-icon"><CircleDot size={12} /> </span>}
                 {ref.name}
               </span>
             ))}
@@ -433,10 +434,10 @@ function CommitRowComponent(props: {
             className={`commit-graph-signature commit-graph-signature-${commit.signatureStatus}`}
             title={`GPG: ${commit.signatureStatus}${commit.signer ? ` by ${commit.signer}` : ''}`}
           >
-            {commit.signatureStatus === 'good' ? '\u2714' :
-             commit.signatureStatus === 'bad' ? '\u2718' :
-             commit.signatureStatus === 'untrusted' ? '\u26A0' :
-             '\u26A0'}
+            {commit.signatureStatus === 'good' ? <ShieldCheck size={14} /> :
+             commit.signatureStatus === 'bad' ? <ShieldAlert size={14} /> :
+             commit.signatureStatus === 'untrusted' ? <ShieldQuestion size={14} /> :
+             <ShieldQuestion size={14} />}
           </span>
         )}
 
@@ -497,15 +498,15 @@ function CommitContextMenu({ state, multiSelectCount, onClose, onAction }: Commi
     ? `Cherry-pick ${multiSelectCount} commits`
     : 'Cherry-pick'
 
-  const items = [
-    { label: cherryPickLabel, action: 'cherry-pick', icon: '\u{1F352}', shortcut: '' },
-    { label: 'Revert', action: 'revert', icon: '\u21A9', shortcut: '' },
-    { label: 'Reset current branch to here', action: 'reset', icon: '\u23EA', shortcut: '' },
-    { label: '---', action: '', icon: '', shortcut: '' },
-    { label: 'Create branch here...', action: 'create-branch', icon: '\u{1F33F}', shortcut: '' },
-    { label: 'Create tag here...', action: 'create-tag', icon: '\u{1F3F7}', shortcut: '' },
-    { label: '---', action: '', icon: '', shortcut: '' },
-    { label: 'Copy SHA', action: 'copy-sha', icon: '\u{1F4CB}', shortcut: 'Ctrl+C' },
+  const items: { label: string; action: string; icon: React.ReactNode; shortcut: string }[] = [
+    { label: cherryPickLabel, action: 'cherry-pick', icon: <Cherry size={14} />, shortcut: '' },
+    { label: 'Revert', action: 'revert', icon: <Undo2 size={14} />, shortcut: '' },
+    { label: 'Reset current branch to here', action: 'reset', icon: <SkipBack size={14} />, shortcut: '' },
+    { label: '---', action: '', icon: null, shortcut: '' },
+    { label: 'Create branch here...', action: 'create-branch', icon: <GitBranch size={14} />, shortcut: '' },
+    { label: 'Create tag here...', action: 'create-tag', icon: <Tag size={14} />, shortcut: '' },
+    { label: '---', action: '', icon: null, shortcut: '' },
+    { label: 'Copy SHA', action: 'copy-sha', icon: <Clipboard size={14} />, shortcut: 'Ctrl+C' },
   ]
 
   return (
@@ -578,7 +579,7 @@ function CommitDetailPanel({ detail, repoPath, onClose, onFileDoubleClick }: Com
     <div className="commit-detail-panel">
       <div className="commit-detail-header">
         <h3 className="commit-detail-title">Commit Details</h3>
-        <button className="commit-detail-close" onClick={onClose} title="Close">&#x2715;</button>
+        <button className="commit-detail-close" onClick={onClose} title="Close"><X size={16} /></button>
       </div>
 
       <div className="commit-detail-body">
@@ -639,14 +640,14 @@ function CommitDetailPanel({ detail, repoPath, onClose, onFileDoubleClick }: Com
             <div className="commit-detail-meta-row">
               <span className="commit-detail-meta-label">Signature</span>
               <span className={`commit-detail-meta-value commit-graph-signature-${commit.signatureStatus}`}>
-                {commit.signatureStatus === 'good' ? '\u2714 Valid' :
-                 commit.signatureStatus === 'bad' ? '\u2718 Invalid' :
-                 commit.signatureStatus === 'untrusted' ? '\u26A0 Untrusted' :
-                 commit.signatureStatus === 'expired' ? '\u26A0 Expired' :
-                 commit.signatureStatus === 'expired-key' ? '\u26A0 Expired Key' :
-                 commit.signatureStatus === 'revoked' ? '\u26A0 Revoked' :
-                 '\u26A0 Error'}
-                {commit.signer && ` \u2014 ${commit.signer}`}
+                {commit.signatureStatus === 'good' ? <><ShieldCheck size={14} /> Valid</> :
+                 commit.signatureStatus === 'bad' ? <><ShieldAlert size={14} /> Invalid</> :
+                 commit.signatureStatus === 'untrusted' ? <><ShieldQuestion size={14} /> Untrusted</> :
+                 commit.signatureStatus === 'expired' ? <><AlertTriangle size={14} /> Expired</> :
+                 commit.signatureStatus === 'expired-key' ? <><AlertTriangle size={14} /> Expired Key</> :
+                 commit.signatureStatus === 'revoked' ? <><AlertTriangle size={14} /> Revoked</> :
+                 <><AlertTriangle size={14} /> Error</>}
+                {commit.signer && ` — ${commit.signer}`}
               </span>
             </div>
           )}
@@ -688,7 +689,7 @@ function CommitDetailPanel({ detail, repoPath, onClose, onFileDoubleClick }: Com
                 onClick={() => setFileDiff(null)}
                 title="Close diff"
               >
-                ✕
+                <X size={14} />
               </button>
             </div>
             <DiffViewer
@@ -702,20 +703,20 @@ function CommitDetailPanel({ detail, repoPath, onClose, onFileDoubleClick }: Com
   )
 }
 
-function getFileIcon(filePath: string): string {
+function getFileIcon(filePath: string): React.ReactNode {
   const ext = filePath.split('.').pop()?.toLowerCase() || ''
-  const iconMap: Record<string, string> = {
-    ts: '\u{1F1F9}', tsx: '\u{1F1F9}',
-    js: '\u{1F1EF}', jsx: '\u{1F1EF}',
-    json: '{}',
-    css: '\u{1F3A8}', scss: '\u{1F3A8}', less: '\u{1F3A8}',
-    html: '\u{1F310}',
-    md: '\u{1F4DD}',
-    py: '\u{1F40D}',
-    rs: '\u{1F980}',
-    go: '\u{1F439}',
+  const iconMap: Record<string, React.ReactNode> = {
+    ts: <FileCode size={14} />, tsx: <FileCode size={14} />,
+    js: <FileCode size={14} />, jsx: <FileCode size={14} />,
+    json: <FileJson size={14} />,
+    css: <Palette size={14} />, scss: <Palette size={14} />, less: <Palette size={14} />,
+    html: <Globe size={14} />,
+    md: <FileText size={14} />,
+    py: <FileCode size={14} />,
+    rs: <FileCode size={14} />,
+    go: <FileCode size={14} />,
   }
-  return iconMap[ext] || '\u{1F4C4}'
+  return iconMap[ext] || <File size={14} />
 }
 
 // ─── Main CommitGraph Component ───────────────────────────────────────────────
@@ -1167,7 +1168,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
     return (
       <div className="commit-graph-container" ref={containerRef}>
         <div className="commit-graph-loading">
-          <span className="repo-view-spinner">&#x21BB;</span>
+          <span className="repo-view-spinner"><Loader2 size={16} /></span>
           Loading commit history...
         </div>
       </div>
@@ -1178,7 +1179,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
     return (
       <div className="commit-graph-container" ref={containerRef}>
         <div className="commit-graph-error">
-          <span>&#9888;</span> {error}
+          <span><AlertTriangle size={14} /></span> {error}
           <button onClick={handleRefresh}>Retry</button>
         </div>
       </div>
@@ -1212,7 +1213,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
             <span className="commit-graph-count">{commits.length.toLocaleString()} commits</span>
           </h3>
           <button className="commit-graph-refresh" onClick={handleRefresh} title="Refresh">
-            &#x21BB;
+            <RefreshCw size={14} />
           </button>
         </div>
 
@@ -1254,10 +1255,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
           <div className={`cherry-pick-notification cherry-pick-${cherryPickState.status}`}>
             <div className="cherry-pick-notification-content">
               {cherryPickState.status === 'picking' && (
-                <span className="repo-view-spinner">&#x21BB;</span>
+                <span className="repo-view-spinner"><Loader2 size={14} /></span>
               )}
-              {cherryPickState.status === 'success' && <span>&#x2714;</span>}
-              {cherryPickState.status === 'conflict' && <span>&#x26A0;</span>}
+              {cherryPickState.status === 'success' && <span><Check size={14} /></span>}
+              {cherryPickState.status === 'conflict' && <span><AlertTriangle size={14} /></span>}
               <span className="cherry-pick-message">{cherryPickState.message}</span>
             </div>
 
@@ -1305,11 +1306,11 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
         <div className={`revert-notification revert-${revertState.status}`}>
           <div className="revert-notification-content">
             {revertState.status === 'reverting' && (
-              <span className="repo-view-spinner">&#x21BB;</span>
+              <span className="repo-view-spinner"><Loader2 size={14} /></span>
             )}
-            {revertState.status === 'success' && <span>&#x2714;</span>}
-            {revertState.status === 'conflict' && <span>&#x26A0;</span>}
-            {revertState.status === 'merge-prompt' && <span>&#x2753;</span>}
+            {revertState.status === 'success' && <span><Check size={14} /></span>}
+            {revertState.status === 'conflict' && <span><AlertTriangle size={14} /></span>}
+            {revertState.status === 'merge-prompt' && <span><HelpCircle size={14} /></span>}
             <span className="revert-message">{revertState.message}</span>
           </div>
 
@@ -1397,10 +1398,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
             <div className="commit-detail-panel">
               <div className="commit-detail-header">
                 <h3 className="commit-detail-title">Commit Details</h3>
-                <button className="commit-detail-close" onClick={handleCloseDetail}>&#x2715;</button>
+                <button className="commit-detail-close" onClick={handleCloseDetail}><X size={16} /></button>
               </div>
               <div className="commit-detail-loading">
-                <span className="repo-view-spinner">&#x21BB;</span>
+                <span className="repo-view-spinner"><Loader2 size={16} /></span>
                 Loading...
               </div>
             </div>

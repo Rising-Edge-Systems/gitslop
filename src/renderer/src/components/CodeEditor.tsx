@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FileText, X, WrapText, ArrowRight, LayoutGrid, AlertTriangle } from 'lucide-react'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
 import {
@@ -269,7 +270,7 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
   if (tabs.length === 0) {
     return (
       <div className="code-editor-empty">
-        <div className="code-editor-empty-icon">&#128196;</div>
+        <div className="code-editor-empty-icon"><FileText size={32} /></div>
         <p>No files open</p>
         <p className="code-editor-empty-hint">
           Open files from the file tree, diff viewer, or commit details
@@ -297,7 +298,7 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
                 onClick={(e) => closeTab(index, e)}
                 title="Close"
               >
-                &#10005;
+                <X size={12} />
               </button>
             </div>
           ))}
@@ -308,14 +309,14 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
             onClick={() => setWordWrap((prev) => (prev === 'on' ? 'off' : 'on'))}
             title={`Word Wrap: ${wordWrap}`}
           >
-            {wordWrap === 'on' ? '&#8629;' : '&#8594;'}
+            {wordWrap === 'on' ? <WrapText size={14} /> : <ArrowRight size={14} />}
           </button>
           <button
             className="code-editor-action-btn"
             onClick={() => setShowMinimap((prev) => !prev)}
             title={`Minimap: ${showMinimap ? 'On' : 'Off'}`}
           >
-            &#9638;
+            <LayoutGrid size={14} />
           </button>
         </div>
       </div>
@@ -323,8 +324,8 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
       {/* Error banner */}
       {error && (
         <div className="code-editor-error">
-          <span>&#9888; {error}</span>
-          <button onClick={() => setError(null)}>&#10005;</button>
+          <span><AlertTriangle size={14} /> {error}</span>
+          <button onClick={() => setError(null)}><X size={14} /></button>
         </div>
       )}
 

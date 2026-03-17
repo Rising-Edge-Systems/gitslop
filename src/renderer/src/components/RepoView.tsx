@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { RefreshCw, X, Loader2, AlertTriangle, GitBranch, Pencil, FileEdit, HelpCircle, FileText } from 'lucide-react'
 import { BlameView } from './BlameView'
 import { CodeEditor } from './CodeEditor'
 import { CommitDialog } from './CommitDialog'
@@ -146,24 +147,24 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
         </div>
         <div className="repo-view-actions">
           <button className="repo-view-refresh" onClick={loadRepoData} title="Refresh">
-            &#x21BB;
+            <RefreshCw size={14} />
           </button>
           <button className="repo-view-close" onClick={onCloseRepo} title="Close repository">
-            &#x2715; Close
+            <X size={14} /> Close
           </button>
         </div>
       </div>
 
       {loading && (
         <div className="repo-view-loading">
-          <span className="repo-view-spinner">&#x21BB;</span>
+          <span className="repo-view-spinner"><Loader2 size={16} /></span>
           Loading repository...
         </div>
       )}
 
       {error && (
         <div className="repo-view-error">
-          <span>&#9888;</span> {error}
+          <span><AlertTriangle size={14} /></span> {error}
           <button onClick={loadRepoData}>Retry</button>
         </div>
       )}
@@ -172,7 +173,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
         <div className="repo-view-content">
           <div className="repo-view-summary">
             <div className="repo-view-card">
-              <span className="repo-view-card-icon">&#9739;</span>
+              <span className="repo-view-card-icon"><GitBranch size={18} /></span>
               <div className="repo-view-card-info">
                 <span className="repo-view-card-label">Current Branch</span>
                 <span className="repo-view-card-value">{currentBranch}</span>
@@ -180,7 +181,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
             </div>
 
             <div className="repo-view-card">
-              <span className="repo-view-card-icon">&#9998;</span>
+              <span className="repo-view-card-icon"><Pencil size={18} /></span>
               <div className="repo-view-card-info">
                 <span className="repo-view-card-label">Staged</span>
                 <span className="repo-view-card-value">{status?.staged ?? 0} files</span>
@@ -188,7 +189,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
             </div>
 
             <div className="repo-view-card">
-              <span className="repo-view-card-icon">&#9997;</span>
+              <span className="repo-view-card-icon"><FileEdit size={18} /></span>
               <div className="repo-view-card-info">
                 <span className="repo-view-card-label">Unstaged</span>
                 <span className="repo-view-card-value">{status?.unstaged ?? 0} files</span>
@@ -196,7 +197,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
             </div>
 
             <div className="repo-view-card">
-              <span className="repo-view-card-icon">&#63;</span>
+              <span className="repo-view-card-icon"><HelpCircle size={18} /></span>
               <div className="repo-view-card-info">
                 <span className="repo-view-card-label">Untracked</span>
                 <span className="repo-view-card-value">{status?.untracked ?? 0} files</span>
@@ -207,7 +208,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
           {/* Conflict Banner */}
           {hasConflicts && !showConflictResolver && (
             <div className="conflict-banner">
-              <span className="conflict-banner-icon">&#9888;</span>
+              <span className="conflict-banner-icon"><AlertTriangle size={16} /></span>
               <span>Merge conflicts detected. Resolve them to continue.</span>
               <button
                 className="conflict-banner-btn"
@@ -265,7 +266,7 @@ export function RepoView({ repoPath, onCloseRepo }: RepoViewProps): React.JSX.El
               onClick={() => setShowEditor((prev) => !prev)}
               title="Toggle Code Editor"
             >
-              &#128196; Editor {showEditor ? '(hide)' : '(show)'}
+              <FileText size={14} /> Editor {showEditor ? '(hide)' : '(show)'}
             </button>
           </div>
           {showEditor && (

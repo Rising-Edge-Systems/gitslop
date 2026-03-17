@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
+import { GitCommitHorizontal, FileText, GitBranch, Tag, Search, Loader2, ArrowUp, ArrowDown } from 'lucide-react'
 
 type SearchMode = 'all' | 'commits' | 'files' | 'branches'
 
@@ -344,16 +345,16 @@ export function SearchPalette({
     [onClose, results, selectedIndex, handleSelect, confirmCheckout, handleCheckoutConfirm]
   )
 
-  const getTypeIcon = (type: SearchResult['type']): string => {
+  const getTypeIcon = (type: SearchResult['type']): React.ReactNode => {
     switch (type) {
       case 'commit':
-        return '\u25CB' // ○
+        return <GitCommitHorizontal size={14} />
       case 'file':
-        return '\u25A1' // □
+        return <FileText size={14} />
       case 'branch':
-        return '\u2442' // ⑂
+        return <GitBranch size={14} />
       case 'tag':
-        return '\u2691' // ⚑
+        return <Tag size={14} />
     }
   }
 
@@ -411,7 +412,7 @@ export function SearchPalette({
         {!confirmCheckout && (
           <>
             <div className="search-palette-header">
-              <span className="search-palette-icon">&#x1F50E;</span>
+              <span className="search-palette-icon"><Search size={16} /></span>
               <input
                 ref={inputRef}
                 className="search-palette-input"
@@ -420,7 +421,7 @@ export function SearchPalette({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              {loading && <span className="search-palette-spinner">&#x23F3;</span>}
+              {loading && <span className="search-palette-spinner"><Loader2 size={14} /></span>}
             </div>
 
             {/* Mode tabs */}
@@ -486,8 +487,8 @@ export function SearchPalette({
             {/* Footer */}
             <div className="search-palette-footer">
               <span>
-                <kbd>&#x2191;</kbd>
-                <kbd>&#x2193;</kbd> navigate
+                <kbd><ArrowUp size={12} /></kbd>
+                <kbd><ArrowDown size={12} /></kbd> navigate
               </span>
               <span>
                 <kbd>Enter</kbd> select

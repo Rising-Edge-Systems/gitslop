@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { X, AlertTriangle } from 'lucide-react'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -157,7 +158,7 @@ export function BlameView({
       <div className="blame-view">
         <div className="blame-view-header">
           <span className="blame-view-title">Blame: {fileName}</span>
-          <button className="blame-view-close" onClick={onClose}>&#10005;</button>
+          <button className="blame-view-close" onClick={onClose}><X size={14} /></button>
         </div>
         <div className="blame-view-loading">Loading blame data...</div>
       </div>
@@ -169,10 +170,10 @@ export function BlameView({
       <div className="blame-view">
         <div className="blame-view-header">
           <span className="blame-view-title">Blame: {fileName}</span>
-          <button className="blame-view-close" onClick={onClose}>&#10005;</button>
+          <button className="blame-view-close" onClick={onClose}><X size={14} /></button>
         </div>
         <div className="blame-view-error">
-          <span>&#9888; {error}</span>
+          <span><AlertTriangle size={14} /> {error}</span>
           <button onClick={loadBlame}>Retry</button>
         </div>
       </div>
@@ -200,7 +201,7 @@ export function BlameView({
             Author
           </button>
           <button className="blame-view-close" onClick={onClose} title="Close blame">
-            &#10005;
+            <X size={14} />
           </button>
         </div>
       </div>

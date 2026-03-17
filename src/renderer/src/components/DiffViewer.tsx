@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Package } from 'lucide-react'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -440,7 +441,7 @@ export function DiffViewer({
           <span className="diff-viewer-filename">{filePath}</span>
         </div>
         <div className="diff-viewer-binary">
-          <span className="diff-viewer-binary-icon">&#x1F4E6;</span>
+          <span className="diff-viewer-binary-icon"><Package size={18} /></span>
           <span>Binary file changed</span>
           <span className="diff-viewer-binary-hint">Binary files cannot be displayed in the diff viewer</span>
         </div>

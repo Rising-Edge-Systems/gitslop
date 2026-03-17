@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { CheckCircle, XCircle, AlertTriangle, Info, ChevronUp, ChevronDown, X } from 'lucide-react'
 import type { Notification } from '../hooks/useNotifications'
 
 interface NotificationToastProps {
@@ -6,20 +7,20 @@ interface NotificationToastProps {
   onDismiss: (id: string) => void
 }
 
+const TOAST_ICONS: Record<string, React.ReactNode> = {
+  success: <CheckCircle size={16} />,
+  error: <XCircle size={16} />,
+  warning: <AlertTriangle size={16} />,
+  info: <Info size={16} />
+}
+
 function ToastItem({ notification, onDismiss }: { notification: Notification; onDismiss: (id: string) => void }): React.JSX.Element {
   const [detailsExpanded, setDetailsExpanded] = useState(false)
-
-  const icons: Record<string, string> = {
-    success: '✓',
-    error: '✗',
-    warning: '⚠',
-    info: 'ℹ'
-  }
 
   return (
     <div className={`toast toast-${notification.type}`}>
       <div className="toast-main">
-        <span className="toast-icon">{icons[notification.type]}</span>
+        <span className="toast-icon">{TOAST_ICONS[notification.type]}</span>
         <span className="toast-message">{notification.message}</span>
         <div className="toast-actions">
           {notification.details && (
@@ -28,7 +29,7 @@ function ToastItem({ notification, onDismiss }: { notification: Notification; on
               onClick={() => setDetailsExpanded(!detailsExpanded)}
               title={detailsExpanded ? 'Hide Details' : 'Show Details'}
             >
-              {detailsExpanded ? '▴' : '▾'}
+              {detailsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </button>
           )}
           <button
@@ -36,7 +37,7 @@ function ToastItem({ notification, onDismiss }: { notification: Notification; on
             onClick={() => onDismiss(notification.id)}
             title="Dismiss"
           >
-            ×
+            <X size={14} />
           </button>
         </div>
       </div>

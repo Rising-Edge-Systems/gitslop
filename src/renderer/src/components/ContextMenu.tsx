@@ -5,8 +5,8 @@ export interface ContextMenuItem {
   key: string
   /** Label displayed in the menu */
   label: string
-  /** Optional icon (emoji or string) */
-  icon?: string
+  /** Optional icon (Lucide icon or ReactNode) */
+  icon?: React.ReactNode
   /** Optional keyboard shortcut hint (e.g. 'S', 'Ctrl+Z') */
   shortcut?: string
   /** Click handler */

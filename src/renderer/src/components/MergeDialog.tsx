@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
+import { AlertTriangle } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -182,7 +183,7 @@ export function MergeDialog({
     <div className="branch-dialog-overlay" onClick={onClose}>
       <div className="branch-dialog merge-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="branch-dialog-title">
-          {state.merging ? '⚠ Merge in Progress' : 'Merge Branch'}
+          {state.merging ? <><AlertTriangle size={16} /> Merge in Progress</> : 'Merge Branch'}
         </div>
 
         {/* In-progress merge state */}

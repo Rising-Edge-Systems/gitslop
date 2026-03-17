@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { AlertTriangle, X, Check, Circle, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface ConflictResolverProps {
   repoPath: string
@@ -393,7 +394,7 @@ export function ConflictResolver({
         {/* Header */}
         <div className="conflict-resolver-header">
           <div className="conflict-resolver-title">
-            <span className="conflict-resolver-icon">&#9888;</span>
+            <span className="conflict-resolver-icon"><AlertTriangle size={16} /></span>
             <h3>{opLabel} Conflict Resolution</h3>
             <span className="conflict-resolver-file-count">
               {unresolvedCount} of {files.length} file{files.length !== 1 ? 's' : ''} unresolved
@@ -413,15 +414,15 @@ export function ConflictResolver({
               onClick={onClose}
               title="Close (keep conflicts)"
             >
-              &#x2715;
+              <X size={16} />
             </button>
           </div>
         </div>
 
         {error && (
           <div className="conflict-resolver-error">
-            <span>&#9888;</span> {error}
-            <button onClick={() => setError(null)}>&#x2715;</button>
+            <span><AlertTriangle size={14} /></span> {error}
+            <button onClick={() => setError(null)}><X size={14} /></button>
           </div>
         )}
 
@@ -437,7 +438,7 @@ export function ConflictResolver({
                 title={file.path}
               >
                 <span className={`conflict-file-status ${file.resolved ? 'resolved' : 'unresolved'}`}>
-                  {file.resolved ? '\u2713' : '\u25CF'}
+                  {file.resolved ? <Check size={12} /> : <Circle size={12} />}
                 </span>
                 <span className="conflict-file-name">
                   {file.path.split('/').pop()}
@@ -462,7 +463,7 @@ export function ConflictResolver({
                     onClick={() => goToConflict('prev')}
                     disabled={conflicts.length === 0 || currentConflictIndex === 0}
                   >
-                    &#9664; Prev
+                    <ChevronLeft size={14} /> Prev
                   </button>
                   <button
                     className="conflict-nav-btn"
@@ -471,7 +472,7 @@ export function ConflictResolver({
                       conflicts.length === 0 || currentConflictIndex >= conflicts.length - 1
                     }
                   >
-                    Next &#9654;
+                    Next <ChevronRight size={14} />
                   </button>
                 </div>
                 {conflicts.length > 0 && (
@@ -570,7 +571,7 @@ export function ConflictResolver({
                     {hasConflictMarkers && (
                       <span className="conflict-markers-warning">
                         {' '}
-                        &#9888; Contains conflict markers
+                        <AlertTriangle size={12} /> Contains conflict markers
                       </span>
                     )}
                   </span>
@@ -584,7 +585,7 @@ export function ConflictResolver({
                         : 'Mark this file as resolved'
                     }
                   >
-                    {resolving ? 'Resolving...' : '\u2713 Mark as Resolved'}
+                    {resolving ? 'Resolving...' : <><Check size={14} /> Mark as Resolved</>}
                   </button>
                 </div>
                 <textarea

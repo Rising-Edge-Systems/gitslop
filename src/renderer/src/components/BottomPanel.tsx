@@ -1,4 +1,5 @@
 import React from 'react'
+import { X } from 'lucide-react'
 
 interface BottomPanelProps {
   onToggle: () => void
@@ -10,7 +11,7 @@ export function BottomPanel({ onToggle }: BottomPanelProps): React.JSX.Element {
       <div className="bottom-panel-header">
         <span className="bottom-panel-title">Terminal</span>
         <button className="bottom-panel-close" onClick={onToggle} title="Close Terminal">
-          ✕
+          <X size={14} />
         </button>
       </div>
       <div className="bottom-panel-content">
