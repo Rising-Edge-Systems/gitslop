@@ -1,0 +1,649 @@
+/* StatusPanel.module.css — Scoped styles for StatusPanel component */
+
+/* ─── Status Panel ──────────────────────────────────────────────────────── */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  margin-bottom: var(--space-sm);
+  max-height: 400px;
+  overflow: hidden;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  gap: 6px;
+}
+
+.panelActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.actionBtn {
+  background: var(--border);
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-xs);
+  padding: 3px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.actionBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.actionStageAll:hover:not(:disabled) {
+  background: rgba(166, 227, 161, 0.2);
+  color: var(--success);
+}
+
+.actionUnstageAll:hover:not(:disabled) {
+  background: rgba(250, 179, 135, 0.2);
+  color: var(--orange);
+}
+
+.actionDiscardAll {
+  color: var(--btn-danger-bg) !important;
+}
+
+.actionDiscardAll:hover:not(:disabled) {
+  background: rgba(243, 139, 168, 0.2) !important;
+  color: var(--btn-danger-bg) !important;
+}
+
+.panelTitle {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.panelRefresh {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.panelRefresh:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.panelLoading,
+.panelError {
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+}
+
+.panelError {
+  color: var(--close-hover);
+}
+
+.panelError button {
+  margin-left: var(--space-sm);
+  background: var(--border);
+  border: none;
+  color: var(--text-primary);
+  padding: var(--space-xs) 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-sm);
+}
+
+.panelClean {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 20px var(--space-lg);
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+}
+
+.panelCleanIcon {
+  color: var(--success);
+  font-size: 16px;
+}
+
+.panelSections {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ─── Status Section ────────────────────────────────────────────────────── */
+
+.section {
+  border-bottom: 1px solid var(--border);
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px var(--space-md);
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-align: left;
+}
+
+.sectionHeader:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sectionArrow {
+  font-size: 8px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+
+.expanded {
+  transform: rotate(90deg);
+}
+
+.sectionCount {
+  margin-left: auto;
+  background: var(--border);
+  color: var(--text-secondary);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-lg);
+  font-weight: 500;
+}
+
+.statusStaged .sectionCount {
+  background: rgba(166, 227, 161, 0.15);
+  color: var(--success);
+}
+
+.statusUnstaged .sectionCount {
+  background: rgba(250, 179, 135, 0.15);
+  color: var(--orange);
+}
+
+.statusUntracked .sectionCount {
+  background: rgba(137, 180, 250, 0.15);
+  color: var(--accent);
+}
+
+/* ─── Status File Items ─────────────────────────────────────────────────── */
+
+.sectionFiles {
+  padding: 2px 0;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 6px 0 0;
+  background: none;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.fileItem:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.fileItemSelected {
+  background: rgba(137, 180, 250, 0.1);
+}
+
+.fileInfo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px 3px 24px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.stageBtn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.fileItem:hover .stageBtn {
+  opacity: 1;
+}
+
+.stageBtn:hover:not(:disabled) {
+  border-color: var(--border);
+}
+
+.stage:hover:not(:disabled) {
+  color: var(--success);
+  background: rgba(166, 227, 161, 0.1);
+  border-color: rgba(166, 227, 161, 0.3);
+}
+
+.unstage:hover:not(:disabled) {
+  color: var(--orange);
+  background: rgba(250, 179, 135, 0.1);
+  border-color: rgba(250, 179, 135, 0.3);
+}
+
+.stageBtn:disabled {
+  opacity: 0 !important;
+  cursor: default;
+}
+
+/* ─── Drop Target ───────────────────────────────────────────────────────── */
+
+.dropTarget {
+  background: rgba(137, 180, 250, 0.05);
+}
+
+.dropTarget > .sectionHeader {
+  background: rgba(137, 180, 250, 0.08);
+}
+
+/* ─── File Icon ─────────────────────────────────────────────────────────── */
+
+.fileIcon {
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.iconAdded {
+  color: var(--success);
+}
+
+.iconModified {
+  color: var(--orange);
+}
+
+.iconDeleted {
+  color: var(--error);
+}
+
+.iconRenamed {
+  color: var(--accent);
+}
+
+.iconCopied {
+  color: var(--accent);
+}
+
+.iconUntracked {
+  color: var(--text-muted);
+}
+
+/* ─── File Name ─────────────────────────────────────────────────────────── */
+
+.fileName {
+  flex-shrink: 0;
+  color: var(--text-primary);
+}
+
+.fileDir {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Status Diff Viewer ────────────────────────────────────────────────── */
+
+.diffViewer {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  max-height: 200px;
+  overflow: hidden;
+}
+
+.diffHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xs) var(--space-md);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+.diffFilename {
+  font-size: var(--font-xs);
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diffClose {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-sm);
+}
+
+.diffClose:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.diffContent {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.diffLoading,
+.diffEmpty {
+  padding: var(--space-md) var(--space-lg);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  text-align: center;
+}
+
+.diffPre {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre;
+  tab-size: 4;
+}
+
+/* ─── Hunk Diff Viewer (US-015) ─────────────────────────────────────────── */
+
+.hunkDiffViewer {
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+.hunkBlock {
+  border-bottom: 1px solid var(--border);
+}
+
+.hunkBlock:last-child {
+  border-bottom: none;
+}
+
+.hunkHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xs) var(--space-sm);
+  background: rgba(137, 180, 250, 0.08);
+  border-bottom: 1px solid var(--border);
+  gap: var(--space-sm);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.hunkHeaderText {
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.hunkActions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.hunkActionBtn {
+  padding: 2px var(--space-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-family: var(--font-family);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.hunkActionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hunkStage,
+.hunkStageLines {
+  background: rgba(166, 227, 161, 0.15);
+  color: var(--success);
+}
+
+.hunkStage:hover:not(:disabled),
+.hunkStageLines:hover:not(:disabled) {
+  background: rgba(166, 227, 161, 0.3);
+}
+
+.hunkUnstage,
+.hunkUnstageLines {
+  background: rgba(243, 139, 168, 0.15);
+  color: var(--error);
+}
+
+.hunkUnstage:hover:not(:disabled),
+.hunkUnstageLines:hover:not(:disabled) {
+  background: rgba(243, 139, 168, 0.3);
+}
+
+.hunkDiscard {
+  background: rgba(243, 139, 168, 0.15);
+  color: var(--btn-danger-bg);
+}
+
+.hunkDiscard:hover:not(:disabled) {
+  background: rgba(243, 139, 168, 0.35);
+}
+
+/* ─── Hunk Lines ────────────────────────────────────────────────────────── */
+
+.hunkLines {
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+}
+
+.hunkLine {
+  display: flex;
+  align-items: stretch;
+  min-height: 18px;
+}
+
+.hunkLineSelectable {
+  cursor: pointer;
+}
+
+.hunkLineSelectable:hover {
+  background: rgba(137, 180, 250, 0.08);
+}
+
+.hunkLineSelected {
+  background: rgba(137, 180, 250, 0.15) !important;
+}
+
+.hunkLineAdded {
+  background: rgba(166, 227, 161, 0.08);
+}
+
+.hunkLineRemoved {
+  background: rgba(243, 139, 168, 0.08);
+}
+
+.hunkLineAdded.hunkLineSelected {
+  background: rgba(166, 227, 161, 0.25) !important;
+}
+
+.hunkLineRemoved.hunkLineSelected {
+  background: rgba(243, 139, 168, 0.25) !important;
+}
+
+.hunkLineNum {
+  display: inline-block;
+  width: 40px;
+  min-width: 40px;
+  text-align: right;
+  padding: 0 6px 0 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  user-select: none;
+  border-right: 1px solid var(--border);
+}
+
+.hunkLineNumNew {
+  margin-right: var(--space-xs);
+}
+
+.hunkLineCheckbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  min-width: 20px;
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.checked {
+  color: var(--accent);
+}
+
+.hunkLineCheckboxSpacer {
+  display: inline-block;
+  width: 20px;
+  min-width: 20px;
+}
+
+.hunkLineContent {
+  flex: 1;
+  white-space: pre;
+  tab-size: 4;
+  padding-left: var(--space-xs);
+  overflow: hidden;
+}
+
+.hunkLineAdded .hunkLineContent {
+  color: var(--success);
+}
+
+.hunkLineRemoved .hunkLineContent {
+  color: var(--error);
+}
+
+.hunkLineContext .hunkLineContent {
+  color: var(--text-secondary);
+}
+
+/* ─── Diff Viewer with Staging Tab Bar ──────────────────────────────────── */
+
+.diffViewerWithStaging {
+  display: flex;
+  flex-direction: column;
+}
+
+.diffViewerTabBar {
+  display: flex;
+  gap: 0;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--space-sm);
+}
+
+.diffViewerTab {
+  padding: 5px 14px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: var(--font-xs);
+  font-family: var(--font-family);
+  transition: all 0.15s ease;
+}
+
+.diffViewerTab:hover {
+  color: var(--text-primary);
+}
+
+.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ─── Enhanced diff viewer within status panel ──────────────────────────── */
+
+.diffEnhanced :global(.diff-inline-view),
+.diffEnhanced :global(.diff-sbs-view) {
+  max-height: 500px;
+}

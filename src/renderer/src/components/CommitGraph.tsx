@@ -3,6 +3,7 @@ import { List, useListCallbackRef } from 'react-window'
 import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ResetDialog } from './ResetDialog'
+import styles from './CommitGraph.module.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -364,10 +365,42 @@ function GraphCanvas({
       ref={canvasRef}
       width={width}
       height={height}
-      className="commit-graph-canvas"
+      className={styles.canvas}
       style={{ width, height, position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
     />
   )
+}
+
+// ─── Lookup Maps for Dynamic CSS Module Classes ──────────────────────────────
+
+const refTypeClass: Record<string, string> = {
+  head: styles.refHead,
+  branch: styles.refBranch,
+  remote: styles.refRemote,
+  tag: styles.refTag
+}
+
+const signatureClass: Record<string, string> = {
+  good: styles.signatureGood,
+  bad: styles.signatureBad,
+  untrusted: styles.signatureUntrusted,
+  expired: styles.signatureExpired,
+  'expired-key': styles.signatureExpiredKey,
+  revoked: styles.signatureRevoked,
+  error: styles.signatureError
+}
+
+const cherryPickStatusClass: Record<string, string> = {
+  picking: styles.cherryPickPicking,
+  success: styles.cherryPickSuccess,
+  conflict: styles.cherryPickConflict
+}
+
+const revertStatusClass: Record<string, string> = {
+  reverting: styles.revertReverting,
+  success: styles.revertSuccess,
+  conflict: styles.revertConflict,
+  'merge-prompt': styles.revertMergePrompt
 }
 
 // ─── Commit Row Component (for react-window v2 rowComponent API) ──────────────
@@ -401,28 +434,28 @@ function CommitRowComponent(props: {
 
   return (
     <div
-      className={`commit-graph-row${isSelected ? ' commit-graph-row-selected' : ''}`}
+      className={`${styles.row}${isSelected ? ` ${styles.rowSelected}` : ''}`}
       style={style}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       data-index={index}
     >
       {/* Graph space (transparent — canvas draws underneath) */}
-      <div className="commit-graph-lane" style={{ minWidth: graphWidth, width: graphWidth }} />
+      <div className={styles.lane} style={{ minWidth: graphWidth, width: graphWidth }} />
 
       {/* Commit info */}
-      <div className="commit-graph-info">
-        <span className="commit-graph-hash" title={commit.hash}>{commit.shortHash}</span>
+      <div className={styles.info}>
+        <span className={styles.hash} title={commit.hash}>{commit.shortHash}</span>
 
         {refs.length > 0 && (
-          <span className="commit-graph-refs">
+          <span className={styles.refs}>
             {refs.map((ref, idx) => (
               <span
                 key={idx}
-                className={`commit-graph-ref commit-graph-ref-${ref.type}`}
+                className={`${styles.ref} ${refTypeClass[ref.type] || ''}`}
                 title={ref.name}
               >
-                {ref.type === 'head' && <span className="commit-graph-ref-head-icon"><CircleDot size={12} /> </span>}
+                {ref.type === 'head' && <span className={styles.refHeadIcon}><CircleDot size={12} /> </span>}
                 {ref.name}
               </span>
             ))}
@@ -431,7 +464,7 @@ function CommitRowComponent(props: {
 
         {commit.signatureStatus && commit.signatureStatus !== 'none' && (
           <span
-            className={`commit-graph-signature commit-graph-signature-${commit.signatureStatus}`}
+            className={`${styles.signature} ${signatureClass[commit.signatureStatus] || ''}`}
             title={`GPG: ${commit.signatureStatus}${commit.signer ? ` by ${commit.signer}` : ''}`}
           >
             {commit.signatureStatus === 'good' ? <ShieldCheck size={14} /> :
@@ -441,16 +474,16 @@ function CommitRowComponent(props: {
           </span>
         )}
 
-        <span className="commit-graph-message" title={commit.subject}>
+        <span className={styles.message} title={commit.subject}>
           {commit.subject}
         </span>
       </div>
 
-      <span className="commit-graph-author" title={commit.authorEmail}>
+      <span className={styles.author} title={commit.authorEmail}>
         {commit.authorName}
       </span>
 
-      <span className="commit-graph-date" title={commit.authorDate}>
+      <span className={styles.date} title={commit.authorDate}>
         {getRelativeTime(commit.authorDate)}
       </span>
     </div>
@@ -510,24 +543,24 @@ function CommitContextMenu({ state, multiSelectCount, onClose, onAction }: Commi
   ]
 
   return (
-    <div className="commit-ctx-menu" ref={menuRef} style={menuStyle}>
+    <div className={styles.ctxMenu} ref={menuRef} style={menuStyle}>
       {items.map((item, idx) => {
         if (item.label === '---') {
-          return <div key={idx} className="commit-ctx-menu-separator" />
+          return <div key={idx} className={styles.ctxMenuSeparator} />
         }
         return (
           <button
             key={idx}
-            className="commit-ctx-menu-item"
+            className={styles.ctxMenuItem}
             onClick={() => {
               onAction(item.action, state.commit)
               onClose()
             }}
           >
-            <span className="commit-ctx-menu-icon">{item.icon}</span>
-            <span className="commit-ctx-menu-label">{item.label}</span>
+            <span className={styles.ctxMenuIcon}>{item.icon}</span>
+            <span className={styles.ctxMenuLabel}>{item.label}</span>
             {item.shortcut && (
-              <span className="commit-ctx-menu-shortcut">{item.shortcut}</span>
+              <span className={styles.ctxMenuShortcut}>{item.shortcut}</span>
             )}
           </button>
         )
@@ -576,26 +609,26 @@ function CommitDetailPanel({ detail, repoPath, onClose, onFileDoubleClick }: Com
   }, [onFileDoubleClick, repoPath, commit.hash])
 
   return (
-    <div className="commit-detail-panel">
-      <div className="commit-detail-header">
-        <h3 className="commit-detail-title">Commit Details</h3>
-        <button className="commit-detail-close" onClick={onClose} title="Close"><X size={16} /></button>
+    <div className={styles.detailPanel}>
+      <div className={styles.detailHeader}>
+        <h3 className={styles.detailTitle}>Commit Details</h3>
+        <button className={styles.detailClose} onClick={onClose} title="Close"><X size={16} /></button>
       </div>
 
-      <div className="commit-detail-body">
+      <div className={styles.detailBody}>
         {/* Subject */}
-        <div className="commit-detail-subject">{commit.subject}</div>
+        <div className={styles.detailSubject}>{commit.subject}</div>
 
         {/* Body (full message beyond subject) */}
         {commit.body && commit.body.trim() && (
-          <div className="commit-detail-body-text">{commit.body.trim()}</div>
+          <div className={styles.detailBodyText}>{commit.body.trim()}</div>
         )}
 
         {/* Refs */}
         {refs.length > 0 && (
-          <div className="commit-detail-refs">
+          <div className={styles.detailRefs}>
             {refs.map((ref, idx) => (
-              <span key={idx} className={`commit-graph-ref commit-graph-ref-${ref.type}`}>
+              <span key={idx} className={`${styles.ref} ${refTypeClass[ref.type] || ''}`}>
                 {ref.name}
               </span>
             ))}
@@ -603,43 +636,43 @@ function CommitDetailPanel({ detail, repoPath, onClose, onFileDoubleClick }: Com
         )}
 
         {/* Metadata */}
-        <div className="commit-detail-meta">
-          <div className="commit-detail-meta-row">
-            <span className="commit-detail-meta-label">Hash</span>
-            <span className="commit-detail-meta-value commit-detail-hash" title="Click to copy">
+        <div className={styles.detailMeta}>
+          <div className={styles.detailMetaRow}>
+            <span className={styles.detailMetaLabel}>Hash</span>
+            <span className={`${styles.detailMetaValue} ${styles.detailHash}`} title="Click to copy">
               <code>{commit.hash}</code>
             </span>
           </div>
-          <div className="commit-detail-meta-row">
-            <span className="commit-detail-meta-label">Author</span>
-            <span className="commit-detail-meta-value">
+          <div className={styles.detailMetaRow}>
+            <span className={styles.detailMetaLabel}>Author</span>
+            <span className={styles.detailMetaValue}>
               {commit.authorName} &lt;{commit.authorEmail}&gt;
             </span>
           </div>
-          <div className="commit-detail-meta-row">
-            <span className="commit-detail-meta-label">Date</span>
-            <span className="commit-detail-meta-value">{formatDate(commit.authorDate)}</span>
+          <div className={styles.detailMetaRow}>
+            <span className={styles.detailMetaLabel}>Date</span>
+            <span className={styles.detailMetaValue}>{formatDate(commit.authorDate)}</span>
           </div>
           {commit.committerName !== commit.authorName && (
-            <div className="commit-detail-meta-row">
-              <span className="commit-detail-meta-label">Committer</span>
-              <span className="commit-detail-meta-value">
+            <div className={styles.detailMetaRow}>
+              <span className={styles.detailMetaLabel}>Committer</span>
+              <span className={styles.detailMetaValue}>
                 {commit.committerName} &lt;{commit.committerEmail}&gt;
               </span>
             </div>
           )}
-          <div className="commit-detail-meta-row">
-            <span className="commit-detail-meta-label">Parents</span>
-            <span className="commit-detail-meta-value">
+          <div className={styles.detailMetaRow}>
+            <span className={styles.detailMetaLabel}>Parents</span>
+            <span className={styles.detailMetaValue}>
               {commit.parentHashes.length > 0
                 ? commit.parentHashes.map((h) => h.substring(0, 7)).join(', ')
                 : 'None (root commit)'}
             </span>
           </div>
           {commit.signatureStatus && commit.signatureStatus !== 'none' && (
-            <div className="commit-detail-meta-row">
-              <span className="commit-detail-meta-label">Signature</span>
-              <span className={`commit-detail-meta-value commit-graph-signature-${commit.signatureStatus}`}>
+            <div className={styles.detailMetaRow}>
+              <span className={styles.detailMetaLabel}>Signature</span>
+              <span className={`${styles.detailMetaValue} ${signatureClass[commit.signatureStatus] || ''}`}>
                 {commit.signatureStatus === 'good' ? <><ShieldCheck size={14} /> Valid</> :
                  commit.signatureStatus === 'bad' ? <><ShieldAlert size={14} /> Invalid</> :
                  commit.signatureStatus === 'untrusted' ? <><ShieldQuestion size={14} /> Untrusted</> :
@@ -654,38 +687,38 @@ function CommitDetailPanel({ detail, repoPath, onClose, onFileDoubleClick }: Com
         </div>
 
         {/* Changed files */}
-        <div className="commit-detail-files">
-          <div className="commit-detail-files-header">
-            Changed Files <span className="commit-detail-files-count">{files.length}</span>
+        <div className={styles.detailFiles}>
+          <div className={styles.detailFilesHeader}>
+            Changed Files <span className={styles.detailFilesCount}>{files.length}</span>
           </div>
-          <div className="commit-detail-files-list">
+          <div className={styles.detailFilesList}>
             {files.map((file, idx) => (
               <div
                 key={idx}
-                className="commit-detail-file-item"
+                className={styles.detailFileItem}
                 onDoubleClick={() => handleFileDoubleClick(file)}
                 title={`Double-click to view diff: ${file}`}
               >
-                <span className="commit-detail-file-icon">{getFileIcon(file)}</span>
-                <span className="commit-detail-file-name">{file}</span>
+                <span className={styles.detailFileIcon}>{getFileIcon(file)}</span>
+                <span className={styles.detailFileName}>{file}</span>
               </div>
             ))}
             {files.length === 0 && (
-              <div className="commit-detail-files-empty">No changed files</div>
+              <div className={styles.detailFilesEmpty}>No changed files</div>
             )}
           </div>
         </div>
 
         {/* File diff viewer */}
         {fileDiffLoading && (
-          <div className="commit-detail-diff-loading">Loading diff...</div>
+          <div className={styles.detailDiffLoading}>Loading diff...</div>
         )}
         {fileDiff && !fileDiffLoading && (
-          <div className="commit-detail-diff">
-            <div className="commit-detail-diff-header">
+          <div className={styles.detailDiff}>
+            <div className={styles.detailDiffHeader}>
               <span>Diff: {fileDiff.path}</span>
               <button
-                className="commit-detail-diff-close"
+                className={styles.detailDiffClose}
                 onClick={() => setFileDiff(null)}
                 title="Close diff"
               >
@@ -1166,8 +1199,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
   if (loading && commits.length === 0) {
     return (
-      <div className="commit-graph-container" ref={containerRef}>
-        <div className="commit-graph-loading">
+      <div className={styles.container} ref={containerRef}>
+        <div className={styles.loading}>
           <span className="repo-view-spinner"><Loader2 size={16} /></span>
           Loading commit history...
         </div>
@@ -1177,8 +1210,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
   if (error && commits.length === 0) {
     return (
-      <div className="commit-graph-container" ref={containerRef}>
-        <div className="commit-graph-error">
+      <div className={styles.container} ref={containerRef}>
+        <div className={styles.error}>
           <span><AlertTriangle size={14} /></span> {error}
           <button onClick={handleRefresh}>Retry</button>
         </div>
@@ -1188,8 +1221,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
   if (commits.length === 0) {
     return (
-      <div className="commit-graph-container" ref={containerRef}>
-        <div className="commit-graph-empty">
+      <div className={styles.container} ref={containerRef}>
+        <div className={styles.empty}>
           No commits yet. Make your first commit to see the graph.
         </div>
       </div>
@@ -1199,25 +1232,25 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
   const viewportHeight = Math.max(100, containerHeight - 40)
 
   return (
-    <div className="commit-graph-wrapper">
+    <div className={styles.wrapper}>
       <div
-        className="commit-graph-container"
+        className={styles.container}
         ref={containerRef}
         tabIndex={0}
         role="listbox"
         aria-label="Commit graph"
       >
-        <div className="commit-graph-header">
-          <h3 className="commit-graph-title">
+        <div className={styles.header}>
+          <h3 className={styles.title}>
             Commit Graph
-            <span className="commit-graph-count">{commits.length.toLocaleString()} commits</span>
+            <span className={styles.count}>{commits.length.toLocaleString()} commits</span>
           </h3>
-          <button className="commit-graph-refresh" onClick={handleRefresh} title="Refresh">
+          <button className={styles.refresh} onClick={handleRefresh} title="Refresh">
             <RefreshCw size={14} />
           </button>
         </div>
 
-        <div className="commit-graph-viewport" onScroll={handleScroll}>
+        <div className={styles.viewport} onScroll={handleScroll}>
           <GraphCanvas
             nodes={nodes}
             maxColumns={maxColumns}
@@ -1235,7 +1268,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
             rowProps={rowProps}
             overscanCount={10}
             onRowsRendered={handleRowsRendered}
-            className="commit-graph-list"
+            className={styles.list}
             style={{ height: viewportHeight }}
           />
         </div>
@@ -1252,45 +1285,45 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
         {/* Cherry-pick notification */}
         {cherryPickState.status !== 'idle' && (
-          <div className={`cherry-pick-notification cherry-pick-${cherryPickState.status}`}>
-            <div className="cherry-pick-notification-content">
+          <div className={`${styles.cherryPickNotification} ${cherryPickStatusClass[cherryPickState.status] || ''}`}>
+            <div className={styles.cherryPickNotificationContent}>
               {cherryPickState.status === 'picking' && (
                 <span className="repo-view-spinner"><Loader2 size={14} /></span>
               )}
               {cherryPickState.status === 'success' && <span><Check size={14} /></span>}
               {cherryPickState.status === 'conflict' && <span><AlertTriangle size={14} /></span>}
-              <span className="cherry-pick-message">{cherryPickState.message}</span>
+              <span className={styles.cherryPickMessage}>{cherryPickState.message}</span>
             </div>
 
             {cherryPickState.status === 'success' && cherryPickState.newHash && (
-              <div className="cherry-pick-new-hash">
+              <div className={styles.cherryPickNewHash}>
                 New commit: <code>{cherryPickState.newHash.substring(0, 7)}</code>
               </div>
             )}
 
             {cherryPickState.status === 'conflict' && cherryPickState.conflicts && cherryPickState.conflicts.length > 0 && (
-              <div className="cherry-pick-conflicts">
-                <div className="cherry-pick-conflicts-title">Conflicted files:</div>
+              <div className={styles.cherryPickConflicts}>
+                <div className={styles.cherryPickConflictsTitle}>Conflicted files:</div>
                 {cherryPickState.conflicts.map((f, i) => (
-                  <div key={i} className="cherry-pick-conflict-file">{f}</div>
+                  <div key={i} className={styles.cherryPickConflictFile}>{f}</div>
                 ))}
               </div>
             )}
 
-            <div className="cherry-pick-actions">
+            <div className={styles.cherryPickActions}>
               {cherryPickState.status === 'conflict' && (
                 <>
-                  <button className="cherry-pick-btn cherry-pick-btn-continue" onClick={handleCherryPickContinue}>
+                  <button className={`${styles.cherryPickBtn} ${styles.cherryPickBtnContinue}`} onClick={handleCherryPickContinue}>
                     Continue
                   </button>
-                  <button className="cherry-pick-btn cherry-pick-btn-abort" onClick={handleCherryPickAbort}>
+                  <button className={`${styles.cherryPickBtn} ${styles.cherryPickBtnAbort}`} onClick={handleCherryPickAbort}>
                     Abort Cherry-pick
                   </button>
                 </>
               )}
               {cherryPickState.status === 'success' && (
                 <button
-                  className="cherry-pick-btn cherry-pick-btn-dismiss"
+                  className={`${styles.cherryPickBtn} ${styles.cherryPickBtnDismiss}`}
                   onClick={() => setCherryPickState({ status: 'idle', message: '' })}
                 >
                   Dismiss
@@ -1303,40 +1336,40 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
       {/* Revert notification */}
       {revertState.status !== 'idle' && (
-        <div className={`revert-notification revert-${revertState.status}`}>
-          <div className="revert-notification-content">
+        <div className={`${styles.revertNotification} ${revertStatusClass[revertState.status] || ''}`}>
+          <div className={styles.revertNotificationContent}>
             {revertState.status === 'reverting' && (
               <span className="repo-view-spinner"><Loader2 size={14} /></span>
             )}
             {revertState.status === 'success' && <span><Check size={14} /></span>}
             {revertState.status === 'conflict' && <span><AlertTriangle size={14} /></span>}
             {revertState.status === 'merge-prompt' && <span><HelpCircle size={14} /></span>}
-            <span className="revert-message">{revertState.message}</span>
+            <span className={styles.revertMessage}>{revertState.message}</span>
           </div>
 
           {revertState.status === 'success' && revertState.newHash && (
-            <div className="revert-new-hash">
+            <div className={styles.revertNewHash}>
               Revert commit: <code>{revertState.newHash.substring(0, 7)}</code>
             </div>
           )}
 
           {revertState.status === 'conflict' && revertState.conflicts && revertState.conflicts.length > 0 && (
-            <div className="revert-conflicts">
-              <div className="revert-conflicts-title">Conflicted files:</div>
+            <div className={styles.revertConflicts}>
+              <div className={styles.revertConflictsTitle}>Conflicted files:</div>
               {revertState.conflicts.map((f, i) => (
-                <div key={i} className="revert-conflict-file">{f}</div>
+                <div key={i} className={styles.revertConflictFile}>{f}</div>
               ))}
             </div>
           )}
 
           {revertState.status === 'merge-prompt' && revertState.commitHash && (
-            <div className="revert-parent-select">
-              <div className="revert-parent-label">Select parent to revert against:</div>
-              <div className="revert-parent-buttons">
+            <div className={styles.revertParentSelect}>
+              <div className={styles.revertParentLabel}>Select parent to revert against:</div>
+              <div className={styles.revertParentButtons}>
                 {Array.from({ length: revertState.parentCount || 2 }, (_, i) => (
                   <button
                     key={i}
-                    className="revert-btn revert-btn-parent"
+                    className={`${styles.revertBtn} ${styles.revertBtnParent}`}
                     onClick={() => handleRevert(revertState.commitHash!, [], i + 1)}
                   >
                     Parent {i + 1}
@@ -1346,20 +1379,20 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
             </div>
           )}
 
-          <div className="revert-actions">
+          <div className={styles.revertActions}>
             {revertState.status === 'conflict' && (
               <>
-                <button className="revert-btn revert-btn-continue" onClick={handleRevertContinue}>
+                <button className={`${styles.revertBtn} ${styles.revertBtnContinue}`} onClick={handleRevertContinue}>
                   Continue
                 </button>
-                <button className="revert-btn revert-btn-abort" onClick={handleRevertAbort}>
+                <button className={`${styles.revertBtn} ${styles.revertBtnAbort}`} onClick={handleRevertAbort}>
                   Abort Revert
                 </button>
               </>
             )}
             {revertState.status === 'merge-prompt' && (
               <button
-                className="revert-btn revert-btn-dismiss"
+                className={`${styles.revertBtn} ${styles.revertBtnDismiss}`}
                 onClick={() => setRevertState({ status: 'idle', message: '' })}
               >
                 Cancel
@@ -1367,7 +1400,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
             )}
             {revertState.status === 'success' && (
               <button
-                className="revert-btn revert-btn-dismiss"
+                className={`${styles.revertBtn} ${styles.revertBtnDismiss}`}
                 onClick={() => setRevertState({ status: 'idle', message: '' })}
               >
                 Dismiss
@@ -1393,14 +1426,14 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
       {/* Commit detail panel */}
       {(commitDetail || loadingDetail) && (
-        <div className="commit-detail-wrapper">
+        <div className={styles.detailWrapper}>
           {loadingDetail && !commitDetail ? (
-            <div className="commit-detail-panel">
-              <div className="commit-detail-header">
-                <h3 className="commit-detail-title">Commit Details</h3>
-                <button className="commit-detail-close" onClick={handleCloseDetail}><X size={16} /></button>
+            <div className={styles.detailPanel}>
+              <div className={styles.detailHeader}>
+                <h3 className={styles.detailTitle}>Commit Details</h3>
+                <button className={styles.detailClose} onClick={handleCloseDetail}><X size={16} /></button>
               </div>
-              <div className="commit-detail-loading">
+              <div className={styles.detailLoading}>
                 <span className="repo-view-spinner"><Loader2 size={16} /></span>
                 Loading...
               </div>

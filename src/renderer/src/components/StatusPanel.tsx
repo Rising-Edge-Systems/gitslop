@@ -3,6 +3,7 @@ import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, Copy, HelpCircle, EyeOff
 import { DiffViewer } from './DiffViewer'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { openFileInEditor } from './CodeEditor'
+import styles from './StatusPanel.module.css'
 
 interface FileStatus {
   path: string
@@ -26,6 +27,29 @@ interface RepoStatus {
 interface StatusPanelProps {
   repoPath: string
   onRefresh?: () => void
+}
+
+// ─── CSS Module Lookup Maps ──────────────────────────────────────────────────
+
+const sectionClassMap: Record<string, string> = {
+  'status-staged': styles.statusStaged,
+  'status-unstaged': styles.statusUnstaged,
+  'status-untracked': styles.statusUntracked
+}
+
+const iconClassMap: Record<string, string> = {
+  added: styles.iconAdded,
+  modified: styles.iconModified,
+  deleted: styles.iconDeleted,
+  renamed: styles.iconRenamed,
+  copied: styles.iconCopied,
+  untracked: styles.iconUntracked
+}
+
+const hunkLineTypeClass: Record<string, string> = {
+  added: styles.hunkLineAdded,
+  removed: styles.hunkLineRemoved,
+  context: styles.hunkLineContext
 }
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
@@ -551,16 +575,16 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
 
   if (loading && !status) {
     return (
-      <div className="status-panel">
-        <div className="status-panel-loading">Loading status...</div>
+      <div className={styles.panel}>
+        <div className={styles.panelLoading}>Loading status...</div>
       </div>
     )
   }
 
   if (error && !status) {
     return (
-      <div className="status-panel">
-        <div className="status-panel-error">
+      <div className={styles.panel}>
+        <div className={styles.panelError}>
           <span><AlertTriangle size={14} /></span> {error}
           <button onClick={loadStatus}>Retry</button>
         </div>
@@ -569,13 +593,13 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
   }
 
   return (
-    <div className="status-panel" ref={panelRef} tabIndex={-1}>
-      <div className="status-panel-header">
-        <h3 className="status-panel-title">Working Directory</h3>
-        <div className="status-panel-actions">
+    <div className={styles.panel} ref={panelRef} tabIndex={-1}>
+      <div className={styles.panelHeader}>
+        <h3 className={styles.panelTitle}>Working Directory</h3>
+        <div className={styles.panelActions}>
           {hasUnstagedOrUntracked && (
             <button
-              className="status-action-btn status-action-stage-all"
+              className={`${styles.actionBtn} ${styles.actionStageAll}`}
               onClick={stageAll}
               disabled={operationInProgress}
               title="Stage All (add all changes)"
@@ -585,7 +609,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
           )}
           {hasStaged && (
             <button
-              className="status-action-btn status-action-unstage-all"
+              className={`${styles.actionBtn} ${styles.actionUnstageAll}`}
               onClick={unstageAll}
               disabled={operationInProgress}
               title="Unstage All"
@@ -595,7 +619,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
           )}
           {hasUnstagedOrUntracked && (
             <button
-              className="status-action-btn status-action-discard-all"
+              className={`${styles.actionBtn} ${styles.actionDiscardAll}`}
               onClick={discardAllChanges}
               disabled={operationInProgress}
               title="Discard All Changes (irreversible)"
@@ -603,19 +627,19 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
               <X size={14} /> Discard All
             </button>
           )}
-          <button className="status-panel-refresh" onClick={loadStatus} title="Refresh status">
+          <button className={styles.panelRefresh} onClick={loadStatus} title="Refresh status">
             <RefreshCw size={14} />
           </button>
         </div>
       </div>
 
       {isClean ? (
-        <div className="status-panel-clean">
-          <span className="status-panel-clean-icon"><Check size={16} /></span>
-          <span className="status-panel-clean-text">Working directory clean</span>
+        <div className={styles.panelClean}>
+          <span className={styles.panelCleanIcon}><Check size={16} /></span>
+          <span>Working directory clean</span>
         </div>
       ) : (
-        <div className="status-panel-sections">
+        <div className={styles.panelSections}>
           {/* Staged Section */}
           <StatusSection
             title="Staged"
@@ -701,14 +725,14 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
 
       {/* Diff Viewer with Hunk/Line Staging */}
       {selectedFile && (
-        <div className="status-diff-viewer">
-          <div className="status-diff-header">
-            <span className="status-diff-filename">
+        <div className={styles.diffViewer}>
+          <div className={styles.diffHeader}>
+            <span className={styles.diffFilename}>
               {selectedFile.staged ? '(Staged) ' : ''}
               {selectedFile.path}
             </span>
             <button
-              className="status-diff-close"
+              className={styles.diffClose}
               onClick={() => {
                 setSelectedFile(null)
                 setDiffContent(null)
@@ -718,9 +742,9 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
               <X size={14} />
             </button>
           </div>
-          <div className="status-diff-content">
+          <div className={styles.diffContent}>
             {diffLoading ? (
-              <div className="status-diff-loading">Loading diff...</div>
+              <div className={styles.diffLoading}>Loading diff...</div>
             ) : diffContent ? (
               <DiffViewerWithStaging
                 diffContent={diffContent}
@@ -736,7 +760,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
                 setOperationInProgress={setOperationInProgress}
               />
             ) : (
-              <div className="status-diff-empty">No changes to display</div>
+              <div className={styles.diffEmpty}>No changes to display</div>
             )}
           </div>
         </div>
@@ -1057,22 +1081,22 @@ function HunkDiffViewer({
 
   // If it's not a parseable diff (e.g. untracked file placeholder text), show raw
   if (hunks.length === 0 || !hasValidHeader) {
-    return <pre className="status-diff-pre">{diffContent}</pre>
+    return <pre className={styles.diffPre}>{diffContent}</pre>
   }
 
   return (
-    <div className="hunk-diff-viewer">
+    <div className={styles.hunkDiffViewer}>
       {hunks.map((hunk, hunkIdx) => {
         const hunkSelectedLines = selectedLines.get(hunkIdx)
         const hasSelection = hunkSelectedLines && hunkSelectedLines.size > 0
         return (
-          <div key={hunkIdx} className="hunk-block">
-            <div className="hunk-header">
-              <span className="hunk-header-text">{hunk.header}</span>
-              <div className="hunk-actions">
+          <div key={hunkIdx} className={styles.hunkBlock}>
+            <div className={styles.hunkHeader}>
+              <span className={styles.hunkHeaderText}>{hunk.header}</span>
+              <div className={styles.hunkActions}>
                 {hasSelection && !staged && (
                   <button
-                    className="hunk-action-btn hunk-stage-lines"
+                    className={`${styles.hunkActionBtn} ${styles.hunkStageLines}`}
                     onClick={() => handleStageSelectedLines(hunkIdx)}
                     disabled={operationInProgress}
                     title={`Stage ${hunkSelectedLines!.size} selected line(s)`}
@@ -1082,7 +1106,7 @@ function HunkDiffViewer({
                 )}
                 {hasSelection && staged && (
                   <button
-                    className="hunk-action-btn hunk-unstage-lines"
+                    className={`${styles.hunkActionBtn} ${styles.hunkUnstageLines}`}
                     onClick={() => handleUnstageSelectedLines(hunkIdx)}
                     disabled={operationInProgress}
                     title={`Unstage ${hunkSelectedLines!.size} selected line(s)`}
@@ -1092,7 +1116,7 @@ function HunkDiffViewer({
                 )}
                 {!staged && !isUntracked && (
                   <button
-                    className="hunk-action-btn hunk-stage"
+                    className={`${styles.hunkActionBtn} ${styles.hunkStage}`}
                     onClick={() => handleStageHunk(hunkIdx)}
                     disabled={operationInProgress}
                     title="Stage this hunk"
@@ -1102,7 +1126,7 @@ function HunkDiffViewer({
                 )}
                 {!staged && !isUntracked && (
                   <button
-                    className="hunk-action-btn hunk-discard"
+                    className={`${styles.hunkActionBtn} ${styles.hunkDiscard}`}
                     onClick={() => handleDiscardHunk(hunkIdx)}
                     disabled={operationInProgress}
                     title="Discard this hunk (irreversible)"
@@ -1112,7 +1136,7 @@ function HunkDiffViewer({
                 )}
                 {staged && (
                   <button
-                    className="hunk-action-btn hunk-unstage"
+                    className={`${styles.hunkActionBtn} ${styles.hunkUnstage}`}
                     onClick={() => handleUnstageHunk(hunkIdx)}
                     disabled={operationInProgress}
                     title="Unstage this hunk"
@@ -1122,7 +1146,7 @@ function HunkDiffViewer({
                 )}
               </div>
             </div>
-            <div className="hunk-lines">
+            <div className={styles.hunkLines}>
               {hunk.lines.map((line, lineIdx) => {
                 const isSelectable = line.type !== 'context' && !line.content.startsWith('\\')
                 const isSelected = hunkSelectedLines?.has(lineIdx) ?? false
@@ -1130,28 +1154,28 @@ function HunkDiffViewer({
                   <div
                     key={lineIdx}
                     className={[
-                      'hunk-line',
-                      `hunk-line-${line.type}`,
-                      isSelected ? 'hunk-line-selected' : '',
-                      isSelectable ? 'hunk-line-selectable' : ''
+                      styles.hunkLine,
+                      hunkLineTypeClass[line.type] || '',
+                      isSelected ? styles.hunkLineSelected : '',
+                      isSelectable ? styles.hunkLineSelectable : ''
                     ]
                       .filter(Boolean)
                       .join(' ')}
                     onClick={isSelectable ? (e) => toggleLineSelection(hunkIdx, lineIdx, e) : undefined}
                   >
-                    <span className="hunk-line-num hunk-line-num-old">
+                    <span className={`${styles.hunkLineNum}`}>
                       {line.oldLineNum ?? ''}
                     </span>
-                    <span className="hunk-line-num hunk-line-num-new">
+                    <span className={`${styles.hunkLineNum} ${styles.hunkLineNumNew}`}>
                       {line.newLineNum ?? ''}
                     </span>
                     {isSelectable && (
-                      <span className={`hunk-line-checkbox ${isSelected ? 'checked' : ''}`}>
-                        {isSelected ? <Check size={12} /> : <span className="hunk-line-unchecked" />}
+                      <span className={`${styles.hunkLineCheckbox} ${isSelected ? styles.checked : ''}`}>
+                        {isSelected ? <Check size={12} /> : <span />}
                       </span>
                     )}
-                    {!isSelectable && <span className="hunk-line-checkbox-spacer" />}
-                    <span className="hunk-line-content">{line.content}</span>
+                    {!isSelectable && <span className={styles.hunkLineCheckboxSpacer} />}
+                    <span className={styles.hunkLineContent}>{line.content}</span>
                   </div>
                 )
               })}
@@ -1180,17 +1204,17 @@ function DiffViewerWithStaging(props: DiffViewerWithStagingProps): React.JSX.Ele
   const [viewMode, setViewMode] = useState<'staging' | 'enhanced'>('staging')
 
   return (
-    <div className="diff-viewer-with-staging">
-      <div className="diff-viewer-tab-bar">
+    <div className={styles.diffViewerWithStaging}>
+      <div className={styles.diffViewerTabBar}>
         <button
-          className={`diff-viewer-tab ${viewMode === 'staging' ? 'active' : ''}`}
+          className={`${styles.diffViewerTab} ${viewMode === 'staging' ? styles.active : ''}`}
           onClick={() => setViewMode('staging')}
           title="Staging view with hunk/line controls"
         >
           Staging
         </button>
         <button
-          className={`diff-viewer-tab ${viewMode === 'enhanced' ? 'active' : ''}`}
+          className={`${styles.diffViewerTab} ${viewMode === 'enhanced' ? styles.active : ''}`}
           onClick={() => setViewMode('enhanced')}
           title="Enhanced diff view with side-by-side mode and syntax highlighting"
         >
@@ -1283,7 +1307,7 @@ function StatusSection({
 
   return (
     <div
-      className={`status-section ${sectionClass} ${isDropTarget ? 'status-drop-target' : ''}`}
+      className={`${styles.section} ${sectionClassMap[sectionClass] || ''} ${isDropTarget ? styles.dropTarget : ''}`}
       onDragOver={(e) => {
         if (isDropTarget) {
           handleDragOver(dropSection, e)
@@ -1295,13 +1319,13 @@ function StatusSection({
         }
       }}
     >
-      <button className="status-section-header" onClick={onToggle}>
-        <span className={`status-section-arrow ${collapsed ? '' : 'expanded'}`}><ChevronRight size={14} /></span>
-        <span className="status-section-title">{title}</span>
-        <span className="status-section-count">{count}</span>
+      <button className={styles.sectionHeader} onClick={onToggle}>
+        <span className={`${styles.sectionArrow} ${collapsed ? '' : styles.expanded}`}><ChevronRight size={14} /></span>
+        <span>{title}</span>
+        <span className={styles.sectionCount}>{count}</span>
       </button>
       {!collapsed && (
-        <div className="status-section-files">
+        <div className={styles.sectionFiles}>
           {files.map((file) => {
             const fileKey = `${sectionKey}:${file.path}`
             const isSelected =
@@ -1312,7 +1336,7 @@ function StatusSection({
             return (
               <div
                 key={`${file.path}-${file.staged}`}
-                className={`status-file-item ${isSelected ? 'selected' : ''}`}
+                className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''}`}
                 draggable
                 onDragStart={(e) => onDragStart(file, e)}
                 onDragEnd={onDragEnd}
@@ -1323,20 +1347,20 @@ function StatusSection({
                 }}
               >
                 <button
-                  className="status-file-info"
+                  className={styles.fileInfo}
                   onClick={(e) => onFileClick(file, e)}
                   title={`${file.path} (${STATUS_LABELS[file.status] || file.status})`}
                 >
-                  <span className={`status-file-icon status-icon-${file.status}`}>
+                  <span className={`${styles.fileIcon} ${iconClassMap[file.status] || ''}`}>
                     {STATUS_ICONS[file.status] || '?'}
                   </span>
-                  <span className="status-file-name">{fileName(file.path)}</span>
+                  <span className={styles.fileName}>{fileName(file.path)}</span>
                   {fileDir(file.path) && (
-                    <span className="status-file-dir">{fileDir(file.path)}</span>
+                    <span className={styles.fileDir}>{fileDir(file.path)}</span>
                   )}
                 </button>
                 <button
-                  className={`status-stage-btn ${stageActionTitle === 'Stage' ? 'stage' : 'unstage'}`}
+                  className={`${styles.stageBtn} ${stageActionTitle === 'Stage' ? styles.stage : styles.unstage}`}
                   onClick={(e) => {
                     e.stopPropagation()
                     onStageAction(file)

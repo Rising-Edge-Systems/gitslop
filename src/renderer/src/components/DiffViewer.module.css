@@ -1,0 +1,385 @@
+/* DiffViewer.module.css — Scoped styles for DiffViewer component */
+
+/* ─── Diff Viewer Container ─────────────────────────────────────────────── */
+
+.diffViewer {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+}
+
+/* ─── Toolbar ───────────────────────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px var(--space-md);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.filename {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.modeToggle {
+  display: flex;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.modeBtn {
+  padding: 3px 10px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-xs);
+  font-family: var(--font-family);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.modeBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.modeBtnActive {
+  color: var(--bg-tertiary);
+  background: var(--accent);
+  font-weight: 600;
+}
+
+/* ─── Binary File ───────────────────────────────────────────────────────── */
+
+.binary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 14px;
+}
+
+.binaryIcon {
+  font-size: 32px;
+  opacity: 0.6;
+}
+
+.binaryHint {
+  font-size: var(--font-sm);
+  opacity: 0.7;
+}
+
+/* ─── Raw/Fallback ──────────────────────────────────────────────────────── */
+
+.raw {
+  padding: var(--space-md) var(--space-lg);
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  overflow: auto;
+  max-height: 400px;
+}
+
+/* ─── Inline Diff View ──────────────────────────────────────────────────── */
+
+.inlineView {
+  overflow: auto;
+  max-height: 600px;
+}
+
+.hunk {
+  border-bottom: 1px solid var(--border);
+}
+
+.hunk:last-child {
+  border-bottom: none;
+}
+
+.hunkHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  background: rgba(137, 180, 250, 0.08);
+  color: var(--accent);
+  font-size: var(--font-xs);
+  font-family: var(--font-mono);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.hunkHeaderText {
+  opacity: 0.8;
+}
+
+.hunkHeaderSuffix {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── Diff Line ─────────────────────────────────────────────────────────── */
+
+.line {
+  display: flex;
+  line-height: 20px;
+  min-height: 20px;
+  white-space: pre;
+}
+
+.line:hover {
+  background: rgba(205, 214, 244, 0.03);
+}
+
+.lineNum {
+  display: inline-block;
+  width: 48px;
+  min-width: 48px;
+  text-align: right;
+  padding-right: var(--space-sm);
+  color: var(--text-muted);
+  user-select: none;
+  opacity: 0.6;
+  font-size: var(--font-xs);
+  line-height: 20px;
+}
+
+.linePrefix {
+  display: inline-block;
+  width: 16px;
+  min-width: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  user-select: none;
+  font-weight: 700;
+}
+
+.lineContent {
+  flex: 1;
+  min-width: 0;
+  padding-right: var(--space-md);
+  tab-size: 4;
+}
+
+.lineAdded {
+  background: rgba(166, 227, 161, 0.1);
+}
+
+.lineAdded .linePrefix {
+  color: var(--success);
+}
+
+.lineAdded .lineContent {
+  color: var(--success);
+}
+
+.lineRemoved {
+  background: rgba(243, 139, 168, 0.1);
+}
+
+.lineRemoved .linePrefix {
+  color: var(--error);
+}
+
+.lineRemoved .lineContent {
+  color: var(--error);
+}
+
+.lineContext .lineContent {
+  color: var(--text-secondary);
+}
+
+.lineMeta {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── Word-Level Diff Highlights ────────────────────────────────────────── */
+
+.wordAdded {
+  background: rgba(166, 227, 161, 0.3);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.wordRemoved {
+  background: rgba(243, 139, 168, 0.3);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* ─── Side-by-Side Diff View ────────────────────────────────────────────── */
+
+.sbsView {
+  display: flex;
+  overflow: hidden;
+  max-height: 600px;
+}
+
+.sbsPane {
+  flex: 1;
+  overflow: auto;
+  min-width: 0;
+}
+
+.sbsLeft {
+  border-right: 1px solid var(--border);
+}
+
+.sbsPaneHeader {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 3px var(--space-md);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-family);
+}
+
+.sbsHunkHeader {
+  padding: 3px var(--space-md);
+  background: rgba(137, 180, 250, 0.08);
+  color: var(--accent);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  opacity: 0.8;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 24px;
+  z-index: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sbsLine {
+  display: flex;
+  line-height: 20px;
+  min-height: 20px;
+  white-space: pre;
+}
+
+.sbsLine:hover {
+  filter: brightness(1.1);
+}
+
+.sbsLineNum {
+  display: inline-block;
+  width: 48px;
+  min-width: 48px;
+  text-align: right;
+  padding-right: var(--space-sm);
+  color: var(--text-muted);
+  user-select: none;
+  opacity: 0.6;
+  font-size: var(--font-xs);
+  line-height: 20px;
+}
+
+.sbsLineContent {
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--space-sm);
+  tab-size: 4;
+}
+
+.sbsLineAdded {
+  background: rgba(166, 227, 161, 0.1);
+}
+
+.sbsLineAdded .sbsLineContent {
+  color: var(--success);
+}
+
+.sbsLineRemoved {
+  background: rgba(243, 139, 168, 0.1);
+}
+
+.sbsLineRemoved .sbsLineContent {
+  color: var(--error);
+}
+
+.sbsLineContext .sbsLineContent {
+  color: var(--text-secondary);
+}
+
+.sbsLineEmpty {
+  background: rgba(88, 91, 112, 0.08);
+}
+
+.sbsLineEmpty .sbsLineContent {
+  color: transparent;
+}
+
+/* ─── Truncation / Show More ────────────────────────────────────────────── */
+
+.truncated {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: 10px var(--space-lg);
+  background: rgba(137, 180, 250, 0.05);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-family);
+}
+
+.truncatedInfo {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.showMore,
+.showAll {
+  padding: var(--space-xs) var(--space-md);
+  background: var(--bg-primary);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-xs);
+  font-family: var(--font-family);
+  transition: all 0.15s ease;
+}
+
+.showMore:hover,
+.showAll:hover {
+  background: var(--accent);
+  color: var(--bg-tertiary);
+}

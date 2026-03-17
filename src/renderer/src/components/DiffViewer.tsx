@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Package } from 'lucide-react'
+import styles from './DiffViewer.module.css'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -367,6 +368,20 @@ function pairLinesForSideBySide(hunks: DiffHunk[]): { pairs: SideBySidePair[]; h
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
+// ─── CSS Module Lookup Maps ──────────────────────────────────────────────────
+
+const lineTypeClass: Record<string, string> = {
+  added: styles.lineAdded,
+  removed: styles.lineRemoved,
+  context: styles.lineContext
+}
+
+const sbsLineTypeClass: Record<string, string> = {
+  added: styles.sbsLineAdded,
+  removed: styles.sbsLineRemoved,
+  context: styles.sbsLineContext
+}
+
 const LARGE_FILE_LINE_LIMIT = 5000
 const INITIAL_DISPLAY_LIMIT = 2000
 
@@ -436,14 +451,14 @@ export function DiffViewer({
 
   if (parsed.fileHeader.isBinary) {
     return (
-      <div className={`diff-viewer ${className}`}>
-        <div className="diff-viewer-toolbar">
-          <span className="diff-viewer-filename">{filePath}</span>
+      <div className={`${styles.diffViewer} ${className}`}>
+        <div className={styles.toolbar}>
+          <span className={styles.filename}>{filePath}</span>
         </div>
-        <div className="diff-viewer-binary">
-          <span className="diff-viewer-binary-icon"><Package size={18} /></span>
+        <div className={styles.binary}>
+          <span className={styles.binaryIcon}><Package size={18} /></span>
           <span>Binary file changed</span>
-          <span className="diff-viewer-binary-hint">Binary files cannot be displayed in the diff viewer</span>
+          <span className={styles.binaryHint}>Binary files cannot be displayed in the diff viewer</span>
         </div>
       </div>
     )
@@ -453,11 +468,11 @@ export function DiffViewer({
   const hasValidHeader = parsed.fileHeader.lines.some((l) => l.startsWith('diff --git'))
   if (parsed.hunks.length === 0 || !hasValidHeader) {
     return (
-      <div className={`diff-viewer ${className}`}>
-        <div className="diff-viewer-toolbar">
-          <span className="diff-viewer-filename">{filePath}</span>
+      <div className={`${styles.diffViewer} ${className}`}>
+        <div className={styles.toolbar}>
+          <span className={styles.filename}>{filePath}</span>
         </div>
-        <pre className="diff-viewer-raw">{diffContent}</pre>
+        <pre className={styles.raw}>{diffContent}</pre>
       </div>
     )
   }
@@ -489,21 +504,21 @@ export function DiffViewer({
   }
 
   return (
-    <div className={`diff-viewer ${className}`}>
+    <div className={`${styles.diffViewer} ${className}`}>
       {/* Toolbar */}
-      <div className="diff-viewer-toolbar">
-        <span className="diff-viewer-filename">{filePath}</span>
-        <div className="diff-viewer-controls">
-          <div className="diff-viewer-mode-toggle">
+      <div className={styles.toolbar}>
+        <span className={styles.filename}>{filePath}</span>
+        <div className={styles.controls}>
+          <div className={styles.modeToggle}>
             <button
-              className={`diff-mode-btn ${mode === 'inline' ? 'active' : ''}`}
+              className={`${styles.modeBtn} ${mode === 'inline' ? styles.modeBtnActive : ''}`}
               onClick={() => setMode('inline')}
               title="Inline (unified) diff"
             >
               Inline
             </button>
             <button
-              className={`diff-mode-btn ${mode === 'side-by-side' ? 'active' : ''}`}
+              className={`${styles.modeBtn} ${mode === 'side-by-side' ? styles.modeBtnActive : ''}`}
               onClick={() => setMode('side-by-side')}
               title="Side-by-side diff"
             >
@@ -528,18 +543,18 @@ export function DiffViewer({
 
       {/* Show More button for large files */}
       {isTruncated && (
-        <div className="diff-viewer-truncated">
-          <span className="diff-viewer-truncated-info">
+        <div className={styles.truncated}>
+          <span className={styles.truncatedInfo}>
             Showing {displayLimit.toLocaleString()} of {totalLines.toLocaleString()} lines
           </span>
           <button
-            className="diff-viewer-show-more"
+            className={styles.showMore}
             onClick={() => setDisplayLimit((prev) => Math.min(prev + 2000, totalLines))}
           >
             Show More ({Math.min(2000, totalLines - displayLimit).toLocaleString()} lines)
           </button>
           <button
-            className="diff-viewer-show-all"
+            className={styles.showAll}
             onClick={() => setDisplayLimit(totalLines)}
           >
             Show All
@@ -581,23 +596,23 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
   }, [hunks])
 
   return (
-    <div className="diff-inline-view">
+    <div className={styles.inlineView}>
       {hunks.map((hunk, hunkIdx) => (
-        <div key={hunkIdx} className="diff-hunk">
-          <div className="diff-hunk-header">
-            <span className="diff-hunk-header-text">{hunk.header}</span>
+        <div key={hunkIdx} className={styles.hunk}>
+          <div className={styles.hunkHeader}>
+            <span className={styles.hunkHeaderText}>{hunk.header}</span>
             {hunk.headerSuffix && (
-              <span className="diff-hunk-header-suffix">{hunk.headerSuffix}</span>
+              <span className={styles.hunkHeaderSuffix}>{hunk.headerSuffix}</span>
             )}
           </div>
           {hunk.lines.map((line, lineIdx) => {
             if (line.content.startsWith('\\')) {
               return (
-                <div key={lineIdx} className="diff-line diff-line-meta">
-                  <span className="diff-line-num diff-line-num-old" />
-                  <span className="diff-line-num diff-line-num-new" />
-                  <span className="diff-line-prefix" />
-                  <span className="diff-line-content">{line.content}</span>
+                <div key={lineIdx} className={`${styles.line} ${styles.lineMeta}`}>
+                  <span className={styles.lineNum} />
+                  <span className={styles.lineNum} />
+                  <span className={styles.linePrefix} />
+                  <span className={styles.lineContent}>{line.content}</span>
                 </div>
               )
             }
@@ -617,15 +632,15 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
             const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '
 
             return (
-              <div key={lineIdx} className={`diff-line diff-line-${line.type}`}>
-                <span className="diff-line-num diff-line-num-old">
+              <div key={lineIdx} className={`${styles.line} ${lineTypeClass[line.type] || ''}`}>
+                <span className={styles.lineNum}>
                   {line.oldLineNum ?? ''}
                 </span>
-                <span className="diff-line-num diff-line-num-new">
+                <span className={styles.lineNum}>
                   {line.newLineNum ?? ''}
                 </span>
-                <span className="diff-line-prefix">{prefix}</span>
-                <span className="diff-line-content">
+                <span className={styles.linePrefix}>{prefix}</span>
+                <span className={styles.lineContent}>
                   {wordDiffInfo ? (
                     <WordDiffContent
                       segments={line.type === 'removed' ? wordDiffInfo.oldSegments : wordDiffInfo.newSegments}
@@ -721,14 +736,14 @@ function SideBySideDiffView({
   }, [hunkHeaders])
 
   return (
-    <div className="diff-sbs-view">
+    <div className={styles.sbsView}>
       {/* Left pane (old) */}
       <div
-        className="diff-sbs-pane diff-sbs-left"
+        className={`${styles.sbsPane} ${styles.sbsLeft}`}
         ref={leftPaneRef}
         onScroll={() => onScrollSync('left')}
       >
-        <div className="diff-sbs-pane-header">Old</div>
+        <div className={styles.sbsPaneHeader}>Old</div>
         {pairs.map((pair, idx) => {
           const hh = hunkHeaderMap.get(idx)
           const wordDiff = pair.left && pair.right && pair.left.type === 'removed' && pair.right.type === 'added'
@@ -738,15 +753,15 @@ function SideBySideDiffView({
           return (
             <React.Fragment key={idx}>
               {hh && (
-                <div className="diff-sbs-hunk-header">
+                <div className={styles.sbsHunkHeader}>
                   <span>{hh.header}</span>
                 </div>
               )}
-              <div className={`diff-sbs-line ${pair.left ? `diff-sbs-line-${pair.left.type}` : 'diff-sbs-line-empty'}`}>
-                <span className="diff-sbs-line-num">
+              <div className={`${styles.sbsLine} ${pair.left ? (sbsLineTypeClass[pair.left.type] || '') : styles.sbsLineEmpty}`}>
+                <span className={styles.sbsLineNum}>
                   {pair.left?.oldLineNum ?? pair.left?.newLineNum ?? ''}
                 </span>
-                <span className="diff-sbs-line-content">
+                <span className={styles.sbsLineContent}>
                   {pair.left ? (
                     wordDiff ? (
                       <WordDiffContent segments={wordDiff.oldSegments} lineType="removed" />
@@ -763,11 +778,11 @@ function SideBySideDiffView({
 
       {/* Right pane (new) */}
       <div
-        className="diff-sbs-pane diff-sbs-right"
+        className={`${styles.sbsPane}`}
         ref={rightPaneRef}
         onScroll={() => onScrollSync('right')}
       >
-        <div className="diff-sbs-pane-header">New</div>
+        <div className={styles.sbsPaneHeader}>New</div>
         {pairs.map((pair, idx) => {
           const hh = hunkHeaderMap.get(idx)
           const wordDiff = pair.left && pair.right && pair.left.type === 'removed' && pair.right.type === 'added'
@@ -777,15 +792,15 @@ function SideBySideDiffView({
           return (
             <React.Fragment key={idx}>
               {hh && (
-                <div className="diff-sbs-hunk-header">
+                <div className={styles.sbsHunkHeader}>
                   <span>{hh.header}</span>
                 </div>
               )}
-              <div className={`diff-sbs-line ${pair.right ? `diff-sbs-line-${pair.right.type}` : 'diff-sbs-line-empty'}`}>
-                <span className="diff-sbs-line-num">
+              <div className={`${styles.sbsLine} ${pair.right ? (sbsLineTypeClass[pair.right.type] || '') : styles.sbsLineEmpty}`}>
+                <span className={styles.sbsLineNum}>
                   {pair.right?.newLineNum ?? pair.right?.oldLineNum ?? ''}
                 </span>
-                <span className="diff-sbs-line-content">
+                <span className={styles.sbsLineContent}>
                   {pair.right ? (
                     wordDiff ? (
                       <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
@@ -813,8 +828,8 @@ function WordDiffContent({ segments, lineType }: { segments: WordDiffSegment[]; 
           return <span key={i}>{seg.text}</span>
         }
         const cls = lineType === 'removed'
-          ? 'diff-word-removed'
-          : 'diff-word-added'
+          ? styles.wordRemoved
+          : styles.wordAdded
         return (
           <span key={i} className={cls}>
             {seg.text}
