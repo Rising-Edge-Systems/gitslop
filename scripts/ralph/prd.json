@@ -591,7 +591,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 33,
-      "passes": false,
+      "passes": true,
       "notes": "Root cause: scrollOffset from manual scroll events and visibleRange from react-window's onRowsRendered get out of sync. SVG line 231: Y position calculated as i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset — if scrollOffset doesn't match react-window's internal offset, nodes render at wrong positions."
     },
     {

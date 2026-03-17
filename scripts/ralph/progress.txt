@@ -539,3 +539,15 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `sidebarVisible` controls whether sidebar renders at all (including icon rail); `sidebarCollapsed` controls whether it's icon rail vs full sidebar
   - Always ensure sidebarVisible=true when changing collapse state to prevent the sidebar from becoming completely hidden
 ---
+
+## 2026-03-17 13:39 - US-062
+- Fixed commit graph scroll rendering by deriving scrollOffset from visibleRange instead of tracking it separately
+- The viewport div has overflow:hidden and never scrolls — the react-window List manages its own scroll internally
+- Replaced `useState(scrollOffset)` + `onScroll` handler with computed `visibleRange.start * ROW_HEIGHT`
+- Increased SVG/Canvas render buffer from 5/10 to 15 rows above/below visible range
+- Files changed: `src/renderer/src/components/CommitGraph.tsx`
+- **Learnings for future iterations:**
+  - The viewport div has `overflow: hidden` — only react-window's internal List scrolls. Never rely on viewport div's scrollTop for positioning.
+  - scrollOffset must be derived from react-window's visibleRange to stay in sync
+  - Generous render buffers (15+ rows) prevent gaps during fast scrolling
+---
