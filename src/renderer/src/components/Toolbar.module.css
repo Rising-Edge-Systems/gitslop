@@ -87,6 +87,76 @@
   animation: toolbarSpin 1s linear infinite;
 }
 
+/* Inline spinner — shown next to button label during active operations */
+.inlineSpinner {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+  animation: toolbarSpin 1s linear infinite;
+  color: var(--accent);
+}
+
+/* Overflow menu container */
+.overflowContainer {
+  position: relative;
+}
+
+.overflowMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 160px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 50;
+  padding: var(--space-xs) 0;
+  margin-top: var(--space-xs);
+}
+
+.overflowItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-xs) var(--space-md);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: left;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.overflowItem:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.overflowItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.overflowItem:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.overflowItemActive {
+  color: var(--accent);
+}
+
+.overflowItemIcon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .progress {
   display: flex;
   align-items: center;

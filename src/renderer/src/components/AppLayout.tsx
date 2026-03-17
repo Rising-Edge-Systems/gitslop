@@ -160,6 +160,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     <div className="app-layout">
       <Toolbar
         currentRepo={currentRepo}
+        onRepoOpen={onRepoOpen}
         onOpenSettings={onOpenSettings}
         onNotify={addNotification}
       />

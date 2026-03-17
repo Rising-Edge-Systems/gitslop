@@ -10,9 +10,13 @@ import {
   AlertTriangle,
   Check,
   XCircle,
-  Loader2
+  Loader2,
+  FolderOpen,
+  FolderPlus,
+  MoreHorizontal
 } from 'lucide-react'
 import { MergeDialog } from './MergeDialog'
+import { CloneDialog } from './CloneDialog'
 import {
   useKeyboardShortcuts,
   useShortcutHandler,
@@ -58,13 +62,29 @@ type ActiveOperation = {
   percent: number | null
 } | null
 
+interface ToolbarButton {
+  id: string
+  icon: React.ReactNode
+  label: string
+  title: string
+  onClick: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
+  disabled: boolean
+  disabledReason?: string
+  active: boolean
+  activeOp?: 'push' | 'pull' | 'fetch'
+  requiresRemote?: boolean
+  group: 'remote' | 'branch' | 'stash'
+}
+
 interface ToolbarProps {
   currentRepo: string | null
+  onRepoOpen?: (repoPath: string) => void
   onOpenSettings?: () => void
   onNotify?: (type: 'success' | 'error' | 'warning' | 'info', message: string, details?: string) => void
 }
 
-export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps): React.JSX.Element {
+export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: ToolbarProps): React.JSX.Element {
   const [stashDialog, setStashDialog] = useState<StashDialogState>({
     open: false,
     message: '',
@@ -96,10 +116,43 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
   })
 
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false)
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false)
 
   const [activeOp, setActiveOp] = useState<ActiveOperation>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Track whether repo has remotes configured
+  const [hasRemotes, setHasRemotes] = useState(true)
+  const [remotesChecked, setRemotesChecked] = useState(false)
+
+  // Overflow menu state
+  const [overflowOpen, setOverflowOpen] = useState(false)
+  const overflowRef = useRef<HTMLDivElement>(null)
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  const [overflowIndex, setOverflowIndex] = useState<number>(-1)
+
+  // Check remotes when repo changes
+  useEffect(() => {
+    if (!currentRepo) {
+      setHasRemotes(true)
+      setRemotesChecked(false)
+      return
+    }
+    let cancelled = false
+    window.electronAPI.git.getRemotes(currentRepo).then((result) => {
+      if (cancelled) return
+      const remotes = result.success ? result.data : []
+      setHasRemotes(Array.isArray(remotes) && remotes.length > 0)
+      setRemotesChecked(true)
+    }).catch(() => {
+      if (!cancelled) {
+        setHasRemotes(false)
+        setRemotesChecked(true)
+      }
+    })
+    return () => { cancelled = true }
+  }, [currentRepo])
 
   // Show a temporary notification — delegates to onNotify if available
   const showNotification = useCallback((type: 'success' | 'error', message: string, details?: string) => {
@@ -127,6 +180,47 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
     })
     return cleanup
   }, [])
+
+  // Close overflow menu on click outside
+  useEffect(() => {
+    if (!overflowOpen) return
+    const handler = (e: MouseEvent) => {
+      if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
+        setOverflowOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [overflowOpen])
+
+  // ─── No-repo actions ─────────────────────────────────────────────────────
+
+  const handleOpenRepo = useCallback(async () => {
+    const dirPath = await window.electronAPI.dialog.openDirectory()
+    if (!dirPath) return
+    const isRepo = await window.electronAPI.git.isRepo(dirPath)
+    if (isRepo) {
+      onRepoOpen?.(dirPath)
+    } else {
+      showNotification('error', `"${dirPath}" is not a git repository`)
+    }
+  }, [onRepoOpen, showNotification])
+
+  const handleInitRepo = useCallback(async () => {
+    const dirPath = await window.electronAPI.dialog.openDirectory()
+    if (!dirPath) return
+    const result = await window.electronAPI.git.init(dirPath)
+    if (result.success) {
+      onRepoOpen?.(dirPath)
+    } else {
+      showNotification('error', result.error || 'Failed to initialize repository')
+    }
+  }, [onRepoOpen, showNotification])
+
+  const handleCloneComplete = useCallback((repoPath: string) => {
+    setCloneDialogOpen(false)
+    onRepoOpen?.(repoPath)
+  }, [onRepoOpen])
 
   // ─── Push ──────────────────────────────────────────────────────────────────
 
@@ -372,100 +466,254 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
 
   const isOperationActive = (type: string): boolean => activeOp?.type === type
 
-  return (
-    <div className={styles.toolbar}>
-      <div className={styles.toolbarGroup}>
-        <button
-          className={`${styles.btn} ${isOperationActive('pull') ? styles.btnActive : ''}`}
-          title="Pull (Ctrl+Shift+L)"
-          onClick={handlePull}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            handlePullWithOptions()
-          }}
-          disabled={!!activeOp}
-        >
-          {isOperationActive('pull') ? (
-            <span className={`${styles.btnIcon} ${styles.spinner}`}><Loader2 size={18} className="lucide-icon" /></span>
-          ) : (
-            <span className={styles.btnIcon}><ArrowDownToLine size={18} className="lucide-icon" /></span>
-          )}
-          <span className={styles.btnLabel}>Pull</span>
-        </button>
-        <button
-          className={`${styles.btn} ${isOperationActive('push') ? styles.btnActive : ''}`}
-          title="Push (Ctrl+Shift+P) — Right-click for force push"
-          onClick={handlePush}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            handleForcePushOpen()
-          }}
-          disabled={!!activeOp}
-        >
-          {isOperationActive('push') ? (
-            <span className={`${styles.btnIcon} ${styles.spinner}`}><Loader2 size={18} className="lucide-icon" /></span>
-          ) : (
-            <span className={styles.btnIcon}><ArrowUpFromLine size={18} className="lucide-icon" /></span>
-          )}
-          <span className={styles.btnLabel}>Push</span>
-        </button>
-        <button
-          className={`${styles.btn} ${isOperationActive('fetch') ? styles.btnActive : ''}`}
-          title="Fetch (Ctrl+Shift+F)"
-          onClick={handleFetch}
-          disabled={!!activeOp}
-        >
-          {isOperationActive('fetch') ? (
-            <span className={`${styles.btnIcon} ${styles.spinner}`}><Loader2 size={18} className="lucide-icon" /></span>
-          ) : (
-            <span className={styles.btnIcon}><RefreshCw size={18} className="lucide-icon" /></span>
-          )}
-          <span className={styles.btnLabel}>Fetch</span>
-        </button>
-      </div>
-      <div className={styles.separator} />
-      <div className={styles.toolbarGroup}>
-        <button className={styles.btn} title="Branch">
-          <span className={styles.btnIcon}><GitBranch size={18} className="lucide-icon" /></span>
-          <span className={styles.btnLabel}>Branch</span>
-        </button>
-        <button
-          className={styles.btn}
-          title="Merge"
-          onClick={() => {
-            if (currentRepo) setMergeDialogOpen(true)
-          }}
-          disabled={!currentRepo}
-        >
-          <span className={styles.btnIcon}><GitMerge size={18} className="lucide-icon" /></span>
-          <span className={styles.btnLabel}>Merge</span>
-        </button>
-      </div>
-      <div className={styles.separator} />
-      <div className={styles.toolbarGroup}>
-        <button className={styles.btn} title="Stash" onClick={openStashDialog}>
-          <span className={styles.btnIcon}><Archive size={18} className="lucide-icon" /></span>
-          <span className={styles.btnLabel}>Stash</span>
-        </button>
-      </div>
-      <div className={styles.spacer} />
+  // ─── Build button definitions for repo mode ───────────────────────────
 
-      {/* Active operation progress indicator */}
-      {activeOp && (
-        <div className={styles.progress}>
-          <span className={styles.progressText}>
-            {activeOp.phase}
-            {activeOp.percent !== null ? ` ${activeOp.percent}%` : ''}
-          </span>
-          {activeOp.percent !== null && (
-            <div className={styles.progressBar}>
-              <div
-                className={styles.progressFill}
-                style={{ width: `${activeOp.percent}%` }}
-              />
+  const repoButtons: ToolbarButton[] = useMemo(() => {
+    if (!currentRepo) return []
+    const noRemoteReason = !hasRemotes && remotesChecked ? 'No remotes configured' : undefined
+    const busyReason = activeOp ? `${activeOp.phase}` : undefined
+
+    return [
+      {
+        id: 'pull',
+        icon: <ArrowDownToLine size={18} className="lucide-icon" />,
+        label: 'Pull',
+        title: noRemoteReason ? `Pull — ${noRemoteReason}` : 'Pull (Ctrl+Shift+L)',
+        onClick: handlePull,
+        onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); handlePullWithOptions() },
+        disabled: !!activeOp || (!hasRemotes && remotesChecked),
+        disabledReason: noRemoteReason || busyReason,
+        active: isOperationActive('pull'),
+        activeOp: 'pull' as const,
+        requiresRemote: true,
+        group: 'remote'
+      },
+      {
+        id: 'push',
+        icon: <ArrowUpFromLine size={18} className="lucide-icon" />,
+        label: 'Push',
+        title: noRemoteReason ? `Push — ${noRemoteReason}` : 'Push (Ctrl+Shift+P) — Right-click for force push',
+        onClick: handlePush,
+        onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); handleForcePushOpen() },
+        disabled: !!activeOp || (!hasRemotes && remotesChecked),
+        disabledReason: noRemoteReason || busyReason,
+        active: isOperationActive('push'),
+        activeOp: 'push' as const,
+        requiresRemote: true,
+        group: 'remote'
+      },
+      {
+        id: 'fetch',
+        icon: <RefreshCw size={18} className="lucide-icon" />,
+        label: 'Fetch',
+        title: noRemoteReason ? `Fetch — ${noRemoteReason}` : 'Fetch (Ctrl+Shift+F)',
+        onClick: handleFetch,
+        disabled: !!activeOp || (!hasRemotes && remotesChecked),
+        disabledReason: noRemoteReason || busyReason,
+        active: isOperationActive('fetch'),
+        activeOp: 'fetch' as const,
+        requiresRemote: true,
+        group: 'remote'
+      },
+      {
+        id: 'branch',
+        icon: <GitBranch size={18} className="lucide-icon" />,
+        label: 'Branch',
+        title: 'Branch',
+        onClick: () => {},
+        disabled: false,
+        active: false,
+        group: 'branch'
+      },
+      {
+        id: 'merge',
+        icon: <GitMerge size={18} className="lucide-icon" />,
+        label: 'Merge',
+        title: 'Merge',
+        onClick: () => { if (currentRepo) setMergeDialogOpen(true) },
+        disabled: !currentRepo,
+        active: false,
+        group: 'branch'
+      },
+      {
+        id: 'stash',
+        icon: <Archive size={18} className="lucide-icon" />,
+        label: 'Stash',
+        title: 'Stash (Ctrl+Shift+S)',
+        onClick: openStashDialog,
+        disabled: false,
+        active: false,
+        group: 'stash'
+      }
+    ]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRepo, hasRemotes, remotesChecked, activeOp, handlePull, handlePush, handleFetch, handlePullWithOptions, handleForcePushOpen, openStashDialog])
+
+  // ─── Overflow detection ────────────────────────────────────────────────
+
+  // Detect overflow by measuring toolbar container
+  useEffect(() => {
+    if (!toolbarRef.current || !currentRepo) {
+      setOverflowIndex(-1)
+      return
+    }
+    const observer = new ResizeObserver(() => {
+      if (!toolbarRef.current) return
+      const toolbarWidth = toolbarRef.current.clientWidth
+      // Reserve space for: settings btn (40px), spacer, overflow btn (36px), progress area (~160px), padding
+      const reservedWidth = 240
+      const availableWidth = toolbarWidth - reservedWidth
+      // Each button is roughly 80px with label, 36px icon-only
+      const buttonWidth = 80
+      const maxButtons = Math.max(1, Math.floor(availableWidth / buttonWidth))
+      if (maxButtons < repoButtons.length) {
+        setOverflowIndex(maxButtons)
+      } else {
+        setOverflowIndex(-1)
+      }
+    })
+    observer.observe(toolbarRef.current)
+    return () => observer.disconnect()
+  }, [currentRepo, repoButtons.length])
+
+  // ─── Render helpers ────────────────────────────────────────────────────
+
+  const renderButton = (btn: ToolbarButton, inOverflow = false) => {
+    // Hide remote buttons when no remotes
+    if (btn.requiresRemote && !hasRemotes && remotesChecked) return null
+
+    const isActive = btn.activeOp ? isOperationActive(btn.activeOp) : btn.active
+
+    if (inOverflow) {
+      return (
+        <button
+          key={btn.id}
+          className={`${styles.overflowItem} ${isActive ? styles.overflowItemActive : ''}`}
+          title={btn.disabledReason || btn.title}
+          onClick={() => { btn.onClick(); setOverflowOpen(false) }}
+          disabled={btn.disabled}
+        >
+          <span className={styles.overflowItemIcon}>{btn.icon}</span>
+          <span>{btn.label}</span>
+          {isActive && (
+            <span className={`${styles.inlineSpinner}`}><Loader2 size={12} className="lucide-icon" /></span>
+          )}
+        </button>
+      )
+    }
+
+    return (
+      <button
+        key={btn.id}
+        className={`${styles.btn} ${isActive ? styles.btnActive : ''}`}
+        title={btn.disabledReason || btn.title}
+        onClick={btn.onClick}
+        onContextMenu={btn.onContextMenu}
+        disabled={btn.disabled}
+      >
+        <span className={styles.btnIcon}>{btn.icon}</span>
+        <span className={styles.btnLabel}>{btn.label}</span>
+        {isActive && (
+          <span className={`${styles.inlineSpinner}`}><Loader2 size={12} className="lucide-icon" /></span>
+        )}
+      </button>
+    )
+  }
+
+  // Split buttons into visible and overflow
+  const visibleButtons = overflowIndex > 0 ? repoButtons.slice(0, overflowIndex) : repoButtons
+  const overflowButtons = overflowIndex > 0 ? repoButtons.slice(overflowIndex) : []
+
+  // Group visible buttons by group for separators
+  const groupedVisible = useMemo(() => {
+    const groups: ToolbarButton[][] = []
+    let currentGroup: ToolbarButton[] = []
+    let lastGroup = ''
+    for (const btn of visibleButtons) {
+      // Skip remote buttons when no remotes
+      if (btn.requiresRemote && !hasRemotes && remotesChecked) continue
+      if (btn.group !== lastGroup && currentGroup.length > 0) {
+        groups.push(currentGroup)
+        currentGroup = []
+      }
+      currentGroup.push(btn)
+      lastGroup = btn.group
+    }
+    if (currentGroup.length > 0) groups.push(currentGroup)
+    return groups
+  }, [visibleButtons, hasRemotes, remotesChecked])
+
+  return (
+    <div className={styles.toolbar} ref={toolbarRef}>
+      {!currentRepo ? (
+        /* ─── No-repo mode: Open, Clone, Init ─── */
+        <>
+          <div className={styles.toolbarGroup}>
+            <button className={styles.btn} title="Open Repository (Ctrl+O)" onClick={handleOpenRepo}>
+              <span className={styles.btnIcon}><FolderOpen size={18} className="lucide-icon" /></span>
+              <span className={styles.btnLabel}>Open</span>
+            </button>
+            <button className={styles.btn} title="Clone Repository" onClick={() => setCloneDialogOpen(true)}>
+              <span className={styles.btnIcon}><GitBranch size={18} className="lucide-icon" /></span>
+              <span className={styles.btnLabel}>Clone</span>
+            </button>
+            <button className={styles.btn} title="Initialize Repository" onClick={handleInitRepo}>
+              <span className={styles.btnIcon}><FolderPlus size={18} className="lucide-icon" /></span>
+              <span className={styles.btnLabel}>Init</span>
+            </button>
+          </div>
+          <div className={styles.spacer} />
+        </>
+      ) : (
+        /* ─── Repo mode: git operation buttons ─── */
+        <>
+          {groupedVisible.map((group, gi) => (
+            <React.Fragment key={gi}>
+              {gi > 0 && <div className={styles.separator} />}
+              <div className={styles.toolbarGroup}>
+                {group.map((btn) => renderButton(btn))}
+              </div>
+            </React.Fragment>
+          ))}
+
+          {/* Overflow menu */}
+          {overflowButtons.length > 0 && (
+            <div className={styles.overflowContainer} ref={overflowRef}>
+              <button
+                className={`${styles.btn} ${overflowOpen ? styles.btnActive : ''}`}
+                title="More actions"
+                onClick={() => setOverflowOpen(!overflowOpen)}
+              >
+                <span className={styles.btnIcon}><MoreHorizontal size={18} className="lucide-icon" /></span>
+              </button>
+              {overflowOpen && (
+                <div className={styles.overflowMenu}>
+                  {overflowButtons.map((btn) => renderButton(btn, true))}
+                </div>
+              )}
             </div>
           )}
-        </div>
+
+          <div className={styles.spacer} />
+
+          {/* Active operation progress indicator */}
+          {activeOp && (
+            <div className={styles.progress}>
+              <span className={styles.progressText}>
+                {activeOp.phase}
+                {activeOp.percent !== null ? ` ${activeOp.percent}%` : ''}
+              </span>
+              {activeOp.percent !== null && (
+                <div className={styles.progressBar}>
+                  <div
+                    className={styles.progressFill}
+                    style={{ width: `${activeOp.percent}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* Inline notification fallback (when no centralized notification system) */}
@@ -650,6 +898,14 @@ export function Toolbar({ currentRepo, onOpenSettings, onNotify }: ToolbarProps)
           onMergeComplete={() => {
             showNotification('success', 'Merge completed successfully')
           }}
+        />
+      )}
+
+      {/* Clone Dialog */}
+      {cloneDialogOpen && (
+        <CloneDialog
+          onClose={() => setCloneDialogOpen(false)}
+          onCloneComplete={handleCloneComplete}
         />
       )}
 
