@@ -319,3 +319,20 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Canvas merge node fill uses hardcoded '#1e1e2e' instead of CSS var — consider reading computed style if theme switching is needed
   - The `canvasHoverIndex` state drives cursor change on the viewport container
 ---
+## 2026-03-17 - US-049
+- Added comprehensive commit graph interaction features
+- Added "Checkout" action to commit context menu (calls git.checkout with commit hash)
+- Added BranchRefContextMenu component for right-clicking branch/tag ref labels: checkout, merge into current, rebase onto, delete, push, copy name
+- Added hover tooltip showing full commit message preview (appears after 600ms delay, max 300 chars, styled popover)
+- Added Enter key to open commit details for selected commit in keyboard navigation
+- Context menus now close on scroll (added scroll listener with capture)
+- Context menu repositions to stay within viewport bounds
+- Added tooltip CSS styles to CommitGraph.module.css
+- Files changed: CommitGraph.tsx, CommitGraph.module.css
+- **Learnings for future iterations:**
+  - `git.deleteBranch()` takes `opts?: { force?: boolean }` not a raw boolean — use `{ force: false }`
+  - `git.push()` options don't include `tags` — use `git.push(repoPath, {})` for basic push
+  - Tooltip timer refs need cleanup on unmount to avoid memory leaks
+  - `window.addEventListener('scroll', handler, true)` with `true` captures scroll events from child elements (needed for react-window scroll)
+  - BranchRefContextMenu needs the `repoPath` prop directly since it calls git APIs
+---
