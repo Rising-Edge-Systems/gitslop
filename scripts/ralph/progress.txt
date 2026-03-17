@@ -8,6 +8,8 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - Toolbar emoji icons use `<span className="toolbar-btn-icon">` wrapper pattern
 - Typecheck: `npm run typecheck` (runs both node and web)
 - PRD branch is `ralph/ui-overhaul`, created from `ralph/gitslop-v1`
+- SidebarSection `icon` prop is `React.ReactNode` — pass icons as `icon={<IconName size={16} />}`
+- Context menu icons: 14px, section header icons: 16px, inline small icons: 10-12px, status bar icons: 14px
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -29,4 +31,17 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Loader2 icon is better than RefreshCw for spinner animations (has CSS animation support)
   - The force push dialog warning icon was also an emoji (⚠️) — don't forget dialog content when replacing icons
   - TitleBar logo replaced with "GS" text wordmark rather than an icon
+---
+
+## 2026-03-16 - US-042b
+- Replaced all emoji/unicode icons in Sidebar.tsx with Lucide icons: ChevronRight (collapse/expand chevrons), GitBranch (branches section/tab), Globe (remotes), Tag (tags), Archive (stashes), Package (submodules), FolderOpen (files tab), ArrowRightLeft (checkout), Pencil (rename), GitMerge (merge), RotateCcw (rebase), ArrowUpFromLine (push), Trash2 (delete), X (close buttons), AlertTriangle (errors), RefreshCw (fetch), Check (checkout tag, submodule status), Circle/CircleDot (submodule status), ArrowUp/ArrowDown (ahead/behind), Download/ExternalLink (submodule actions), CornerRightUp/CornerUpRight (stash apply/pop)
+- Replaced all emoji/unicode icons in StatusBar.tsx with Lucide icons: GitBranch (branch), ArrowUp/ArrowDown (ahead/behind), ArrowDownToLine (incoming), Loader2 (spinners), RefreshCw (refresh), Bell (notifications), Check/XCircle/AlertTriangle/Info (notification types)
+- Changed SidebarSectionProps.icon type from `string` to `React.ReactNode` to support JSX icon elements
+- Files changed: src/renderer/src/components/Sidebar.tsx, src/renderer/src/components/StatusBar.tsx
+- **Learnings for future iterations:**
+  - SidebarSection `icon` prop is now `React.ReactNode`, pass icons as `icon={<IconName size={16} />}`
+  - Context menu icons use 14px size, section icons 16px, inline small icons 10-12px
+  - `stash@&#123;...&#125;` in Sidebar.tsx are JSX escapes for curly braces, not emoji — don't replace
+  - `→` in title attributes is a text arrow for tooltips, not an icon — don't replace
+  - Sidebar has many nested context menu components (BranchContextMenu, RemoteContextMenu, RemoteBranchContextMenu, TagsSection, StashesSection, SubmodulesSection) — each has its own icon replacements
 ---
