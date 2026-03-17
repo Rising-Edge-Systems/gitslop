@@ -1,8 +1,15 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, Copy, HelpCircle, EyeOff, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, Trash2 } from 'lucide-react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, Copy, HelpCircle, EyeOff, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2 } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { openFileInEditor } from './CodeEditor'
+import { DEFAULT_SETTINGS, type AppSettings } from '../hooks/useSettings'
+import {
+  useKeyboardShortcuts,
+  useShortcutHandler,
+  defineShortcut,
+  type ShortcutDefinition
+} from '../hooks/useKeyboardShortcuts'
 import styles from './StatusPanel.module.css'
 
 interface FileStatus {
@@ -30,12 +37,6 @@ interface StatusPanelProps {
 }
 
 // ─── CSS Module Lookup Maps ──────────────────────────────────────────────────
-
-const sectionClassMap: Record<string, string> = {
-  'status-staged': styles.statusStaged,
-  'status-unstaged': styles.statusUnstaged,
-  'status-untracked': styles.statusUntracked
-}
 
 const iconClassMap: Record<string, string> = {
   added: styles.iconAdded,
@@ -72,6 +73,14 @@ const STATUS_LABELS: Record<string, string> = {
   ignored: 'Ignored'
 }
 
+function getAppSettings(): AppSettings {
+  try {
+    const stored = localStorage.getItem('gitslop-settings')
+    if (stored) return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
+  } catch { /* ignore */ }
+  return { ...DEFAULT_SETTINGS }
+}
+
 function fileName(filePath: string): string {
   return filePath.split('/').pop() || filePath
 }
@@ -82,6 +91,8 @@ function fileDir(filePath: string): string {
   return parts.slice(0, -1).join('/')
 }
 
+const SUBJECT_WARN_LENGTH = 72
+
 export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [loading, setLoading] = useState(true)
@@ -90,7 +101,6 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
   const [diffContent, setDiffContent] = useState<string | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const [operationInProgress, setOperationInProgress] = useState(false)
   const [dragSource, setDragSource] = useState<'staged' | 'unstaged' | 'untracked' | null>(null)
   const [fileContextMenu, setFileContextMenu] = useState<{
@@ -98,10 +108,23 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
     y: number
     file: FileStatus
   } | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
+  // Commit form state
+  const [commitSubject, setCommitSubject] = useState('')
+  const [commitBody, setCommitBody] = useState('')
+  const [commitBodyExpanded, setCommitBodyExpanded] = useState(false)
+  const [amend, setAmend] = useState(false)
+  const [signoff, setSignoff] = useState(false)
+  const [gpgSign, setGpgSign] = useState(() => getAppSettings().signCommits)
+  const [committing, setCommitting] = useState(false)
+  const [commitError, setCommitError] = useState<string | null>(null)
+  const [commitSuccess, setCommitSuccess] = useState<string | null>(null)
+
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
   const panelRef = useRef<HTMLDivElement>(null)
   const statusLoadInFlightRef = useRef(false)
+  const subjectRef = useRef<HTMLInputElement>(null)
 
   const loadStatus = useCallback(async () => {
     if (!mountedRef.current) return
@@ -157,6 +180,34 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
       cleanup?.()
     }
   }, [loadStatus])
+
+  // Pre-fill message when amend is checked
+  useEffect(() => {
+    if (amend) {
+      window.electronAPI.git.getLastCommitMessage(repoPath).then((result) => {
+        if (result.success && result.data) {
+          const msg = result.data as string
+          const lines = msg.split('\n')
+          setCommitSubject(lines[0] || '')
+          const bodyLines = lines.slice(1)
+          if (bodyLines.length > 0 && bodyLines[0].trim() === '') {
+            bodyLines.shift()
+          }
+          const bodyText = bodyLines.join('\n').trim()
+          setCommitBody(bodyText)
+          if (bodyText) setCommitBodyExpanded(true)
+        }
+      })
+    }
+  }, [amend, repoPath])
+
+  // Clear commit success message after 3 seconds
+  useEffect(() => {
+    if (commitSuccess) {
+      const timer = setTimeout(() => setCommitSuccess(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [commitSuccess])
 
   // Keyboard shortcuts for stage/unstage
   useEffect(() => {
@@ -288,12 +339,10 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
     if (!confirmed) return
     setOperationInProgress(true)
     try {
-      // Discard tracked file changes
       const trackedPaths = status.unstaged.map((f) => f.path)
       if (trackedPaths.length > 0) {
         await window.electronAPI.git.discardFiles(repoPath, trackedPaths)
       }
-      // Delete untracked files
       const untrackedPaths = status.untracked.map((f) => f.path)
       if (untrackedPaths.length > 0) {
         await window.electronAPI.git.discardFiles(repoPath, untrackedPaths, { untracked: true })
@@ -357,6 +406,15 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
         onClick: () => {
           const fullPath = repoPath + '/' + file.path
           openFileInEditor(fullPath)
+        }
+      })
+
+      items.push({
+        key: 'copyPath',
+        label: 'Copy Path',
+        icon: <Copy size={14} />,
+        onClick: () => {
+          navigator.clipboard.writeText(file.path)
         }
       })
 
@@ -437,7 +495,6 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
       }
 
       if (e.shiftKey && selectedFile) {
-        // Shift+click: select range within same section
         const allFiles =
           section === 'staged'
             ? status?.staged ?? []
@@ -495,7 +552,6 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
   const handleDragStart = useCallback(
     (file: FileStatus, section: 'staged' | 'unstaged' | 'untracked', e: React.DragEvent) => {
       setDragSource(section)
-      // Collect files to drag: if multi-selected, drag all; otherwise just this one
       const filePaths: string[] = []
       if (selectedFiles.size > 0 && selectedFiles.has(`${section}:${file.path}`)) {
         for (const key of selectedFiles) {
@@ -515,7 +571,6 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
 
   const handleDragOver = useCallback(
     (targetSection: 'staged' | 'unstaged', e: React.DragEvent) => {
-      // Allow drop only when moving between appropriate sections
       if (
         (dragSource === 'unstaged' || dragSource === 'untracked') &&
         targetSection === 'staged'
@@ -558,9 +613,90 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
     setDragSource(null)
   }, [])
 
-  const toggleSection = useCallback((section: string) => {
-    setCollapsedSections((prev) => ({ ...prev, [section]: !prev[section] }))
-  }, [])
+  // ─── Commit Logic ────────────────────────────────────────────────────────
+
+  const stagedCount = status?.staged.length ?? 0
+
+  const buildMessage = useCallback((): string => {
+    if (commitBody.trim()) {
+      return commitSubject + '\n\n' + commitBody.trim()
+    }
+    return commitSubject
+  }, [commitSubject, commitBody])
+
+  const canCommit = (stagedCount > 0 || amend) && commitSubject.trim().length > 0 && !committing
+
+  const handleCommit = useCallback(async (andPush: boolean = false) => {
+    if (!canCommit) return
+    setCommitting(true)
+    setCommitError(null)
+    setCommitSuccess(null)
+
+    try {
+      const message = buildMessage()
+      const appSettings = getAppSettings()
+      const result = await window.electronAPI.git.commit(repoPath, message, {
+        amend,
+        signoff,
+        gpgSign,
+        gpgKeyId: gpgSign && appSettings.gpgKeyId ? appSettings.gpgKeyId : undefined
+      })
+
+      if (result.success) {
+        setCommitSubject('')
+        setCommitBody('')
+        setCommitBodyExpanded(false)
+        setAmend(false)
+        setCommitError(null)
+
+        if (andPush) {
+          const pushResult = await window.electronAPI.git.push(repoPath)
+          if (pushResult.success) {
+            setCommitSuccess('Committed and pushed successfully')
+          } else {
+            setCommitSuccess('Committed successfully, but push failed: ' + (pushResult.error || 'Unknown error'))
+          }
+        } else {
+          setCommitSuccess('Committed successfully')
+        }
+
+        await loadStatus()
+        onRefresh?.()
+      } else {
+        setCommitError(result.error || 'Commit failed')
+      }
+    } catch (err) {
+      setCommitError(err instanceof Error ? err.message : 'Commit failed')
+    } finally {
+      setCommitting(false)
+    }
+  }, [canCommit, buildMessage, repoPath, amend, signoff, gpgSign, loadStatus, onRefresh])
+
+  // Ctrl+Enter shortcut for commit
+  const stableCommit = useShortcutHandler(() => {
+    const active = document.activeElement
+    if (panelRef.current?.contains(active) && canCommit) {
+      handleCommit(false)
+    }
+  })
+
+  const commitShortcuts: ShortcutDefinition[] = useMemo(
+    () => [
+      defineShortcut(
+        'commit',
+        'Commit Staged Changes',
+        'Git',
+        'Ctrl+Enter',
+        { ctrl: true, key: 'Enter' },
+        stableCommit
+      )
+    ],
+    [stableCommit]
+  )
+
+  useKeyboardShortcuts(commitShortcuts)
+
+  // ─── Computed values ──────────────────────────────────────────────────────
 
   const isClean =
     status &&
@@ -568,9 +704,17 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
     status.unstaged.length === 0 &&
     status.untracked.length === 0
 
-  const hasUnstagedOrUntracked =
-    status && (status.unstaged.length > 0 || status.untracked.length > 0)
-  const hasStaged = status && status.staged.length > 0
+  const unstagedFiles = useMemo(() => {
+    if (!status) return []
+    return [...status.unstaged, ...status.untracked]
+  }, [status])
+
+  const unstagedCount = unstagedFiles.length
+  const subjectLength = commitSubject.length
+  const subjectOverLimit = subjectLength > SUBJECT_WARN_LENGTH
+
+  const isDropTargetStaged = dragSource === 'unstaged' || dragSource === 'untracked'
+  const isDropTargetUnstaged = dragSource === 'staged'
 
   if (loading && !status) {
     return (
@@ -593,176 +737,361 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
 
   return (
     <div className={styles.panel} ref={panelRef} tabIndex={-1}>
-      <div className={styles.panelHeader}>
-        <h3 className={styles.panelTitle}>Working Directory</h3>
-        <div className={styles.panelActions}>
-          {hasUnstagedOrUntracked && (
-            <button
-              className={`${styles.actionBtn} ${styles.actionStageAll}`}
-              onClick={stageAll}
-              disabled={operationInProgress}
-              title="Stage All (add all changes)"
-            >
-              + Stage All
-            </button>
+      {/* Collapsible header */}
+      <button
+        className={styles.panelHeader}
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <span className={styles.panelHeaderLeft}>
+          <span className={styles.panelHeaderChevron}>
+            {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+          </span>
+          <h3 className={styles.panelTitle}>Staging Area</h3>
+          {isClean && <span className={styles.cleanBadge}><Check size={12} /> Clean</span>}
+          {!isClean && (
+            <span className={styles.changeBadge}>
+              {unstagedCount + stagedCount} file{(unstagedCount + stagedCount) !== 1 ? 's' : ''}
+            </span>
           )}
-          {hasStaged && (
-            <button
-              className={`${styles.actionBtn} ${styles.actionUnstageAll}`}
-              onClick={unstageAll}
-              disabled={operationInProgress}
-              title="Unstage All"
-            >
-              <Minus size={14} /> Unstage All
-            </button>
-          )}
-          {hasUnstagedOrUntracked && (
-            <button
-              className={`${styles.actionBtn} ${styles.actionDiscardAll}`}
-              onClick={discardAllChanges}
-              disabled={operationInProgress}
-              title="Discard All Changes (irreversible)"
-            >
-              <X size={14} /> Discard All
-            </button>
-          )}
+        </span>
+        <span className={styles.panelHeaderRight} onClick={(e) => e.stopPropagation()}>
           <button className={styles.panelRefresh} onClick={loadStatus} title="Refresh status">
             <RefreshCw size={14} />
           </button>
-        </div>
-      </div>
+        </span>
+      </button>
 
-      {isClean ? (
-        <div className={styles.panelClean}>
-          <span className={styles.panelCleanIcon}><Check size={16} /></span>
-          <span>Working directory clean</span>
-        </div>
-      ) : (
-        <div className={styles.panelSections}>
-          {/* Staged Section */}
-          <StatusSection
-            title="Staged"
-            count={status?.staged.length ?? 0}
-            files={status?.staged ?? []}
-            collapsed={!!collapsedSections['staged']}
-            onToggle={() => toggleSection('staged')}
-            onFileClick={(f, e) => handleFileClick(f, false, 'staged', e)}
-            onStageAction={(file) => unstageFiles([file.path])}
-            stageActionIcon={<Minus size={14} />}
-            stageActionTitle="Unstage"
-            selectedFile={selectedFile}
-            selectedFiles={selectedFiles}
-            sectionClass="status-staged"
-            sectionKey="staged"
-            operationInProgress={operationInProgress}
-            onDragStart={(file, e) => handleDragStart(file, 'staged', e)}
-            onDragOver={(e) => handleDragOver('unstaged', e)}
-            onDrop={(e) => handleDrop('unstaged', e)}
-            onDragEnd={handleDragEnd}
-            dropTargetSection="staged"
-            dragSource={dragSource}
-            handleDragOver={handleDragOver}
-            handleDrop={handleDrop}
-            onFileContextMenu={handleFileContextMenu}
-          />
+      {!collapsed && (
+        <>
+          {isClean ? (
+            <div className={styles.panelClean}>
+              <span className={styles.panelCleanIcon}><Check size={16} /></span>
+              <span>Working directory clean — nothing to commit</span>
+            </div>
+          ) : (
+            <div className={styles.twoColumnLayout}>
+              {/* ─── Left Column: Unstaged Changes ─── */}
+              <div
+                className={`${styles.column} ${styles.columnUnstaged} ${isDropTargetUnstaged ? styles.dropTarget : ''}`}
+                onDragOver={(e) => handleDragOver('unstaged', e)}
+                onDrop={(e) => handleDrop('unstaged', e)}
+              >
+                <div className={styles.columnHeader}>
+                  <span className={styles.columnTitle}>
+                    Unstaged Changes
+                    <span className={styles.columnCount}>{unstagedCount}</span>
+                  </span>
+                  <div className={styles.columnActions}>
+                    {unstagedCount > 0 && (
+                      <>
+                        <button
+                          className={`${styles.actionBtn} ${styles.actionStageAll}`}
+                          onClick={stageAll}
+                          disabled={operationInProgress}
+                          title="Stage All Changes"
+                        >
+                          <Plus size={12} /> Stage All
+                        </button>
+                        <button
+                          className={`${styles.actionBtn} ${styles.actionDiscardAll}`}
+                          onClick={discardAllChanges}
+                          disabled={operationInProgress}
+                          title="Discard All Changes (irreversible)"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className={styles.columnFiles}>
+                  {unstagedCount === 0 ? (
+                    <div className={styles.columnEmpty}>No unstaged changes</div>
+                  ) : (
+                    unstagedFiles.map((file) => {
+                      const isUntracked = file.status === 'untracked'
+                      const section = isUntracked ? 'untracked' : 'unstaged'
+                      const fileKey = `${section}:${file.path}`
+                      const isSelected =
+                        selectedFiles.has(fileKey) ||
+                        (selectedFiles.size === 0 &&
+                          selectedFile?.path === file.path &&
+                          !selectedFile?.staged)
+                      return (
+                        <div
+                          key={`${section}-${file.path}`}
+                          className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''}`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(file, section as 'unstaged' | 'untracked', e)}
+                          onDragEnd={handleDragEnd}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleFileContextMenu(file, e.clientX, e.clientY)
+                          }}
+                        >
+                          <button
+                            className={styles.fileInfo}
+                            onClick={(e) => handleFileClick(file, isUntracked, section, e)}
+                            title={`${file.path} (${STATUS_LABELS[file.status] || file.status})`}
+                          >
+                            <span className={`${styles.fileIcon} ${iconClassMap[file.status] || ''}`}>
+                              {STATUS_ICONS[file.status] || '?'}
+                            </span>
+                            <span className={styles.fileName}>{fileName(file.path)}</span>
+                            {fileDir(file.path) && (
+                              <span className={styles.fileDir}>{fileDir(file.path)}</span>
+                            )}
+                          </button>
+                          <div className={styles.fileActions}>
+                            <button
+                              className={`${styles.stageBtn} ${styles.stage}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                stageFiles([file.path])
+                              }}
+                              disabled={operationInProgress}
+                              title={`Stage ${file.path}`}
+                            >
+                              <Plus size={14} />
+                            </button>
+                            <button
+                              className={`${styles.stageBtn} ${styles.discardBtn}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                discardFile(file)
+                              }}
+                              disabled={operationInProgress}
+                              title={`Discard changes to ${file.path}`}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
 
-          {/* Unstaged Section */}
-          <StatusSection
-            title="Unstaged"
-            count={status?.unstaged.length ?? 0}
-            files={status?.unstaged ?? []}
-            collapsed={!!collapsedSections['unstaged']}
-            onToggle={() => toggleSection('unstaged')}
-            onFileClick={(f, e) => handleFileClick(f, false, 'unstaged', e)}
-            onStageAction={(file) => stageFiles([file.path])}
-            stageActionIcon={<Plus size={14} />}
-            stageActionTitle="Stage"
-            selectedFile={selectedFile}
-            selectedFiles={selectedFiles}
-            sectionClass="status-unstaged"
-            sectionKey="unstaged"
-            operationInProgress={operationInProgress}
-            onDragStart={(file, e) => handleDragStart(file, 'unstaged', e)}
-            onDragOver={(e) => handleDragOver('staged', e)}
-            onDrop={(e) => handleDrop('staged', e)}
-            onDragEnd={handleDragEnd}
-            dropTargetSection="unstaged"
-            dragSource={dragSource}
-            handleDragOver={handleDragOver}
-            handleDrop={handleDrop}
-            onFileContextMenu={handleFileContextMenu}
-          />
+              {/* ─── Right Column: Staged Changes ─── */}
+              <div
+                className={`${styles.column} ${styles.columnStaged} ${isDropTargetStaged ? styles.dropTarget : ''}`}
+                onDragOver={(e) => handleDragOver('staged', e)}
+                onDrop={(e) => handleDrop('staged', e)}
+              >
+                <div className={styles.columnHeader}>
+                  <span className={styles.columnTitle}>
+                    Staged Changes
+                    <span className={`${styles.columnCount} ${styles.columnCountStaged}`}>{stagedCount}</span>
+                  </span>
+                  <div className={styles.columnActions}>
+                    {stagedCount > 0 && (
+                      <button
+                        className={`${styles.actionBtn} ${styles.actionUnstageAll}`}
+                        onClick={unstageAll}
+                        disabled={operationInProgress}
+                        title="Unstage All"
+                      >
+                        <Minus size={12} /> Unstage All
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className={styles.columnFiles}>
+                  {stagedCount === 0 ? (
+                    <div className={styles.columnEmpty}>No staged changes</div>
+                  ) : (
+                    (status?.staged ?? []).map((file) => {
+                      const fileKey = `staged:${file.path}`
+                      const isSelected =
+                        selectedFiles.has(fileKey) ||
+                        (selectedFiles.size === 0 &&
+                          selectedFile?.path === file.path &&
+                          selectedFile?.staged === true)
+                      return (
+                        <div
+                          key={`staged-${file.path}`}
+                          className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''}`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(file, 'staged', e)}
+                          onDragEnd={handleDragEnd}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleFileContextMenu(file, e.clientX, e.clientY)
+                          }}
+                        >
+                          <button
+                            className={styles.fileInfo}
+                            onClick={(e) => handleFileClick(file, false, 'staged', e)}
+                            title={`${file.path} (${STATUS_LABELS[file.status] || file.status})`}
+                          >
+                            <span className={`${styles.fileIcon} ${iconClassMap[file.status] || ''}`}>
+                              {STATUS_ICONS[file.status] || '?'}
+                            </span>
+                            <span className={styles.fileName}>{fileName(file.path)}</span>
+                            {fileDir(file.path) && (
+                              <span className={styles.fileDir}>{fileDir(file.path)}</span>
+                            )}
+                          </button>
+                          <button
+                            className={`${styles.stageBtn} ${styles.unstage}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              unstageFiles([file.path])
+                            }}
+                            disabled={operationInProgress}
+                            title={`Unstage ${file.path}`}
+                          >
+                            <Minus size={14} />
+                          </button>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
 
-          {/* Untracked Section */}
-          <StatusSection
-            title="Untracked"
-            count={status?.untracked.length ?? 0}
-            files={status?.untracked ?? []}
-            collapsed={!!collapsedSections['untracked']}
-            onToggle={() => toggleSection('untracked')}
-            onFileClick={(f, e) => handleFileClick(f, true, 'untracked', e)}
-            onStageAction={(file) => stageFiles([file.path])}
-            stageActionIcon={<Plus size={14} />}
-            stageActionTitle="Stage"
-            selectedFile={selectedFile}
-            selectedFiles={selectedFiles}
-            sectionClass="status-untracked"
-            sectionKey="untracked"
-            operationInProgress={operationInProgress}
-            onDragStart={(file, e) => handleDragStart(file, 'untracked', e)}
-            onDragOver={(e) => handleDragOver('staged', e)}
-            onDrop={(e) => handleDrop('staged', e)}
-            onDragEnd={handleDragEnd}
-            dropTargetSection="untracked"
-            dragSource={dragSource}
-            handleDragOver={handleDragOver}
-            handleDrop={handleDrop}
-            onFileContextMenu={handleFileContextMenu}
-          />
-        </div>
-      )}
+                {/* ─── Commit Form (at bottom of staged column) ─── */}
+                <div className={styles.commitForm}>
+                  {commitError && (
+                    <div className={styles.commitError}>{commitError}</div>
+                  )}
+                  {commitSuccess && (
+                    <div className={styles.commitSuccess}>{commitSuccess}</div>
+                  )}
+                  <div className={styles.commitSubjectRow}>
+                    <input
+                      ref={subjectRef}
+                      className={`${styles.commitSubject} ${subjectOverLimit ? styles.commitSubjectOverLimit : ''}`}
+                      type="text"
+                      value={commitSubject}
+                      onChange={(e) => setCommitSubject(e.target.value)}
+                      placeholder="Commit message..."
+                      disabled={committing}
+                    />
+                    <span className={`${styles.charCount} ${subjectOverLimit ? styles.charCountOver : ''}`}>
+                      {subjectLength}/{SUBJECT_WARN_LENGTH}
+                    </span>
+                  </div>
+                  {!commitBodyExpanded ? (
+                    <button
+                      className={styles.expandBody}
+                      onClick={() => setCommitBodyExpanded(true)}
+                      disabled={committing}
+                    >
+                      + Description
+                    </button>
+                  ) : (
+                    <textarea
+                      className={styles.commitBody}
+                      value={commitBody}
+                      onChange={(e) => setCommitBody(e.target.value)}
+                      placeholder="Extended description (optional)..."
+                      rows={3}
+                      disabled={committing}
+                    />
+                  )}
+                  <div className={styles.commitOptions}>
+                    <label className={styles.commitOption}>
+                      <input
+                        type="checkbox"
+                        checked={amend}
+                        onChange={(e) => setAmend(e.target.checked)}
+                        disabled={committing}
+                      />
+                      Amend
+                    </label>
+                    <label className={styles.commitOption}>
+                      <input
+                        type="checkbox"
+                        checked={signoff}
+                        onChange={(e) => setSignoff(e.target.checked)}
+                        disabled={committing}
+                      />
+                      Sign-off
+                    </label>
+                    <label className={styles.commitOption} title="Sign with GPG key">
+                      <input
+                        type="checkbox"
+                        checked={gpgSign}
+                        onChange={(e) => setGpgSign(e.target.checked)}
+                        disabled={committing}
+                      />
+                      GPG
+                    </label>
+                  </div>
+                  <div className={styles.commitActions}>
+                    <button
+                      className={`${styles.commitBtn} ${styles.commitBtnPrimary}`}
+                      onClick={() => handleCommit(false)}
+                      disabled={!canCommit}
+                      title="Commit (Ctrl+Enter)"
+                    >
+                      {committing ? 'Committing...' : amend ? 'Amend' : 'Commit'}
+                    </button>
+                    <button
+                      className={`${styles.commitBtn} ${styles.commitBtnSecondary}`}
+                      onClick={() => handleCommit(true)}
+                      disabled={!canCommit}
+                      title="Commit and push to remote"
+                    >
+                      {committing ? '...' : 'Commit & Push'}
+                    </button>
+                  </div>
+                  {stagedCount === 0 && !amend && (
+                    <div className={styles.commitHint}>
+                      Stage files to commit.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
-      {/* Diff Viewer with Hunk/Line Staging */}
-      {selectedFile && (
-        <div className={styles.diffViewer}>
-          <div className={styles.diffHeader}>
-            <span className={styles.diffFilename}>
-              {selectedFile.staged ? '(Staged) ' : ''}
-              {selectedFile.path}
-            </span>
-            <button
-              className={styles.diffClose}
-              onClick={() => {
-                setSelectedFile(null)
-                setDiffContent(null)
-              }}
-              title="Close diff"
-            >
-              <X size={14} />
-            </button>
-          </div>
-          <div className={styles.diffContent}>
-            {diffLoading ? (
-              <div className={styles.diffLoading}>Loading diff...</div>
-            ) : diffContent ? (
-              <DiffViewerWithStaging
-                diffContent={diffContent}
-                filePath={selectedFile.path}
-                staged={selectedFile.staged}
-                isUntracked={selectedFile.isUntracked}
-                repoPath={repoPath}
-                onOperationDone={() => {
-                  loadStatus()
-                  onRefresh?.()
-                }}
-                operationInProgress={operationInProgress}
-                setOperationInProgress={setOperationInProgress}
-              />
-            ) : (
-              <div className={styles.diffEmpty}>No changes to display</div>
-            )}
-          </div>
-        </div>
+          {/* Diff Viewer with Hunk/Line Staging */}
+          {selectedFile && (
+            <div className={styles.diffViewer}>
+              <div className={styles.diffHeader}>
+                <span className={styles.diffFilename}>
+                  {selectedFile.staged ? '(Staged) ' : ''}
+                  {selectedFile.path}
+                </span>
+                <button
+                  className={styles.diffClose}
+                  onClick={() => {
+                    setSelectedFile(null)
+                    setDiffContent(null)
+                  }}
+                  title="Close diff"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+              <div className={styles.diffContent}>
+                {diffLoading ? (
+                  <div className={styles.diffLoading}>Loading diff...</div>
+                ) : diffContent ? (
+                  <DiffViewerWithStaging
+                    diffContent={diffContent}
+                    filePath={selectedFile.path}
+                    staged={selectedFile.staged}
+                    isUntracked={selectedFile.isUntracked}
+                    repoPath={repoPath}
+                    onOperationDone={() => {
+                      loadStatus()
+                      onRefresh?.()
+                    }}
+                    operationInProgress={operationInProgress}
+                    setOperationInProgress={setOperationInProgress}
+                  />
+                ) : (
+                  <div className={styles.diffEmpty}>No changes to display</div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* File Context Menu */}
@@ -808,7 +1137,6 @@ function parseDiff(diffText: string): { fileHeader: FileHeader; hunks: DiffHunk[
   for (const line of allLines) {
     if (line.startsWith('@@')) {
       inHeader = false
-      // Parse hunk header: @@ -oldStart,oldCount +newStart,newCount @@
       const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
       oldLine = match ? parseInt(match[1], 10) : 1
       newLine = match ? parseInt(match[2], 10) : 1
@@ -824,10 +1152,8 @@ function parseDiff(diffText: string): { fileHeader: FileHeader; hunks: DiffHunk[
         currentHunk.lines.push({ type: 'removed', content: line, oldLineNum: oldLine, newLineNum: null })
         oldLine++
       } else if (line.startsWith('\\')) {
-        // "\ No newline at end of file" — keep in hunk but don't count
         currentHunk.lines.push({ type: 'context', content: line, oldLineNum: null, newLineNum: null })
       } else {
-        // Context line (starts with space or is empty)
         currentHunk.lines.push({ type: 'context', content: line, oldLineNum: oldLine, newLineNum: newLine })
         oldLine++
         newLine++
@@ -838,34 +1164,22 @@ function parseDiff(diffText: string): { fileHeader: FileHeader; hunks: DiffHunk[
   return { fileHeader: { lines: fileHeaderLines }, hunks }
 }
 
-/**
- * Build a patch string for a single hunk suitable for `git apply --cached`.
- */
 function buildHunkPatch(fileHeader: FileHeader, hunk: DiffHunk): string {
   const headerStr = fileHeader.lines.join('\n')
   const hunkLines = [hunk.header, ...hunk.lines.map((l) => l.content)].join('\n')
   return headerStr + '\n' + hunkLines + '\n'
 }
 
-/**
- * Build a patch for selected lines within a hunk.
- * For staging: keep selected added lines, convert unselected added lines to context, keep all removed lines or only selected ones.
- * For unstaging (reverse): similar but inverted.
- */
 function buildLinesPatch(
   fileHeader: FileHeader,
   hunk: DiffHunk,
   selectedLineIndices: Set<number>,
-  forStaging: boolean
+  _forStaging: boolean
 ): string {
-  // We need to rebuild the hunk with only the selected lines as changes
-  // Unselected added lines → removed from patch (not included)
-  // Unselected removed lines → converted to context lines
   const newHunkLines: string[] = []
   let oldCount = 0
   let newCount = 0
 
-  // Parse the original header to get the start lines
   const headerMatch = hunk.header.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)/)
   const oldStart = headerMatch ? parseInt(headerMatch[1], 10) : 1
   const newStart = headerMatch ? parseInt(headerMatch[2], 10) : 1
@@ -876,7 +1190,6 @@ function buildLinesPatch(
     const isSelected = selectedLineIndices.has(i)
 
     if (line.content.startsWith('\\')) {
-      // "No newline" marker — include as-is
       newHunkLines.push(line.content)
       continue
     }
@@ -887,18 +1200,14 @@ function buildLinesPatch(
       newCount++
     } else if (line.type === 'added') {
       if (isSelected) {
-        // Keep as added
         newHunkLines.push(line.content)
         newCount++
       }
-      // If not selected, just skip it (don't add it)
     } else if (line.type === 'removed') {
       if (isSelected) {
-        // Keep as removed
         newHunkLines.push(line.content)
         oldCount++
       } else {
-        // Convert to context (keep the line but as unchanged)
         newHunkLines.push(' ' + line.content.substring(1))
         oldCount++
         newCount++
@@ -926,7 +1235,7 @@ interface HunkDiffViewerProps {
 
 function HunkDiffViewer({
   diffContent,
-  filePath,
+  filePath: _filePath,
   staged,
   isUntracked,
   repoPath,
@@ -934,11 +1243,10 @@ function HunkDiffViewer({
   operationInProgress,
   setOperationInProgress
 }: HunkDiffViewerProps): React.JSX.Element {
-  const [selectedLines, setSelectedLines] = useState<Map<number, Set<number>>>(new Map()) // hunkIdx → set of line indices
+  const [selectedLines, setSelectedLines] = useState<Map<number, Set<number>>>(new Map())
 
   const { fileHeader, hunks } = React.useMemo(() => parseDiff(diffContent), [diffContent])
 
-  // Reset selections when diff changes
   useEffect(() => {
     setSelectedLines(new Map())
   }, [diffContent])
@@ -951,7 +1259,6 @@ function HunkDiffViewer({
       const hunkSet = new Set(next.get(hunkIdx) || [])
 
       if (e.shiftKey && hunkSet.size > 0) {
-        // Range select from last selected to this one
         const arr = Array.from(hunkSet).sort((a, b) => a - b)
         const lastSelected = arr[arr.length - 1]
         const start = Math.min(lastSelected, lineIdx)
@@ -1078,7 +1385,6 @@ function HunkDiffViewer({
     [operationInProgress, hasValidHeader, fileHeader, hunks, repoPath, onOperationDone, setOperationInProgress]
   )
 
-  // If it's not a parseable diff (e.g. untracked file placeholder text), show raw
   if (hunks.length === 0 || !hasValidHeader) {
     return <pre className={styles.diffPre}>{diffContent}</pre>
   }
@@ -1236,143 +1542,6 @@ function DiffViewerWithStaging(props: DiffViewerWithStagingProps): React.JSX.Ele
           diffContent={props.diffContent}
           filePath={props.filePath}
         />
-      )}
-    </div>
-  )
-}
-
-// ─── Sub-component for each section ──────────────────────────────────────────
-
-interface StatusSectionProps {
-  title: string
-  count: number
-  files: FileStatus[]
-  collapsed: boolean
-  onToggle: () => void
-  onFileClick: (file: FileStatus, e: React.MouseEvent) => void
-  onStageAction: (file: FileStatus) => void
-  stageActionIcon: React.ReactNode
-  stageActionTitle: string
-  selectedFile: { path: string; staged: boolean; isUntracked: boolean } | null
-  selectedFiles: Set<string>
-  sectionClass: string
-  sectionKey: string
-  operationInProgress: boolean
-  onDragStart: (file: FileStatus, e: React.DragEvent) => void
-  onDragOver: (e: React.DragEvent) => void
-  onDrop: (e: React.DragEvent) => void
-  onDragEnd: () => void
-  dropTargetSection: 'staged' | 'unstaged' | 'untracked'
-  dragSource: 'staged' | 'unstaged' | 'untracked' | null
-  handleDragOver: (section: 'staged' | 'unstaged', e: React.DragEvent) => void
-  handleDrop: (section: 'staged' | 'unstaged', e: React.DragEvent) => Promise<void>
-  onFileContextMenu: (file: FileStatus, x: number, y: number) => void
-}
-
-function StatusSection({
-  title,
-  count,
-  files,
-  collapsed,
-  onToggle,
-  onFileClick,
-  onStageAction,
-  stageActionIcon,
-  stageActionTitle,
-  selectedFile,
-  selectedFiles,
-  sectionClass,
-  sectionKey,
-  operationInProgress,
-  onDragStart,
-  onDragEnd,
-  dropTargetSection,
-  dragSource,
-  handleDragOver,
-  handleDrop,
-  onFileContextMenu
-}: StatusSectionProps): React.JSX.Element | null {
-  if (count === 0) return null
-
-  // Determine if this section can accept drops
-  const isDropTarget =
-    (dropTargetSection === 'staged' && (dragSource === 'unstaged' || dragSource === 'untracked')) ||
-    ((dropTargetSection === 'unstaged' || dropTargetSection === 'untracked') && dragSource === 'staged')
-
-  const dropSection: 'staged' | 'unstaged' =
-    dropTargetSection === 'staged' ? 'staged' :
-    dropTargetSection === 'unstaged' ? 'unstaged' :
-    dropTargetSection === 'untracked' ? 'staged' : 'staged'
-
-  return (
-    <div
-      className={`${styles.section} ${sectionClassMap[sectionClass] || ''} ${isDropTarget ? styles.dropTarget : ''}`}
-      onDragOver={(e) => {
-        if (isDropTarget) {
-          handleDragOver(dropSection, e)
-        }
-      }}
-      onDrop={(e) => {
-        if (isDropTarget) {
-          handleDrop(dropSection, e)
-        }
-      }}
-    >
-      <button className={styles.sectionHeader} onClick={onToggle}>
-        <span className={`${styles.sectionArrow} ${collapsed ? '' : styles.expanded}`}><ChevronRight size={14} /></span>
-        <span>{title}</span>
-        <span className={styles.sectionCount}>{count}</span>
-      </button>
-      {!collapsed && (
-        <div className={styles.sectionFiles}>
-          {files.map((file) => {
-            const fileKey = `${sectionKey}:${file.path}`
-            const isSelected =
-              selectedFiles.has(fileKey) ||
-              (selectedFiles.size === 0 &&
-                selectedFile?.path === file.path &&
-                selectedFile?.staged === file.staged)
-            return (
-              <div
-                key={`${file.path}-${file.staged}`}
-                className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''}`}
-                draggable
-                onDragStart={(e) => onDragStart(file, e)}
-                onDragEnd={onDragEnd}
-                onContextMenu={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  onFileContextMenu(file, e.clientX, e.clientY)
-                }}
-              >
-                <button
-                  className={styles.fileInfo}
-                  onClick={(e) => onFileClick(file, e)}
-                  title={`${file.path} (${STATUS_LABELS[file.status] || file.status})`}
-                >
-                  <span className={`${styles.fileIcon} ${iconClassMap[file.status] || ''}`}>
-                    {STATUS_ICONS[file.status] || '?'}
-                  </span>
-                  <span className={styles.fileName}>{fileName(file.path)}</span>
-                  {fileDir(file.path) && (
-                    <span className={styles.fileDir}>{fileDir(file.path)}</span>
-                  )}
-                </button>
-                <button
-                  className={`${styles.stageBtn} ${stageActionTitle === 'Stage' ? styles.stage : styles.unstage}`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onStageAction(file)
-                  }}
-                  disabled={operationInProgress}
-                  title={`${stageActionTitle} ${file.path}`}
-                >
-                  {stageActionIcon}
-                </button>
-              </div>
-            )
-          })}
-        </div>
       )}
     </div>
   )

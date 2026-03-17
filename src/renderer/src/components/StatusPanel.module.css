@@ -1,6 +1,6 @@
-/* StatusPanel.module.css — Scoped styles for StatusPanel component */
+/* StatusPanel.module.css — Redesigned Two-Column Staging Area */
 
-/* ─── Status Panel ──────────────────────────────────────────────────────── */
+/* ─── Panel Container ──────────────────────────────────────────────────── */
 
 .panel {
   display: flex;
@@ -9,9 +9,10 @@
   border-radius: var(--radius-md);
   background: var(--bg-secondary);
   margin-bottom: var(--space-sm);
-  max-height: 400px;
   overflow: hidden;
 }
+
+/* ─── Collapsible Header ───────────────────────────────────────────────── */
 
 .panelHeader {
   display: flex;
@@ -20,59 +21,61 @@
   padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--border);
   background: var(--bg-tertiary);
-  gap: 6px;
+  cursor: pointer;
+  border: none;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  width: 100%;
+  text-align: left;
 }
 
-.panelActions {
+.panelHeader:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.panelHeaderLeft {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
-.actionBtn {
-  background: var(--border);
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: var(--font-xs);
-  padding: 3px var(--space-sm);
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.actionBtn:hover:not(:disabled) {
-  color: var(--text-primary);
-}
-
-.actionBtn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.actionStageAll:hover:not(:disabled) {
-  background: rgba(166, 227, 161, 0.2);
-  color: var(--success);
-}
-
-.actionUnstageAll:hover:not(:disabled) {
-  background: rgba(250, 179, 135, 0.2);
-  color: var(--orange);
-}
-
-.actionDiscardAll {
-  color: var(--btn-danger-bg) !important;
-}
-
-.actionDiscardAll:hover:not(:disabled) {
-  background: rgba(243, 139, 168, 0.2) !important;
-  color: var(--btn-danger-bg) !important;
+.panelHeaderChevron {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
 }
 
 .panelTitle {
   font-size: var(--font-md);
   font-weight: 600;
   color: var(--text-primary);
+  margin: 0;
+}
+
+.cleanBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-xs);
+  color: var(--success);
+  background: rgba(166, 227, 161, 0.12);
+  padding: 1px 8px;
+  border-radius: var(--radius-lg);
+  font-weight: 500;
+}
+
+.changeBadge {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  background: var(--border);
+  padding: 1px 8px;
+  border-radius: var(--radius-lg);
+  font-weight: 500;
+}
+
+.panelHeaderRight {
+  display: flex;
+  align-items: center;
 }
 
 .panelRefresh {
@@ -128,88 +131,144 @@
   font-size: 16px;
 }
 
-.panelSections {
-  overflow-y: auto;
+/* ─── Two-Column Layout ────────────────────────────────────────────────── */
+
+.twoColumnLayout {
+  display: flex;
+  min-height: 120px;
+  max-height: 360px;
+}
+
+.column {
   flex: 1;
-  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 
-/* ─── Status Section ────────────────────────────────────────────────────── */
+.columnUnstaged {
+  border-right: 1px solid var(--border);
+}
 
-.section {
+.columnHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px var(--space-sm);
+  background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border);
+  gap: var(--space-xs);
+  flex-shrink: 0;
 }
 
-.section:last-child {
-  border-bottom: none;
-}
-
-.sectionHeader {
+.columnTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 6px;
-  width: 100%;
-  padding: 6px var(--space-md);
-  background: none;
-  border: none;
-  color: var(--text-primary);
-  cursor: pointer;
-  font-size: var(--font-sm);
-  font-weight: 600;
-  text-align: left;
+  white-space: nowrap;
 }
 
-.sectionHeader:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.sectionArrow {
-  font-size: 8px;
-  color: var(--text-muted);
-  transition: transform 0.15s ease;
-  display: inline-block;
-}
-
-.expanded {
-  transform: rotate(90deg);
-}
-
-.sectionCount {
-  margin-left: auto;
-  background: var(--border);
-  color: var(--text-secondary);
+.columnCount {
+  background: rgba(250, 179, 135, 0.15);
+  color: var(--orange);
   font-size: 10px;
   padding: 1px 6px;
   border-radius: var(--radius-lg);
   font-weight: 500;
 }
 
-.statusStaged .sectionCount {
+.columnCountStaged {
   background: rgba(166, 227, 161, 0.15);
   color: var(--success);
 }
 
-.statusUnstaged .sectionCount {
-  background: rgba(250, 179, 135, 0.15);
+.columnActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.columnFiles {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.columnEmpty {
+  padding: var(--space-md);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-style: italic;
+}
+
+/* ─── Action Buttons ───────────────────────────────────────────────────── */
+
+.actionBtn {
+  background: var(--border);
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-xs);
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.actionBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.actionStageAll:hover:not(:disabled) {
+  background: rgba(166, 227, 161, 0.2);
+  color: var(--success);
+}
+
+.actionUnstageAll:hover:not(:disabled) {
+  background: rgba(250, 179, 135, 0.2);
   color: var(--orange);
 }
 
-.statusUntracked .sectionCount {
-  background: rgba(137, 180, 250, 0.15);
-  color: var(--accent);
+.actionDiscardAll {
+  color: var(--btn-danger-bg) !important;
+  padding: 2px 5px;
+}
+
+.actionDiscardAll:hover:not(:disabled) {
+  background: rgba(243, 139, 168, 0.2) !important;
+  color: var(--btn-danger-bg) !important;
+}
+
+/* ─── Drop Target ───────────────────────────────────────────────────────── */
+
+.dropTarget {
+  background: rgba(137, 180, 250, 0.05);
+}
+
+.dropTarget > .columnHeader {
+  background: rgba(137, 180, 250, 0.08);
 }
 
 /* ─── Status File Items ─────────────────────────────────────────────────── */
-
-.sectionFiles {
-  padding: 2px 0;
-}
 
 .fileItem {
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 0 6px 0 0;
+  padding: 0 4px 0 0;
   background: none;
   color: var(--text-primary);
   font-size: var(--font-sm);
@@ -229,10 +288,10 @@
 .fileInfo {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex: 1;
   min-width: 0;
-  padding: 3px 6px 3px 24px;
+  padding: 3px 4px 3px 8px;
   background: none;
   border: none;
   color: var(--text-primary);
@@ -241,6 +300,13 @@
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.fileActions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
 }
 
 .stageBtn {
@@ -282,19 +348,15 @@
   border-color: rgba(250, 179, 135, 0.3);
 }
 
+.discardBtn:hover:not(:disabled) {
+  color: var(--btn-danger-bg);
+  background: rgba(243, 139, 168, 0.1);
+  border-color: rgba(243, 139, 168, 0.3);
+}
+
 .stageBtn:disabled {
   opacity: 0 !important;
   cursor: default;
-}
-
-/* ─── Drop Target ───────────────────────────────────────────────────────── */
-
-.dropTarget {
-  background: rgba(137, 180, 250, 0.05);
-}
-
-.dropTarget > .sectionHeader {
-  background: rgba(137, 180, 250, 0.08);
 }
 
 /* ─── File Icon ─────────────────────────────────────────────────────────── */
@@ -346,13 +408,180 @@
   text-overflow: ellipsis;
 }
 
+/* ─── Commit Form ──────────────────────────────────────────────────────── */
+
+.commitForm {
+  border-top: 1px solid var(--border);
+  padding: var(--space-sm);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.commitError {
+  background: rgba(255, 85, 85, 0.15);
+  color: var(--error);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.commitSuccess {
+  background: rgba(80, 250, 123, 0.15);
+  color: var(--success);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.commitSubjectRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: 4px;
+}
+
+.commitSubject {
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.commitSubject:focus {
+  border-color: var(--accent);
+}
+
+.commitSubjectOverLimit {
+  border-color: var(--warning);
+}
+
+.charCount {
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  min-width: 40px;
+  text-align: right;
+}
+
+.charCountOver {
+  color: var(--warning);
+}
+
+.expandBody {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  cursor: pointer;
+  padding: 2px 0;
+  margin-bottom: 4px;
+}
+
+.expandBody:hover {
+  color: var(--text-primary);
+}
+
+.commitBody {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+  min-height: 40px;
+  margin-bottom: 4px;
+  box-sizing: border-box;
+  transition: border-color var(--transition-fast);
+}
+
+.commitBody:focus {
+  border-color: var(--accent);
+}
+
+.commitOptions {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xs);
+}
+
+.commitOption {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.commitOption input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
+.commitActions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.commitBtn {
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background var(--transition-fast), opacity var(--transition-fast);
+}
+
+.commitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.commitBtnPrimary {
+  background: var(--accent);
+  color: var(--text-primary);
+}
+
+.commitBtnPrimary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.commitBtnSecondary {
+  background: var(--bg-tertiary, var(--bg-primary));
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.commitBtnSecondary:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.commitHint {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-style: italic;
+}
+
 /* ─── Status Diff Viewer ────────────────────────────────────────────────── */
 
 .diffViewer {
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--border);
-  max-height: 200px;
+  max-height: 250px;
   overflow: hidden;
 }
 
@@ -414,7 +643,7 @@
   tab-size: 4;
 }
 
-/* ─── Hunk Diff Viewer (US-015) ─────────────────────────────────────────── */
+/* ─── Hunk Diff Viewer ─────────────────────────────────────────────────── */
 
 .hunkDiffViewer {
   overflow-y: auto;

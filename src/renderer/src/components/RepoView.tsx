@@ -6,7 +6,6 @@ import conflictStyles from './ConflictResolver.module.css'
 import editorStyles from './CodeEditor.module.css'
 import { BlameView } from './BlameView'
 import { CodeEditor } from './CodeEditor'
-import { CommitDialog } from './CommitDialog'
 import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from './CommitFilterBar'
 import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
@@ -243,15 +242,18 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect }: RepoViewProp
             />
           )}
 
-          {/* Status Panel */}
-          <StatusPanel repoPath={repoPath} onRefresh={loadRepoData} />
-
-          {/* Commit Dialog */}
-          <CommitDialog
-            repoPath={repoPath}
-            stagedCount={status?.staged ?? 0}
-            onCommitDone={loadRepoData}
+          {/* Commit History Filters */}
+          <CommitFilterBar
+            filters={commitFilters}
+            onFiltersChange={setCommitFilters}
+            filePath={fileHistoryPath}
           />
+
+          {/* Commit Graph */}
+          <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} filters={graphFilters} />
+
+          {/* Staging Area (below graph) */}
+          <StatusPanel repoPath={repoPath} onRefresh={loadRepoData} />
 
           {/* Blame View */}
           {blameFilePath && (
@@ -285,16 +287,6 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect }: RepoViewProp
               <CodeEditor repoPath={repoPath} onFileSaved={loadRepoData} />
             </div>
           )}
-
-          {/* Commit History Filters */}
-          <CommitFilterBar
-            filters={commitFilters}
-            onFiltersChange={setCommitFilters}
-            filePath={fileHistoryPath}
-          />
-
-          {/* Commit Graph */}
-          <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} filters={graphFilters} />
         </div>
       )}
     </div>
