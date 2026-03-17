@@ -21,6 +21,9 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - `branch-dialog-btn-primary`, `branch-dialog-btn-secondary`, `branch-dialog-btn-danger` are shared across Toolbar, Sidebar, MergeDialog, RebaseDialog, SearchPalette
 - `branch-ctx-menu-*` styles are shared across Sidebar, FileTree, ContextMenu — keep in global.css
 - FileTree.tsx imports sidebarStyles for shared classes (placeholder, searchBox, searchInput, searchClear) — update FileTree when modifying sidebar styles
+- ALL component styles are now in CSS modules — global.css has only reset, layout, shared branch-dialog/ctx-menu, resize handles, syn-* tokens, and slideUp animation
+- Cross-component CSS module imports are fine: e.g., RepoView imports blameStyles, conflictStyles, editorStyles for child component wrappers
+- global.css is ~448 lines (8.5KB) — the branch-dialog/ctx-menu shared styles are the bulk
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -134,4 +137,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `:global()` selector in CSS modules handles cross-module class references (e.g., `.detailDiff :global(.diff-viewer)`)
   - StatusPanel includes hunk-diff-viewer styles (~200 lines) for line-level staging functionality
   - After extracting 3 components, global.css is ~4346 lines — still has many component styles to extract
+---
+## 2026-03-17 - US-043e
+- Extracted ALL remaining component styles from global.css into CSS modules (17 new modules)
+- Components: WelcomeScreen, CloneDialog, RepoView, BottomPanel/Terminal, CommitDialog, MergeDialog, RebaseDialog, ResetDialog, ConflictResolver, CodeEditor, SearchPalette, CommitFilterBar, FileTree, BlameView, KeyboardShortcutsPanel, SettingsPanel, NotificationToast
+- global.css reduced from ~4346 lines to 448 lines (8.5KB) — contains only: CSS reset, body/html, app layout, shared branch-ctx-menu/branch-dialog styles, resize handles, syntax highlighting tokens, shared slideUp animation
+- Fixed orphaned class references: repo-view-spinner in CommitGraph (added local spinner class), conflict-banner/editor-toggle/code-editor-panel in RepoView (imported from respective modules), blame-view-panel in RepoView (imported BlameView module)
+- Moved responsive media query from global.css to Toolbar.module.css since it only targeted toolbar classes
+- WelcomeScreen agent also updated MainContent.tsx to use .main-content--centered instead of :has(.welcome-screen) selector
+- Files changed: 40 files (17 new .module.css, 22 modified .tsx, global.css)
+- **Learnings for future iterations:**
+  - When extracting CSS modules, parent components often reference child component classes (e.g., RepoView uses blame-view-panel, conflict-banner, code-editor-panel) — import child modules in parent
+  - Shared animations (@keyframes slideUp) and shared component styles (branch-ctx-menu-*, branch-dialog-*) must stay in global.css
+  - `:has()` CSS selectors break when child class names become scoped — use modifier classes instead
+  - After full CSS module extraction, global.css should only contain: reset, body, app layout, shared cross-component styles, syntax highlighting tokens, and shared keyframes
+  - Responsive media queries referencing module-scoped classes must move to the module file
 ---

@@ -154,7 +154,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Final CSS cleanup pass. After this, global.css should be small (< 5KB) with only resets and global defaults."
     },
     {
