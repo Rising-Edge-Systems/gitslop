@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react'
 import { TitleBar } from './components/TitleBar'
 import { AppLayout } from './components/AppLayout'
 import { SettingsPanel } from './components/SettingsPanel'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { useSettings } from './hooks/useSettings'
 
 function App(): React.JSX.Element {
@@ -39,21 +40,23 @@ function App(): React.JSX.Element {
   return (
     <div className="app">
       <TitleBar repoPath={currentRepo} theme={settings.theme} onToggleTheme={toggleTheme} />
-      <AppLayout
-        currentRepo={currentRepo}
-        onRepoOpen={handleRepoOpen}
-        onCloseRepo={handleCloseRepo}
-        onOpenSettings={openSettings}
-        settings={settings}
-      />
-      {settingsOpen && (
-        <SettingsPanel
+      <ErrorBoundary>
+        <AppLayout
+          currentRepo={currentRepo}
+          onRepoOpen={handleRepoOpen}
+          onCloseRepo={handleCloseRepo}
+          onOpenSettings={openSettings}
           settings={settings}
-          onUpdate={updateSettings}
-          onReset={resetSettings}
-          onClose={closeSettings}
         />
-      )}
+        {settingsOpen && (
+          <SettingsPanel
+            settings={settings}
+            onUpdate={updateSettings}
+            onReset={resetSettings}
+            onClose={closeSettings}
+          />
+        )}
+      </ErrorBoundary>
     </div>
   )
 }
