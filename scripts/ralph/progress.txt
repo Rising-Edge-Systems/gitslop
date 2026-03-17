@@ -32,6 +32,10 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - Sidebar props: `collapsed: boolean` and `onToggleCollapse: () => void` — both required
 - `useWindowWidth()` hook tracks window.innerWidth — use for responsive breakpoints (e.g., DETAIL_PANEL_BREAKPOINT = 1400px)
 - Detail panel overlay: `overlay` prop switches between inline (resizable column) and overlay (fixed + backdrop) modes
+- Data refresh: components use `window.electronAPI.onRepoChanged()` with debounced timeouts (500-2000ms), NOT setInterval polling
+- Loading state: only show loading spinner on initial mount (track via `initialLoadDone` ref), refresh silently in background
+- In-flight guards: use refs (`refreshInFlightRef`) to prevent overlapping async calls in the same component
+- MainContent is wrapped in React.memo — avoid passing new object/function references as props unless necessary
 
 ## 2026-03-16 - US-041
 - Installed lucide-react (^0.577.0) as a dependency
@@ -223,4 +227,23 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Toolbar now accepts `onRepoOpen` prop for opening/cloning/initializing repos
   - ToolbarButton interface pattern is useful for building dynamic button lists with grouping
   - ResizeObserver on toolbar container detects overflow — buttonWidth ~80px per button with label
+---
+## 2026-03-17 - US-046
+- Fixed full-screen blink/flash caused by cascading state updates on data refresh
+- Root causes: (1) `setLoading(true)` on every refresh in RepoView and CommitGraph hid all content momentarily, (2) 5+ setInterval pollers (3s, 5s, 5s, 5s, 10s) triggered redundant git commands, (3) File watcher triggered multiple parallel listeners
+- Fixes applied:
+  - RepoView: Only shows loading spinner on initial mount, not on subsequent refreshes (uses `initialLoadDone` ref)
+  - CommitGraph: Only shows loading on first load; added in-flight guard to prevent overlapping requests; diffs commits array by hash to skip no-op state updates; replaced 5s setInterval with file watcher listener
+  - StatusPanel: Removed 3s setInterval polling; added in-flight guard; removed `onRefresh()` cascade from watcher (only calls it on explicit user actions); increased debounce to 500ms
+  - Sidebar: Replaced ALL 5 setInterval pollers (branches, remotes, tags, stashes, submodules) with debounced onRepoChanged listeners (800ms-2000ms delays)
+  - FileTree: Added 600ms debounce to watcher listener
+  - StatusBar: Added 800ms debounce to watcher listener
+  - MainContent: Wrapped in React.memo to prevent unnecessary re-renders from parent state changes
+- Files changed: CommitGraph.tsx, FileTree.tsx, MainContent.tsx, RepoView.tsx, Sidebar.tsx, StatusBar.tsx, StatusPanel.tsx
+- **Learnings for future iterations:**
+  - Loading state should only be shown on initial mount, not on background refreshes — use a ref to track first load
+  - setInterval polling is wasteful and causes cascading re-renders — prefer file watcher events with debouncing
+  - Multiple components listening to the same onRepoChanged event should use staggered debounce delays (500ms, 600ms, 800ms, 1000ms) to avoid all firing simultaneously
+  - In-flight guards (refs tracking pending async calls) prevent overlapping network requests
+  - CommitGraph can diff commits by comparing array length + first/last hashes to skip no-op state updates
 ---
