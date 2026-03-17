@@ -336,3 +336,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `window.addEventListener('scroll', handler, true)` with `true` captures scroll events from child elements (needed for react-window scroll)
   - BranchRefContextMenu needs the `repoPath` prop directly since it calls git APIs
 ---
+## 2026-03-17 - US-050
+- Implemented full Commit Detail Panel with rich file information and inline diff viewing
+- Enhanced `git-service.ts` `showCommit()` to return file statuses (A/D/M/R/C), insertions/deletions per file, and total stats using `--name-status` and `--numstat`
+- Added `CommitFileDetail` type to CommitGraph.tsx with path, status, insertions, deletions, oldPath fields
+- Redesigned DetailPanel.tsx with: copyable SHA (click + copy button with success feedback), absolute + relative date display, Lucide status icons per file (FilePlus/FileMinus/FileEdit/FileSymlink), file count summary with +insertions/-deletions, collapsible file list
+- Click a file to load and display its diff inline using the existing DiffViewer component via `showCommitFileDiff` IPC
+- Added `repoPath` prop to DetailPanel for IPC calls; updated AppLayout to pass it
+- Files changed: git-service.ts, CommitGraph.tsx, DetailPanel.tsx, DetailPanel.module.css, AppLayout.tsx
+- **Learnings for future iterations:**
+  - `showCommit` now returns `fileDetails`, `totalInsertions`, `totalDeletions` in addition to `files` — backward compatible
+  - `--name-status` returns status codes: M (modified), A (added), D (deleted), R (renamed), C (copied)
+  - For renames, `--name-status` outputs `R100\told.txt\tnew.txt` — need to parse tab-separated fields
+  - DetailPanel needs `repoPath` to call `showCommitFileDiff` — added as required prop
+  - DiffViewer accepts `className` prop for custom styling
+  - Reset selectedFile when commit.hash changes to avoid stale diff display
+---

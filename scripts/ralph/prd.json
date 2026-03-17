@@ -350,7 +350,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on three-column layout (US-044a) and graph interaction (US-049). Uses git:showCommit and git:showCommitFileDiff IPC handlers."
     },
     {
