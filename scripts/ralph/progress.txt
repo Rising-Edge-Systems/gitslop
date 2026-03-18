@@ -835,3 +835,21 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Close button is at top-right corner of panel (w-20, 80)
   - The --filter flag matches both TestDetailPanel and TestDetailPanelModes — be aware of partial name matches
 ---
+
+## 2026-03-18 - US-GT-015
+- Implemented TestDiffViewer test class in scripts/gui-tests/tests/test_diff_viewer.py
+- Test opens a test repo fixture, clicks a commit to open detail panel
+- Clicks a file in Changed Files list to open diff view
+- Asserts inline diff with green additions and red deletions
+- Clicks Split toggle for side-by-side view, takes screenshot
+- Uses ] key to navigate to next file diff
+- Switches back to Inline mode
+- Closes detail panel with Escape
+- All 6 screenshots captured and saved as baselines
+- Files changed: scripts/gui-tests/tests/test_diff_viewer.py (new), baselines/TestDiffViewer/ (6 screenshots)
+- **Learnings for future iterations:**
+  - Detail panel file list items are around y=45% of window height, x=78% for the right-side panel
+  - Split/Inline toggle is near top of diff area at approximately y=32% of window height
+  - ] key can be used for next-file navigation in diff view
+  - Escape closes the detail panel/overlay
+---

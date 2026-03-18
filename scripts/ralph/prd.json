@@ -279,7 +279,7 @@
         "Clicks back to Inline mode"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Choose a commit with multiple changed files for this test. The gitslop repo has plenty of multi-file commits."
     },
     {
