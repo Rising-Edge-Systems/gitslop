@@ -6,7 +6,7 @@
   height: 100%;
   background-color: var(--bg-secondary);
   overflow: hidden;
-  border-right: 1px solid var(--border);
+  /* border-right removed — parent wrapper div in AppLayout handles the border */
   display: flex;
   flex-direction: column;
   animation: sidebarFadeIn 200ms ease-out;

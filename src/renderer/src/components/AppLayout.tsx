@@ -350,7 +350,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
           </div>
         )}
         {appSettings.sidebarPosition === 'left' && dragHandle}
-        <Group orientation="vertical" id="gitslop-outer-vertical">
+        <Group orientation="vertical" id="gitslop-outer-vertical" style={{ flex: 1, minWidth: 0 }}>
           <Panel id="columns" minSize={20}>
             <Group orientation="horizontal" id="gitslop-horizontal">
               <Panel id="center" minSize={30}>

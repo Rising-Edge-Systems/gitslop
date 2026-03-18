@@ -82,7 +82,7 @@
         "Verify in browser: Ctrl+B toggles between expanded and icon rail smoothly"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-SB-001. The toggleSidebar function in useLayoutState.ts cycles expanded→collapsed→expanded. Since the sidebar is now a plain div, toggling just changes sidebarCollapsed which switches between the 260px div and 48px icon rail div. No Panel mounting/unmounting. The responsive auto-collapse effect in AppLayout should continue to call setSidebarCollapsed."
     },
     {
@@ -100,7 +100,7 @@
         "Verify in browser: compact header, commit graph has significantly more visible rows"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The summary cards are in RepoView.tsx. They show info that's already available in other parts of the UI (titlebar, status bar, staging area headers). Removing them frees ~80-100px of vertical space. Keep the repo name/path header but make it more compact."
     },
     {
@@ -118,7 +118,7 @@
         "Verify in browser: collapsed staging gives commit graph much more rows"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "The staging area already has a collapsible header with a chevron in StatusPanel.tsx. This story ensures the collapse actually hides the file lists and commit form, and that the state persists. May need to add stagingCollapsed to LayoutState in useLayoutState.ts."
     },
     {
@@ -136,7 +136,7 @@
         "Verify in browser: polished transitions, no visual artifacts, filter bar fully visible"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Final polish pass. The Filter History bar was previously clipped at the left edge — verify it renders correctly inside the center panel now that the sidebar is outside react-resizable-panels. Check for any residual CSS that referenced the old sidebar Panel."
     }
   ]

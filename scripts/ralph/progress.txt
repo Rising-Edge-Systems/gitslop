@@ -9,6 +9,9 @@ Started: Wed Mar 18 12:15:05 PM EDT 2026
 - `loadLayout()` in useLayoutState.ts migrates old percentage values (< 100) to 260px default
 - AppLayout uses `layout.sidebarSize` for the sidebar div width; `setSidebarSize` clamps to 180-400px
 - Sidebar drag handle: `.sidebar-drag-handle` in global.css, `body.sidebar-dragging` for cursor override during drag
+- Sidebar wrapper div always renders with transition; collapsed=48px, expanded=sidebarSize. Transition disabled during drag via `isDragging` state
+- `.iconRail` border-right removed — parent wrapper div handles the border
+- Layout state props thread: AppLayout → MainContent → RepoView → StatusPanel (useLayoutState only in AppLayout)
 ---
 
 ## 2026-03-18 - US-SB-001
@@ -54,4 +57,58 @@ Started: Wed Mar 18 12:15:05 PM EDT 2026
 - **Learnings for future iterations:**
   - US-SB-001 was implemented broadly and already covered US-SB-003's scope
   - Always check if prior stories already completed the work before writing code
+---
+
+## 2026-03-18 - US-SB-004
+- Unified sidebar rendering: both collapsed (48px) and expanded states use a single wrapping div with CSS transition
+- Added `transition: width 200ms ease-out` on sidebar wrapper div (disabled during drag via isDragging state)
+- Removed conflicting `railSlideIn` animation and border-right from `.iconRail` CSS (parent div handles both)
+- Rapid toggling is stable — single div just changes width, no mount/unmount
+- Files changed: AppLayout.tsx, Sidebar.module.css
+- **Learnings for future iterations:**
+  - Sidebar wrapper div always renders when sidebarVisible — collapsed/expanded is just a width change (48px vs sidebarSize)
+  - CSS transition must be disabled during drag (`isDragging` state) to avoid sluggish drag feel
+  - Icon rail border-right is now handled by the parent wrapper div, not .iconRail itself
+---
+
+## 2026-03-18 - US-SB-005
+- Removed the 4 large summary cards (Current Branch, Staged, Unstaged, Untracked) from RepoView JSX
+- Reduced header from ~60px to ~40px: compact inline layout with repo name + path on one line
+- Reduced padding from 20px/24px to 12px/16px, repo name from 20px to 15px font
+- Changed .repoViewInfo from column to row (baseline aligned) for compactness
+- Removed unused lucide-react imports (GitBranch, Pencil, FileEdit, HelpCircle)
+- Kept branches/status data loading in place (sidebar and other components may depend on it)
+- CSS classes for summary cards (.repoViewSummary, .repoViewCard, etc.) left in CSS module — unused but harmless
+- Files changed: RepoView.tsx, RepoView.module.css
+- **Learnings for future iterations:**
+  - Summary card info is duplicated in titlebar (branch), status bar (branch), and staging area headers (file counts)
+  - RepoView still loads branches/status data even though cards are removed — other components use this data via events
+  - No eslint config exists in project, so only typecheck matters for quality checks
+  - Manual browser verification needed to confirm commit graph gets more visible rows
+---
+
+## 2026-03-18 - US-SB-006
+- Added `stagingCollapsed` boolean to LayoutState interface and DEFAULT_LAYOUT in useLayoutState.ts
+- Added `setStagingCollapsed` and `toggleStagingCollapse` callbacks to useLayoutState
+- Threaded stagingCollapsed/onToggleStagingCollapse props through AppLayout → MainContent → RepoView → StatusPanel
+- Replaced local `collapsed` useState in StatusPanel with persisted layout state props
+- Staging area collapse now persists across sessions via existing 300ms debounced localStorage save
+- Files changed: useLayoutState.ts, AppLayout.tsx, MainContent.tsx, RepoView.tsx, StatusPanel.tsx
+- **Learnings for future iterations:**
+  - useLayoutState is only instantiated in AppLayout — state must be threaded through component hierarchy
+  - StatusPanel gets its props via AppLayout → MainContent → RepoView → StatusPanel chain
+  - The staging area collapse already worked via local state; the key change was persistence
+---
+## 2026-03-18 - US-SB-007
+- Removed duplicate border-right from `.sidebar` in Sidebar.module.css (parent wrapper div in AppLayout handles the border)
+- Removed unused CSS animations from global.css: `panelExpandWidth`, `panelExpandHeight`, `slideInFromLeft`, `.panel-animate-sidebar`
+- Added `style={{ flex: 1, minWidth: 0 }}` to outer `<Group>` to prevent CommitFilterBar clipping behind sidebar
+- Cleaned up stale comment headers for removed animation sections
+- Typecheck passes ✅
+- Files changed: Sidebar.module.css, global.css, AppLayout.tsx
+- **Learnings for future iterations:**
+  - The `.sidebar` component should NOT have its own `border-right` — the parent wrapper div in AppLayout owns the border
+  - Always check for double borders when nesting components inside styled wrapper divs
+  - `min-width: 0` on flex children of `.app-body` prevents content clipping in nested panels
+  - Manual browser verification needed to confirm no visual artifacts remain
 ---
