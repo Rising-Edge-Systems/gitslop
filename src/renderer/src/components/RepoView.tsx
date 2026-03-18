@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { RefreshCw, X, AlertTriangle, GitBranch, Pencil, FileEdit, HelpCircle, FileText } from 'lucide-react'
+import { RefreshCw, X, AlertTriangle, FileText } from 'lucide-react'
 import styles from './RepoView.module.css'
 import { RepoViewSkeleton } from './Skeleton'
 import blameStyles from './BlameView.module.css'
@@ -145,7 +145,6 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect }: RepoViewProp
     : undefined
 
   const repoName = repoPath.split(/[/\\]/).pop() || repoPath
-  const currentBranch = branches.find((b) => b.current)?.name || status?.branch || '—'
 
   return (
     <div className={styles.repoView}>
@@ -179,40 +178,6 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect }: RepoViewProp
 
       {!loading && !error && (
         <div className={styles.repoViewContent}>
-          <div className={styles.repoViewSummary}>
-            <div className={styles.repoViewCard}>
-              <span className={styles.repoViewCardIcon}><GitBranch size={18} /></span>
-              <div className={styles.repoViewCardInfo}>
-                <span className={styles.repoViewCardLabel}>Current Branch</span>
-                <span className={styles.repoViewCardValue}>{currentBranch}</span>
-              </div>
-            </div>
-
-            <div className={styles.repoViewCard}>
-              <span className={styles.repoViewCardIcon}><Pencil size={18} /></span>
-              <div className={styles.repoViewCardInfo}>
-                <span className={styles.repoViewCardLabel}>Staged</span>
-                <span className={styles.repoViewCardValue}>{status?.staged ?? 0} files</span>
-              </div>
-            </div>
-
-            <div className={styles.repoViewCard}>
-              <span className={styles.repoViewCardIcon}><FileEdit size={18} /></span>
-              <div className={styles.repoViewCardInfo}>
-                <span className={styles.repoViewCardLabel}>Unstaged</span>
-                <span className={styles.repoViewCardValue}>{status?.unstaged ?? 0} files</span>
-              </div>
-            </div>
-
-            <div className={styles.repoViewCard}>
-              <span className={styles.repoViewCardIcon}><HelpCircle size={18} /></span>
-              <div className={styles.repoViewCardInfo}>
-                <span className={styles.repoViewCardLabel}>Untracked</span>
-                <span className={styles.repoViewCardValue}>{status?.untracked ?? 0} files</span>
-              </div>
-            </div>
-          </div>
-
           {/* Conflict Banner */}
           {hasConflicts && !showConflictResolver && (
             <div className={conflictStyles.conflictBanner}>
