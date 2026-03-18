@@ -41,6 +41,7 @@ interface AppLayoutProps {
 export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings, settings: appSettings, getTabState, saveTabState }: AppLayoutProps): React.JSX.Element {
   const {
     layout,
+    setSidebarSize,
     setBottomPanelSize,
     setRightPanelSize,
     toggleBottomPanel,
@@ -183,6 +184,60 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     bottomPanelRef.current?.resize(DEFAULT_BOTTOM_SIZE)
   }, [bottomPanelRef])
 
+  // ─── Sidebar Drag Handle ──────────────────────────────────────────────────
+  const DEFAULT_SIDEBAR_WIDTH = 260
+  const isDraggingRef = useRef(false)
+  const dragStartXRef = useRef(0)
+  const dragStartWidthRef = useRef(0)
+
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      isDraggingRef.current = true
+      dragStartXRef.current = e.clientX
+      dragStartWidthRef.current = layout.sidebarSize
+      document.body.classList.add('sidebar-dragging')
+
+      const isRight = appSettings.sidebarPosition === 'right'
+
+      const onMouseMove = (ev: MouseEvent): void => {
+        if (!isDraggingRef.current) return
+        const delta = ev.clientX - dragStartXRef.current
+        const newWidth = isRight
+          ? dragStartWidthRef.current - delta
+          : dragStartWidthRef.current + delta
+        // Clamp 180-400
+        const clamped = Math.max(180, Math.min(400, newWidth))
+        setSidebarSize(clamped)
+      }
+
+      const onMouseUp = (): void => {
+        isDraggingRef.current = false
+        document.body.classList.remove('sidebar-dragging')
+        document.removeEventListener('mousemove', onMouseMove)
+        document.removeEventListener('mouseup', onMouseUp)
+      }
+
+      document.addEventListener('mousemove', onMouseMove)
+      document.addEventListener('mouseup', onMouseUp)
+    },
+    [layout.sidebarSize, appSettings.sidebarPosition, setSidebarSize]
+  )
+
+  const handleDragHandleDoubleClick = useCallback(() => {
+    setSidebarSize(DEFAULT_SIDEBAR_WIDTH)
+  }, [setSidebarSize])
+
+  const sidebarExpanded = layout.sidebarVisible && !layout.sidebarCollapsed
+
+  const dragHandle = sidebarExpanded ? (
+    <div
+      className="sidebar-drag-handle"
+      onMouseDown={handleDragStart}
+      onDoubleClick={handleDragHandleDoubleClick}
+    />
+  ) : null
+
   // Stable handler refs for shortcuts
   const handleToggleSidebar = useShortcutHandler(toggleSidebar)
   const handleToggleTerminal = useShortcutHandler(toggleBottomPanel)
@@ -287,6 +342,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
             </div>
           )
         )}
+        {appSettings.sidebarPosition === 'left' && dragHandle}
         <Group orientation="vertical" id="gitslop-outer-vertical">
           <Panel id="columns" minSize={20}>
             <Group orientation="horizontal" id="gitslop-horizontal">
@@ -338,6 +394,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
           )}
         </Group>
         {/* Sidebar — right position */}
+        {appSettings.sidebarPosition === 'right' && dragHandle}
         {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && (
           layout.sidebarCollapsed ? (
             <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />

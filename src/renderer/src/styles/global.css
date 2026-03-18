@@ -53,6 +53,43 @@ body.theme-transitioning *::after {
   min-height: 0;
 }
 
+/* ─── Sidebar Drag Handle ──────────────────────────────────────────────── */
+.sidebar-drag-handle {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.sidebar-drag-handle:hover {
+  background-color: var(--border);
+}
+
+.sidebar-drag-handle:hover::after {
+  content: '⋮';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* Prevent text selection while dragging sidebar */
+body.sidebar-dragging {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.sidebar-dragging * {
+  cursor: col-resize !important;
+}
+
 /* Branch Dialog (New / Rename) */
 .branch-dialog-overlay {
   position: fixed;
