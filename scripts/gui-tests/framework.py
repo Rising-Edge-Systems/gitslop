@@ -351,6 +351,35 @@ class GUITest:
         """Restore the GitSlop window to the default 1280x800 size."""
         self.resize_window(1280, 800)
 
+    def scroll(self, rel_x: int, rel_y: int, clicks: int = 3, direction: str = 'down'):
+        """Scroll at window-relative coordinates using mouse wheel events.
+
+        Args:
+            rel_x: X coordinate relative to the window's left edge.
+            rel_y: Y coordinate relative to the window's top edge.
+            clicks: Number of scroll clicks (each click is one wheel notch).
+            direction: 'down' or 'up'.
+        """
+        d = self.display
+        abs_x, abs_y = self._to_abs(rel_x, rel_y)
+        root = d.screen().root
+
+        # Move to position first
+        fake_input(d, X.MotionNotify, x=abs_x, y=abs_y, root=root)
+        d.sync()
+        time.sleep(0.05)
+
+        # Button4 = scroll up, Button5 = scroll down
+        button = 5 if direction == 'down' else 4
+
+        for _ in range(clicks):
+            fake_input(d, X.ButtonPress, button, root=root)
+            d.sync()
+            time.sleep(0.02)
+            fake_input(d, X.ButtonRelease, button, root=root)
+            d.sync()
+            time.sleep(0.05)
+
     def drag(self, x1: int, y1: int, x2: int, y2: int):
         """Drag from one window-relative position to another.
 
