@@ -147,7 +147,7 @@ def wait_for_window(timeout=30):
                         wm_class = w.get_wm_class() or ('', '')
                         name_lower = str(wm_name).lower()
                         class_str = ' '.join(wm_class).lower()
-                        if 'gitslop' in name_lower or 'electron' in class_str:
+                        if 'gitslop' in name_lower or 'gitslop' in class_str or 'electron' in class_str:
                             print(f"Window found: {wm_name}")
                             d.close()
                             return True
