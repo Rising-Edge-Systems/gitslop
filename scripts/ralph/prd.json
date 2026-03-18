@@ -99,7 +99,7 @@
         "Verify npm run gui-test launches the runner and produces a report"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-GT-001a. Keep baselines in git (they're reference screenshots). Results are ephemeral and gitignored."
     },
     {
