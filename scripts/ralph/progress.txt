@@ -702,3 +702,26 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `open_test_repo()` uses Ctrl+O to open file dialog - may need adjustment depending on app's actual open-repo flow
   - Git stash requires files to be staged first (`git add` then `git stash push`)
 ---
+
+## 2026-03-17 - US-GT-004
+- Added `gui-test` npm script to package.json: `python3 scripts/gui-tests/run.py`
+- Verified all directory structure already existed from prior stories (results/.gitkeep, baselines/.gitkeep, tests/__init__.py, .gitignore rules)
+- Added `__pycache__/` to .gitignore to clean up untracked pycache directories
+- Files changed: package.json, .gitignore
+- **Learnings for future iterations:**
+  - Most directory structure was already created by prior stories (US-GT-001a through US-GT-003) — this story was mostly about the npm script integration
+  - `__pycache__` dirs were showing in git status — always add Python cache dirs to .gitignore early
+---
+
+## 2026-03-17 - US-GT-005
+- Implemented TestWelcomeScreen GUI test class
+- Files changed: scripts/gui-tests/tests/test_welcome.py (new)
+- Test verifies: welcome screen dark theme, toolbar (Open/Clone/Init only), status bar ("No repository open"), theme toggle to light and back
+- Uses assert_visual() with descriptive criteria for AI evaluation
+- Screenshots: welcome_dark, welcome_toolbar, welcome_statusbar, welcome_light, welcome_dark_restored
+- **Learnings for future iterations:**
+  - Theme toggle button is approximately at (w-90, 15) relative to window — top-right area near window controls
+  - Tests follow import pattern: importlib.util to load framework.py (package has hyphen in name)
+  - assert_visual() combines screenshot + evaluator + baseline saving in one call
+  - Welcome screen tests run on app launch before any repo is opened
+---

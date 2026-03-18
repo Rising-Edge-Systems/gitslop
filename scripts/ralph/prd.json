@@ -115,7 +115,7 @@
         "All screenshots saved with descriptive names (welcome_dark.png, welcome_light.png)"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "This test runs on app launch before any repo is opened. The welcome screen is the default state."
     },
     {
