@@ -331,7 +331,7 @@
         "Asserts text truncates with ellipsis at narrow sizes (no wrapping/overflow)"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-GT-001c for resize_window(). Each resize needs a small delay (300ms) for responsive effects and animations."
     },
     {

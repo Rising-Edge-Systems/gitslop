@@ -877,3 +877,13 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Staging area files are in the lower portion of center panel, unstaged at ~35% width, staged at ~65% width
   - Always test that dangerous/destructive menu items are styled in red
 ---
+
+## 2026-03-18 - US-GT-018
+- Implemented responsive layout test at 4 window sizes: 1280x800, 1024x768, 900x600, 800x500
+- Files changed: scripts/gui-tests/tests/test_responsive.py (new)
+- **Learnings for future iterations:**
+  - Follow the same import boilerplate pattern as other tests (importlib.util for framework/fixtures)
+  - Use resize_window() with wait(0.5) after each resize for responsive effects to settle
+  - Press Ctrl+B twice to guarantee sidebar expanded state before assertions
+  - reset_window_size() at end of test to clean up
+---
