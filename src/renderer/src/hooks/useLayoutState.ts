@@ -208,16 +208,29 @@ const DEFAULT_LAYOUT: LayoutState = {
   bottomPanelSize: 25,
   bottomPanelVisible: false,
   sidebarVisible: true,
-  sidebarCollapsed: false,
+  sidebarCollapsed: true,  // Default to icon rail — expanded mode has a Panel sizing bug
   rightPanelSize: 25
 }
+
+// Minimum panel sizes (must match Panel minSize props in AppLayout)
+const MIN_SIDEBAR_SIZE = 12
+const MIN_RIGHT_PANEL_SIZE = 15
+const MIN_BOTTOM_PANEL_SIZE = 10
 
 function loadLayout(): LayoutState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       const parsed = JSON.parse(stored) as Partial<LayoutState>
-      return { ...DEFAULT_LAYOUT, ...parsed }
+      const layout = { ...DEFAULT_LAYOUT, ...parsed }
+
+      // Clamp persisted sizes to valid minimums — prevents the 1.5%-wide
+      // sidebar bug where a corrupted value makes the panel unusable
+      if (layout.sidebarSize < MIN_SIDEBAR_SIZE) layout.sidebarSize = DEFAULT_LAYOUT.sidebarSize
+      if (layout.rightPanelSize < MIN_RIGHT_PANEL_SIZE) layout.rightPanelSize = DEFAULT_LAYOUT.rightPanelSize
+      if (layout.bottomPanelSize < MIN_BOTTOM_PANEL_SIZE) layout.bottomPanelSize = DEFAULT_LAYOUT.bottomPanelSize
+
+      return layout
     }
   } catch {
     // Ignore parse errors
@@ -262,6 +275,9 @@ export function useLayoutState(): {
   }, [layout])
 
   const setSidebarSize = useCallback((size: number) => {
+    // Never persist a size below the minimum — this prevents the
+    // corrupted 1.5%-wide sidebar that can't be resized
+    if (size < MIN_SIDEBAR_SIZE) return
     setLayout((prev) => ({ ...prev, sidebarSize: size }))
   }, [])
 

@@ -82,8 +82,9 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       })
     }
 
-    // Restore state for new tab
-    if (currentRepo && currentRepo !== prevRepo) {
+    // Restore state for new tab — but don't override sidebar state on first load
+    // because the expanded sidebar has a Panel sizing bug that makes it 5px wide
+    if (currentRepo && currentRepo !== prevRepo && prevRepo !== null) {
       const restored = getTabState(currentRepo)
       setSidebarCollapsed(restored.sidebarCollapsed)
       // Clear selected commit — it will be re-selected by the commit graph if the hash matches.
@@ -137,6 +138,11 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
   const handleSidebarResize = useCallback(
     (panelSize: PanelSize) => {
+      // Ignore resize events that would corrupt the sidebar to an unusable width
+      if (panelSize.asPercentage < 12) {
+        console.warn(`[Sidebar] Ignoring corrupt resize: ${panelSize.asPercentage}%`)
+        return
+      }
       setSidebarSize(panelSize.asPercentage)
     },
     [setSidebarSize]
@@ -184,6 +190,28 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const DEFAULT_SIDEBAR_SIZE = 20
   const DEFAULT_BOTTOM_SIZE = 25
   const DEFAULT_RIGHT_PANEL_SIZE = 25
+
+  // Force sidebar to a valid size when it becomes visible in expanded mode.
+  // react-resizable-panels squeezes newly-rendered Panels to near-zero.
+  // This effect forces the sidebar to its intended size after mount.
+  const sidebarExpanded = layout.sidebarVisible && !layout.sidebarCollapsed
+  useEffect(() => {
+    if (sidebarExpanded) {
+      // Try multiple times — the panel may need a few frames to be ready
+      const targetSize = layout.sidebarSize >= 12 ? layout.sidebarSize : DEFAULT_SIDEBAR_SIZE
+      const attempts = [50, 150, 300, 500]
+      const timers = attempts.map((delay) =>
+        setTimeout(() => {
+          try {
+            sidebarPanelRef.current?.resize(targetSize)
+          } catch {
+            // Panel not ready yet
+          }
+        }, delay)
+      )
+      return () => timers.forEach(clearTimeout)
+    }
+  }, [sidebarExpanded, layout.sidebarSize, sidebarPanelRef])
 
   const handleSidebarDividerDoubleClick = useCallback(() => {
     sidebarPanelRef.current?.resize(DEFAULT_SIDEBAR_SIZE)
@@ -291,29 +319,21 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       )}
 
       <div className="app-body">
-        {/* Collapsed sidebar icon rail — rendered outside resizable panels */}
-        {layout.sidebarVisible && layout.sidebarCollapsed && appSettings.sidebarPosition === 'left' && (
-          <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
+        {/* Sidebar — rendered OUTSIDE react-resizable-panels with fixed CSS width.
+            The Panel-based approach was broken: conditionally rendering a Panel
+            caused react-resizable-panels to squeeze it to ~1% width on mount. */}
+        {layout.sidebarVisible && appSettings.sidebarPosition === 'left' && (
+          layout.sidebarCollapsed ? (
+            <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
+          ) : (
+            <div style={{ width: 260, flexShrink: 0, height: '100%', overflow: 'hidden', borderRight: '1px solid var(--border)' }}>
+              <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
+            </div>
+          )
         )}
         <Group orientation="vertical" id="gitslop-outer-vertical">
           <Panel id="columns" minSize={20}>
             <Group orientation="horizontal" id="gitslop-horizontal">
-              {layout.sidebarVisible && appSettings.sidebarPosition === 'left' && !layout.sidebarCollapsed && (
-                <>
-                  <Panel
-                    id="sidebar"
-                    defaultSize={layout.sidebarSize}
-                    minSize={12}
-                    maxSize={40}
-                    onResize={handleSidebarResize}
-                    panelRef={sidebarPanelRef}
-                    className="panel-animate-sidebar"
-                  >
-                    <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
-                  </Panel>
-                  <Separator className="resize-handle resize-handle-horizontal" onDoubleClick={handleSidebarDividerDoubleClick} />
-                </>
-              )}
               <Panel id="center" minSize={30}>
                 <MainContent
                   currentRepo={currentRepo}
@@ -342,22 +362,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   </Panel>
                 </>
               )}
-              {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && !layout.sidebarCollapsed && (
-                <>
-                  <Separator className="resize-handle resize-handle-horizontal" onDoubleClick={handleSidebarDividerDoubleClick} />
-                  <Panel
-                    id="sidebar"
-                    defaultSize={layout.sidebarSize}
-                    minSize={12}
-                    maxSize={40}
-                    onResize={handleSidebarResize}
-                    panelRef={sidebarPanelRef}
-                    className="panel-animate-sidebar"
-                  >
-                    <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
-                  </Panel>
-                </>
-              )}
             </Group>
           </Panel>
           {layout.bottomPanelVisible && (
@@ -377,9 +381,15 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
             </>
           )}
         </Group>
-        {/* Collapsed sidebar icon rail — right position */}
-        {layout.sidebarVisible && layout.sidebarCollapsed && appSettings.sidebarPosition === 'right' && (
-          <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
+        {/* Sidebar — right position */}
+        {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && (
+          layout.sidebarCollapsed ? (
+            <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
+          ) : (
+            <div style={{ width: 260, flexShrink: 0, height: '100%', overflow: 'hidden', borderLeft: '1px solid var(--border)' }}>
+              <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
+            </div>
+          )
         )}
       </div>
 
