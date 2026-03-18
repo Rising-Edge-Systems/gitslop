@@ -36,17 +36,28 @@ class TestWelcomeScreen(GUITest):
         # Relaunch app without any repo to see welcome screen
         import subprocess, json, os
 
-        # Clear stale test repos from electron-store so welcome screen is clean
+        # Clear ALL stale test state from electron-store so welcome screen is clean
         config_file = Path.home() / '.config' / 'gitslop' / 'config.json'
         if config_file.exists():
             try:
                 config = json.loads(config_file.read_text())
+                # Remove stale test repos from recent repos
                 recent = config.get('recentRepos', [])
                 config['recentRepos'] = [r for r in recent
                                          if not r.get('path', '').startswith('/tmp/gitslop-test-repo')]
+                # Clear tab state so no repo auto-opens
+                config.pop('repoTabs', None)
+                config.pop('gitslop-repo-tabs', None)
                 config_file.write_text(json.dumps(config, indent=2))
             except Exception:
                 pass
+
+        # Clear localStorage (Chromium stores it in LevelDB in the user data dir)
+        # Easiest: delete the entire Local Storage directory so tabs don't persist
+        import shutil
+        local_storage = Path.home() / '.config' / 'gitslop' / 'Local Storage'
+        if local_storage.exists():
+            shutil.rmtree(local_storage, ignore_errors=True)
 
         try:
             subprocess.run(['pkill', '-f', 'electron/dist/electron'],
