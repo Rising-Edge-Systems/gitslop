@@ -79,11 +79,11 @@ class TestSidebarCollapse(GUITest):
         )
 
         # 2. Click the collapse button (PanelLeftClose icon at top of sidebar)
-        #    The collapse button is at the top-left of the sidebar, typically
-        #    near coordinates (around x=220-240, y=70-80) — right side of sidebar header
-        #    It's the PanelLeftClose icon near the top of the sidebar
-        collapse_btn_x = 230  # near the right edge of sidebar header
-        collapse_btn_y = 73   # near the top of sidebar, below toolbar
+        #    The collapse button is at the LEFT side of the sidebar header
+        #    Below titlebar (36px) + toolbar (40px) = y~78
+        #    The button is a small icon at x~15 (left edge of sidebar)
+        collapse_btn_x = 15   # left side of sidebar header
+        collapse_btn_y = 78   # just below toolbar
         self.click(collapse_btn_x, collapse_btn_y)
         self.wait(0.5)
 

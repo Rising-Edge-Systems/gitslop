@@ -74,11 +74,11 @@ class TestDiffViewer(GUITest):
         self.wait(0.3)
 
         # --- 1. Click a commit that has multiple changed files ---
-        # The merge commit or early commits should have multiple files changed.
-        # Click the first commit row in the graph area.
-        # With sidebar expanded (~240px), graph area starts around x=250
+        # Layout: titlebar(36) + tabbar(~32) + toolbar(40) + repoheader(~100) + filter(~30) + graphheader(~35) = ~273
+        # Click the merge commit row (e67dd7d "Merge feature branch") which has multiple files
+        # Merge commit is row 3 at roughly y=455
         commit_row_x = w // 2  # Center of graph area
-        commit_row_y = 110     # First commit row approximately
+        commit_row_y = 455     # Merge commit row
 
         self.click(commit_row_x, commit_row_y)
         self.wait(1.0)

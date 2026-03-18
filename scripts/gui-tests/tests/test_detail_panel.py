@@ -73,11 +73,10 @@ class TestDetailPanel(GUITest):
         self.wait(0.3)
 
         # --- 1. Click a commit to open the detail panel ---
-        # Commit rows are in the center panel area
-        # With sidebar expanded (~240px), the graph area starts around x=250
-        # Click the second commit row to get a commit with changed files
+        # Layout: titlebar(36) + tabbar(~32) + toolbar(40) + repoheader(~100) + filter(~30) + graphheader(~35) = ~273
+        # First commit row ~385, second ~420
         commit_row_x = w // 2  # Center of graph area
-        commit_row_y = 130     # Second commit row approximately
+        commit_row_y = 420     # Second commit row (should have changed files)
 
         self.click(commit_row_x, commit_row_y)
         self.wait(1.0)

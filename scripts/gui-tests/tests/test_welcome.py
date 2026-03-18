@@ -33,6 +33,26 @@ class TestWelcomeScreen(GUITest):
     name = 'TestWelcomeScreen'
 
     def run(self):
+        # Relaunch app without any repo to see welcome screen
+        import subprocess
+        try:
+            subprocess.run(['pkill', '-f', 'electron/dist/electron'],
+                           capture_output=True, timeout=5)
+        except Exception:
+            pass
+        self.wait(1)
+
+        import os
+        env = os.environ.copy()
+        env['DISPLAY'] = ':1'
+        project_root = str(Path(__file__).resolve().parent.parent.parent.parent)
+        subprocess.Popen(
+            ['npx', 'electron', '--no-sandbox', '.'],
+            cwd=project_root, env=env,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        self.wait(5)
+
         # Focus and wait for window to be ready
         self.focus_window()
         self.wait(1.0)

@@ -73,9 +73,10 @@ class TestContextMenus(GUITest):
 
         # --- 1. Right-click a commit row to show commit context menu ---
         # Commit rows are in the center panel area
-        # With sidebar expanded (~240px), the graph area starts around x=250
+        # Layout: titlebar(36) + tabbar(~32) + toolbar(40) + repoheader(~100) + filter(~30) + graphheader(~35) = ~273
+        # First commit row starts around y=385, rows are ~34px each
         commit_row_x = w // 2  # Center of graph area
-        commit_row_y = 130     # Second commit row approximately
+        commit_row_y = 390     # First commit row
 
         self.rightclick(commit_row_x, commit_row_y)
         self.wait(0.5)
