@@ -927,3 +927,14 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Tab bar coordinates are approximate (~y=48, between titlebar and toolbar)
   - open_test_repo uses Ctrl+O and types path in file dialog
 ---
+
+## 2026-03-18 - US-GT-023
+- Implemented end-to-end git operations test (stage, commit, stash) through the UI
+- Files changed: scripts/gui-tests/tests/test_git_ops.py (new)
+- **Learnings for future iterations:**
+  - Test creates its own test repo via fixtures, modifies files via Python (os.path.join + open), then waits 3s for file watcher
+  - Staging area coordinates: unstaged column ~35% width, stage button ~45% width, staging area y ~h-100
+  - Commit input area is near bottom of window (~h-50), use Ctrl+Enter to submit commit
+  - Stash shortcut is Ctrl+Shift+S, may show a dialog requiring Enter to confirm
+  - Always clean up test repos in tearDown to avoid temp dir accumulation
+---

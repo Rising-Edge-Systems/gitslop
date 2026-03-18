@@ -417,7 +417,7 @@
         "Cleans up test repo"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": "This is the most complex test — it modifies real git state. Must use the test repo (not gitslop repo) to avoid polluting the project. Cleanup is critical."
     },
     {
