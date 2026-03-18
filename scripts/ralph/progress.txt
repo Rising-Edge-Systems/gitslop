@@ -28,6 +28,7 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - Tests: use `// @vitest-environment happy-dom` comment for renderer tests, no vitest.config.ts needed
 - Tests: install `@testing-library/react`, `@testing-library/dom`, `happy-dom` for React component/hook tests
 - global.css is ~448 lines (8.5KB) — the branch-dialog/ctx-menu shared styles are the bulk
+- GUITest has `hover(rel_x, rel_y)` method for moving mouse without clicking (useful for tooltip tests)
 - Three-column layout: Group(vertical) > [Group(horizontal) > Sidebar | Center | DetailPanel] | Terminal — terminal spans full width
 - `onCommitSelect` callback chain: AppLayout → MainContent → RepoView → CommitGraph — lifts selected commit to layout level
 - CommitDetail type exported from CommitGraph.tsx — use for detail panel props
@@ -822,4 +823,15 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - The framework had no hover method before; now all future tests can use `self.hover(x, y)` for hover interactions
   - Context menu tests should click a commit first to establish focus, then right-click for context menu
   - Keyboard navigation tests need an initial click to give the graph focus before arrow keys work
+---
+
+## 2026-03-18 - US-GT-014
+- Implemented test_detail_panel.py verifying commit detail panel content
+- Tests: clicking commit opens detail panel with subject, SHA, author, date; Changed Files section with Lucide icons; SHA copy button feedback; close button dismisses panel
+- Files changed: scripts/gui-tests/tests/test_detail_panel.py (new)
+- **Learnings for future iterations:**
+  - Detail panel opens on right side when clicking a commit row at ~y=130 (second row)
+  - SHA copy button area is near x=85% of window width, y=160
+  - Close button is at top-right corner of panel (w-20, 80)
+  - The --filter flag matches both TestDetailPanel and TestDetailPanelModes — be aware of partial name matches
 ---

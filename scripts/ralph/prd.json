@@ -262,7 +262,7 @@
         "Clicks close (X) — panel dismisses"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "The detail panel is on the right side. SHA copy button is near the top of the panel."
     },
     {
