@@ -314,7 +314,7 @@
         "Asserts: dangerous items (delete) styled in red, menu stays within viewport"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "Must have sidebar expanded to right-click branches. Staging area must have files to right-click."
     },
     {

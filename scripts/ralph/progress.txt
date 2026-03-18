@@ -867,3 +867,13 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Staging area is in the lower portion of the center panel, coordinates approximate: y = h - 120 for file rows, y = h - 180 for section headers
   - Stage/unstage buttons appear on hover — use hover() before clicking
 ---
+
+## 2026-03-18 - US-GT-017
+- Implemented test for context menus on commits, branches, and staging area files
+- Files changed: scripts/gui-tests/tests/test_context_menus.py (new)
+- **Learnings for future iterations:**
+  - Context menu tests follow same pattern: right-click target, assert_visual, Escape to close
+  - Branch items in sidebar are at approximate x=100, y=155 (below section headers at ~125)
+  - Staging area files are in the lower portion of center panel, unstaged at ~35% width, staged at ~65% width
+  - Always test that dangerous/destructive menu items are styled in red
+---
