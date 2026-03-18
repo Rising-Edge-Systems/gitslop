@@ -64,6 +64,16 @@ function App(): React.JSX.Element {
     return () => window.removeEventListener('open-repo', handler)
   }, [handleRepoOpen])
 
+  // CLI: --open-repo support for GUI testing
+  useEffect(() => {
+    if (window.electronAPI.onCliOpenRepo) {
+      const cleanup = window.electronAPI.onCliOpenRepo((repoPath: string) => {
+        handleRepoOpen(repoPath)
+      })
+      return cleanup
+    }
+  }, [handleRepoOpen])
+
   // Tab keyboard shortcuts
   const handleNextTab = useShortcutHandler(nextTab)
   const handlePrevTab = useShortcutHandler(prevTab)

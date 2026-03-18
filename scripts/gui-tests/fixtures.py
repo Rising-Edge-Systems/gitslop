@@ -224,36 +224,74 @@ def cleanup_test_repo(repo_path: str):
 
 
 def open_test_repo(test_instance, repo_path: str):
-    """Open a test repo in GitSlop by passing the path as a command-line argument.
+    """Open a test repo in GitSlop.
 
-    This helper uses keyboard shortcuts and the UI to navigate to and open
-    the given repository path. It types the path into the Open Repository
-    dialog.
-
-    Note: This interacts with the native file dialog which may not be reliable
-    in all environments. Consider launching the app with the repo path as
-    an argument if possible.
+    Strategy: Add repo to electron-store's recent repos, then click it
+    on the welcome screen. If a repo is already open, close it first
+    to return to welcome screen.
 
     Args:
         test_instance: A GUITest instance (provides click, type_text, etc.).
         repo_path: Path to the repository to open.
     """
+    # Add the repo to recent repos via electron-store
+    _add_to_recent_repos(repo_path)
+
     # Focus the GitSlop window
     test_instance.focus_window()
-    time.sleep(0.3)
-
-    # Use Ctrl+O to open the file dialog (common shortcut for Open)
-    test_instance.press_key('ctrl+o')
-    time.sleep(1.0)
-
-    # Type the repo path into the file dialog path bar
-    # Most GTK/Electron file dialogs accept typing a path directly
-    test_instance.type_text(repo_path)
     time.sleep(0.5)
 
-    # Press Enter to confirm
-    test_instance.press_key('Return')
-    time.sleep(2.0)  # Wait for repo to load
+    # Get window bounds
+    _, _, w, h = test_instance.get_window_bounds()
+
+    # Check if a repo is already open by looking for the "Close" button
+    # If repo is open, close it to return to welcome screen
+    # The Close button is at approximately (w - 50, 115) when a repo is open
+    # Try clicking it — if no repo is open, this click is harmless
+    test_instance.click(w - 50, 115)
+    time.sleep(1.0)
+
+    # Now we should be on the welcome screen (or still there if no repo was open)
+    # The recent repo entry is below the action cards
+    # At 1280x800: recent repos are around y=605-615 (76% of height)
+    test_instance.click(w // 2, int(h * 0.76))
+    time.sleep(3.0)  # Wait for repo to load
+
+
+def _add_to_recent_repos(repo_path: str):
+    """Add a repo to electron-store's recent repos so it appears on the welcome screen."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    repo_name = _Path(repo_path).name
+
+    # electron-store saves to ~/.config/gitslop/config.json (Linux)
+    config_dir = _Path.home() / '.config' / 'gitslop'
+    config_file = config_dir / 'config.json'
+
+    config = {}
+    if config_file.exists():
+        try:
+            config = _json.loads(config_file.read_text())
+        except Exception:
+            pass
+
+    recent = config.get('recentRepos', [])
+
+    # Remove existing entry with same path
+    recent = [r for r in recent if r.get('path') != repo_path]
+
+    # Add at the top
+    recent.insert(0, {
+        'path': repo_path,
+        'name': repo_name,
+        'lastOpened': time.strftime('%Y-%m-%dT%H:%M:%S')
+    })
+
+    config['recentRepos'] = recent[:10]
+
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(_json.dumps(config, indent=2))
 
 
 def _write_file(repo_dir: str, relative_path: str, content: str):

@@ -85,19 +85,47 @@ def build_app():
     print("Build complete.")
 
 
-def launch_app():
-    """Launch Electron and return the process."""
-    print("Launching GitSlop...")
+def launch_app(open_repo=None):
+    """Launch Electron and return the process.
+
+    Args:
+        open_repo: Optional repo path to open on startup via --open-repo CLI arg.
+    """
+    print(f"Launching GitSlop...{f' (opening {open_repo})' if open_repo else ''}")
     env = os.environ.copy()
     env['DISPLAY'] = ':1'
+    cmd = ['npx', 'electron', '--no-sandbox', '.']
+    if open_repo:
+        cmd.extend(['--open-repo', open_repo])
     proc = subprocess.Popen(
-        ['npx', 'electron', '--no-sandbox', '.'],
+        cmd,
         cwd=str(PROJECT_ROOT),
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
     return proc
+
+
+def is_app_alive(proc):
+    """Check if the Electron process is still running."""
+    if proc is None:
+        return False
+    return proc.poll() is None
+
+
+def ensure_app_running(proc, open_repo=None):
+    """Relaunch the app if it crashed. Returns (proc, relaunched)."""
+    if is_app_alive(proc):
+        return proc, False
+    print("  App crashed! Relaunching...")
+    proc = launch_app(open_repo)
+    time.sleep(2)
+    if wait_for_window(timeout=15):
+        time.sleep(2)
+        return proc, True
+    print("  Failed to relaunch app.")
+    return proc, False
 
 
 def wait_for_window(timeout=30):
@@ -211,9 +239,9 @@ def main():
                 print(f"Warning: Invalid --size format '{args.size}', expected WxH (e.g. 1280x800)")
 
     try:
-        # Run tests
+        # Run tests — pass proc for crash recovery
         suite = TestSuite(filter_pattern=args.filter)
-        results = suite.run()
+        results = suite.run(app_proc=proc, relaunch_fn=launch_app if not args.no_launch else None)
 
         # Write report
         report_path = SCRIPT_DIR / 'results' / 'report.json'

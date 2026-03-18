@@ -187,6 +187,7 @@ declare global {
         onData: (callback: (payload: { id: string; data: string }) => void) => () => void
         onExit: (callback: (payload: { id: string; exitCode: number }) => void) => () => void
       }
+      onCliOpenRepo?: (callback: (repoPath: string) => void) => () => void
     }
   }
 }

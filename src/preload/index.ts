@@ -350,6 +350,25 @@ const electronAPI = {
   }
 }
 
-contextBridge.exposeInMainWorld('electronAPI', electronAPI)
+// CLI: --open-repo support — listen for main process signal to auto-open a repo
+const cliOpenRepoListeners: ((repoPath: string) => void)[] = []
+ipcRenderer.on('cli:open-repo', (_event, repoPath: string) => {
+  for (const listener of cliOpenRepoListeners) {
+    listener(repoPath)
+  }
+})
 
-export type ElectronAPI = typeof electronAPI
+const extendedElectronAPI = {
+  ...electronAPI,
+  onCliOpenRepo: (callback: (repoPath: string) => void): (() => void) => {
+    cliOpenRepoListeners.push(callback)
+    return () => {
+      const idx = cliOpenRepoListeners.indexOf(callback)
+      if (idx >= 0) cliOpenRepoListeners.splice(idx, 1)
+    }
+  }
+}
+
+contextBridge.exposeInMainWorld('electronAPI', extendedElectronAPI)
+
+export type ElectronAPI = typeof extendedElectronAPI

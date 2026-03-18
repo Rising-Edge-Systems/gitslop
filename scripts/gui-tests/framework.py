@@ -474,8 +474,14 @@ class TestSuite:
         tests.sort(key=lambda t: t.name)
         return tests
 
-    def run(self) -> List[TestResult]:
-        """Run all collected tests and return results."""
+    def run(self, app_proc=None, relaunch_fn=None) -> List[TestResult]:
+        """Run all collected tests and return results.
+
+        Args:
+            app_proc: The Electron subprocess (for crash detection).
+            relaunch_fn: Callable to relaunch the app if it crashes.
+                         Signature: relaunch_fn(open_repo=None) -> subprocess.Popen
+        """
         tests = self.collect_tests()
         if not tests:
             print("\033[33mNo tests found.\033[0m")
@@ -484,6 +490,22 @@ class TestSuite:
         print(f"\nRunning {len(tests)} test(s)...\n")
 
         for test in tests:
+            # Check if app is still alive before each test
+            if app_proc is not None and app_proc.poll() is not None and relaunch_fn:
+                print("  App crashed — relaunching before next test...")
+                app_proc = relaunch_fn()
+                import time as _t
+                _t.sleep(2)
+                # Wait for window
+                for _ in range(30):
+                    try:
+                        probe = GUITest()
+                        probe._find_gitslop_window()
+                        break
+                    except Exception:
+                        _t.sleep(0.5)
+                _t.sleep(2)
+
             result = self._run_single(test)
             self.results.append(result)
 

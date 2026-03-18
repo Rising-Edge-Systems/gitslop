@@ -153,6 +153,14 @@ app.whenReady().then(async () => {
 
   createWindow()
 
+  // ─── CLI: --open-repo <path> support (for GUI testing) ────────────────────
+  const openRepoArg = process.argv.find((_, i) => process.argv[i - 1] === '--open-repo')
+  if (openRepoArg && mainWindow) {
+    mainWindow.webContents.on('did-finish-load', () => {
+      mainWindow?.webContents.send('cli:open-repo', openRepoArg)
+    })
+  }
+
   // ─── Auto-Updater Setup ──────────────────────────────────────────────────
   if (!isDev) {
     autoUpdater.autoDownload = true
