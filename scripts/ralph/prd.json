@@ -181,7 +181,7 @@
         "Restores sidebar to expanded state at end of test"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "The collapse button is at the top-left of the sidebar. The icon rail is 48px wide."
     },
     {

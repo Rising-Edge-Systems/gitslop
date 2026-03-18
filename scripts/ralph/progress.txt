@@ -767,3 +767,14 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Sidebar tab buttons are approximately at y=95, section headers around y=125
   - Follow the established import pattern with importlib.util for framework and fixtures
 ---
+
+## 2026-03-17 - US-GT-009
+- Implemented Test — Sidebar Icon Rail Collapse
+- Files changed: `scripts/gui-tests/tests/test_sidebar_collapse.py` (new)
+- Test verifies: sidebar collapse to 48px icon rail, floating overlay panel opens on icon click, overlay closes on outside click, expand button restores full sidebar
+- **Learnings for future iterations:**
+  - Collapse button is at approximately (230, 73) — near right edge of sidebar header
+  - Icon rail center is at x=24 (center of 48px rail)
+  - Section icons in the rail start at approximately y=120
+  - Use Ctrl+B toggle twice to guarantee expanded sidebar state before testing collapse
+---
