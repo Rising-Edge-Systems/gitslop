@@ -650,3 +650,17 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Report is written to scripts/gui-tests/results/report.json
   - The display is :1 for X11 operations
 ---
+
+## 2026-03-17 - US-GT-001b
+- Added screen interaction helpers to GUITest base class in framework.py
+- Methods added: click(), rightclick(), doubleclick(), type_text(), press_key(), drag(), focus_window(), _to_abs()
+- All click/drag methods translate window-relative to absolute screen coords via _to_abs()
+- Created tests/test_settings_click.py — clicks the Settings gear icon and takes before/after screenshots
+- Imported Xlib.ext.xtest.fake_input and XK directly in framework.py (no dependency on screen-control.py)
+- Files changed: scripts/gui-tests/framework.py, scripts/gui-tests/tests/test_settings_click.py
+- **Learnings for future iterations:**
+  - The screen interaction code from screen-control.py was reimplemented directly in framework.py using python-xlib — no import of screen-control.py needed
+  - focus_window() uses _NET_ACTIVE_WINDOW ClientMessage to raise the window via the window manager
+  - All coordinate helpers use get_window_bounds() which returns (abs_x, abs_y, width, height)
+  - The Settings gear icon is approximately at (window_width - 30, 45) in window-relative coordinates
+---

@@ -36,7 +36,7 @@
         "Test with a test that clicks the Settings gear icon and takes a screenshot"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-GT-001a for the framework. The screen-control.py already has all the python-xlib logic — import it as a module or copy the relevant functions."
     },
     {
