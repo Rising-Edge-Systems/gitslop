@@ -349,7 +349,7 @@
         "Presses Ctrl+Shift+F: takes screenshot — fetch operation starts (spinner visible in toolbar)"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": "press_key helper must handle combo keys (ctrl+b, ctrl+shift+f). Needs repo open for git shortcuts."
     },
     {

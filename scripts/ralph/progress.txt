@@ -887,3 +887,12 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Press Ctrl+B twice to guarantee sidebar expanded state before assertions
   - reset_window_size() at end of test to clean up
 ---
+
+## 2026-03-18 - US-GT-019
+- Implemented keyboard shortcuts test covering Ctrl+B (sidebar toggle), Ctrl+` (terminal toggle), Ctrl+K (command palette), and Ctrl+Shift+F (fetch)
+- Files changed: scripts/gui-tests/tests/test_keyboard.py (new)
+- **Learnings for future iterations:**
+  - The framework's press_key uses `XK.string_to_keysym()` — use 'grave' for the backtick/` key
+  - Key combo format is 'ctrl+b', 'ctrl+shift+f', 'ctrl+grave' etc.
+  - Each shortcut test follows before/after screenshot pattern with assert_visual
+---
