@@ -432,7 +432,7 @@
         "Saves the sequence as loading_001.png through loading_020.png for review"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": "Skeleton screens are transient — they appear for a fraction of a second during load. Rapid screenshot capture is needed. This test may be flaky on fast machines where loading is instant."
     },
     {

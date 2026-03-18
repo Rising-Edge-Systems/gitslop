@@ -938,3 +938,12 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Stash shortcut is Ctrl+Shift+S, may show a dialog requiring Enter to confirm
   - Always clean up test repos in tearDown to avoid temp dir accumulation
 ---
+
+## 2026-03-18 - US-GT-024
+- Implemented test for loading states and skeleton screens
+- Files changed: scripts/gui-tests/tests/test_loading.py (new)
+- **Learnings for future iterations:**
+  - Rapid screenshot capture uses time.sleep(0.1) between shots for 100ms intervals
+  - The test captures 20 sequential screenshots during repo open to catch transient skeleton states
+  - Loading state tests are inherently timing-dependent; the test is designed to be lenient (any non-blank state is acceptable)
+---
