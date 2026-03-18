@@ -224,44 +224,50 @@ def cleanup_test_repo(repo_path: str):
 
 
 def open_test_repo(test_instance, repo_path: str):
-    """Open a test repo in GitSlop.
+    """Open a test repo in GitSlop by relaunching the app with --open-repo.
 
-    Strategy: Add repo to electron-store's recent repos, then click it
-    on the welcome screen. If a repo is already open, close it first
-    to return to welcome screen.
+    This kills the current app instance and relaunches with the --open-repo
+    CLI argument, which is the most reliable way to open a specific repo.
 
     Args:
         test_instance: A GUITest instance (provides click, type_text, etc.).
         repo_path: Path to the repository to open.
     """
-    # Add the repo to recent repos via electron-store
-    _add_to_recent_repos(repo_path)
+    import subprocess
+    import signal
 
-    # Ensure consistent window size
-    test_instance.focus_window()
-    test_instance.reset_window_size()
-    time.sleep(0.5)
+    # Kill the current app
+    try:
+        result = subprocess.run(['pkill', '-f', 'electron/dist/electron'],
+                                capture_output=True, timeout=5)
+    except Exception:
+        pass
+    time.sleep(1)
 
-    # Get window bounds (should be 1280x800)
-    _, _, w, h = test_instance.get_window_bounds()
+    # Relaunch with --open-repo
+    env = os.environ.copy()
+    env['DISPLAY'] = ':1'
+    project_root = str(_Path(__file__).resolve().parent.parent.parent)
+    proc = subprocess.Popen(
+        ['npx', 'electron', '--no-sandbox', '.', '--open-repo', repo_path],
+        cwd=project_root,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
-    # Check if a repo is already open by looking for the "Close" button
-    # If repo is open, close it to return to welcome screen
-    # The Close button is at approximately (w - 50, 115) when a repo is open
-    # Try clicking it — if no repo is open, this click is harmless
-    test_instance.click(w - 50, 115)
-    time.sleep(1.0)
+    # Wait for window to appear
+    time.sleep(4)
 
-    # Now we should be on the welcome screen (or still there if no repo was open)
-    # The recent repo entry is below the action cards
-    # The welcome screen layout:
-    #   ~35% height: GS wordmark + subtitle
-    #   ~48-60% height: action cards
-    #   ~65% height: "RECENT REPOSITORIES" heading
-    #   ~69-72% height: first recent repo entry
-    # Click the first recent repo entry
-    test_instance.click(w // 2, int(h * 0.70))
-    time.sleep(3.0)  # Wait for repo to load
+    # Try to find and focus the window
+    for _ in range(20):
+        try:
+            test_instance.focus_window()
+            break
+        except RuntimeError:
+            time.sleep(0.5)
+
+    time.sleep(2)  # Let the repo fully load
 
 
 def _add_to_recent_repos(repo_path: str):
