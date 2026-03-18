@@ -204,16 +204,17 @@ export interface LayoutState {
 const STORAGE_KEY = 'gitslop-layout-state'
 
 const DEFAULT_LAYOUT: LayoutState = {
-  sidebarSize: 20,
+  sidebarSize: 260,
   bottomPanelSize: 25,
   bottomPanelVisible: false,
   sidebarVisible: true,
-  sidebarCollapsed: true,  // Default to icon rail — expanded mode has a Panel sizing bug
+  sidebarCollapsed: false,
   rightPanelSize: 25
 }
 
-// Minimum panel sizes (must match Panel minSize props in AppLayout)
-const MIN_SIDEBAR_SIZE = 12
+// Sidebar pixel bounds
+const MIN_SIDEBAR_SIZE = 180
+const MAX_SIDEBAR_SIZE = 400
 const MIN_RIGHT_PANEL_SIZE = 15
 const MIN_BOTTOM_PANEL_SIZE = 10
 
@@ -224,9 +225,11 @@ function loadLayout(): LayoutState {
       const parsed = JSON.parse(stored) as Partial<LayoutState>
       const layout = { ...DEFAULT_LAYOUT, ...parsed }
 
-      // Clamp persisted sizes to valid minimums — prevents the 1.5%-wide
-      // sidebar bug where a corrupted value makes the panel unusable
-      if (layout.sidebarSize < MIN_SIDEBAR_SIZE) layout.sidebarSize = DEFAULT_LAYOUT.sidebarSize
+      // Migrate old percentage-based sidebarSize (< 100) to pixel width
+      if (layout.sidebarSize < 100) layout.sidebarSize = DEFAULT_LAYOUT.sidebarSize
+      // Clamp sidebar to valid pixel range
+      if (layout.sidebarSize < MIN_SIDEBAR_SIZE) layout.sidebarSize = MIN_SIDEBAR_SIZE
+      if (layout.sidebarSize > MAX_SIDEBAR_SIZE) layout.sidebarSize = MAX_SIDEBAR_SIZE
       if (layout.rightPanelSize < MIN_RIGHT_PANEL_SIZE) layout.rightPanelSize = DEFAULT_LAYOUT.rightPanelSize
       if (layout.bottomPanelSize < MIN_BOTTOM_PANEL_SIZE) layout.bottomPanelSize = DEFAULT_LAYOUT.bottomPanelSize
 
@@ -275,10 +278,8 @@ export function useLayoutState(): {
   }, [layout])
 
   const setSidebarSize = useCallback((size: number) => {
-    // Never persist a size below the minimum — this prevents the
-    // corrupted 1.5%-wide sidebar that can't be resized
-    if (size < MIN_SIDEBAR_SIZE) return
-    setLayout((prev) => ({ ...prev, sidebarSize: size }))
+    const clamped = Math.max(MIN_SIDEBAR_SIZE, Math.min(MAX_SIDEBAR_SIZE, Math.round(size)))
+    setLayout((prev) => ({ ...prev, sidebarSize: clamped }))
   }, [])
 
   const setBottomPanelSize = useCallback((size: number) => {

@@ -41,7 +41,6 @@ interface AppLayoutProps {
 export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings, settings: appSettings, getTabState, saveTabState }: AppLayoutProps): React.JSX.Element {
   const {
     layout,
-    setSidebarSize,
     setBottomPanelSize,
     setRightPanelSize,
     toggleBottomPanel,
@@ -82,8 +81,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       })
     }
 
-    // Restore state for new tab — but don't override sidebar state on first load
-    // because the expanded sidebar has a Panel sizing bug that makes it 5px wide
+    // Restore state for new tab
     if (currentRepo && currentRepo !== prevRepo && prevRepo !== null) {
       const restored = getTabState(currentRepo)
       setSidebarCollapsed(restored.sidebarCollapsed)
@@ -136,18 +134,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     onNotify: addNotification
   })
 
-  const handleSidebarResize = useCallback(
-    (panelSize: PanelSize) => {
-      // Ignore resize events that would corrupt the sidebar to an unusable width
-      if (panelSize.asPercentage < 12) {
-        console.warn(`[Sidebar] Ignoring corrupt resize: ${panelSize.asPercentage}%`)
-        return
-      }
-      setSidebarSize(panelSize.asPercentage)
-    },
-    [setSidebarSize]
-  )
-
   const handleBottomResize = useCallback(
     (panelSize: PanelSize) => {
       setBottomPanelSize(panelSize.asPercentage)
@@ -183,39 +169,11 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   }, [currentRepo, saveTabState])
 
   // Panel refs for double-click-to-reset on dividers
-  const sidebarPanelRef = usePanelRef()
   const detailPanelRef = usePanelRef()
   const bottomPanelRef = usePanelRef()
 
-  const DEFAULT_SIDEBAR_SIZE = 20
   const DEFAULT_BOTTOM_SIZE = 25
   const DEFAULT_RIGHT_PANEL_SIZE = 25
-
-  // Force sidebar to a valid size when it becomes visible in expanded mode.
-  // react-resizable-panels squeezes newly-rendered Panels to near-zero.
-  // This effect forces the sidebar to its intended size after mount.
-  const sidebarExpanded = layout.sidebarVisible && !layout.sidebarCollapsed
-  useEffect(() => {
-    if (sidebarExpanded) {
-      // Try multiple times — the panel may need a few frames to be ready
-      const targetSize = layout.sidebarSize >= 12 ? layout.sidebarSize : DEFAULT_SIDEBAR_SIZE
-      const attempts = [50, 150, 300, 500]
-      const timers = attempts.map((delay) =>
-        setTimeout(() => {
-          try {
-            sidebarPanelRef.current?.resize(targetSize)
-          } catch {
-            // Panel not ready yet
-          }
-        }, delay)
-      )
-      return () => timers.forEach(clearTimeout)
-    }
-  }, [sidebarExpanded, layout.sidebarSize, sidebarPanelRef])
-
-  const handleSidebarDividerDoubleClick = useCallback(() => {
-    sidebarPanelRef.current?.resize(DEFAULT_SIDEBAR_SIZE)
-  }, [sidebarPanelRef])
 
   const handleDetailDividerDoubleClick = useCallback(() => {
     detailPanelRef.current?.resize(DEFAULT_RIGHT_PANEL_SIZE)
@@ -319,14 +277,12 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       )}
 
       <div className="app-body">
-        {/* Sidebar — rendered OUTSIDE react-resizable-panels with fixed CSS width.
-            The Panel-based approach was broken: conditionally rendering a Panel
-            caused react-resizable-panels to squeeze it to ~1% width on mount. */}
+        {/* Sidebar — plain div outside react-resizable-panels, sized in pixels */}
         {layout.sidebarVisible && appSettings.sidebarPosition === 'left' && (
           layout.sidebarCollapsed ? (
             <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
           ) : (
-            <div style={{ width: 260, flexShrink: 0, height: '100%', overflow: 'hidden', borderRight: '1px solid var(--border)' }}>
+            <div style={{ width: layout.sidebarSize, flexShrink: 0, height: '100%', overflow: 'hidden', borderRight: '1px solid var(--border)' }}>
               <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
             </div>
           )
@@ -386,7 +342,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
           layout.sidebarCollapsed ? (
             <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
           ) : (
-            <div style={{ width: 260, flexShrink: 0, height: '100%', overflow: 'hidden', borderLeft: '1px solid var(--border)' }}>
+            <div style={{ width: layout.sidebarSize, flexShrink: 0, height: '100%', overflow: 'hidden', borderLeft: '1px solid var(--border)' }}>
               <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
             </div>
           )
