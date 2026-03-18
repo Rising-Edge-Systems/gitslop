@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from pathlib import Path
 
 
 # Base date for deterministic commits (2024-01-15 12:00:00 UTC)
@@ -247,7 +248,7 @@ def open_test_repo(test_instance, repo_path: str):
     # Relaunch with --open-repo
     env = os.environ.copy()
     env['DISPLAY'] = ':1'
-    project_root = str(_Path(__file__).resolve().parent.parent.parent)
+    project_root = str(Path(__file__).resolve().parent.parent.parent)
     proc = subprocess.Popen(
         ['npx', 'electron', '--no-sandbox', '.', '--open-repo', repo_path],
         cwd=project_root,
