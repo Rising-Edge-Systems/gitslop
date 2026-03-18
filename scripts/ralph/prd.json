@@ -381,7 +381,7 @@
         "Toggles back to dark theme, takes confirmation screenshot"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": "Theme toggle is a button near the window controls in the titlebar (right side). Look for Sun or Moon icon."
     },
     {

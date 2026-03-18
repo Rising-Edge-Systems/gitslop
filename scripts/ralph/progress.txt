@@ -906,3 +906,13 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Notification bell is at w-30, h-12 (right section of 24px status bar)
   - Ctrl+Shift+F triggers fetch which produces a toast notification
 ---
+
+## 2026-03-18 - US-GT-021
+- Implemented test for both dark and light themes
+- Files changed: scripts/gui-tests/tests/test_themes.py (new)
+- Test verifies: dark theme default appearance, theme toggle click, light theme appearance, commit graph in light theme, toggle back to dark theme
+- **Learnings for future iterations:**
+  - Theme toggle button is in titlebar area, right side, near window controls (~w-120, 18)
+  - Tests follow same import pattern: importlib for framework.py and fixtures.py
+  - assert_visual with descriptive criteria is the standard visual verification approach
+---
