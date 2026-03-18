@@ -34,7 +34,20 @@ class TestWelcomeScreen(GUITest):
 
     def run(self):
         # Relaunch app without any repo to see welcome screen
-        import subprocess
+        import subprocess, json, os
+
+        # Clear stale test repos from electron-store so welcome screen is clean
+        config_file = Path.home() / '.config' / 'gitslop' / 'config.json'
+        if config_file.exists():
+            try:
+                config = json.loads(config_file.read_text())
+                recent = config.get('recentRepos', [])
+                config['recentRepos'] = [r for r in recent
+                                         if not r.get('path', '').startswith('/tmp/gitslop-test-repo')]
+                config_file.write_text(json.dumps(config, indent=2))
+            except Exception:
+                pass
+
         try:
             subprocess.run(['pkill', '-f', 'electron/dist/electron'],
                            capture_output=True, timeout=5)
@@ -42,7 +55,6 @@ class TestWelcomeScreen(GUITest):
             pass
         self.wait(1)
 
-        import os
         env = os.environ.copy()
         env['DISPLAY'] = ':1'
         project_root = str(Path(__file__).resolve().parent.parent.parent.parent)

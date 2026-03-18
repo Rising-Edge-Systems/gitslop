@@ -26,8 +26,9 @@ class TestWindowResize(GUITest):
     name = 'TestWindowResize'
 
     def run(self):
-        # Focus the window
+        # Focus the window and ensure default size first
         self.focus_window()
+        self.reset_window_size()
         self.wait(0.5)
 
         # Record initial bounds at default size
