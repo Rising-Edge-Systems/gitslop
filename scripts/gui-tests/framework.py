@@ -362,6 +362,21 @@ class GUITest:
         if not win:
             raise RuntimeError("GitSlop window not found")
 
+        root = d.screen().root
+
+        # Unmaximize first — maximized windows ignore resize requests
+        atom_state = d.intern_atom('_NET_WM_STATE')
+        atom_max_h = d.intern_atom('_NET_WM_STATE_MAXIMIZED_HORZ')
+        atom_max_v = d.intern_atom('_NET_WM_STATE_MAXIMIZED_VERT')
+        event = protocol.event.ClientMessage(
+            window=win,
+            client_type=atom_state,
+            data=(32, [0, atom_max_h, atom_max_v, 1, 0])  # 0 = _NET_WM_STATE_REMOVE
+        )
+        root.send_event(event, event_mask=X.SubstructureRedirectMask | X.SubstructureNotifyMask)
+        d.sync()
+        time.sleep(0.3)
+
         win.configure(width=width, height=height)
         d.sync()
         # Allow window manager to process the resize and UI to reflow
