@@ -284,8 +284,11 @@ def _add_to_recent_repos(repo_path: str):
 
     recent = config.get('recentRepos', [])
 
-    # Remove existing entry with same path
-    recent = [r for r in recent if r.get('path') != repo_path]
+    # Remove existing entry with same path AND remove stale test repos
+    recent = [r for r in recent if (
+        r.get('path') != repo_path and
+        not r.get('path', '').startswith('/tmp/gitslop-test-repo-')
+    )]
 
     # Add at the top
     recent.insert(0, {
