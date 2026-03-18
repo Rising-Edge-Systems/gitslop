@@ -164,6 +164,7 @@ def write_report(results, report_path):
                 'criteria': r.criteria,
                 'evaluation_notes': r.evaluation_notes,
                 'error_message': r.error_message,
+                'evaluations': r.evaluations,
             }
             for r in results
         ],

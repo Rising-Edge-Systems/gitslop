@@ -23,6 +23,18 @@ RESULTS_DIR = Path(__file__).resolve().parent / 'results'
 SCREENSHOTS_DIR = RESULTS_DIR / 'screenshots'
 
 
+def _get_evaluator():
+    """Lazy-import evaluator to avoid circular imports."""
+    import importlib.util
+    evaluator_path = Path(__file__).resolve().parent / 'evaluator.py'
+    spec = importlib.util.spec_from_file_location('gui_tests.evaluator', str(evaluator_path))
+    if spec and spec.loader:
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    raise ImportError("Cannot load evaluator.py")
+
+
 @dataclass
 class TestResult:
     """Result of a single GUI test."""
@@ -33,6 +45,7 @@ class TestResult:
     evaluation_notes: str = ''
     duration_seconds: float = 0.0
     error_message: str = ''
+    evaluations: List[dict] = field(default_factory=list)
 
 
 class GUITest:
@@ -50,6 +63,7 @@ class GUITest:
         self._display: Optional[display.Display] = None
         self._screenshots: List[str] = []
         self._criteria: List[str] = []
+        self._evaluations: List[dict] = []
 
     @property
     def display(self) -> display.Display:
@@ -93,6 +107,38 @@ class GUITest:
 
         self._screenshots.append(output_path)
         return output_path
+
+    def assert_visual(self, name: str, criteria: str) -> str:
+        """Take a screenshot and evaluate it against visual criteria.
+
+        Takes a screenshot, runs it through the evaluator, saves a baseline
+        on first run, and stores the evaluation result for the report.
+
+        Args:
+            name: Descriptive name for the screenshot (without extension).
+            criteria: Human-readable criteria describing what should be visible
+                      in the screenshot (e.g. 'sidebar collapsed to 48px icon rail').
+
+        Returns:
+            Path to the saved screenshot.
+        """
+        evaluator = _get_evaluator()
+
+        # Take the screenshot
+        screenshot_path = self.screenshot(name)
+
+        # Evaluate against criteria
+        evaluation = evaluator.evaluate(screenshot_path, criteria)
+
+        # Save baseline (first run only — existing baselines are preserved)
+        baseline_path = evaluator.save_baseline(screenshot_path, self.name, name)
+        evaluation.baseline_path = baseline_path
+
+        # Store criteria and evaluation for the report
+        self._criteria.append(criteria)
+        self._evaluations.append(evaluator.evaluation_to_dict(evaluation))
+
+        return screenshot_path
 
     def wait(self, seconds: float):
         """Wait for a specified number of seconds."""
@@ -458,4 +504,5 @@ class TestSuite:
             evaluation_notes='',
             duration_seconds=duration,
             error_message=error_msg,
+            evaluations=list(test._evaluations),
         )
