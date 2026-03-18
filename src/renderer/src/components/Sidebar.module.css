@@ -672,28 +672,13 @@
   min-width: 48px;
   height: 100%;
   background-color: var(--bg-secondary);
-  border-right: 1px solid var(--border);
+  /* Border handled by parent wrapper div */
   padding-top: var(--space-xs);
   gap: var(--space-xs);
   position: relative;
   z-index: 10;
   flex-shrink: 0;
-  animation: railSlideIn 200ms ease-out;
-}
-
-@keyframes railSlideIn {
-  from {
-    width: 0;
-    min-width: 0;
-    opacity: 0;
-    overflow: hidden;
-  }
-  to {
-    width: 48px;
-    min-width: 48px;
-    opacity: 1;
-    overflow: visible;
-  }
+  /* Parent div handles width transition — no animation here */
 }
 
 .railCollapseBtn {

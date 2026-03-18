@@ -187,6 +187,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   // ─── Sidebar Drag Handle ──────────────────────────────────────────────────
   const DEFAULT_SIDEBAR_WIDTH = 260
   const isDraggingRef = useRef(false)
+  const [isDragging, setIsDragging] = useState(false)
   const dragStartXRef = useRef(0)
   const dragStartWidthRef = useRef(0)
 
@@ -194,6 +195,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     (e: React.MouseEvent) => {
       e.preventDefault()
       isDraggingRef.current = true
+      setIsDragging(true)
       dragStartXRef.current = e.clientX
       dragStartWidthRef.current = layout.sidebarSize
       document.body.classList.add('sidebar-dragging')
@@ -213,6 +215,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
       const onMouseUp = (): void => {
         isDraggingRef.current = false
+        setIsDragging(false)
         document.body.classList.remove('sidebar-dragging')
         document.removeEventListener('mousemove', onMouseMove)
         document.removeEventListener('mouseup', onMouseUp)
@@ -334,13 +337,16 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       <div className="app-body">
         {/* Sidebar — plain div outside react-resizable-panels, sized in pixels */}
         {layout.sidebarVisible && appSettings.sidebarPosition === 'left' && (
-          layout.sidebarCollapsed ? (
-            <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
-          ) : (
-            <div style={{ width: layout.sidebarSize, flexShrink: 0, height: '100%', overflow: 'hidden', borderRight: '1px solid var(--border)' }}>
-              <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
-            </div>
-          )
+          <div style={{
+            width: layout.sidebarCollapsed ? 48 : layout.sidebarSize,
+            flexShrink: 0,
+            height: '100%',
+            overflow: 'hidden',
+            borderRight: '1px solid var(--border)',
+            transition: isDragging ? 'none' : 'width 200ms ease-out'
+          }}>
+            <Sidebar currentRepo={currentRepo} collapsed={layout.sidebarCollapsed} onToggleCollapse={toggleSidebarCollapse} />
+          </div>
         )}
         {appSettings.sidebarPosition === 'left' && dragHandle}
         <Group orientation="vertical" id="gitslop-outer-vertical">
@@ -396,13 +402,16 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
         {/* Sidebar — right position */}
         {appSettings.sidebarPosition === 'right' && dragHandle}
         {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && (
-          layout.sidebarCollapsed ? (
-            <Sidebar currentRepo={currentRepo} collapsed={true} onToggleCollapse={toggleSidebarCollapse} />
-          ) : (
-            <div style={{ width: layout.sidebarSize, flexShrink: 0, height: '100%', overflow: 'hidden', borderLeft: '1px solid var(--border)' }}>
-              <Sidebar currentRepo={currentRepo} collapsed={false} onToggleCollapse={toggleSidebarCollapse} />
-            </div>
-          )
+          <div style={{
+            width: layout.sidebarCollapsed ? 48 : layout.sidebarSize,
+            flexShrink: 0,
+            height: '100%',
+            overflow: 'hidden',
+            borderLeft: '1px solid var(--border)',
+            transition: isDragging ? 'none' : 'width 200ms ease-out'
+          }}>
+            <Sidebar currentRepo={currentRepo} collapsed={layout.sidebarCollapsed} onToggleCollapse={toggleSidebarCollapse} />
+          </div>
         )}
       </div>
 
