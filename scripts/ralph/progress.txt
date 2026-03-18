@@ -754,3 +754,16 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Status bar is 24px tall at bottom; use `h - 12` for vertical center
   - Notification bell is approximately 30px from right edge of window
 ---
+
+## 2026-03-17 - US-GT-008
+- Implemented TestSidebar test class in scripts/gui-tests/tests/test_sidebar.py
+- Test opens a test repo, ensures sidebar is expanded via Ctrl+B toggle
+- Verifies Branches tab with GitBranch Lucide icons and highlighted current branch
+- Tests section header collapse/expand by clicking chevron
+- Takes 4 assert_visual screenshots: expanded sidebar, branches tab, collapsed section, expanded section
+- Files changed: scripts/gui-tests/tests/test_sidebar.py (new)
+- **Learnings for future iterations:**
+  - Use double Ctrl+B toggle to guarantee expanded state (first toggle may collapse if already expanded)
+  - Sidebar tab buttons are approximately at y=95, section headers around y=125
+  - Follow the established import pattern with importlib.util for framework and fixtures
+---

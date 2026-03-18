@@ -164,7 +164,7 @@
         "Clicks a section header chevron to collapse/expand a section, takes screenshot of both states"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Sidebar may start collapsed if previous session left it that way. Always ensure expanded state first."
     },
     {
