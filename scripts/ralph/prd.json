@@ -365,7 +365,7 @@
         "Presses Escape to close dropdown"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": "Toast timing: 4s for success, 8s for errors. Take screenshot quickly after triggering."
     },
     {

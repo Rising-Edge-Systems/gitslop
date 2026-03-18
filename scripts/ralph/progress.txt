@@ -896,3 +896,13 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Key combo format is 'ctrl+b', 'ctrl+shift+f', 'ctrl+grave' etc.
   - Each shortcut test follows before/after screenshot pattern with assert_visual
 ---
+
+## 2026-03-18 - US-GT-020
+- Implemented test for Notification System: toast notifications and notification history
+- Files changed: scripts/gui-tests/tests/test_notifications.py (new)
+- Test flow: triggers Fetch via Ctrl+Shift+F, captures toast within 1s, waits 5s for auto-dismiss, clicks bell for history dropdown, Escape to close
+- **Learnings for future iterations:**
+  - Toast notifications auto-dismiss after ~4s for success, ~8s for errors — capture screenshots quickly
+  - Notification bell is at w-30, h-12 (right section of 24px status bar)
+  - Ctrl+Shift+F triggers fetch which produces a toast notification
+---
