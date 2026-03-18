@@ -148,7 +148,7 @@
         "Presses Escape to close dropdown, verifies it closes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Status bar is 24px tall at the bottom. Coordinates will be near window_height - 12 for clicking elements."
     },
     {

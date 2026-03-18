@@ -741,3 +741,16 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Fetch button is roughly 3rd button in toolbar at x~320
   - Test repo fixtures provide open_test_repo() helper for loading repos
 ---
+
+## 2026-03-17 - US-GT-007
+- Created scripts/gui-tests/tests/test_statusbar.py with class TestStatusBar(GUITest)
+- Test opens test repo, verifies status bar elements: branch name with GitBranch icon, UTF-8/LF indicators, refresh button, notification bell
+- Tests hover effect on status bar using drag for mouse positioning (no move_mouse method)
+- Tests notification bell click opens history dropdown
+- Tests Escape closes the dropdown
+- Files changed: scripts/gui-tests/tests/test_statusbar.py
+- **Learnings for future iterations:**
+  - No `move_mouse` method in framework — use `drag(x-1, y, x, y)` for hover simulation
+  - Status bar is 24px tall at bottom; use `h - 12` for vertical center
+  - Notification bell is approximately 30px from right edge of window
+---
