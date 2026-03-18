@@ -801,3 +801,14 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Always re-read window bounds after resize_window() since coordinates change
   - Click commit again after resize to ensure detail panel shows at new size
 ---
+
+## 2026-03-17 - US-GT-012
+- Implemented test_commit_graph.py verifying SVG commit graph rendering
+- Added `scroll()` helper to GUITest framework (Button4/Button5 X11 mouse wheel events)
+- Test covers: graph overview with nodes/lanes/glow, commit row details (hash, message, author, date), branch/tag pill badges, scroll down/up virtualization check
+- Files changed: scripts/gui-tests/tests/test_commit_graph.py (new), scripts/gui-tests/framework.py (added scroll method)
+- **Learnings for future iterations:**
+  - X11 mouse scroll uses Button4 (up) and Button5 (down) with press/release pairs
+  - The scroll() helper is now available on GUITest base class for all tests
+  - react-window virtualized lists need scroll testing to verify no gaps appear
+---

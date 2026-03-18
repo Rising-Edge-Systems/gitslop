@@ -229,7 +229,7 @@
         "Scrolls down in commit graph (multiple mouse wheel events), takes screenshot — no gaps or missing nodes"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "The commit graph uses react-window for virtualization. Scrolling is via the graph's internal scroll container."
     },
     {
