@@ -947,3 +947,15 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - The test captures 20 sequential screenshots during repo open to catch transient skeleton states
   - Loading state tests are inherently timing-dependent; the test is designed to be lenient (any non-blank state is acceptable)
 ---
+
+## 2026-03-18 - US-GT-025
+- Implemented TestPanelAnimations test class in test_animations.py
+- Tests sidebar collapse/expand animations with rapid screenshot capture (5 frames at 50ms intervals)
+- Tests terminal open/close animations with rapid screenshot capture
+- Verifies no blank flashes or layout jitter during transitions
+- Files changed: scripts/gui-tests/tests/test_animations.py
+- **Learnings for future iterations:**
+  - Rapid screenshot capture at 50ms intervals works well for catching 200ms CSS animations
+  - _rapid_screenshots() helper pattern is reusable for any animation timing verification
+  - Terminal toggle uses ctrl+grave key combo
+---

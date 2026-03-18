@@ -448,7 +448,7 @@
         "Asserts no screenshot shows a blank flash or layout jitter"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": "Animations are 200ms. Take screenshots every 50ms for ~400ms to capture the transition. This is a polish verification test."
     }
   ]
