@@ -199,6 +199,7 @@ export interface LayoutState {
   sidebarVisible: boolean
   sidebarCollapsed: boolean
   rightPanelSize: number
+  stagingCollapsed: boolean
 }
 
 const STORAGE_KEY = 'gitslop-layout-state'
@@ -209,7 +210,8 @@ const DEFAULT_LAYOUT: LayoutState = {
   bottomPanelVisible: false,
   sidebarVisible: true,
   sidebarCollapsed: false,
-  rightPanelSize: 25
+  rightPanelSize: 25,
+  stagingCollapsed: false
 }
 
 // Sidebar pixel bounds
@@ -258,6 +260,8 @@ export function useLayoutState(): {
   toggleSidebar: () => void
   toggleSidebarCollapse: () => void
   setSidebarCollapsed: (collapsed: boolean) => void
+  setStagingCollapsed: (collapsed: boolean) => void
+  toggleStagingCollapse: () => void
 } {
   const [layout, setLayout] = useState<LayoutState>(loadLayout)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -322,6 +326,14 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, sidebarCollapsed: collapsed, sidebarVisible: true }))
   }, [])
 
+  const setStagingCollapsed = useCallback((collapsed: boolean) => {
+    setLayout((prev) => ({ ...prev, stagingCollapsed: collapsed }))
+  }, [])
+
+  const toggleStagingCollapse = useCallback(() => {
+    setLayout((prev) => ({ ...prev, stagingCollapsed: !prev.stagingCollapsed }))
+  }, [])
+
   return {
     layout,
     setSidebarSize,
@@ -330,6 +342,8 @@ export function useLayoutState(): {
     toggleBottomPanel,
     toggleSidebar,
     toggleSidebarCollapse,
-    setSidebarCollapsed
+    setSidebarCollapsed,
+    setStagingCollapsed,
+    toggleStagingCollapse
   }
 }

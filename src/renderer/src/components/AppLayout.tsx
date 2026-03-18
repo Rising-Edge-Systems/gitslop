@@ -47,7 +47,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     toggleBottomPanel,
     toggleSidebar,
     toggleSidebarCollapse,
-    setSidebarCollapsed
+    setSidebarCollapsed,
+    toggleStagingCollapse
   } = useLayoutState()
 
   const {
@@ -358,6 +359,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   onRepoOpen={onRepoOpen}
                   onCloseRepo={onCloseRepo}
                   onCommitSelect={handleCommitSelect}
+                  stagingCollapsed={layout.stagingCollapsed}
+                  onToggleStagingCollapse={toggleStagingCollapse}
                 />
               </Panel>
               {rightPanelVisible && !useOverlayDetailPanel && (

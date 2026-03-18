@@ -34,6 +34,8 @@ interface RepoStatus {
 interface StatusPanelProps {
   repoPath: string
   onRefresh?: () => void
+  collapsed: boolean
+  onToggleCollapse: () => void
 }
 
 // ─── CSS Module Lookup Maps ──────────────────────────────────────────────────
@@ -93,7 +95,7 @@ function fileDir(filePath: string): string {
 
 const SUBJECT_WARN_LENGTH = 72
 
-export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JSX.Element {
+export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }: StatusPanelProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -108,7 +110,6 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
     y: number
     file: FileStatus
   } | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
   // Commit form state
   const [commitSubject, setCommitSubject] = useState('')
   const [commitBody, setCommitBody] = useState('')
@@ -740,7 +741,7 @@ export function StatusPanel({ repoPath, onRefresh }: StatusPanelProps): React.JS
       {/* Collapsible header */}
       <button
         className={styles.panelHeader}
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={onToggleCollapse}
       >
         <span className={styles.panelHeaderLeft}>
           <span className={styles.panelHeaderChevron}>
