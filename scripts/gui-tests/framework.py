@@ -284,6 +284,27 @@ class GUITest:
             fake_input(d, X.KeyRelease, mod_code)
             d.sync()
 
+    def resize_window(self, width: int, height: int):
+        """Resize the GitSlop window via X11 ConfigureWindow.
+
+        Args:
+            width: Desired window width in pixels.
+            height: Desired window height in pixels.
+        """
+        d = self.display
+        win = self._find_gitslop_window()
+        if not win:
+            raise RuntimeError("GitSlop window not found")
+
+        win.configure(width=width, height=height)
+        d.sync()
+        # Allow window manager to process the resize and UI to reflow
+        time.sleep(0.5)
+
+    def reset_window_size(self):
+        """Restore the GitSlop window to the default 1280x800 size."""
+        self.resize_window(1280, 800)
+
     def drag(self, x1: int, y1: int, x2: int, y2: int):
         """Drag from one window-relative position to another.
 

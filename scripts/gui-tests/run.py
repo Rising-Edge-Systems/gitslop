@@ -196,6 +196,19 @@ def main():
         # Extra settle time for the UI to fully render
         time.sleep(2)
 
+        # Apply initial window size if specified
+        if args.size:
+            try:
+                sw, sh = args.size.lower().split('x')
+                initial_w, initial_h = int(sw), int(sh)
+                # Create a temporary GUITest to use resize_window
+                resizer = GUITest()
+                resizer.resize_window(initial_w, initial_h)
+                print(f"Window resized to {initial_w}x{initial_h}")
+                time.sleep(0.5)
+            except ValueError:
+                print(f"Warning: Invalid --size format '{args.size}', expected WxH (e.g. 1280x800)")
+
     try:
         # Run tests
         suite = TestSuite(filter_pattern=args.filter)
