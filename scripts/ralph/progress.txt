@@ -634,3 +634,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Use `cleanup()` from @testing-library/react in afterEach for happy-dom environment
   - No vitest.config.ts needed — tests work without it using electron-vite defaults; per-file `@vitest-environment` comments work for setting jsdom/happy-dom
 ---
+
+## 2026-03-17 23:10 - US-GT-001a (GUI Test Suite branch: ralph/gui-tests)
+- Created test framework core: framework.py with TestResult, GUITest, TestSuite classes
+- Created run.py entry point with build, launch, wait, kill, and report steps
+- Created dummy test (test_dummy.py) that takes a screenshot and passes
+- Created directory structure: scripts/gui-tests/{tests,results,baselines}
+- Added results/ to .gitignore (except .gitkeep)
+- Used file-based imports (importlib.util.spec_from_file_location) to handle hyphenated package name
+- Files changed: scripts/gui-tests/{__init__.py, framework.py, run.py, tests/__init__.py, tests/test_dummy.py, results/.gitkeep, baselines/.gitkeep}, .gitignore
+- **Learnings for future iterations:**
+  - Package name `gui-tests` has a hyphen — can't use normal Python imports. Use importlib.util.spec_from_file_location for all cross-module imports.
+  - Runner supports --no-build and --no-launch flags for testing without Electron
+  - Screenshots go to scripts/gui-tests/results/screenshots/{TestName}_{name}.png
+  - Report is written to scripts/gui-tests/results/report.json
+  - The display is :1 for X11 operations
+---

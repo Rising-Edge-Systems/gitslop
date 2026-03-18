@@ -1,683 +1,455 @@
 {
   "project": "GitSlop",
-  "branchName": "ralph/ui-overhaul",
-  "description": "Major UI/UX overhaul — replace emojis with Lucide icons, redesign layout to GitKraken-style three-column, implement SVG commit graph, add commit-level diff viewing, fix blink refresh, CSS modules migration, and full visual polish.",
+  "branchName": "ralph/gui-tests",
+  "description": "Comprehensive GUI test suite using DIY computer use (python-xlib). Tests visually and functionally verify all UI overhaul features (US-041–066) via automated screenshot, click, type, and key interactions, with AI-evaluated pass/fail verdicts.",
   "userStories": [
     {
-      "id": "US-041",
-      "title": "Install and Configure Lucide Icons",
-      "description": "As a developer, I need the Lucide icon library integrated so we can replace all emoji/unicode symbols with consistent, professional line icons.",
+      "id": "US-GT-001a",
+      "title": "Test Framework — Core Classes and Runner",
+      "description": "As a developer, I need the test framework base classes and runner so tests can be defined and executed.",
       "acceptanceCriteria": [
-        "lucide-react package installed as a dependency",
-        "One example icon renders correctly in the app (e.g., replace the settings gear emoji with Lucide Settings icon)",
-        "Icons accept size and className props for consistent sizing",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/__init__.py (empty, makes it a package)",
+        "Create scripts/gui-tests/framework.py with: TestResult dataclass (name, status, screenshot_paths, criteria, evaluation_notes, duration_seconds), GUITest base class with setUp/tearDown/run methods, TestSuite class that collects and runs GUITest subclasses",
+        "GUITest base class provides helper methods: screenshot(name) saves to results/screenshots/ and returns path, wait(seconds) wraps time.sleep, get_window_bounds() returns (x, y, w, h) for the gitslop window",
+        "TestSuite.run() iterates tests, catches exceptions per test, collects TestResult list",
+        "Create scripts/gui-tests/run.py — entry point that: builds the app (electron-vite build), launches electron --no-sandbox, waits for window, runs TestSuite, kills app, writes JSON report to results/report.json",
+        "Runner supports --filter <pattern> to run specific tests by name substring",
+        "Console output shows [PASS] / [FAIL] / [ERROR] per test with colors",
+        "Exit code 0 if all pass, 1 if any fail",
+        "Test with a dummy test that just takes a screenshot and passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Foundation for all icon work. Just install and prove one icon works — do NOT replace all icons yet."
+      "notes": "Foundation. No screen-control.py dependency yet — import python-xlib directly. The app must be built before launching (npx electron-vite build && npx electron --no-sandbox .)."
     },
     {
-      "id": "US-042a",
-      "title": "Replace Emoji Icons — Toolbar and Titlebar",
-      "description": "As a user, I want professional Lucide icons in the toolbar and titlebar instead of tacky emojis.",
+      "id": "US-GT-001b",
+      "title": "Test Framework — Screen Interaction Helpers",
+      "description": "As a test author, I need click, type, key, and drag helpers integrated into the GUITest base class.",
       "acceptanceCriteria": [
-        "All emoji/unicode icons in Toolbar.tsx replaced with Lucide icons: pull (ArrowDownToLine), push (ArrowUpFromLine), fetch (RefreshCw), stash (Archive), settings (Settings), branch (GitBranch), merge (GitMerge)",
-        "All emoji/unicode icons in TitleBar.tsx replaced: minimize (Minus), maximize (Square), close (X), logo/circle replaced with text wordmark or Lucide icon",
-        "Icons are 18px in toolbar, consistent spacing",
-        "No raw emoji or unicode symbols remain in Toolbar.tsx or TitleBar.tsx",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Import and wrap functions from scripts/screen-control.py (or reimplement using python-xlib directly in framework.py)",
+        "GUITest gains: click(rel_x, rel_y) clicks at window-relative coordinates, rightclick(rel_x, rel_y), doubleclick(rel_x, rel_y)",
+        "GUITest gains: type_text(text) types string, press_key(combo) presses key combo (e.g. 'ctrl+b')",
+        "GUITest gains: drag(x1, y1, x2, y2) all window-relative",
+        "All click/drag methods automatically translate window-relative to absolute screen coords using get_window_bounds()",
+        "GUITest gains: focus_window() raises the gitslop window before interactions",
+        "Test with a test that clicks the Settings gear icon and takes a screenshot"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Focus ONLY on Toolbar.tsx and TitleBar.tsx. Other components will be handled in subsequent stories."
+      "passes": false,
+      "notes": "Depends on US-GT-001a for the framework. The screen-control.py already has all the python-xlib logic — import it as a module or copy the relevant functions."
     },
     {
-      "id": "US-042b",
-      "title": "Replace Emoji Icons — Sidebar and Status Bar",
-      "description": "As a user, I want professional Lucide icons in the sidebar and status bar.",
+      "id": "US-GT-001c",
+      "title": "Test Framework — Window Resize and Multi-Size Support",
+      "description": "As a test author, I need to resize the GitSlop window for responsive layout testing.",
       "acceptanceCriteria": [
-        "All emoji/unicode icons in Sidebar.tsx replaced: collapse/expand chevrons (ChevronRight/ChevronDown), file icons (File/Folder), stash (Archive), branch (GitBranch), tag (Tag), remote (Globe)",
-        "All emoji/unicode icons in StatusBar.tsx replaced: notifications bell (Bell), refresh (RefreshCw), success/error (Check/AlertCircle), theme toggle (Sun/Moon), branch (GitBranch)",
-        "Icons are 14px in status bar, 16px inline in sidebar",
-        "No raw emoji or unicode symbols remain in Sidebar.tsx or StatusBar.tsx",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "GUITest gains: resize_window(width, height) resizes the gitslop window via X11 ConfigureWindow",
+        "GUITest gains: reset_window_size() restores to default 1280x800",
+        "Runner supports --size WxH flag to set initial window size",
+        "Verify resize works: resize to 800x500, screenshot shows smaller window, resize back to 1280x800",
+        "Window position is re-read after resize (bounds may change)"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Focus ONLY on Sidebar.tsx and StatusBar.tsx."
+      "passes": false,
+      "notes": "Depends on US-GT-001b. Use Xlib.X.ConfigureWindow with width/height fields. The window manager may add decorations — measure actual content area."
     },
     {
-      "id": "US-042c",
-      "title": "Replace Emoji Icons — All Remaining Components",
-      "description": "As a user, I want all remaining emoji/unicode symbols replaced with Lucide icons throughout the entire UI.",
+      "id": "US-GT-002",
+      "title": "AI Screenshot Evaluator",
+      "description": "As a developer, I need screenshots saved with criteria metadata so they can be AI-evaluated for pass/fail.",
       "acceptanceCriteria": [
-        "All emoji/unicode in NotificationToast.tsx replaced: info (Info), warning (AlertTriangle), error (AlertCircle), success (CheckCircle), close (X)",
-        "All emoji/unicode in StatusPanel.tsx replaced: file status icons (FilePlus, FileMinus, FileEdit), checkmarks (Check), warnings (AlertTriangle)",
-        "All emoji/unicode in CommitGraph.tsx replaced: any inline symbols",
-        "All emoji/unicode in WelcomeScreen.tsx replaced: open (FolderOpen), clone (GitBranch), init (FolderPlus), remove (X)",
-        "All emoji/unicode in remaining components (SearchPalette, SettingsPanel, CommitDialog, DiffViewer, BlameView, etc.) replaced",
-        "Grep for emoji/unicode patterns in src/renderer/ returns zero matches: no &#, no emoji codepoints, no raw unicode symbols used as icons",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/evaluator.py with evaluate(screenshot_path, criteria_text) function",
+        "For now, evaluate() returns verdict='needs_review' and saves criteria alongside screenshot in report",
+        "Each screenshot in the JSON report includes: path, criteria, verdict, notes",
+        "GUITest gains: assert_visual(name, criteria) — takes screenshot, calls evaluator, stores result",
+        "Baseline screenshots saved to scripts/gui-tests/baselines/{test_name}/ on first run",
+        "Report JSON is structured for easy programmatic parsing by Claude"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Final emoji cleanup pass. After this, zero emoji/unicode icon symbols should remain in any renderer source file."
+      "passes": false,
+      "notes": "The real AI evaluation happens when Claude reads screenshots during a session. This just structures the data. Baseline saving enables future pixel-diff regression testing."
     },
     {
-      "id": "US-043a",
-      "title": "Create Design Token System",
-      "description": "As a developer, I need a centralized design token CSS file so all spacing, typography, colors, and other values are consistent.",
+      "id": "US-GT-003",
+      "title": "Test Repo Fixtures",
+      "description": "As a test author, I need a deterministic test repo with known branches, commits, tags, and working tree state.",
       "acceptanceCriteria": [
-        "Create src/renderer/src/styles/tokens.css with CSS custom properties organized into categories: spacing (--space-xs through --space-2xl), font sizes (--font-xs through --font-xl), border radius (--radius-sm/md/lg), shadows (--shadow-sm/md/lg), transitions (--transition-fast/normal)",
-        "Move all existing color variables from global.css :root into tokens.css",
-        "Both dark and light theme values defined in tokens.css via [data-theme] selectors",
-        "tokens.css imported at app root (App.tsx or main entry)",
-        "Existing app still renders correctly with no visual changes",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/fixtures.py with create_test_repo() and cleanup_test_repo(path)",
+        "create_test_repo() creates a temp directory with: git init, 5 commits on main with known messages and file contents, a 'feature' branch with 3 commits, merged back to main (merge commit), 2 tags ('v1.0', 'v2.0'), 1 stash, one staged file, one unstaged modified file, one untracked file",
+        "All commit messages, author names, dates are deterministic (use GIT_AUTHOR_DATE and GIT_COMMITTER_DATE env vars)",
+        "cleanup_test_repo() removes the temp directory",
+        "Add open_test_repo(repo_path) helper that clicks 'Open Repository' in toolbar/welcome screen and navigates to the path",
+        "Test with a test that creates the repo, verifies files exist, cleans up"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Create the token file and move color vars over. Do NOT split component CSS yet — that comes in subsequent stories."
+      "passes": false,
+      "notes": "Use subprocess.run for git commands. Set GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, GIT_AUTHOR_DATE, GIT_COMMITTER_DATE for determinism. The open_repo flow may need to interact with the native file dialog — consider if electron supports a command-line arg to open a repo path directly."
     },
     {
-      "id": "US-043b",
-      "title": "CSS Modules — Toolbar, Titlebar, StatusBar",
-      "description": "As a developer, I need the Toolbar, TitleBar, and StatusBar styles extracted from global.css into CSS modules.",
+      "id": "US-GT-004",
+      "title": "npm Integration and Directory Setup",
+      "description": "As a developer, I need the test suite callable via npm run gui-test with proper directory structure.",
       "acceptanceCriteria": [
-        "Create Toolbar.module.css with all toolbar-related styles extracted from global.css",
-        "Create TitleBar.module.css with all titlebar-related styles extracted from global.css",
-        "Create StatusBar.module.css with all status-bar-related styles extracted from global.css",
-        "Each component imports its own .module.css and uses scoped class names (styles.className pattern)",
-        "Hardcoded pixel values replaced with design tokens where applicable",
-        "Removed styles no longer present in global.css",
-        "No visual regressions — components look identical to before",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Add 'gui-test' script to package.json: 'python3 scripts/gui-tests/run.py'",
+        "Create scripts/gui-tests/results/.gitkeep (gitignored except .gitkeep)",
+        "Create scripts/gui-tests/baselines/.gitkeep",
+        "Add scripts/gui-tests/results/ to .gitignore (except .gitkeep)",
+        "Add scripts/gui-tests/tests/__init__.py (test case package)",
+        "Verify npm run gui-test launches the runner and produces a report"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Extract styles for these 3 smaller components first. Update className references in TSX files."
+      "passes": false,
+      "notes": "Depends on US-GT-001a. Keep baselines in git (they're reference screenshots). Results are ephemeral and gitignored."
     },
     {
-      "id": "US-043c",
-      "title": "CSS Modules — Sidebar",
-      "description": "As a developer, I need the Sidebar styles extracted from global.css into a CSS module.",
+      "id": "US-GT-005",
+      "title": "Test — Welcome Screen",
+      "description": "As a tester, I want to verify the welcome screen renders correctly with all expected elements.",
       "acceptanceCriteria": [
-        "Create Sidebar.module.css with all sidebar-related styles extracted from global.css (sidebar sections, branch lists, file tree, context menus, dialogs)",
-        "Sidebar.tsx imports Sidebar.module.css and uses scoped class names",
-        "Hardcoded pixel values replaced with design tokens where applicable",
-        "Removed styles no longer present in global.css",
-        "No visual regressions",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_welcome.py with class TestWelcomeScreen(GUITest)",
+        "Test takes screenshot on launch, asserts visual criteria: 'GS wordmark, GitSlop title, subtitle, three action cards (Open/Clone/Init) with Lucide icons, keyboard shortcut hints, Recent Repositories section, no emoji'",
+        "Test verifies toolbar shows only Open, Clone, Init (no Pull/Push/Fetch)",
+        "Test verifies status bar shows 'No repository open'",
+        "Test toggles theme (clicks Sun/Moon icon in titlebar), takes screenshot of light theme, toggles back",
+        "All screenshots saved with descriptive names (welcome_dark.png, welcome_light.png)"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Sidebar is 2,272 lines with many style classes — this is a big extraction but scoped to one component."
+      "passes": false,
+      "notes": "This test runs on app launch before any repo is opened. The welcome screen is the default state."
     },
     {
-      "id": "US-043d",
-      "title": "CSS Modules — CommitGraph, StatusPanel, DiffViewer",
-      "description": "As a developer, I need the CommitGraph, StatusPanel, and DiffViewer styles extracted from global.css into CSS modules.",
+      "id": "US-GT-006",
+      "title": "Test — Toolbar and Titlebar",
+      "description": "As a tester, I want to verify toolbar context-aware buttons and titlebar layout after opening a repo.",
       "acceptanceCriteria": [
-        "Create CommitGraph.module.css with all commit-graph-related styles from global.css",
-        "Create StatusPanel.module.css with all status-panel-related styles from global.css",
-        "Create DiffViewer.module.css with all diff-viewer-related styles from global.css",
-        "Each component imports its own .module.css and uses scoped class names",
-        "Hardcoded pixel values replaced with design tokens where applicable",
-        "Removed styles no longer present in global.css",
-        "No visual regressions",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_toolbar_titlebar.py",
+        "Test opens the gitslop repo (click recent repo or use fixture), takes screenshot",
+        "Asserts toolbar shows: Pull, Push, Fetch, Branch, Merge, Stash — all with Lucide icons, no emoji",
+        "Asserts Settings gear always visible on far right",
+        "Asserts titlebar shows: GitSlop wordmark (left), repo name + branch (center), window controls (right)",
+        "Test clicks Fetch button, takes screenshot showing inline spinner during operation",
+        "Test clicks center repo info in titlebar, takes screenshot showing 'Copied!' feedback"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "These are the three largest remaining components with significant CSS."
+      "passes": false,
+      "notes": "Depends on US-GT-003 for opening a repo. The fetch operation needs a remote — the gitslop repo has origin configured."
     },
     {
-      "id": "US-043e",
-      "title": "CSS Modules — All Remaining Components and Cleanup",
-      "description": "As a developer, I need all remaining component styles extracted from global.css into CSS modules, leaving global.css with only truly global styles.",
+      "id": "US-GT-007",
+      "title": "Test — Status Bar",
+      "description": "As a tester, I want to verify the status bar information and interactions.",
       "acceptanceCriteria": [
-        "CSS modules created for all remaining components: WelcomeScreen, SearchPalette, SettingsPanel, CommitDialog, NotificationToast, CodeEditor, BlameView, ConflictResolver, CommitFilterBar, KeyboardShortcutsPanel, and any others",
-        "global.css contains ONLY truly global styles: CSS reset, body/html, scrollbar styling, font-face declarations",
-        "No component-specific class names remain in global.css",
-        "All components use scoped class names from their .module.css",
-        "No visual regressions",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_statusbar.py",
+        "With repo open: asserts branch name with GitBranch icon visible in left section",
+        "Asserts right section shows: UTF-8, LF indicators, refresh button, notification bell",
+        "Hovers over status bar, takes screenshot — text should become more visible on hover",
+        "Clicks notification bell, takes screenshot of history dropdown",
+        "Presses Escape to close dropdown, verifies it closes"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Final CSS cleanup pass. After this, global.css should be small (< 5KB) with only resets and global defaults."
+      "passes": false,
+      "notes": "Status bar is 24px tall at the bottom. Coordinates will be near window_height - 12 for clicking elements."
     },
     {
-      "id": "US-044a",
-      "title": "Three-Column Layout — Structure",
-      "description": "As a user, I want a GitKraken-style three-column layout so I can see branches, the commit graph, and details simultaneously.",
+      "id": "US-GT-008",
+      "title": "Test — Sidebar Expanded and Sections",
+      "description": "As a tester, I want to verify the sidebar renders with all sections and is scrollable.",
       "acceptanceCriteria": [
-        "AppLayout restructured into three resizable columns using react-resizable-panels: left sidebar (200-350px), center panel (flexible), right detail panel (250-500px)",
-        "Terminal panel remains at the bottom spanning full width below all three columns",
-        "All panel dividers are draggable with visible grab handles",
-        "Minimum sizes enforced: sidebar min 200px, center min 300px, right min 250px",
-        "Right panel collapses completely when no commit is selected (shows only sidebar + center)",
-        "Layout proportions persist across restarts via localStorage",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_sidebar.py",
+        "Ensures sidebar is expanded (press Ctrl+B if collapsed), takes screenshot",
+        "Asserts: sidebar visible on left with Branches/Files tabs, collapse button at top",
+        "Asserts: Branches tab shows local branches with GitBranch icons, current branch highlighted",
+        "Asserts: all icons are Lucide (no emoji/unicode)",
+        "Clicks a section header chevron to collapse/expand a section, takes screenshot of both states"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "Set up the three-column structure. Don't implement hybrid overlay or icon rail yet — those come in later stories."
+      "passes": false,
+      "notes": "Sidebar may start collapsed if previous session left it that way. Always ensure expanded state first."
     },
     {
-      "id": "US-044b",
-      "title": "Sidebar Icon Rail and Collapse",
-      "description": "As a user, I want to collapse the sidebar to an icon rail to save horizontal space.",
+      "id": "US-GT-009",
+      "title": "Test — Sidebar Icon Rail Collapse",
+      "description": "As a tester, I want to verify sidebar collapse to icon rail and floating overlay.",
       "acceptanceCriteria": [
-        "Sidebar collapse/expand toggle button always visible at top of sidebar (use Lucide PanelLeftClose/PanelLeftOpen icon)",
-        "When collapsed, sidebar shows as a 48px wide icon rail with section icons vertically",
-        "Hovering an icon in rail mode shows a tooltip with the section name",
-        "Clicking an icon in rail mode expands that section as a floating overlay panel",
-        "Collapse state persists across restarts",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_sidebar_collapse.py",
+        "Clicks collapse button (PanelLeftClose icon at top of sidebar)",
+        "Takes screenshot — asserts 48px icon rail visible with section icons",
+        "Clicks a section icon in the rail — takes screenshot of floating overlay panel",
+        "Clicks outside overlay — verifies it closes",
+        "Clicks expand button (PanelLeftOpen) — takes screenshot of restored full sidebar",
+        "Restores sidebar to expanded state at end of test"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "Depends on US-044a for the base layout structure."
+      "passes": false,
+      "notes": "The collapse button is at the top-left of the sidebar. The icon rail is 48px wide."
     },
     {
-      "id": "US-044c",
-      "title": "Hybrid Right Detail Panel",
-      "description": "As a user, I want the right detail panel to be an inline column on wide screens and a sliding overlay on narrow screens.",
+      "id": "US-GT-010",
+      "title": "Test — Three-Column Layout and Panel Dividers",
+      "description": "As a tester, I want to verify the three-column layout, panel resizing, and terminal toggle.",
       "acceptanceCriteria": [
-        "On window width >= 1400px: right detail panel renders as a dedicated inline column within the three-column layout",
-        "On window width < 1400px: right detail panel renders as a sliding overlay/drawer from the right edge, overlapping the center content",
-        "Overlay has a subtle backdrop shadow to visually separate from content beneath",
-        "Transition between inline and overlay modes is smooth when window is resized across the 1400px threshold",
-        "Panel can be dismissed via close button (X) or clicking outside the overlay",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_layout.py",
+        "With repo open and no commit selected: takes screenshot, asserts two columns (sidebar + center)",
+        "Clicks a commit row in the graph — takes screenshot showing third column (detail panel) appeared",
+        "Drags a panel divider to resize, takes before/after screenshots showing size changed",
+        "Presses Ctrl+` to toggle terminal, takes screenshot showing terminal panel at bottom",
+        "Presses Ctrl+` again to hide terminal",
+        "Closes detail panel (clicks X), verifies it disappears"
       ],
       "priority": 12,
-      "passes": true,
-      "notes": "Depends on US-044a. Use window resize observer to detect threshold."
+      "passes": false,
+      "notes": "Resize handle position depends on sidebar width. Use drag() with approximate divider coordinates."
     },
     {
-      "id": "US-045",
-      "title": "Context-Aware Toolbar",
-      "description": "As a user, I want toolbar buttons to only appear when they're relevant so I'm not confused by actions I can't perform.",
+      "id": "US-GT-011",
+      "title": "Test — Hybrid Detail Panel (Inline vs Overlay)",
+      "description": "As a tester, I want to verify the detail panel switches between inline column and overlay at different widths.",
       "acceptanceCriteria": [
-        "When no repo is open: toolbar shows only Open Repository, Clone, and Init buttons",
-        "When a repo is open: toolbar shows git operation buttons (pull, push, fetch, branch, merge, stash)",
-        "Buttons that require a remote (push, pull, fetch) are hidden if repo has no remotes configured",
-        "Buttons show a disabled state with tooltip explaining why when preconditions aren't met (e.g., Nothing to push)",
-        "Active operations show a subtle inline spinner next to the button text, not replacing the button",
-        "Toolbar never wraps or overflows — excess buttons go into a ... overflow menu",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_detail_panel_modes.py",
+        "At 1280x800: clicks a commit, takes screenshot — detail panel is inline third column",
+        "Resizes window to 1100x700: takes screenshot — detail panel should now be overlay with backdrop shadow",
+        "Presses Escape — overlay dismisses",
+        "Resizes back to 1280x800, restores default state"
       ],
       "priority": 13,
-      "passes": true,
-      "notes": "Depends on Lucide icons being in place (US-042a). Modifies Toolbar.tsx."
+      "passes": false,
+      "notes": "Depends on US-GT-001c for resize_window(). The DETAIL_PANEL_BREAKPOINT is 1400px, so even 1280 should be overlay mode. May need to test at 1500px for inline mode."
     },
     {
-      "id": "US-046",
-      "title": "Fix Full-Screen Blink Refresh",
-      "description": "As a user, I don't want the entire screen to flash white/blank when the app refreshes state.",
+      "id": "US-GT-012",
+      "title": "Test — SVG Commit Graph Rendering",
+      "description": "As a tester, I want to verify the commit graph renders with SVG nodes, lanes, and labels.",
       "acceptanceCriteria": [
-        "Identify the cause of full-screen re-renders (likely top-level state change triggering full component tree remount, or file watcher causing complete repo reload)",
-        "State updates are granular — changing one piece of state (e.g., staging a file) does not re-render unrelated components (e.g., commit graph, sidebar)",
-        "File watcher updates are diffed against current state — only changed data triggers re-renders",
-        "No visible flash, flicker, or blank screen during any normal operation (stage, unstage, commit, checkout, fetch, pull, push)",
-        "Loading states use skeleton placeholders or spinners within their specific panel, never a blank screen",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_commit_graph.py",
+        "Takes screenshot of commit graph area with repo open",
+        "Asserts visual criteria: colored circle nodes, vertical branch lane lines, HEAD commit with glow effect, branch/tag labels as pill badges",
+        "Asserts each commit row shows: short hash, message, author, relative date",
+        "Asserts 'ralph/ui-overhaul' (or current branch) label visible on HEAD commit",
+        "Scrolls down in commit graph (multiple mouse wheel events), takes screenshot — no gaps or missing nodes"
       ],
       "priority": 14,
-      "passes": true,
-      "notes": "Investigate state management in AppLayout/RepoView. Likely needs React.memo, useMemo, splitting state into independent atoms. May need to refactor how file watcher triggers refresh."
+      "passes": false,
+      "notes": "The commit graph uses react-window for virtualization. Scrolling is via the graph's internal scroll container."
     },
     {
-      "id": "US-047",
-      "title": "Sidebar Accessibility Fix",
-      "description": "As a user, I want to always be able to access the sidebar content so I can switch branches, browse tags, and navigate the file tree.",
+      "id": "US-GT-013",
+      "title": "Test — Commit Graph Interaction (Click, Context Menu, Keyboard)",
+      "description": "As a tester, I want to verify commit selection, context menus, and keyboard navigation in the graph.",
       "acceptanceCriteria": [
-        "Sidebar sections (Branches, Remotes, Tags, Stashes, Files) are always scrollable when content overflows",
-        "Collapsible sections use Lucide chevron icons with smooth rotation animation (90deg on expand)",
-        "Sidebar has its own scroll container independent of other panels",
-        "Keyboard accessible: Tab to focus sections, Enter to expand/collapse, arrow keys to navigate items",
-        "Sidebar collapse/expand toggle button is always visible (pinned to top of sidebar)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_commit_interaction.py",
+        "Clicks a commit row — takes screenshot, asserts it highlights with accent color and detail panel opens",
+        "Right-clicks a commit — takes screenshot of context menu with items: checkout, cherry-pick, revert, reset, create branch, create tag, copy SHA",
+        "Presses Escape to close context menu",
+        "Presses Down arrow 3 times then Enter — verifies selection moved and detail panel updated",
+        "Hovers over a commit for 800ms — takes screenshot showing tooltip with commit message"
       ],
       "priority": 15,
-      "passes": true,
-      "notes": "Fixes the current issue where sidebar content can become inaccessible. Depends on Lucide icons (US-042b) and sidebar CSS module (US-043c)."
+      "passes": false,
+      "notes": "Context menu position depends on where the commit row is. Use coordinates from the commit row area (roughly x=400, y varies by row)."
     },
     {
-      "id": "US-048a",
-      "title": "SVG Commit Graph — Lane Assignment Algorithm",
-      "description": "As a developer, I need a lane assignment algorithm that determines which vertical column each branch occupies in the graph.",
+      "id": "US-GT-014",
+      "title": "Test — Commit Detail Panel Content",
+      "description": "As a tester, I want to verify the detail panel shows full commit info, file list, and copy functionality.",
       "acceptanceCriteria": [
-        "Implement a lane assignment algorithm that takes commit data (with parent hashes) and assigns each commit to a lane (column index)",
-        "Algorithm correctly handles: linear history (single lane), feature branches (new lane for divergence), merge commits (connecting lines between lanes), branch endings (lane freed for reuse)",
-        "HEAD and current branch assigned to lane 0 (leftmost)",
-        "Each branch gets a consistent color from a curated palette of 8-10 colors, cycling for additional branches",
-        "Algorithm exported as a pure function that can be unit tested",
-        "Unit tests cover: linear history, single branch, merge commit, multiple concurrent branches, octopus merge",
-        "Typecheck passes"
+        "Create scripts/gui-tests/tests/test_detail_panel.py",
+        "Clicks a commit, takes screenshot of detail panel",
+        "Asserts: subject bold, full SHA visible, author name + email, absolute and relative date",
+        "Asserts: Changed Files section lists files with Lucide status icons (FilePlus/FileMinus/FileEdit)",
+        "Asserts: file count summary with +insertions -deletions",
+        "Clicks the SHA copy button — takes screenshot showing copy feedback",
+        "Clicks close (X) — panel dismisses"
       ],
       "priority": 16,
-      "passes": true,
-      "notes": "Pure data/logic — no rendering. This algorithm will be shared between SVG and Canvas renderers. Output: array of { commit, lane, color, parentConnections[] }."
+      "passes": false,
+      "notes": "The detail panel is on the right side. SHA copy button is near the top of the panel."
     },
     {
-      "id": "US-048b",
-      "title": "SVG Commit Graph — SVG Renderer",
-      "description": "As a user, I want a graphical commit history with colored branch lines and nodes rendered as SVG.",
+      "id": "US-GT-015",
+      "title": "Test — Diff Viewer in Detail Panel",
+      "description": "As a tester, I want to verify inline and side-by-side diff views in the commit detail panel.",
       "acceptanceCriteria": [
-        "Replace the current ASCII-art commit graph with SVG rendering",
-        "Each commit is a colored circle node (8-10px radius) positioned on its assigned branch lane",
-        "Branch lanes are vertical colored lines connecting commits on the same branch",
-        "Merge commits show connecting bezier curve lines from the merged branch to the target branch",
-        "HEAD commit is visually distinct (larger node with highlighted ring or glow effect)",
-        "Branch and tag labels rendered as pill badges next to their commit node",
-        "Commit row still shows: short hash, message, author, relative date as HTML alongside the SVG",
-        "Virtualized rendering using react-window — only visible rows rendered in DOM",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_diff_viewer.py",
+        "Clicks a commit, then clicks a file in the Changed Files list",
+        "Takes screenshot — asserts diff renders with green additions and red deletions",
+        "Asserts diff header shows file path and change type",
+        "Clicks 'Split' toggle button — takes screenshot of side-by-side view",
+        "Clicks next file navigation button (or presses ]) — takes screenshot showing different file's diff",
+        "Clicks back to Inline mode"
       ],
       "priority": 17,
-      "passes": true,
-      "notes": "Uses the lane assignment algorithm from US-048a. SVG for lines/nodes, HTML overlay for text. This replaces the existing CommitGraph rendering."
+      "passes": false,
+      "notes": "Choose a commit with multiple changed files for this test. The gitslop repo has plenty of multi-file commits."
     },
     {
-      "id": "US-048c",
-      "title": "SVG Commit Graph — Canvas Fallback for Large Repos",
-      "description": "As a developer, I need a Canvas-based fallback renderer for repos with 50,000+ commits.",
+      "id": "US-GT-016",
+      "title": "Test — Staging Area Layout and Stage/Unstage",
+      "description": "As a tester, I want to verify the staging area two-column layout, stage, and unstage operations.",
       "acceptanceCriteria": [
-        "Canvas renderer produces visually identical output to the SVG renderer (same colors, node sizes, bezier curves)",
-        "Uses the same lane assignment algorithm from US-048a",
-        "Automatic switch from SVG to Canvas when commit count exceeds 50,000",
-        "Canvas renderer handles 100,000+ commits without performance degradation",
-        "Click/hover interactions still work on Canvas (hit-testing for commit nodes)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_staging.py",
+        "Opens test repo (with staged/unstaged/untracked files) or uses gitslop repo with pending changes",
+        "Takes screenshot — asserts: staging area below graph, collapsible header with file count badge, two-column layout (Unstaged left, Staged right)",
+        "Asserts: each file shows Lucide status icon, filename, directory path (muted)",
+        "Clicks + button on an unstaged file — takes screenshot, file moved to staged column",
+        "Clicks - button on the staged file — takes screenshot, file returned to unstaged",
+        "Clicks 'Stage All' — verifies all files move to staged column",
+        "Clicks 'Unstage All' — verifies all return to unstaged"
       ],
       "priority": 18,
-      "passes": true,
-      "notes": "Canvas uses offscreen rendering for visible viewport + buffer. Hit-testing via coordinate mapping, not DOM events."
+      "passes": false,
+      "notes": "The staging area needs files with changes. Use the test repo fixture which has staged/unstaged/untracked files ready."
     },
     {
-      "id": "US-049",
-      "title": "SVG Commit Graph — Interaction",
-      "description": "As a user, I want to interact with the commit graph to select commits, view details, and perform actions.",
+      "id": "US-GT-017",
+      "title": "Test — Context Menus Everywhere",
+      "description": "As a tester, I want to verify styled context menus appear on commits, branches, files, and tags.",
       "acceptanceCriteria": [
-        "Single-click a commit node or row to select it — selection highlighted with accent color",
-        "Selected commit's details populate the right detail panel",
-        "Right-click a commit for context menu: checkout, cherry-pick, revert, reset (soft/mixed/hard), create branch here, create tag here, copy SHA",
-        "Right-click a branch label for context menu: checkout, merge into current, rebase onto, delete, rename, push",
-        "Hover over a commit shows a tooltip with full commit message preview",
-        "Keyboard navigation: Up/Down arrows move selection, Enter opens commit details",
-        "Scroll position is preserved when data refreshes (no jumping to top)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_context_menus.py",
+        "Right-clicks a commit row — takes screenshot, asserts styled context menu with Lucide icons and labels",
+        "Presses Escape to close",
+        "Right-clicks a branch in sidebar — takes screenshot of branch context menu",
+        "Presses Escape to close",
+        "Right-clicks a file in staging area — takes screenshot of file context menu",
+        "Asserts: dangerous items (delete) styled in red, menu stays within viewport"
       ],
       "priority": 19,
-      "passes": true,
-      "notes": "Depends on SVG renderer (US-048b). Existing context menu logic can be adapted."
+      "passes": false,
+      "notes": "Must have sidebar expanded to right-click branches. Staging area must have files to right-click."
     },
     {
-      "id": "US-050",
-      "title": "Commit Detail Panel",
-      "description": "As a user, when I click a commit in the graph, I want to see its full details and changed files in the right panel.",
+      "id": "US-GT-018",
+      "title": "Test — Responsive Layout at Multiple Sizes",
+      "description": "As a tester, I want to verify layout adapts at 1280x800, 1024x768, 900x600, and 800x500.",
       "acceptanceCriteria": [
-        "Right panel shows when a commit is selected, auto-hides when deselected",
-        "Panel header: commit subject (bold), full SHA (copyable via click), author name + email, authored date (absolute + relative)",
-        "If commit is signed: show verification badge (Lucide ShieldCheck/ShieldAlert icon with status)",
-        "Full commit message body displayed below header",
-        "Changed Files section lists all files modified in the commit with Lucide status icons: FilePlus (added), FileMinus (deleted), FileEdit (modified), FileSymlink (renamed)",
-        "File count summary: e.g. 3 files changed, +42 -15",
-        "Click a file in the list to show its diff inline below",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_responsive.py",
+        "At 1280x800: takes screenshot — asserts full layout, toolbar labels visible, sidebar expanded",
+        "Resizes to 1024x768: takes screenshot — asserts sidebar still visible (may be expanded or collapsed depending on threshold)",
+        "Resizes to 900x600: takes screenshot — asserts sidebar auto-collapsed to icon rail",
+        "Resizes to 800x500: takes screenshot — asserts toolbar icon-only (no labels), status bar center hidden, titlebar repo path hidden",
+        "Resizes back to 1280x800: takes screenshot — asserts sidebar restored, labels returned",
+        "Asserts text truncates with ellipsis at narrow sizes (no wrapping/overflow)"
       ],
       "priority": 20,
-      "passes": true,
-      "notes": "Depends on three-column layout (US-044a) and graph interaction (US-049). Uses git:showCommit and git:showCommitFileDiff IPC handlers."
+      "passes": false,
+      "notes": "Depends on US-GT-001c for resize_window(). Each resize needs a small delay (300ms) for responsive effects and animations."
     },
     {
-      "id": "US-051",
-      "title": "Integrated Diff Viewer for Commits",
-      "description": "As a user, I want to see diffs for files in a commit so I can review what changed without leaving the app.",
+      "id": "US-GT-019",
+      "title": "Test — Keyboard Shortcuts",
+      "description": "As a tester, I want to verify all major keyboard shortcuts trigger correct actions.",
       "acceptanceCriteria": [
-        "When a file is selected from the commit detail panel, its diff is rendered in the right panel below the file list",
-        "Supports inline (unified) and side-by-side modes toggled via buttons",
-        "Diff uses the existing DiffViewer component (word-level highlighting, syntax highlighting)",
-        "Diff header shows: file path, change type (added/modified/deleted/renamed), old path for renames",
-        "Binary files show Binary file changed message instead of diff content",
-        "Large diffs (1000+ lines) are collapsed by default with Expand button",
-        "Navigation between files: previous/next file buttons or keyboard shortcuts ([ and ])",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_keyboard.py",
+        "Presses Ctrl+B: takes before/after screenshots — sidebar toggles (expanded to collapsed or vice versa)",
+        "Presses Ctrl+B again to restore",
+        "Presses Ctrl+`: takes screenshot — terminal panel toggles on",
+        "Presses Ctrl+` again to hide terminal",
+        "Presses Ctrl+K: takes screenshot — search/command palette opens",
+        "Presses Escape to close palette",
+        "Presses Ctrl+Shift+F: takes screenshot — fetch operation starts (spinner visible in toolbar)"
       ],
       "priority": 21,
-      "passes": true,
-      "notes": "Depends on commit detail panel (US-050). Reuses existing DiffViewer component — this story wires it into the commit detail flow."
+      "passes": false,
+      "notes": "press_key helper must handle combo keys (ctrl+b, ctrl+shift+f). Needs repo open for git shortcuts."
     },
     {
-      "id": "US-052",
-      "title": "Redesigned Staging Area",
-      "description": "As a user, I want a clear, well-organized staging area so I can review, stage, and unstage files before committing.",
+      "id": "US-GT-020",
+      "title": "Test — Notification System",
+      "description": "As a tester, I want to verify toast notifications and notification history.",
       "acceptanceCriteria": [
-        "Staging area lives in the bottom portion of the center panel (below the graph), collapsible",
-        "Two-column file list: Unstaged Changes (left) and Staged Changes (right)",
-        "Each file shows: Lucide status icon, file name, directory path (muted text)",
-        "Stage a file: click + button or drag from unstaged to staged",
-        "Unstage a file: click - button or drag from staged to unstaged",
-        "Stage All and Unstage All buttons at the top of each column",
-        "Clicking a file in either column shows its diff in the right detail panel",
-        "Discard button (with confirmation dialog) on unstaged files",
-        "File counts shown in section headers: Unstaged Changes (5) / Staged Changes (2)",
-        "Commit message input and commit button at the bottom of the staged column",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_notifications.py",
+        "Triggers a notification by clicking Fetch (success toast appears)",
+        "Takes screenshot within 2s — asserts toast visible in bottom-right with Lucide icon and message",
+        "Waits 5s, takes screenshot — toast should have auto-dismissed",
+        "Clicks notification bell in status bar — takes screenshot of history dropdown with past notification",
+        "Presses Escape to close dropdown"
       ],
       "priority": 22,
-      "passes": true,
-      "notes": "Redesigns existing StatusPanel. Depends on three-column layout (US-044a) and Lucide icons."
+      "passes": false,
+      "notes": "Toast timing: 4s for success, 8s for errors. Take screenshot quickly after triggering."
     },
     {
-      "id": "US-053",
-      "title": "Welcome Screen Redesign",
-      "description": "As a user, I want a polished welcome screen when no repo is open so I can quickly get started.",
+      "id": "US-GT-021",
+      "title": "Test — Both Themes",
+      "description": "As a tester, I want to verify dark and light themes render correctly across all components.",
       "acceptanceCriteria": [
-        "Full-width centered layout with GitSlop wordmark text (not emoji logo)",
-        "Three action cards with Lucide icons: FolderOpen (Open Repository), GitBranch (Clone Repository), FolderPlus (Initialize Repository)",
-        "Recent Repositories list below actions showing: repo name (bold), full path (muted), last opened date (relative)",
-        "Hover on recent repo shows Remove from recent X button",
-        "Click a recent repo opens it immediately",
-        "If recent list is empty, show subtle No recent repositories message",
-        "Keyboard shortcut hints shown on action cards (e.g., Ctrl+O)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_themes.py",
+        "Takes screenshot in dark theme (default) with repo open — asserts dark background, light text",
+        "Clicks theme toggle (Sun/Moon icon in titlebar top-right area)",
+        "Takes screenshot in light theme — asserts light background, dark text, all components visible",
+        "Takes screenshot of commit graph in light theme — asserts nodes and lines visible",
+        "Toggles back to dark theme, takes confirmation screenshot"
       ],
       "priority": 23,
-      "passes": true,
-      "notes": "Redesigns existing WelcomeScreen component. Depends on Lucide icons."
+      "passes": false,
+      "notes": "Theme toggle is a button near the window controls in the titlebar (right side). Look for Sun or Moon icon."
     },
     {
-      "id": "US-054",
-      "title": "Panel Resize and Collapse Animations",
-      "description": "As a user, I want smooth transitions when panels resize or collapse so the UI feels polished.",
+      "id": "US-GT-022",
+      "title": "Test — Multi-Repo Tabs",
+      "description": "As a tester, I want to verify tab bar appears with multiple repos and tab switching works.",
       "acceptanceCriteria": [
-        "Collapsing/expanding sidebar animates width over 200ms ease-out",
-        "Collapsing/expanding right detail panel animates width over 200ms ease-out",
-        "Collapsing/expanding terminal panel animates height over 200ms ease-out",
-        "Panel content fades in after expand completes (no layout flash during animation)",
-        "Dragging a panel divider is smooth with no jitter or lag",
-        "Double-clicking a divider resets that panel to its default size",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_tabs.py",
+        "Opens the gitslop repo (from recent), takes screenshot — no tab bar visible (single repo)",
+        "Creates a temp test repo via fixtures, opens it via Open Repository",
+        "Takes screenshot — tab bar should appear with two tabs",
+        "Asserts active tab visually distinct (highlighted/underlined)",
+        "Clicks the first tab — verifies view switches to gitslop repo",
+        "Closes a tab (clicks X) — verifies tab removed",
+        "Cleans up test repo"
       ],
       "priority": 24,
-      "passes": true,
-      "notes": "Polish story. May need CSS transitions on the panel wrapper elements and react-resizable-panels animation support."
+      "passes": false,
+      "notes": "Opening a second repo may involve the native file dialog. Consider if Init can create an in-place temp repo to avoid dialog interaction."
     },
     {
-      "id": "US-055a",
-      "title": "Custom Context Menu Component",
-      "description": "As a developer, I need a reusable custom context menu component with icons, shortcut hints, and consistent styling.",
+      "id": "US-GT-023",
+      "title": "Test — Git Operations End-to-End",
+      "description": "As a tester, I want to verify actual git operations (stage, commit, stash, branch) work through the UI.",
       "acceptanceCriteria": [
-        "Create a reusable ContextMenu component that accepts menu items array with: label, icon (Lucide), shortcut hint, onClick, danger flag, separator flag",
-        "Menu renders at mouse position on right-click",
-        "Menu items show Lucide icon (left), label (center), keyboard shortcut hint (right, muted)",
-        "Dangerous actions (danger: true) are styled with red text and have a separator above them",
-        "Menu closes on: click outside, Escape key, or scroll",
-        "Menu repositions to stay within viewport bounds (doesn't clip off-screen)",
-        "ContextMenu.module.css with scoped styles using design tokens",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_git_ops.py",
+        "Creates test repo with fixtures, opens it in GitSlop",
+        "Modifies a file in the test repo via Python (write to a file), waits for watcher to detect change",
+        "Takes screenshot — asserts new file appears in Unstaged Changes",
+        "Clicks + to stage the file, takes screenshot — file in Staged column",
+        "Types commit message in commit form, clicks Commit, takes screenshot — new commit visible in graph",
+        "Opens stash dialog (Ctrl+Shift+S or click Stash), stashes changes, takes screenshot — stash in sidebar",
+        "Cleans up test repo"
       ],
       "priority": 25,
-      "passes": true,
-      "notes": "Reusable component — subsequent work will integrate it into commit graph, sidebar, and staging area."
+      "passes": false,
+      "notes": "This is the most complex test — it modifies real git state. Must use the test repo (not gitslop repo) to avoid polluting the project. Cleanup is critical."
     },
     {
-      "id": "US-055b",
-      "title": "Integrate Context Menus Throughout App",
-      "description": "As a user, I want right-click context menus on commits, branches, files, tags, and stashes.",
+      "id": "US-GT-024",
+      "title": "Test — Loading States and Skeletons",
+      "description": "As a tester, I want to verify skeleton screens appear during loading instead of blank screens.",
       "acceptanceCriteria": [
-        "Context menu on commit graph nodes: checkout, cherry-pick, revert, reset (soft/mixed/hard), create branch, create tag, copy SHA",
-        "Context menu on branch labels (graph and sidebar): checkout, merge into current, rebase onto, delete, rename, push",
-        "Context menu on files in staging area: stage, unstage, discard, open in editor, copy path",
-        "Context menu on tags in sidebar: checkout, delete, push",
-        "Context menu on stashes in sidebar: apply, pop, drop",
-        "All context menus use the ContextMenu component from US-055a",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_loading.py",
+        "Opens a repo and rapidly takes screenshots (every 100ms for 2 seconds) during initial load",
+        "Reviews rapid screenshots — asserts at least one shows skeleton placeholders (gray pulsing rectangles)",
+        "Asserts no screenshot shows a completely blank/white center panel",
+        "Saves the sequence as loading_001.png through loading_020.png for review"
       ],
       "priority": 26,
-      "passes": true,
-      "notes": "Depends on ContextMenu component (US-055a). Replace existing context menu implementations with the new component."
+      "passes": false,
+      "notes": "Skeleton screens are transient — they appear for a fraction of a second during load. Rapid screenshot capture is needed. This test may be flaky on fast machines where loading is instant."
     },
     {
-      "id": "US-056",
-      "title": "Loading States and Skeleton Screens",
-      "description": "As a user, I want appropriate loading indicators instead of blank screens or stale data.",
+      "id": "US-GT-025",
+      "title": "Test — Panel Animations",
+      "description": "As a tester, I want to verify smooth panel animations exist (no layout flash).",
       "acceptanceCriteria": [
-        "Initial repo load shows skeleton placeholders in each panel (not a blank screen)",
-        "Sidebar sections show skeleton list items while branches/tags load",
-        "Commit graph shows skeleton rows while history loads",
-        "Diff viewer shows a centered spinner while computing diff",
-        "Long operations (clone, fetch, push, pull) show progress in the status bar with percentage and operation name",
-        "Skeleton styles match the actual content dimensions (no layout shift when data loads)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Create scripts/gui-tests/tests/test_animations.py",
+        "Collapses sidebar and captures 5 rapid screenshots during the 200ms animation",
+        "Asserts at least one screenshot shows intermediate state (partially collapsed, not just before/after)",
+        "Expands sidebar, captures rapid screenshots — same assertion",
+        "Opens terminal (Ctrl+`), captures rapid screenshots during animation",
+        "Asserts no screenshot shows a blank flash or layout jitter"
       ],
       "priority": 27,
-      "passes": true,
-      "notes": "Create a Skeleton component (pulsing gray rectangles) and integrate into panels."
-    },
-    {
-      "id": "US-057",
-      "title": "Responsive Layout for Small Windows",
-      "description": "As a user, I want the layout to adapt gracefully when I resize the window small.",
-      "acceptanceCriteria": [
-        "At window width < 1200px: right detail panel auto-collapses to overlay mode",
-        "At window width < 900px: sidebar auto-collapses to icon rail mode",
-        "At window width < 700px: toolbar buttons collapse to icon-only (no text labels) and overflow to ... menu",
-        "Minimum window size enforced at 800x500 — no content is clipped or inaccessible below this",
-        "Panel min-width constraints prevent dragging panels to unusable sizes",
-        "Text truncates with ellipsis rather than wrapping or overflowing",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 28,
-      "passes": true,
-      "notes": "Depends on three-column layout (US-044a), icon rail (US-044b), and hybrid panel (US-044c). Uses window resize observer."
-    },
-    {
-      "id": "US-058",
-      "title": "Notification System Redesign",
-      "description": "As a user, I want unobtrusive notifications that don't disrupt my workflow.",
-      "acceptanceCriteria": [
-        "Toast notifications appear in bottom-right corner, stacking upward (max 3 visible)",
-        "Each toast has: Lucide icon (color-coded by type), message text, dismiss X button",
-        "Toasts auto-dismiss after 4s (info/success) or 8s (warning/error)",
-        "Error toasts include a Show Details expandable section for stderr output",
-        "Notification bell in status bar shows unread count badge",
-        "Clicking the bell opens a notification history dropdown (last 50 items)",
-        "Toast entrance/exit animated with slide-in from right and fade-out",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 29,
-      "passes": true,
-      "notes": "Redesigns existing NotificationToast component and notification bell in StatusBar."
-    },
-    {
-      "id": "US-059",
-      "title": "Titlebar and Status Bar Redesign",
-      "description": "As a user, I want a clean titlebar and status bar that show useful information without clutter.",
-      "acceptanceCriteria": [
-        "Titlebar: GitSlop wordmark text (left), current repo name + branch (center, clickable to copy), window controls with Lucide icons (right: Minus, Square/Copy, X)",
-        "Titlebar draggable area works for window movement",
-        "Status bar left section: current branch name with Lucide GitBranch icon, ahead/behind counts",
-        "Status bar center section: last operation status (e.g., Pushed to origin/main 2m ago)",
-        "Status bar right section: notification bell, encoding indicator, line ending indicator",
-        "Status bar text uses --font-xs size, muted until hovered",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 30,
-      "passes": true,
-      "notes": "Redesigns existing TitleBar and StatusBar components. Depends on Lucide icons and CSS modules being in place."
-    },
-    {
-      "id": "US-060",
-      "title": "Add Error Boundary to Prevent Blank-Screen Crashes",
-      "description": "As a user, I don't want the entire app to become a blank unresponsive window when something goes wrong — I want a graceful error screen with a way to recover.",
-      "acceptanceCriteria": [
-        "Create an ErrorBoundary React component (class component with componentDidCatch)",
-        "ErrorBoundary wraps AppLayout in App.tsx so titlebar remains functional during crashes",
-        "Error screen shows: error message, collapsible stack trace, and Reload App button that calls window.location.reload()",
-        "Add window.onerror and window.onunhandledrejection handlers in main.tsx to catch non-React errors",
-        "Errors are logged to console with full stack trace",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 31,
-      "passes": true,
-      "notes": "CRITICAL stability fix. No ErrorBoundary exists — any unhandled render error crashes the entire app to a blank window. This must be done FIRST before other bug fixes."
-    },
-    {
-      "id": "US-061",
-      "title": "Fix Sidebar Collapse/Expand — Ensure Sidebar Is Always Accessible",
-      "description": "As a user, I need to be able to open the sidebar at all times — it currently locks shut and I cannot access branches, tags, or files.",
-      "acceptanceCriteria": [
-        "Icon rail (collapsed sidebar) renders with visible, clickable section icons at all window sizes",
-        "Clicking any icon in the rail opens the corresponding section as a floating overlay",
-        "The expand button (PanelLeftOpen) at top of icon rail restores the full sidebar",
-        "Auto-collapse at <900px includes a visible expand affordance that users can click",
-        "If sidebarCollapsed is persisted as true from previous session, icon rail renders with working expand controls",
-        "Ctrl+B toggles sidebar visibility regardless of collapsed state",
-        "Test: resize below 900px → sidebar collapses → click expand → sidebar opens → resize above 900px → sidebar stays open",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 32,
-      "passes": true,
-      "notes": "Users report sidebar is completely inaccessible. Investigate: icon rail rendering, click handlers on rail icons, sidebarCollapsed state persistence, auto-collapse responsive logic in AppLayout.tsx."
-    },
-    {
-      "id": "US-062",
-      "title": "Fix Commit Graph Scroll Rendering",
-      "description": "As a user, I want the commit graph to render correctly at all scroll positions without nodes disappearing.",
-      "acceptanceCriteria": [
-        "Identify and fix sync issue between scrollOffset (manual scroll tracking) and visibleRange (react-window onRowsRendered)",
-        "SVG graph nodes render at correct Y positions at all scroll positions",
-        "Canvas fallback also renders correctly at all scroll positions",
-        "Scrolling through 1000+ commits shows continuous graph lines with no gaps or missing nodes",
-        "Buffer of rendered nodes above/below viewport is sufficient to prevent gaps during fast scrolling",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 33,
-      "passes": true,
-      "notes": "Root cause: scrollOffset from manual scroll events and visibleRange from react-window's onRowsRendered get out of sync. SVG line 231: Y position calculated as i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset — if scrollOffset doesn't match react-window's internal offset, nodes render at wrong positions."
-    },
-    {
-      "id": "US-063",
-      "title": "Fix Diff Viewer — Show Errors and Ensure Content Displays",
-      "description": "As a user, when I click a file to view its diff, I want to see the actual diff content or a clear error message — not a blank panel.",
-      "acceptanceCriteria": [
-        "When showCommitFileDiff IPC returns an error, display the error message in the diff area (not blank)",
-        "When IPC throws an exception, display 'Failed to load diff' with the error details",
-        "When diff content is empty string (no changes), show 'No changes in this file' message",
-        "Verify file.read IPC works for code editor — display error if it fails",
-        "Add loading spinner while diff is being fetched",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 34,
-      "passes": true,
-      "notes": "Root cause: DetailPanel.tsx lines 184-190 silently swallow IPC errors with catch { setDiffContent('') }. Need to add error state and display it. Also check CodeEditor.tsx for similar silent failures."
-    },
-    {
-      "id": "US-064",
-      "title": "Fix File Watcher Infinite Loop",
-      "description": "As a developer, I need the file watcher to ignore changes caused by git operations to prevent infinite refresh loops that crash the app.",
-      "acceptanceCriteria": [
-        "File watcher in main process ignores changes inside .git/ directory",
-        "Only working tree file changes trigger repo:changed events",
-        "Add suppression window: when git operation is in progress, suppress watcher events for 1 second after completion",
-        "Multiple rapid watcher events debounced to single repo:changed event (increase debounce if needed)",
-        "Verify: performing a commit does not cause cascading refreshes across all components",
-        "Typecheck passes"
-      ],
-      "priority": 35,
-      "passes": true,
-      "notes": "Root cause: watcher fires on .git/ changes (refs, objects, index) caused by git operations → triggers repo:changed → components call git commands → modify .git/ → watcher fires again → infinite loop → crash. Fix in src/main/index.ts watcher setup."
-    },
-    {
-      "id": "US-065a",
-      "title": "Multi-Repo Tabs — Tab Bar and State Management",
-      "description": "As a user, I want a tab bar showing my open repositories so I can switch between them.",
-      "acceptanceCriteria": [
-        "Tab bar rendered below the titlebar, above the toolbar",
-        "Each open repo displayed as a tab with: repo name and close (X) button",
-        "Active tab visually distinct (highlighted background or underline)",
-        "Click a tab to switch to that repo's view",
-        "Closing the last tab returns to the welcome screen",
-        "Tab state (which repos are open, which is active) persists across app restarts via electron-store",
-        "Keyboard shortcuts: Ctrl+Tab / Ctrl+Shift+Tab to cycle between tabs",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 36,
-      "passes": true,
-      "notes": "New feature. Create a TabBar component and a useRepoTabs hook. Each tab tracks repoPath. Opening a repo (welcome screen, toolbar) adds a new tab. State per tab (selected commit, scroll position, etc.) managed separately."
-    },
-    {
-      "id": "US-065b",
-      "title": "Multi-Repo Tabs — Per-Tab State Isolation",
-      "description": "As a user, I want each repo tab to maintain its own state so switching tabs preserves my context.",
-      "acceptanceCriteria": [
-        "Each tab maintains its own: selected commit, graph scroll position, staged files, sidebar collapse state, detail panel open/closed",
-        "Switching tabs restores the full UI state for that repo (scroll position, selected commit, etc.)",
-        "Opening a new repo via welcome screen, toolbar, or file picker adds a new tab instead of replacing current",
-        "File watcher correctly switches to the active tab's repo path when tabs change",
-        "Tabs are reorderable via drag-and-drop",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 37,
-      "passes": true,
-      "notes": "Depends on US-065a. This is the harder part — each tab needs isolated state. Consider a Map<repoPath, TabState> approach. File watcher must stop/start when switching tabs."
-    },
-    {
-      "id": "US-066",
-      "title": "Stability Test Suite",
-      "description": "As a developer, I need automated tests that verify the app doesn't crash during common operations.",
-      "acceptanceCriteria": [
-        "Unit test for ErrorBoundary: verify it catches render errors and displays fallback UI",
-        "Unit test for file watcher debouncing: verify rapid events are coalesced and .git/ is ignored",
-        "Unit test for lane assignment edge cases (verify existing tests are comprehensive)",
-        "Unit test for tab state management: open, close, switch, persist, restore",
-        "All tests pass with npm test",
-        "Typecheck passes"
-      ],
-      "priority": 38,
-      "passes": true,
-      "notes": "Focus on unit tests that can run without Electron. Test ErrorBoundary, watcher logic, lane assignment, and tab state hooks."
+      "passes": false,
+      "notes": "Animations are 200ms. Take screenshots every 50ms for ~400ms to capture the transition. This is a polish verification test."
     }
   ]
 }
