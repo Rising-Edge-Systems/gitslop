@@ -916,3 +916,14 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Tests follow same import pattern: importlib for framework.py and fixtures.py
   - assert_visual with descriptive criteria is the standard visual verification approach
 ---
+
+## 2026-03-18 - US-GT-022
+- Implemented test for Multi-Repo Tabs functionality
+- Created scripts/gui-tests/tests/test_tabs.py with TestTabs class
+- Test verifies: no tab bar with single repo, tab bar appears with two repos, active tab is visually distinct, tab switching works, tab close removes the tab
+- Uses two test repos created via fixtures for multi-repo testing
+- **Learnings for future iterations:**
+  - Test follows the standard pattern: importlib setup, GUITest subclass, setUp/tearDown for fixtures
+  - Tab bar coordinates are approximate (~y=48, between titlebar and toolbar)
+  - open_test_repo uses Ctrl+O and types path in file dialog
+---

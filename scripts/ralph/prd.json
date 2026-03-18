@@ -399,7 +399,7 @@
         "Cleans up test repo"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": "Opening a second repo may involve the native file dialog. Consider if Init can create an in-place temp repo to avoid dialog interaction."
     },
     {
