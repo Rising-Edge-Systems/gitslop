@@ -237,11 +237,12 @@ def open_test_repo(test_instance, repo_path: str):
     # Add the repo to recent repos via electron-store
     _add_to_recent_repos(repo_path)
 
-    # Focus the GitSlop window
+    # Ensure consistent window size
     test_instance.focus_window()
+    test_instance.reset_window_size()
     time.sleep(0.5)
 
-    # Get window bounds
+    # Get window bounds (should be 1280x800)
     _, _, w, h = test_instance.get_window_bounds()
 
     # Check if a repo is already open by looking for the "Close" button
@@ -253,8 +254,13 @@ def open_test_repo(test_instance, repo_path: str):
 
     # Now we should be on the welcome screen (or still there if no repo was open)
     # The recent repo entry is below the action cards
-    # At 1280x800: recent repos are around y=605-615 (76% of height)
-    test_instance.click(w // 2, int(h * 0.76))
+    # The welcome screen layout:
+    #   ~35% height: GS wordmark + subtitle
+    #   ~48-60% height: action cards
+    #   ~65% height: "RECENT REPOSITORIES" heading
+    #   ~69-72% height: first recent repo entry
+    # Click the first recent repo entry
+    test_instance.click(w // 2, int(h * 0.70))
     time.sleep(3.0)  # Wait for repo to load
 
 
