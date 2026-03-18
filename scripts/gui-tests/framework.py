@@ -84,7 +84,7 @@ class GUITest:
         raise NotImplementedError("Subclasses must implement run()")
 
     def screenshot(self, name: str) -> str:
-        """Take a screenshot and save to results/screenshots/.
+        """Take a screenshot of the GitSlop window only.
 
         Args:
             name: Descriptive name for the screenshot (without extension).
@@ -98,10 +98,30 @@ class GUITest:
 
         d = self.display
         root = d.screen().root
-        geo = root.get_geometry()
-        w, h = geo.width, geo.height
-        raw = root.get_image(0, 0, w, h, X.ZPixmap, 0xffffffff)
-        img = Image.frombytes('RGBX', (w, h), raw.data, 'raw', 'BGRX')
+
+        # Try to capture just the GitSlop window
+        win = self._find_gitslop_window()
+        if win:
+            geo = win.get_geometry()
+            coords = win.translate_coords(root, 0, 0)
+            abs_x = -coords.x
+            abs_y = -coords.y
+            w, h = geo.width, geo.height
+            # Clamp to screen bounds
+            screen_geo = root.get_geometry()
+            w = min(w, screen_geo.width - abs_x)
+            h = min(h, screen_geo.height - abs_y)
+            abs_x = max(0, abs_x)
+            abs_y = max(0, abs_y)
+            raw = root.get_image(abs_x, abs_y, w, h, X.ZPixmap, 0xffffffff)
+            img = Image.frombytes('RGBX', (w, h), raw.data, 'raw', 'BGRX')
+        else:
+            # Fallback: capture full desktop
+            geo = root.get_geometry()
+            w, h = geo.width, geo.height
+            raw = root.get_image(0, 0, w, h, X.ZPixmap, 0xffffffff)
+            img = Image.frombytes('RGBX', (w, h), raw.data, 'raw', 'BGRX')
+
         img = img.convert('RGB')
         img.save(output_path)
 
