@@ -778,3 +778,15 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Section icons in the rail start at approximately y=120
   - Use Ctrl+B toggle twice to guarantee expanded sidebar state before testing collapse
 ---
+
+## 2026-03-17 - US-GT-010
+- Implemented TestLayout test class in scripts/gui-tests/tests/test_layout.py
+- Test verifies: two-column layout (sidebar + center), three-column layout (clicking commit opens detail panel), panel divider drag resize with before/after screenshots, terminal toggle via Ctrl+`, and detail panel close via X button
+- Files changed: scripts/gui-tests/tests/test_layout.py (new)
+- **Learnings for future iterations:**
+  - Commit graph rows are approximately at y=160 (below toolbar) with x around 500 for center
+  - Detail panel close button is near top-right of the window (w-20, ~75)
+  - Panel divider between center and detail panel is approximately at 2/3 window width
+  - Terminal toggle uses ctrl+grave (backtick)
+  - Use reset_window_size() in setUp to ensure consistent starting state
+---

@@ -198,7 +198,7 @@
         "Closes detail panel (clicks X), verifies it disappears"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Resize handle position depends on sidebar width. Use drag() with approximate divider coordinates."
     },
     {
