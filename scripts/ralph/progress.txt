@@ -725,3 +725,19 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - assert_visual() combines screenshot + evaluator + baseline saving in one call
   - Welcome screen tests run on app launch before any repo is opened
 ---
+
+## 2026-03-17 - US-GT-006
+- Implemented test for Toolbar and Titlebar verification after opening a repo
+- Files changed: scripts/gui-tests/tests/test_toolbar_titlebar.py (new)
+- Test creates a test repo via fixtures, opens it, then verifies:
+  - Toolbar shows Pull, Push, Fetch, Branch, Merge, Stash with Lucide icons
+  - Settings gear visible on far right
+  - Titlebar layout: wordmark left, repo+branch center, controls right
+  - Fetch button spinner during operation
+  - Click center titlebar for 'Copied!' feedback
+- **Learnings for future iterations:**
+  - Toolbar buttons are approximately at y=65 (below ~30px titlebar)
+  - Titlebar center clickable area is at y=15
+  - Fetch button is roughly 3rd button in toolbar at x~320
+  - Test repo fixtures provide open_test_repo() helper for loading repos
+---

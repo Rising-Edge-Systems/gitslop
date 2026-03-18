@@ -132,7 +132,7 @@
         "Test clicks center repo info in titlebar, takes screenshot showing 'Copied!' feedback"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-GT-003 for opening a repo. The fetch operation needs a remote — the gitslop repo has origin configured."
     },
     {
