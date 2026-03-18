@@ -29,3 +29,7 @@ scripts/ralph/.ralph-*
 scripts/ralph/.last-branch
 scripts/ralph/progress.txt
 scripts/ralph/archive/
+
+# GUI test results (ephemeral)
+scripts/gui-tests/results/*
+!scripts/gui-tests/results/.gitkeep
