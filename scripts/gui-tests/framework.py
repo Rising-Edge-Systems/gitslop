@@ -380,6 +380,19 @@ class GUITest:
             d.sync()
             time.sleep(0.05)
 
+    def hover(self, rel_x: int, rel_y: int):
+        """Move the mouse to window-relative coordinates without clicking.
+
+        Args:
+            rel_x: X coordinate relative to the window's left edge.
+            rel_y: Y coordinate relative to the window's top edge.
+        """
+        d = self.display
+        abs_x, abs_y = self._to_abs(rel_x, rel_y)
+        root = d.screen().root
+        fake_input(d, X.MotionNotify, x=abs_x, y=abs_y, root=root)
+        d.sync()
+
     def drag(self, x1: int, y1: int, x2: int, y2: int):
         """Drag from one window-relative position to another.
 
