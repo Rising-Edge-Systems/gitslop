@@ -688,3 +688,17 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - `assert_visual()` both takes screenshot AND stores evaluation — use it instead of bare `screenshot()` when criteria matter
   - Baselines are NOT overwritten on subsequent runs — delete manually to update
 ---
+
+## 2026-03-17 - US-GT-003
+- Created `scripts/gui-tests/fixtures.py` with `create_test_repo()`, `cleanup_test_repo()`, and `open_test_repo()` helpers
+- Created `scripts/gui-tests/tests/test_fixtures.py` with comprehensive verification test
+- Test repo has: 5 main commits, feature branch with 3 commits merged back, 2 tags (v1.0, v2.0), 1 stash, staged/unstaged/untracked files
+- All commits use deterministic dates (GIT_AUTHOR_DATE/GIT_COMMITTER_DATE) and author info
+- Verified all state programmatically (branches, tags, stash, staged/unstaged/untracked files)
+- Files changed: `scripts/gui-tests/fixtures.py`, `scripts/gui-tests/tests/test_fixtures.py`
+- **Learnings for future iterations:**
+  - Import pattern for test files: use `importlib.util.spec_from_file_location` to import from `gui-tests` (hyphen in name)
+  - `create_test_repo()` returns temp dir path; always call `cleanup_test_repo()` in `tearDown()`
+  - `open_test_repo()` uses Ctrl+O to open file dialog - may need adjustment depending on app's actual open-repo flow
+  - Git stash requires files to be staged first (`git add` then `git stash push`)
+---

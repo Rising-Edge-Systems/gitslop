@@ -83,7 +83,7 @@
         "Test with a test that creates the repo, verifies files exist, cleans up"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Use subprocess.run for git commands. Set GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, GIT_AUTHOR_DATE, GIT_COMMITTER_DATE for determinism. The open_repo flow may need to interact with the native file dialog — consider if electron supports a command-line arg to open a repo path directly."
     },
     {
