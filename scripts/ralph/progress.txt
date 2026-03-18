@@ -664,3 +664,14 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - All coordinate helpers use get_window_bounds() which returns (abs_x, abs_y, width, height)
   - The Settings gear icon is approximately at (window_width - 30, 45) in window-relative coordinates
 ---
+
+## 2026-03-17 - US-GT-001c
+- Added `resize_window(width, height)` and `reset_window_size()` methods to GUITest base class in framework.py
+- Wired up the `--size WxH` runner flag in run.py to resize window after launch
+- Created test_resize.py that resizes to 800x500, verifies bounds, restores to 1280x800
+- Files changed: scripts/gui-tests/framework.py, scripts/gui-tests/run.py, scripts/gui-tests/tests/test_resize.py
+- **Learnings for future iterations:**
+  - X11 `win.configure(width=w, height=h)` + `d.sync()` is the way to resize windows via python-xlib
+  - After resize, always re-read bounds with `get_window_bounds()` as window position may change
+  - Allow ~500ms after resize for window manager processing and UI reflow
+---

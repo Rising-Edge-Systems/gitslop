@@ -51,7 +51,7 @@
         "Window position is re-read after resize (bounds may change)"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-GT-001b. Use Xlib.X.ConfigureWindow with width/height fields. The window manager may add decorations — measure actual content area."
     },
     {
