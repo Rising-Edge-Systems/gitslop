@@ -245,7 +245,7 @@
         "Hovers over a commit for 800ms — takes screenshot showing tooltip with commit message"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "Context menu position depends on where the commit row is. Use coordinates from the commit row area (roughly x=400, y varies by row)."
     },
     {

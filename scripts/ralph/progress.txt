@@ -38,6 +38,7 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
 - Detail panel overlay: `overlay` prop switches between inline (resizable column) and overlay (fixed + backdrop) modes
 - Lane assignment: `assignLanes()` from `laneAssignment.ts` — pure function, takes `LaneCommit[]`, returns `LaneAssignmentResult[]` with lane, color, parentConnections
 - Data refresh: components use `window.electronAPI.onRepoChanged()` with debounced timeouts (500-2000ms), NOT setInterval polling
+- GUI tests: `self.scroll(rel_x, rel_y, clicks, direction)` helper available for mouse wheel scrolling (X11 Button4/5)
 - Loading state: only show loading spinner on initial mount (track via `initialLoadDone` ref), refresh silently in background
 - In-flight guards: use refs (`refreshInFlightRef`) to prevent overlapping async calls in the same component
 - MainContent is wrapped in React.memo — avoid passing new object/function references as props unless necessary
@@ -811,4 +812,14 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - X11 mouse scroll uses Button4 (up) and Button5 (down) with press/release pairs
   - The scroll() helper is now available on GUITest base class for all tests
   - react-window virtualized lists need scroll testing to verify no gaps appear
+---
+
+## 2026-03-18 - US-GT-013
+- Implemented test for commit graph interaction (click, context menu, keyboard navigation, hover)
+- Files changed: scripts/gui-tests/tests/test_commit_interaction.py (new), scripts/gui-tests/framework.py (added hover method)
+- **Learnings for future iterations:**
+  - Added `hover(rel_x, rel_y)` method to GUITest base class in framework.py — moves mouse without clicking, useful for tooltip testing
+  - The framework had no hover method before; now all future tests can use `self.hover(x, y)` for hover interactions
+  - Context menu tests should click a commit first to establish focus, then right-click for context menu
+  - Keyboard navigation tests need an initial click to give the graph focus before arrow keys work
 ---
