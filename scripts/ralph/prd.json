@@ -213,7 +213,7 @@
         "Resizes back to 1280x800, restores default state"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-GT-001c for resize_window(). The DETAIL_PANEL_BREAKPOINT is 1400px, so even 1280 should be overlay mode. May need to test at 1500px for inline mode."
     },
     {

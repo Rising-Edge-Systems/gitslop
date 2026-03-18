@@ -790,3 +790,14 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - Terminal toggle uses ctrl+grave (backtick)
   - Use reset_window_size() in setUp to ensure consistent starting state
 ---
+
+## 2026-03-17 - US-GT-011
+- Implemented test_detail_panel_modes.py — tests hybrid detail panel inline vs overlay modes
+- Tests at 1500px (inline mode, above 1400px breakpoint) and 1100px (overlay mode, below breakpoint)
+- Verifies Escape dismisses overlay, and window restores to default size
+- Files changed: scripts/gui-tests/tests/test_detail_panel_modes.py
+- **Learnings for future iterations:**
+  - DETAIL_PANEL_BREAKPOINT is 1400px — use 1500px+ for inline mode testing, 1100px for overlay
+  - Always re-read window bounds after resize_window() since coordinates change
+  - Click commit again after resize to ensure detail panel shows at new size
+---
