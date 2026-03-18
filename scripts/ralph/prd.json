@@ -297,7 +297,7 @@
         "Clicks 'Unstage All' — verifies all return to unstaged"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "The staging area needs files with changes. Use the test repo fixture which has staged/unstaged/untracked files ready."
     },
     {

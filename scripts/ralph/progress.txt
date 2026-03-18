@@ -853,3 +853,17 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - ] key can be used for next-file navigation in diff view
   - Escape closes the detail panel/overlay
 ---
+
+## 2026-03-18 - US-GT-016
+- Created scripts/gui-tests/tests/test_staging.py with TestStaging class
+- Test opens test repo (with staged/unstaged/untracked files from fixtures)
+- Takes screenshots and asserts: staging area two-column layout, file count badges, Lucide icons
+- Tests stage (+) button moves file from unstaged to staged column
+- Tests unstage (-) button moves file back
+- Tests Stage All and Unstage All bulk operations
+- Files changed: scripts/gui-tests/tests/test_staging.py
+- **Learnings for future iterations:**
+  - The test repo fixture provides 1 staged file (staged_new.py), 1 unstaged modified (config.json), 1 untracked (notes.txt) — ideal for staging area tests
+  - Staging area is in the lower portion of the center panel, coordinates approximate: y = h - 120 for file rows, y = h - 180 for section headers
+  - Stage/unstage buttons appear on hover — use hover() before clicking
+---
