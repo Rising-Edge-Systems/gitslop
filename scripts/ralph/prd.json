@@ -67,7 +67,7 @@
         "Report JSON is structured for easy programmatic parsing by Claude"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "The real AI evaluation happens when Claude reads screenshots during a session. This just structures the data. Baseline saving enables future pixel-diff regression testing."
     },
     {

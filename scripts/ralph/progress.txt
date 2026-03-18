@@ -675,3 +675,16 @@ Started: Mon Mar 16 11:36:31 PM EDT 2026
   - After resize, always re-read bounds with `get_window_bounds()` as window position may change
   - Allow ~500ms after resize for window manager processing and UI reflow
 ---
+
+## 2026-03-17 23:25 - US-GT-002
+- Created `scripts/gui-tests/evaluator.py` with `evaluate()`, `save_baseline()`, `evaluation_to_dict()`, and `ScreenshotEvaluation` dataclass
+- Added `assert_visual(name, criteria)` method to `GUITest` base class in `framework.py`
+- Added `_evaluations` list to `GUITest` and `evaluations` field to `TestResult` dataclass
+- Updated `run.py` report JSON to include evaluations per test
+- Baselines saved to `scripts/gui-tests/baselines/{test_name}/` on first run (existing preserved)
+- **Files changed:** `evaluator.py` (new), `framework.py`, `run.py`
+- **Learnings for future iterations:**
+  - `_get_evaluator()` lazy-imports evaluator.py to avoid circular imports — use same pattern for other framework extensions
+  - `assert_visual()` both takes screenshot AND stores evaluation — use it instead of bare `screenshot()` when criteria matter
+  - Baselines are NOT overwritten on subsequent runs — delete manually to update
+---
