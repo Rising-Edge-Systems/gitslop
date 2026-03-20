@@ -90,6 +90,26 @@ body.sidebar-dragging * {
   cursor: col-resize !important;
 }
 
+/* ─── Detail Panel Collapsed Strip ─────────────────────────────────────── */
+.detail-collapsed-strip {
+  width: 24px;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.detail-collapsed-strip:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* Branch Dialog (New / Rename) */
 .branch-dialog-overlay {
   position: fixed;

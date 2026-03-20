@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 import {
   Group,
@@ -48,7 +49,9 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     toggleSidebar,
     toggleSidebarCollapse,
     setSidebarCollapsed,
-    toggleStagingCollapse
+    toggleStagingCollapse,
+    setDetailPanelCollapsed,
+    toggleDetailPanelCollapse
   } = useLayoutState()
 
   const {
@@ -345,38 +348,47 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
         {appSettings.sidebarPosition === 'left' && dragHandle}
         <Group orientation="vertical" id="gitslop-outer-vertical" style={{ flex: 1, minWidth: 0 }}>
           <Panel id="columns" minSize={20}>
-            <Group orientation="horizontal" id="gitslop-horizontal">
-              <Panel id="center" minSize={30}>
-                <MainContent
-                  currentRepo={currentRepo}
-                  onRepoOpen={onRepoOpen}
-                  onCloseRepo={onCloseRepo}
-                  onCommitSelect={handleCommitSelect}
-                  stagingCollapsed={layout.stagingCollapsed}
-                  onToggleStagingCollapse={toggleStagingCollapse}
-                />
-              </Panel>
-              {currentRepo && (
-                <>
-                  <Separator className="resize-handle resize-handle-horizontal" onDoubleClick={handleDetailDividerDoubleClick} />
-                  <Panel
-                    id="detail"
-                    defaultSize={layout.rightPanelSize}
-                    minSize={15}
-                    maxSize={50}
-                    onResize={handleRightPanelResize}
-                    panelRef={detailPanelRef}
-                    className="panel-animate-detail"
-                  >
-                    <DetailPanel
-                      detail={selectedCommit}
-                      repoPath={currentRepo}
-                      onClose={handleCloseDetailPanel}
-                    />
-                  </Panel>
-                </>
+            <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+              <Group orientation="horizontal" id="gitslop-horizontal" style={{ flex: 1, minWidth: 0 }}>
+                <Panel id="center" minSize={30}>
+                  <MainContent
+                    currentRepo={currentRepo}
+                    onRepoOpen={onRepoOpen}
+                    onCloseRepo={onCloseRepo}
+                    onCommitSelect={handleCommitSelect}
+                    stagingCollapsed={layout.stagingCollapsed}
+                    onToggleStagingCollapse={toggleStagingCollapse}
+                  />
+                </Panel>
+                {currentRepo && !layout.detailPanelCollapsed && (
+                  <>
+                    <Separator className="resize-handle resize-handle-horizontal" onDoubleClick={handleDetailDividerDoubleClick} />
+                    <Panel
+                      id="detail"
+                      defaultSize={layout.rightPanelSize}
+                      minSize={15}
+                      maxSize={50}
+                      onResize={handleRightPanelResize}
+                      panelRef={detailPanelRef}
+                      className="panel-animate-detail"
+                    >
+                      <DetailPanel
+                        detail={selectedCommit}
+                        repoPath={currentRepo}
+                        onClose={handleCloseDetailPanel}
+                        onToggleCollapse={toggleDetailPanelCollapse}
+                        isCollapsed={layout.detailPanelCollapsed}
+                      />
+                    </Panel>
+                  </>
+                )}
+              </Group>
+              {currentRepo && layout.detailPanelCollapsed && (
+                <div className="detail-collapsed-strip" onClick={toggleDetailPanelCollapse} title="Expand detail panel">
+                  <ChevronLeft size={14} />
+                </div>
               )}
-            </Group>
+            </div>
           </Panel>
           {layout.bottomPanelVisible && (
             <>
