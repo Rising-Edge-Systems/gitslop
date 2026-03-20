@@ -10,9 +10,16 @@ interface MainContentProps {
   onCommitSelect?: (detail: CommitDetail | null) => void
   stagingCollapsed: boolean
   onToggleStagingCollapse: () => void
+  // Center-stage diff props
+  viewingDiff?: boolean
+  diffFile?: string | null
+  diffCommitHash?: string | null
+  selectedCommit?: CommitDetail | null
+  onBackToGraph?: () => void
+  onNavigateFile?: (direction: 'prev' | 'next') => void
 }
 
-export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCloseRepo, onCommitSelect, stagingCollapsed, onToggleStagingCollapse }: MainContentProps): React.JSX.Element {
+export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCloseRepo, onCommitSelect, stagingCollapsed, onToggleStagingCollapse, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile }: MainContentProps): React.JSX.Element {
   if (!currentRepo) {
     return (
       <div className="main-content main-content--centered">
@@ -23,7 +30,19 @@ export const MainContent = React.memo(function MainContent({ currentRepo, onRepo
 
   return (
     <div className="main-content">
-      <RepoView repoPath={currentRepo} onCloseRepo={onCloseRepo} onCommitSelect={onCommitSelect} stagingCollapsed={stagingCollapsed} onToggleStagingCollapse={onToggleStagingCollapse} />
+      <RepoView
+        repoPath={currentRepo}
+        onCloseRepo={onCloseRepo}
+        onCommitSelect={onCommitSelect}
+        stagingCollapsed={stagingCollapsed}
+        onToggleStagingCollapse={onToggleStagingCollapse}
+        viewingDiff={viewingDiff}
+        diffFile={diffFile}
+        diffCommitHash={diffCommitHash}
+        selectedCommit={selectedCommit}
+        onBackToGraph={onBackToGraph}
+        onNavigateFile={onNavigateFile}
+      />
     </div>
   )
 })

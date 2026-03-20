@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { RefreshCw, X, AlertTriangle, FileText } from 'lucide-react'
+import { RefreshCw, X, AlertTriangle, FileText, ArrowLeft } from 'lucide-react'
 import styles from './RepoView.module.css'
 import { RepoViewSkeleton } from './Skeleton'
 import blameStyles from './BlameView.module.css'
@@ -11,6 +11,7 @@ import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from 
 import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
 import { StatusPanel } from './StatusPanel'
+import { DiffViewer } from './DiffViewer'
 
 interface RepoViewProps {
   repoPath: string
@@ -18,6 +19,13 @@ interface RepoViewProps {
   onCommitSelect?: (detail: CommitDetail | null) => void
   stagingCollapsed: boolean
   onToggleStagingCollapse: () => void
+  // Center-stage diff props
+  viewingDiff?: boolean
+  diffFile?: string | null
+  diffCommitHash?: string | null
+  selectedCommit?: CommitDetail | null
+  onBackToGraph?: () => void
+  onNavigateFile?: (direction: 'prev' | 'next') => void
 }
 
 interface BranchInfo {
@@ -32,7 +40,7 @@ interface RepoStatus {
   untracked: number
 }
 
-export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollapsed, onToggleStagingCollapse }: RepoViewProps): React.JSX.Element {
+export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollapsed, onToggleStagingCollapse, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile }: RepoViewProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,6 +51,59 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollaps
   const [blameFilePath, setBlameFilePath] = useState<string | null>(null)
   const [commitFilters, setCommitFilters] = useState<CommitFilters>(EMPTY_FILTERS)
   const [fileHistoryPath, setFileHistoryPath] = useState<string | undefined>(undefined)
+
+  // ─── Center-Stage Diff Loading ───────────────────────────────────────────
+  const [diffContent, setDiffContent] = useState<string | null>(null)
+  const [diffLoading, setDiffLoading] = useState(false)
+  const [diffError, setDiffError] = useState<string | null>(null)
+
+  // Load diff content when viewingDiff / diffFile / diffCommitHash changes
+  useEffect(() => {
+    if (!viewingDiff || !diffFile || !diffCommitHash) {
+      setDiffContent(null)
+      setDiffError(null)
+      return
+    }
+    let cancelled = false
+    setDiffLoading(true)
+    setDiffError(null)
+    window.electronAPI.git.showCommitFileDiff(repoPath, diffCommitHash, diffFile)
+      .then((result) => {
+        if (cancelled) return
+        if (result.success && result.data) {
+          setDiffContent(result.data as string)
+        } else {
+          setDiffError(result.error || 'Failed to load diff')
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setDiffError(err instanceof Error ? err.message : 'Failed to load diff')
+      })
+      .finally(() => {
+        if (!cancelled) setDiffLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [viewingDiff, diffFile, diffCommitHash, repoPath])
+
+  // Escape key returns from diff to graph; [ and ] navigate files
+  useEffect(() => {
+    if (!viewingDiff) return
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onBackToGraph?.()
+      } else if (e.key === '[') {
+        e.preventDefault()
+        onNavigateFile?.('prev')
+      } else if (e.key === ']') {
+        e.preventDefault()
+        onNavigateFile?.('next')
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [viewingDiff, onBackToGraph, onNavigateFile])
 
   const initialLoadDone = useRef(false)
 
@@ -207,18 +268,64 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollaps
             />
           )}
 
-          {/* Commit History Filters */}
-          <CommitFilterBar
-            filters={commitFilters}
-            onFiltersChange={setCommitFilters}
-            filePath={fileHistoryPath}
-          />
+          {/* Center-Stage Diff View OR Commit Graph */}
+          {viewingDiff && diffFile && diffCommitHash ? (
+            <>
+              {/* Back breadcrumb bar */}
+              <div className={styles.diffBackBar}>
+                <button className={styles.diffBackBtn} onClick={onBackToGraph}>
+                  <ArrowLeft size={14} />
+                  <span>Back to Graph</span>
+                </button>
+                <span className={styles.diffBackSeparator}>·</span>
+                <span className={styles.diffBackPath}>
+                  <code className={styles.diffBackHash}>{diffCommitHash.substring(0, 7)}</code>
+                  {' / '}
+                  {diffFile}
+                </span>
+              </div>
 
-          {/* Commit Graph */}
-          <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} filters={graphFilters} />
+              {/* Diff content */}
+              <div className={styles.centerDiffContainer}>
+                {diffLoading && (
+                  <div className={styles.diffLoadingState}>Loading diff…</div>
+                )}
+                {diffError && (
+                  <div className={styles.diffErrorState}>
+                    <AlertTriangle size={14} /> {diffError}
+                  </div>
+                )}
+                {!diffLoading && !diffError && diffContent !== null && (
+                  <DiffViewer
+                    diffContent={diffContent}
+                    filePath={diffFile}
+                    className={styles.centerDiffViewer}
+                  />
+                )}
+                {!diffLoading && !diffError && diffContent === null && (
+                  <div className={styles.diffLoadingState}>No diff content available</div>
+                )}
+              </div>
 
-          {/* Staging Area (below graph) */}
-          <StatusPanel repoPath={repoPath} onRefresh={loadRepoData} collapsed={stagingCollapsed} onToggleCollapse={onToggleStagingCollapse} />
+              {/* Staging Area (below diff) */}
+              <StatusPanel repoPath={repoPath} onRefresh={loadRepoData} collapsed={stagingCollapsed} onToggleCollapse={onToggleStagingCollapse} />
+            </>
+          ) : (
+            <>
+              {/* Commit History Filters */}
+              <CommitFilterBar
+                filters={commitFilters}
+                onFiltersChange={setCommitFilters}
+                filePath={fileHistoryPath}
+              />
+
+              {/* Commit Graph */}
+              <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} filters={graphFilters} />
+
+              {/* Staging Area (below graph) */}
+              <StatusPanel repoPath={repoPath} onRefresh={loadRepoData} collapsed={stagingCollapsed} onToggleCollapse={onToggleStagingCollapse} />
+            </>
+          )}
 
           {/* Blame View */}
           {blameFilePath && (

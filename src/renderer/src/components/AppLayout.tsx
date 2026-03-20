@@ -26,7 +26,7 @@ import {
   defineShortcut,
   type ShortcutDefinition
 } from '../hooks/useKeyboardShortcuts'
-import type { CommitDetail } from './CommitGraph'
+import type { CommitDetail, CommitFileDetail } from './CommitGraph'
 import type { TabPerTabState } from '../hooks/useRepoTabs'
 
 interface AppLayoutProps {
@@ -68,6 +68,11 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [selectedCommit, setSelectedCommit] = useState<CommitDetail | null>(null)
 
+  // ─── Center-Stage Diff View State ──────────────────────────────────────────
+  const [viewingDiff, setViewingDiff] = useState(false)
+  const [diffFile, setDiffFile] = useState<string | null>(null)
+  const [diffCommitHash, setDiffCommitHash] = useState<string | null>(null)
+
   // ─── Per-Tab State Isolation ──────────────────────────────────────────────────
   // Track the previously active repo so we can save its state before switching.
   const prevRepoRef = useRef<string | null>(null)
@@ -94,6 +99,10 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       // We can't restore the full CommitDetail object (it's not persisted), so we clear it.
       // The detail panel open/closed state is derived from selectedCommit being non-null.
       setSelectedCommit(null)
+      // Clear diff state when switching tabs
+      setViewingDiff(false)
+      setDiffFile(null)
+      setDiffCommitHash(null)
     }
 
     prevRepoRef.current = currentRepo
@@ -161,6 +170,9 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
   const handleCloseDetailPanel = useCallback(() => {
     setSelectedCommit(null)
+    setViewingDiff(false)
+    setDiffFile(null)
+    setDiffCommitHash(null)
     if (currentRepo) {
       saveTabState(currentRepo, {
         selectedCommitHash: null,
@@ -168,6 +180,30 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       })
     }
   }, [currentRepo, saveTabState])
+
+  // ─── Center-Stage Diff Handlers ────────────────────────────────────────────
+  const handleFileClick = useCallback((file: CommitFileDetail, commitHash: string) => {
+    setDiffFile(file.path)
+    setDiffCommitHash(commitHash)
+    setViewingDiff(true)
+  }, [])
+
+  const handleBackToGraph = useCallback(() => {
+    setViewingDiff(false)
+    setDiffFile(null)
+    setDiffCommitHash(null)
+  }, [])
+
+  const handleNavigateFile = useCallback((direction: 'prev' | 'next') => {
+    if (!selectedCommit || !diffFile) return
+    const files = selectedCommit.fileDetails
+    const currentIdx = files.findIndex(f => f.path === diffFile)
+    if (currentIdx === -1) return
+    const newIdx = direction === 'next'
+      ? (currentIdx + 1) % files.length
+      : (currentIdx - 1 + files.length) % files.length
+    setDiffFile(files[newIdx].path)
+  }, [selectedCommit, diffFile])
 
   // Panel refs for double-click-to-reset on dividers
   const detailPanelRef = usePanelRef()
@@ -358,6 +394,12 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     onCommitSelect={handleCommitSelect}
                     stagingCollapsed={layout.stagingCollapsed}
                     onToggleStagingCollapse={toggleStagingCollapse}
+                    viewingDiff={viewingDiff}
+                    diffFile={diffFile}
+                    diffCommitHash={diffCommitHash}
+                    selectedCommit={selectedCommit}
+                    onBackToGraph={handleBackToGraph}
+                    onNavigateFile={handleNavigateFile}
                   />
                 </Panel>
                 {currentRepo && !layout.detailPanelCollapsed && (
@@ -376,6 +418,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         detail={selectedCommit}
                         repoPath={currentRepo}
                         onClose={handleCloseDetailPanel}
+                        onFileClick={handleFileClick}
+                        selectedFilePath={viewingDiff ? diffFile : null}
                         onToggleCollapse={toggleDetailPanelCollapse}
                         isCollapsed={layout.detailPanelCollapsed}
                       />
