@@ -44,7 +44,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     layout,
     setSidebarSize,
     setBottomPanelSize,
-    setRightPanelSize,
     toggleBottomPanel,
     toggleSidebar,
     toggleSidebarCollapse,
@@ -151,12 +150,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     [setBottomPanelSize]
   )
 
-  const handleRightPanelResize = useCallback(
-    (panelSize: PanelSize) => {
-      setRightPanelSize(panelSize.asPercentage)
-    },
-    [setRightPanelSize]
-  )
+  // handleRightPanelResize removed — detail panel is now a plain CSS div, not a react-resizable-panels Panel
 
   const handleCommitSelect = useCallback((detail: CommitDetail | null) => {
     setSelectedCommit(detail)
@@ -205,16 +199,9 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setDiffFile(files[newIdx].path)
   }, [selectedCommit, diffFile])
 
-  // Panel refs for double-click-to-reset on dividers
-  const detailPanelRef = usePanelRef()
+  // Panel ref for terminal double-click-to-reset
   const bottomPanelRef = usePanelRef()
-
   const DEFAULT_BOTTOM_SIZE = 25
-  const DEFAULT_RIGHT_PANEL_SIZE = 25
-
-  const handleDetailDividerDoubleClick = useCallback(() => {
-    detailPanelRef.current?.resize(DEFAULT_RIGHT_PANEL_SIZE)
-  }, [detailPanelRef])
 
   const handleBottomDividerDoubleClick = useCallback(() => {
     bottomPanelRef.current?.resize(DEFAULT_BOTTOM_SIZE)
@@ -385,48 +372,45 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
         <Group orientation="vertical" id="gitslop-outer-vertical" style={{ flex: 1, minWidth: 0 }}>
           <Panel id="columns" minSize={20}>
             <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-              <Group orientation="horizontal" id="gitslop-horizontal" style={{ flex: 1, minWidth: 0 }}>
-                <Panel id="center" minSize={30}>
-                  <MainContent
-                    currentRepo={currentRepo}
-                    onRepoOpen={onRepoOpen}
-                    onCloseRepo={onCloseRepo}
-                    onCommitSelect={handleCommitSelect}
-                    stagingCollapsed={layout.stagingCollapsed}
-                    onToggleStagingCollapse={toggleStagingCollapse}
-                    viewingDiff={viewingDiff}
-                    diffFile={diffFile}
-                    diffCommitHash={diffCommitHash}
-                    selectedCommit={selectedCommit}
-                    onBackToGraph={handleBackToGraph}
-                    onNavigateFile={handleNavigateFile}
+              {/* Center panel — takes remaining space */}
+              <div style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden' }}>
+                <MainContent
+                  currentRepo={currentRepo}
+                  onRepoOpen={onRepoOpen}
+                  onCloseRepo={onCloseRepo}
+                  onCommitSelect={handleCommitSelect}
+                  stagingCollapsed={layout.stagingCollapsed}
+                  onToggleStagingCollapse={toggleStagingCollapse}
+                  viewingDiff={viewingDiff}
+                  diffFile={diffFile}
+                  diffCommitHash={diffCommitHash}
+                  selectedCommit={selectedCommit}
+                  onBackToGraph={handleBackToGraph}
+                  onNavigateFile={handleNavigateFile}
+                />
+              </div>
+              {/* Detail panel — plain flex div outside react-resizable-panels.
+                  Same fix as the sidebar: Panels get squeezed to ~1% when
+                  conditionally rendered inside a Group. */}
+              {currentRepo && !layout.detailPanelCollapsed && (
+                <div style={{
+                  width: 340,
+                  flexShrink: 0,
+                  height: '100%',
+                  overflow: 'hidden',
+                  borderLeft: '1px solid var(--border)'
+                }}>
+                  <DetailPanel
+                    detail={selectedCommit}
+                    repoPath={currentRepo}
+                    onClose={handleCloseDetailPanel}
+                    onFileClick={handleFileClick}
+                    selectedFilePath={viewingDiff ? diffFile : null}
+                    onToggleCollapse={toggleDetailPanelCollapse}
+                    isCollapsed={layout.detailPanelCollapsed}
                   />
-                </Panel>
-                {currentRepo && !layout.detailPanelCollapsed && (
-                  <>
-                    <Separator className="resize-handle resize-handle-horizontal" onDoubleClick={handleDetailDividerDoubleClick} />
-                    <Panel
-                      id="detail"
-                      defaultSize={layout.rightPanelSize}
-                      minSize={15}
-                      maxSize={50}
-                      onResize={handleRightPanelResize}
-                      panelRef={detailPanelRef}
-                      className="panel-animate-detail"
-                    >
-                      <DetailPanel
-                        detail={selectedCommit}
-                        repoPath={currentRepo}
-                        onClose={handleCloseDetailPanel}
-                        onFileClick={handleFileClick}
-                        selectedFilePath={viewingDiff ? diffFile : null}
-                        onToggleCollapse={toggleDetailPanelCollapse}
-                        isCollapsed={layout.detailPanelCollapsed}
-                      />
-                    </Panel>
-                  </>
-                )}
-              </Group>
+                </div>
+              )}
               {currentRepo && layout.detailPanelCollapsed && (
                 <div className="detail-collapsed-strip" onClick={toggleDetailPanelCollapse} title="Expand detail panel">
                   <ChevronLeft size={14} />
