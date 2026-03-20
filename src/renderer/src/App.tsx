@@ -35,6 +35,7 @@ function App(): React.JSX.Element {
     nextTab,
     prevTab,
     reorderTabs,
+    showWelcomeScreen,
     getTabState,
     saveTabState
   } = useRepoTabs()
@@ -115,6 +116,7 @@ function App(): React.JSX.Element {
         onSwitchTab={switchTab}
         onCloseTab={closeTab}
         onReorderTabs={reorderTabs}
+        onAddTab={showWelcomeScreen}
       />
       <ErrorBoundary>
         <AppLayout

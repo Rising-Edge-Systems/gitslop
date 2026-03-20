@@ -99,6 +99,7 @@ export interface UseRepoTabsReturn {
   nextTab: () => void
   prevTab: () => void
   reorderTabs: (fromIndex: number, toIndex: number) => void
+  showWelcomeScreen: () => void
   getTabState: (repoPath: string) => TabPerTabState
   saveTabState: (repoPath: string, state: Partial<TabPerTabState>) => void
 }
@@ -219,6 +220,10 @@ export function useRepoTabs(): UseRepoTabsReturn {
     })
   }, [])
 
+  const showWelcomeScreen = useCallback(() => {
+    setState((prev) => ({ ...prev, activeIndex: -1 }))
+  }, [])
+
   const reorderTabs = useCallback((fromIndex: number, toIndex: number) => {
     setState((prev) => {
       if (
@@ -260,6 +265,7 @@ export function useRepoTabs(): UseRepoTabsReturn {
     nextTab,
     prevTab,
     reorderTabs,
+    showWelcomeScreen,
     getTabState,
     saveTabState: saveTabStateForRepo
   }

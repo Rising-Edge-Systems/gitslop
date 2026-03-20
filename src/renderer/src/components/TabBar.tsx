@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react'
-import { X, GitBranch } from 'lucide-react'
+import { X, GitBranch, Plus } from 'lucide-react'
 import type { RepoTab } from '../hooks/useRepoTabs'
 import styles from './TabBar.module.css'
 
@@ -9,11 +9,14 @@ interface TabBarProps {
   onSwitchTab: (index: number) => void
   onCloseTab: (index: number) => void
   onReorderTabs: (fromIndex: number, toIndex: number) => void
+  onAddTab: () => void
 }
 
-export function TabBar({ tabs, activeIndex, onSwitchTab, onCloseTab, onReorderTabs }: TabBarProps): React.JSX.Element | null {
-  // Don't render if there are 0 or 1 tabs
-  if (tabs.length <= 1) return null
+export function TabBar({ tabs, activeIndex, onSwitchTab, onCloseTab, onReorderTabs, onAddTab }: TabBarProps): React.JSX.Element | null {
+  // Hide tab bar when no repos are open (welcome screen with zero tabs)
+  if (tabs.length === 0) return null
+
+  const isSingleTab = tabs.length === 1
 
   return (
     <div className={styles.tabBar}>
@@ -28,9 +31,18 @@ export function TabBar({ tabs, activeIndex, onSwitchTab, onCloseTab, onReorderTa
             onClose={onCloseTab}
             onReorder={onReorderTabs}
             totalTabs={tabs.length}
+            showClose={!isSingleTab}
           />
         ))}
       </div>
+      <button
+        className={styles.addTabButton}
+        onClick={onAddTab}
+        aria-label="Open another repository"
+        title="Open another repository"
+      >
+        <Plus size={16} />
+      </button>
     </div>
   )
 }
@@ -43,9 +55,10 @@ interface TabItemProps {
   onClose: (index: number) => void
   onReorder: (fromIndex: number, toIndex: number) => void
   totalTabs: number
+  showClose: boolean
 }
 
-function TabItem({ tab, index, isActive, onSwitch, onClose, onReorder, totalTabs }: TabItemProps): React.JSX.Element {
+function TabItem({ tab, index, isActive, onSwitch, onClose, onReorder, totalTabs, showClose }: TabItemProps): React.JSX.Element {
   const [dragOver, setDragOver] = useState<'left' | 'right' | null>(null)
   const tabRef = useRef<HTMLDivElement>(null)
 
@@ -165,14 +178,16 @@ function TabItem({ tab, index, isActive, onSwitch, onClose, onReorder, totalTabs
     >
       <GitBranch size={13} className={styles.tabIcon} />
       <span className={styles.tabName}>{tab.name}</span>
-      <button
-        className={styles.tabClose}
-        onClick={handleClose}
-        aria-label={`Close ${tab.name}`}
-        title={`Close ${tab.name}`}
-      >
-        <X size={12} />
-      </button>
+      {showClose && (
+        <button
+          className={styles.tabClose}
+          onClick={handleClose}
+          aria-label={`Close ${tab.name}`}
+          title={`Close ${tab.name}`}
+        >
+          <X size={12} />
+        </button>
+      )}
     </div>
   )
 }
