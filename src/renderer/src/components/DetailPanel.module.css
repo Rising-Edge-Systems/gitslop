@@ -51,7 +51,9 @@
 .headerTitle {
   font-size: var(--font-sm);
   font-weight: 600;
-  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
 }
 
 .headerActions {
@@ -258,7 +260,9 @@
   gap: var(--space-sm);
   font-size: var(--font-sm);
   font-weight: 600;
-  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
   margin-bottom: var(--space-sm);
   background: none;
   border: none;

@@ -22,6 +22,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ─── Global Focus-Visible for Keyboard Navigation ────────────────────── */
+button:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Theme transition — smooth color changes */
 body.theme-transitioning,
 body.theme-transitioning *,

@@ -110,6 +110,10 @@
   --diff-remove-color: #f38ba8;
   --diff-header-color: #89b4fa;
 
+  /* Interactive states */
+  --bg-hover: rgba(137, 180, 250, 0.06);
+  --bg-active: rgba(137, 180, 250, 0.12);
+
   /* Scrollbar */
   --scrollbar-thumb: #45475a;
   --scrollbar-track: transparent;
@@ -166,6 +170,10 @@
   --diff-add-color: #40a02b;
   --diff-remove-color: #d20f39;
   --diff-header-color: #1e66f5;
+
+  /* Interactive states */
+  --bg-hover: rgba(30, 102, 245, 0.06);
+  --bg-active: rgba(30, 102, 245, 0.12);
 
   /* Scrollbar */
   --scrollbar-thumb: #bcc0cc;

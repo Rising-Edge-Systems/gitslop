@@ -74,7 +74,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Use react-resizable-panels collapsible + collapsedSize={0} on the detail Panel. The thin expand strip can be a fixed 24px div rendered when collapsed, outside the Panel group. Add toggleDetailPanelCollapse to useLayoutState."
     },
     {
@@ -94,7 +94,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "State management: add viewingDiff/diffFile/diffCommitHash to RepoView or MainContent state. The DiffViewer component is already feature-complete — just render it in a different location. The back button sets viewingDiff=false. File navigation updates diffFile. Wire the DetailPanel file click to lift state up to RepoView via a callback prop."
     },
     {
@@ -113,7 +113,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Most of this styling already exists in DiffViewer.module.css. The new parts are: the breadcrumb/back bar, the diff header with file counter, and ensuring the layout works at full center-panel width (not cramped side-panel width)."
     },
     {
@@ -132,7 +132,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "DetailPanel.tsx modifications. The empty state replaces what was previously 'no content when selectedCommit is null'. File list is already implemented — this story polishes the visual presentation and adds the selected-file highlight."
     },
     {
@@ -152,7 +152,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "This is a sweep across multiple CSS module files. Check: CommitGraph.module.css, StatusPanel.module.css, Sidebar.module.css, DetailPanel.module.css, global.css. Focus on consistency — use grep to find hardcoded color values and replace with tokens. Check border alignment between sidebar/center/detail panels."
     }
   ]

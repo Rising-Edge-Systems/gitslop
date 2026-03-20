@@ -30,7 +30,7 @@
 }
 
 .panelHeader:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-hover);
 }
 
 .panelHeaderLeft {
@@ -46,9 +46,11 @@
 }
 
 .panelTitle {
-  font-size: var(--font-md);
+  font-size: var(--font-sm);
   font-weight: 600;
-  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
   margin: 0;
 }
 
@@ -58,7 +60,7 @@
   gap: 4px;
   font-size: var(--font-xs);
   color: var(--success);
-  background: rgba(166, 227, 161, 0.12);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
   padding: 1px 8px;
   border-radius: var(--radius-lg);
   font-weight: 500;
@@ -165,7 +167,9 @@
 .columnTitle {
   font-size: var(--font-sm);
   font-weight: 600;
-  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -173,7 +177,7 @@
 }
 
 .columnCount {
-  background: rgba(250, 179, 135, 0.15);
+  background: color-mix(in srgb, var(--orange) 15%, transparent);
   color: var(--orange);
   font-size: 10px;
   padding: 1px 6px;
@@ -182,7 +186,7 @@
 }
 
 .columnCountStaged {
-  background: rgba(166, 227, 161, 0.15);
+  background: color-mix(in srgb, var(--success) 15%, transparent);
   color: var(--success);
 }
 
@@ -255,11 +259,11 @@
 /* ─── Drop Target ───────────────────────────────────────────────────────── */
 
 .dropTarget {
-  background: rgba(137, 180, 250, 0.05);
+  background: var(--bg-hover);
 }
 
 .dropTarget > .columnHeader {
-  background: rgba(137, 180, 250, 0.08);
+  background: var(--bg-active);
 }
 
 /* ─── Status File Items ─────────────────────────────────────────────────── */
@@ -268,21 +272,22 @@
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 0 4px 0 0;
+  padding: var(--space-xs) var(--space-xs) var(--space-xs) 0;
   background: none;
   color: var(--text-primary);
   font-size: var(--font-sm);
   white-space: nowrap;
   overflow: hidden;
   cursor: grab;
+  transition: background-color var(--transition-fast);
 }
 
 .fileItem:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-hover);
 }
 
 .fileItemSelected {
-  background: rgba(137, 180, 250, 0.1);
+  background: var(--bg-active);
 }
 
 .fileInfo {
@@ -418,7 +423,7 @@
 }
 
 .commitError {
-  background: rgba(255, 85, 85, 0.15);
+  background: color-mix(in srgb, var(--error) 15%, transparent);
   color: var(--error);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
@@ -427,7 +432,7 @@
 }
 
 .commitSuccess {
-  background: rgba(80, 250, 123, 0.15);
+  background: color-mix(in srgb, var(--success) 15%, transparent);
   color: var(--success);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
@@ -663,7 +668,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-xs) var(--space-sm);
-  background: rgba(137, 180, 250, 0.08);
+  background: var(--bg-hover);
   border-bottom: 1px solid var(--border);
   gap: var(--space-sm);
   position: sticky;
@@ -754,11 +759,11 @@
 }
 
 .hunkLineSelectable:hover {
-  background: rgba(137, 180, 250, 0.08);
+  background: var(--bg-hover);
 }
 
 .hunkLineSelected {
-  background: rgba(137, 180, 250, 0.15) !important;
+  background: var(--bg-active) !important;
 }
 
 .hunkLineAdded {

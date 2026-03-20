@@ -63,7 +63,7 @@
 
 .tab:hover {
   color: var(--text-secondary);
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: var(--bg-hover);
 }
 
 .tabActive {
@@ -89,8 +89,8 @@
   padding: var(--space-sm) var(--space-md);
   border: none;
   background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--font-xs);
+  color: var(--text-muted);
+  font-size: var(--font-sm);
   font-weight: 600;
   font-family: var(--font-family);
   text-transform: uppercase;
@@ -101,7 +101,7 @@
 }
 
 .sectionHeader:hover {
-  background-color: var(--border);
+  background-color: var(--bg-hover);
   color: var(--text-primary);
 }
 
@@ -144,7 +144,7 @@
 .submoduleItem:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
-  background-color: rgba(137, 180, 250, 0.08);
+  background-color: var(--bg-hover);
 }
 
 .placeholder {
@@ -282,11 +282,11 @@
 }
 
 .branchItem:hover {
-  background-color: rgba(137, 180, 250, 0.06);
+  background-color: var(--bg-hover);
 }
 
 .branchItemCurrent {
-  background-color: rgba(137, 180, 250, 0.08);
+  background-color: var(--bg-hover);
 }
 
 .branchItemCurrent .branchName {
@@ -359,7 +359,7 @@
 }
 
 .remoteItem:hover {
-  background-color: rgba(137, 180, 250, 0.06);
+  background-color: var(--bg-hover);
 }
 
 .remoteName {
@@ -390,7 +390,7 @@
 }
 
 .remoteBranchItem:hover {
-  background-color: rgba(137, 180, 250, 0.06);
+  background-color: var(--bg-hover);
 }
 
 .remoteBranchName {
@@ -416,7 +416,7 @@
 }
 
 .tagItem:hover {
-  background-color: rgba(137, 180, 250, 0.06);
+  background-color: var(--bg-hover);
 }
 
 .tagIcon {
