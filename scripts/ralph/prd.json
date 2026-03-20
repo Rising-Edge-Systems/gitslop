@@ -1,143 +1,159 @@
 {
   "project": "GitSlop",
-  "branchName": "ralph/sidebar-fix",
-  "description": "Fix broken sidebar layout (stuck at 5px) by removing it from react-resizable-panels and using CSS flex with custom drag handle. Plus UI polish: compact header, collapsible staging area, visual refinements.",
+  "branchName": "ralph/ux-overhaul",
+  "description": "UX overhaul: always-visible tab bar, permanent right detail panel (GitKraken-style), center-stage diff viewer, and full visual polish pass.",
   "userStories": [
     {
-      "id": "US-SB-001",
-      "title": "Remove Sidebar from react-resizable-panels",
-      "description": "As a developer, I need to remove the sidebar from react-resizable-panels so it renders at a usable width instead of being crushed to 5px.",
+      "id": "US-UX-001",
+      "title": "Always-Visible Tab Bar",
+      "description": "As a user, I want to see a tab bar even with one repo open so I know I can open multiple repos.",
       "acceptanceCriteria": [
-        "The sidebar is NOT wrapped in a <Panel> component — it is a plain <div> child of .app-body",
-        "The sidebar <div> has style={{ width: sidebarWidth, flexShrink: 0, height: '100%', overflow: 'hidden' }} where sidebarWidth defaults to 260",
-        "Remove handleSidebarResize callback, sidebarPanelRef, and handleSidebarDividerDoubleClick from AppLayout (all related to the sidebar Panel)",
-        "Remove the <Separator> between sidebar and center panel",
-        "When sidebarCollapsed is true, render <Sidebar collapsed={true}> inside a 48px wide div (the icon rail)",
-        "When sidebarCollapsed is false, render <Sidebar collapsed={false}> inside the sidebarWidth div",
-        "Both left and right sidebar positions work (sidebar div rendered before or after the Group in flex container)",
-        "The center content (react-resizable-panels Group) takes remaining space via flex: 1 and min-width: 0",
-        "Border between sidebar and center: border-right: 1px solid var(--border) for left position, border-left for right",
+        "Tab bar renders below the titlebar, always visible (even with 1 tab) — remove the tabs.length > 1 condition in App.tsx",
+        "Single tab shows: repo name with GitBranch icon, no close button on the last tab",
+        "A '+' button at the right end of the tab bar opens the welcome screen to add another repo",
+        "With 2+ tabs: each tab shows repo name, close (X) button, active tab visually highlighted",
+        "Tab bar height is ~32px, background var(--bg-secondary), subtle bottom border 1px solid var(--border)",
+        "When welcome screen is shown (no repos open), tab bar shows empty state or is hidden",
         "Typecheck passes",
-        "Verify in browser: sidebar shows at 260px with branches/files content visible and scrollable"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "This is the critical fix. The sidebar <Panel> inside react-resizable-panels is what causes the 5px crush bug. AppLayout.tsx is the primary file. The Sidebar.tsx component itself needs NO changes — it receives collapsed prop and renders accordingly. The .app-body class already uses display: flex."
+      "notes": "TabBar.tsx already exists with drag-reorder, middle-click close, etc. The main change is: (1) always render it in App.tsx, (2) add '+' button, (3) handle single-tab case (no close button). The '+' button should call onRepoOpen or navigate to welcome screen."
     },
     {
-      "id": "US-SB-002",
-      "title": "Custom Drag Handle for Sidebar Resize",
-      "description": "As a user, I want to drag the sidebar edge to resize it so I can adjust how much space branches and files get.",
+      "id": "US-UX-002",
+      "title": "Tab Bar Visual Polish",
+      "description": "As a user, I want the tab bar to look polished with hover effects, accent indicators, and hidden close buttons.",
       "acceptanceCriteria": [
-        "A 5px wide drag handle <div> is rendered between the sidebar div and the center panel",
-        "The drag handle shows cursor: col-resize on hover",
-        "The drag handle shows a subtle background highlight on hover: background var(--border)",
-        "Dragging the handle resizes the sidebar width in real time via mousedown on handle, mousemove on document, mouseup on document",
-        "Minimum sidebar width enforced at 180px during drag",
-        "Maximum sidebar width enforced at 400px during drag",
-        "Double-clicking the handle resets sidebar to 260px default",
-        "Drag state tracked via useRef (not useState) to avoid re-renders during drag — only update state on mouseup or with requestAnimationFrame",
-        "Drag works correctly for right sidebar position (drag direction reversed)",
-        "The drag handle is only visible when sidebar is expanded (not when icon rail)",
+        "Active tab has a 2px bottom border in var(--accent) color",
+        "Inactive tabs use var(--text-muted) color, brighten to var(--text-secondary) on hover",
+        "Tab close (X) buttons only appear on hover — hidden by default to reduce visual noise",
+        "The '+' button is styled as a subtle icon (Lucide Plus, 16px) with hover background",
+        "Tabs truncate long repo names with text-overflow: ellipsis, max-width ~160px per tab",
+        "Tab bar scrolls horizontally if too many tabs (overflow-x: auto, hide scrollbar with CSS)",
         "Typecheck passes",
-        "Verify in browser: drag handle appears, dragging resizes sidebar smoothly"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Depends on US-SB-001. The drag handle is a simple div with mouse event listeners. Use document-level mousemove/mouseup listeners so the drag continues even if cursor leaves the handle. Use useCallback for handlers. Consider adding a CSS class 'dragging' to body during drag to prevent text selection."
+      "notes": "Modify TabBar.tsx and TabBar.module.css. The existing TabBar already has drag-reorder — just needs styling refinement."
     },
     {
-      "id": "US-SB-003",
-      "title": "Persist Sidebar Width and Migrate Corrupt State",
-      "description": "As a user, I want my sidebar width to persist across sessions, and any corrupt stored values from the old Panel-based sidebar must be fixed automatically.",
+      "id": "US-UX-003",
+      "title": "Permanent Right Detail Panel — Always Inline",
+      "description": "As a user, I want the commit detail panel to be a permanent part of the layout, not a floating overlay.",
       "acceptanceCriteria": [
-        "sidebarSize in useLayoutState stores pixel width (integer, e.g. 260) not percentage",
-        "The DEFAULT_LAYOUT.sidebarSize is 260 (pixels)",
-        "On load in loadLayout(), if sidebarSize < 100 (was a percentage from old code), replace with 260",
-        "On load, if sidebarSize < 180 or > 400, clamp to 180-400 range",
-        "setSidebarSize(size) in useLayoutState updates sidebarSize in layout state",
-        "Width is saved with existing 300ms debounce (already in useLayoutState useEffect)",
-        "AppLayout reads layout.sidebarSize for the sidebar div width",
-        "Typecheck passes"
+        "Remove the overlay/drawer mode from DetailPanel entirely — delete the overlay prop and all overlay-related code",
+        "Remove the useOverlayDetailPanel / DETAIL_PANEL_BREAKPOINT logic from AppLayout",
+        "The right panel is ALWAYS rendered as an inline react-resizable-panels Panel (id='detail')",
+        "When no commit is selected: the panel shows a placeholder — centered muted GitCommit icon with 'Select a commit to view details' text",
+        "When a commit is selected: the panel shows commit info (hash, author, date, message, changed files list)",
+        "The panel is resizable via the existing Separator between center and detail panels",
+        "The detail panel does NOT contain the DiffViewer — clicking a file will open the diff in the center (next story)",
+        "Remove the DiffViewer import and rendering from DetailPanel.tsx",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Depends on US-SB-001. The existing useLayoutState already has setSidebarSize and debounced save. Just need to change the semantics from percentage to pixels and add the migration/clamping in loadLayout(). The onResize guard that rejects <12% values should be removed since we no longer use percentages."
+      "notes": "Key changes: (1) AppLayout always renders the detail Panel (not conditional on selectedCommit), (2) DetailPanel shows empty state when no commit, (3) Remove overlay mode entirely, (4) Remove DiffViewer from DetailPanel (it moves to center in next story). Keep the file list clickable — it will trigger center diff in the next story."
     },
     {
-      "id": "US-SB-004",
-      "title": "Sidebar Toggle Without Crashes",
-      "description": "As a user, I want Ctrl+B and the collapse button to toggle between expanded sidebar and icon rail reliably without any crashes.",
+      "id": "US-UX-004",
+      "title": "Detail Panel Collapse Toggle",
+      "description": "As a user, I want to collapse the detail panel to give more space to the commit graph when I don't need commit details.",
       "acceptanceCriteria": [
-        "Ctrl+B cycles: expanded sidebar (260px+) → icon rail (48px) → expanded sidebar",
-        "The collapse button (PanelLeftClose/PanelLeftOpen icon) in sidebar header triggers same toggle",
-        "When expanded: sidebar div has width from layout.sidebarSize, full sidebar content visible and scrollable",
-        "When icon rail: sidebar div has width 48px, shows section icons vertically, clicking an icon opens floating overlay",
-        "CSS transition on the sidebar div: transition: width 200ms ease-out",
-        "The 'Invalid panel layout' error NEVER occurs (since sidebar is no longer a Panel)",
-        "Toggling rapidly 20 times produces no visual glitch, crash, or error",
-        "Collapse state persists across restarts via sidebarCollapsed in layout state",
-        "The responsive auto-collapse logic (< 900px → icon rail) continues to work",
+        "Add detailPanelCollapsed boolean to LayoutState in useLayoutState.ts (default: false)",
+        "A toggle button in the detail panel header: ChevronRight icon when expanded (click to collapse), ChevronLeft icon when collapsed (click to expand)",
+        "When collapsed: the detail Panel has size 0 (react-resizable-panels collapsible prop), center panel takes full width",
+        "When expanded: detail Panel shows at persisted size (default 25%)",
+        "A thin 24px vertical strip on the right edge is visible when collapsed, with a ChevronLeft icon to re-expand",
+        "Collapse state persists across restarts via layout state localStorage",
         "Typecheck passes",
-        "Verify in browser: Ctrl+B toggles between expanded and icon rail smoothly"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Depends on US-SB-001. The toggleSidebar function in useLayoutState.ts cycles expanded→collapsed→expanded. Since the sidebar is now a plain div, toggling just changes sidebarCollapsed which switches between the 260px div and 48px icon rail div. No Panel mounting/unmounting. The responsive auto-collapse effect in AppLayout should continue to call setSidebarCollapsed."
+      "passes": false,
+      "notes": "Use react-resizable-panels collapsible + collapsedSize={0} on the detail Panel. The thin expand strip can be a fixed 24px div rendered when collapsed, outside the Panel group. Add toggleDetailPanelCollapse to useLayoutState."
     },
     {
-      "id": "US-SB-005",
-      "title": "Compact Repo Header — Remove Summary Cards",
-      "description": "As a user, I want the repo header to be compact so the commit graph and staging area get more vertical space.",
+      "id": "US-UX-005",
+      "title": "Center-Stage Diff Viewer — Open Diffs in Center Panel",
+      "description": "As a user, when I click a file in the commit detail panel, I want the diff to open large and readable in the center area.",
       "acceptanceCriteria": [
-        "The 4 large summary cards (Current Branch, Staged, Unstaged, Untracked) are removed from RepoView",
-        "The repo name + path header is reduced to ~40px height (from ~60px)",
-        "The branch name is already shown in the titlebar center and status bar left — no need to duplicate it",
-        "Staged/unstaged/untracked counts are already shown in the Staging Area section headers — no need to duplicate",
-        "The Close button and refresh button remain in the compact header",
-        "Net vertical space saved is at least 80px compared to previous layout",
+        "Clicking a file in the detail panel's Changed Files list sets state: { viewingDiff: true, diffFile: filePath, diffCommitHash: hash }",
+        "When viewingDiff is true, the center panel shows the DiffViewer instead of the commit graph",
+        "The diff fills the entire center panel area (full width, full height minus staging area)",
+        "A breadcrumb/back bar at the top: '← Back to Graph · commitHash / fileName' — clicking returns to graph",
+        "Pressing Escape returns from diff to commit graph",
+        "File navigation ([ and ] keys) cycles through files within the current commit's changed files",
+        "The staging area below the diff is unaffected",
+        "When viewingDiff is false (default), the center shows the commit graph as normal",
         "Typecheck passes",
-        "Verify in browser: compact header, commit graph has significantly more visible rows"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "The summary cards are in RepoView.tsx. They show info that's already available in other parts of the UI (titlebar, status bar, staging area headers). Removing them frees ~80-100px of vertical space. Keep the repo name/path header but make it more compact."
+      "passes": false,
+      "notes": "State management: add viewingDiff/diffFile/diffCommitHash to RepoView or MainContent state. The DiffViewer component is already feature-complete — just render it in a different location. The back button sets viewingDiff=false. File navigation updates diffFile. Wire the DetailPanel file click to lift state up to RepoView via a callback prop."
     },
     {
-      "id": "US-SB-006",
-      "title": "Collapsible Staging Area",
-      "description": "As a user, I want to collapse the staging area to a single header bar so the commit graph gets maximum vertical space when I'm not staging files.",
+      "id": "US-UX-006",
+      "title": "Center Diff View Styling",
+      "description": "As a developer, I want the center diff view to look professional with a clean header, good typography, and readable colors.",
       "acceptanceCriteria": [
-        "The Staging Area header ('Staging Area · N files') is always visible as a clickable bar",
-        "Clicking the header or the existing chevron toggles the staging area open/closed",
-        "When closed: only the ~30px header bar visible, commit graph takes all remaining vertical space",
-        "When open: full staging area with file lists and commit form (current behavior)",
-        "The chevron icon rotates 90 degrees on collapse (already partially implemented)",
-        "Staging area collapse state persists in layout state (add stagingCollapsed boolean)",
+        "Diff header bar (~40px): file path (bold, var(--text-primary)), change type badge (green=Added, blue=Modified, red=Deleted, yellow=Renamed), inline/split toggle buttons (right-aligned), file counter '1/N', prev/next buttons",
+        "Back breadcrumb: subtle link style, var(--text-muted), hover var(--text-secondary), no heavy button styling",
+        "Line numbers column has subtle var(--bg-secondary) background",
+        "Added lines: background rgba(green, 0.1), deleted lines: background rgba(red, 0.1)",
+        "Large diffs (1000+ lines) collapsed by default with 'Large diff — click to expand' placeholder",
+        "Binary files show 'Binary file changed' with Package icon",
+        "The DiffViewer has proper padding (var(--space-md)) so content doesn't touch panel edges",
         "Typecheck passes",
-        "Verify in browser: collapsed staging gives commit graph much more rows"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "The staging area already has a collapsible header with a chevron in StatusPanel.tsx. This story ensures the collapse actually hides the file lists and commit form, and that the state persists. May need to add stagingCollapsed to LayoutState in useLayoutState.ts."
+      "passes": false,
+      "notes": "Most of this styling already exists in DiffViewer.module.css. The new parts are: the breadcrumb/back bar, the diff header with file counter, and ensuring the layout works at full center-panel width (not cramped side-panel width)."
     },
     {
-      "id": "US-SB-007",
-      "title": "Visual Polish — Transitions, Borders, Cleanup",
-      "description": "As a user, I want the sidebar and layout to feel polished with smooth transitions and no visual artifacts.",
+      "id": "US-UX-007",
+      "title": "Detail Panel Empty State and File List Polish",
+      "description": "As a developer, I want the detail panel to look polished in all states with a clean empty state and refined file list.",
       "acceptanceCriteria": [
-        "Sidebar expand/collapse has smooth 200ms ease-out width transition (CSS transition property on the sidebar div)",
-        "Drag handle shows 3 subtle vertical dots (⋮) centered vertically on hover, using var(--text-muted) color",
-        "All panel borders use consistent var(--border) color with no orphaned gaps",
-        "The 'Filter History' bar (CommitFilterBar) renders correctly within the center panel — not clipped behind the sidebar",
-        "No text peeking out at 2px on the left edge (the old 5px sidebar ghost is completely gone)",
-        "No layout flash or jitter when toggling sidebar or opening a repo",
+        "Empty state: centered GitCommit icon (48px, var(--text-muted) at 30% opacity) with 'Select a commit to view details' text below in var(--text-muted)",
+        "Panel header: 'Commit Details' title (var(--font-sm), font-weight 600), collapse toggle button on the right",
+        "File list items have: Lucide status icon (FilePlus/FileEdit/FileMinus, colored), filename (bold), directory path (muted), +insertions/-deletions counts (right-aligned, green/red)",
+        "File list items have hover background (var(--bg-hover)), pointer cursor, 8px vertical padding",
+        "Currently selected file (whose diff is open in center) has accent-colored left border (3px var(--accent))",
+        "File count summary at top of list: 'N files changed, +X -Y'",
+        "Panel scrolls independently when content overflows",
         "Typecheck passes",
-        "Verify in browser: polished transitions, no visual artifacts, filter bar fully visible"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Final polish pass. The Filter History bar was previously clipped at the left edge — verify it renders correctly inside the center panel now that the sidebar is outside react-resizable-panels. Check for any residual CSS that referenced the old sidebar Panel."
+      "passes": false,
+      "notes": "DetailPanel.tsx modifications. The empty state replaces what was previously 'no content when selectedCommit is null'. File list is already implemented — this story polishes the visual presentation and adds the selected-file highlight."
+    },
+    {
+      "id": "US-UX-008",
+      "title": "Global Polish — Spacing, Typography, Interactions",
+      "description": "As a user, I want the app to feel cohesive with consistent styling across all panels.",
+      "acceptanceCriteria": [
+        "All section headers (Commit Graph, Staging Area, Branches, Remotes, Tags, Stashes) use consistent style: var(--font-sm), font-weight 600, text-transform uppercase, letter-spacing 0.5px, var(--text-muted)",
+        "All interactive elements have focus-visible outlines for keyboard navigation (2px solid var(--accent) with 2px offset)",
+        "Hover states use consistent var(--bg-hover) background with var(--transition-fast) transition",
+        "Commit graph row hover shows subtle background highlight",
+        "Selected commit row shows 3px left border in var(--accent) color",
+        "All borders use var(--border) — no hardcoded color values",
+        "No orphaned borders, double borders, or 1px alignment gaps between adjacent panels",
+        "Staging area file items have consistent 8px padding and hover highlight",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "This is a sweep across multiple CSS module files. Check: CommitGraph.module.css, StatusPanel.module.css, Sidebar.module.css, DetailPanel.module.css, global.css. Focus on consistency — use grep to find hardcoded color values and replace with tokens. Check border alignment between sidebar/center/detail panels."
     }
   ]
 }

@@ -98,12 +98,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   }, [currentRepo])
 
   // Responsive breakpoints
-  const DETAIL_PANEL_BREAKPOINT = 1400
   const SIDEBAR_COLLAPSE_BREAKPOINT = 900
   const windowWidth = useWindowWidth()
-
-  // Hybrid detail panel: inline when wide, overlay when narrow
-  const useOverlayDetailPanel = windowWidth < DETAIL_PANEL_BREAKPOINT
 
   // Auto-collapse sidebar to icon rail on narrow windows.
   // Only trigger on window-width threshold crossing — not on sidebar state changes —
@@ -295,9 +291,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setHistoryOpen(!historyOpen)
   }, [historyOpen, setHistoryOpen])
 
-  // Right detail panel is visible when a commit is selected and a repo is open
-  const rightPanelVisible = selectedCommit !== null && currentRepo !== null
-
   return (
     <div className="app-layout">
       <Toolbar
@@ -363,7 +356,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   onToggleStagingCollapse={toggleStagingCollapse}
                 />
               </Panel>
-              {rightPanelVisible && !useOverlayDetailPanel && (
+              {currentRepo && (
                 <>
                   <Separator className="resize-handle resize-handle-horizontal" onDoubleClick={handleDetailDividerDoubleClick} />
                   <Panel
@@ -417,16 +410,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
           </div>
         )}
       </div>
-
-      {/* Overlay detail panel for narrow windows */}
-      {rightPanelVisible && useOverlayDetailPanel && (
-        <DetailPanel
-          detail={selectedCommit}
-          repoPath={currentRepo}
-          onClose={handleCloseDetailPanel}
-          overlay
-        />
-      )}
 
       {/* Status Bar */}
       <StatusBar

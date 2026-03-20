@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import {
   X,
   GitCommit,
@@ -13,28 +13,20 @@ import {
   FileSymlink,
   Copy,
   Check,
-  AlertCircle,
   ChevronDown,
-  ChevronRight,
-  ChevronLeft,
-  Package,
-  ChevronsUpDown
+  ChevronRight
 } from 'lucide-react'
-import { DiffViewer } from './DiffViewer'
-import type { DiffViewMode } from './DiffViewer'
-import { DiffSkeleton } from './Skeleton'
 import styles from './DetailPanel.module.css'
 import type { CommitDetail, CommitFileDetail } from './CommitGraph'
 
-/** Threshold above which diffs are collapsed by default */
-const LARGE_DIFF_LINE_THRESHOLD = 1000
-
 interface DetailPanelProps {
-  detail: CommitDetail
+  detail: CommitDetail | null
   repoPath: string | null
   onClose: () => void
-  /** When true, renders as a sliding overlay instead of an inline panel */
-  overlay?: boolean
+  /** Callback when a file is clicked in the changed files list */
+  onFileClick?: (file: CommitFileDetail, commitHash: string) => void
+  /** Path of the currently selected file (whose diff is open in center panel) */
+  selectedFilePath?: string | null
 }
 
 function formatRelativeDate(dateStr: string): string {
@@ -87,54 +79,30 @@ function splitPath(filePath: string): { dir: string; name: string } {
   return { dir: filePath.substring(0, lastSlash + 1), name: filePath.substring(lastSlash + 1) }
 }
 
-export function DetailPanel({ detail, repoPath, onClose, overlay = false }: DetailPanelProps): React.JSX.Element {
+export function DetailPanel({ detail, repoPath, onClose, onFileClick, selectedFilePath }: DetailPanelProps): React.JSX.Element {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [copiedSha, setCopiedSha] = useState(false)
+  const [filesExpanded, setFilesExpanded] = useState(true)
+
+  // Show empty state when no commit is selected
+  if (!detail) {
+    return (
+      <div ref={panelRef} className={styles.detailPanel}>
+        <div className={styles.header}>
+          <span className={styles.headerTitle}>Commit Details</span>
+        </div>
+        <div className={styles.emptyState}>
+          <GitCommit size={48} className={styles.emptyStateIcon} />
+          <span className={styles.emptyStateText}>Select a commit to view details</span>
+        </div>
+      </div>
+    )
+  }
+
   const { commit, fileDetails, totalInsertions, totalDeletions, refs } = detail
   const sigOk = commit.signatureStatus === 'good'
   const sigBad = commit.signatureStatus === 'bad' || commit.signatureStatus === 'error'
   const hasSig = commit.signatureStatus !== 'none'
-  const panelRef = useRef<HTMLDivElement>(null)
-  const [copiedSha, setCopiedSha] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<CommitFileDetail | null>(null)
-  const [diffContent, setDiffContent] = useState<string>('')
-  const [loadingDiff, setLoadingDiff] = useState(false)
-  const [filesExpanded, setFilesExpanded] = useState(true)
-  const [diffMode, setDiffMode] = useState<DiffViewMode>('inline')
-  const [isDiffCollapsed, setIsDiffCollapsed] = useState(false)
-  const [isBinaryFile, setIsBinaryFile] = useState(false)
-  const [diffLineCount, setDiffLineCount] = useState(0)
-  const [diffError, setDiffError] = useState<string | null>(null)
-
-  // Reset selected file when commit changes
-  useEffect(() => {
-    setSelectedFile(null)
-    setDiffContent('')
-    setIsBinaryFile(false)
-    setDiffLineCount(0)
-    setIsDiffCollapsed(false)
-    setDiffError(null)
-  }, [commit.hash])
-
-  // Close on Escape key when in overlay mode
-  useEffect(() => {
-    if (!overlay) return
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [overlay, onClose])
-
-  // Click outside handler for overlay backdrop
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.target === e.currentTarget) {
-        onClose()
-      }
-    },
-    [onClose]
-  )
 
   // Copy SHA to clipboard
   const handleCopySha = useCallback(async () => {
@@ -147,114 +115,17 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
     }
   }, [commit.hash])
 
-  // Load file diff
-  const handleFileClick = useCallback(async (file: CommitFileDetail) => {
-    if (!repoPath) return
-
-    // Toggle off if same file clicked again
-    if (selectedFile?.path === file.path) {
-      setSelectedFile(null)
-      setDiffContent('')
-      setIsBinaryFile(false)
-      setDiffLineCount(0)
-      setIsDiffCollapsed(false)
-      setDiffError(null)
-      return
-    }
-
-    setSelectedFile(file)
-    setLoadingDiff(true)
-    setIsBinaryFile(false)
-    setDiffLineCount(0)
-    setIsDiffCollapsed(false)
-    setDiffError(null)
-    try {
-      const result = await window.electronAPI.git.showCommitFileDiff(repoPath, commit.hash, file.path)
-      if (result.success && result.data) {
-        const content = result.data as string
-        // Check for binary file
-        if (content.includes('Binary files') || content.includes('GIT binary patch')) {
-          setIsBinaryFile(true)
-          setDiffContent(content)
-        } else {
-          setDiffContent(content)
-          // Count diff lines for large diff collapsing
-          const lineCount = content.split('\n').length
-          setDiffLineCount(lineCount)
-          if (lineCount > LARGE_DIFF_LINE_THRESHOLD) {
-            setIsDiffCollapsed(true)
-          }
-        }
-      } else if (result.success && !result.data) {
-        // IPC succeeded but returned empty data — no changes
-        setDiffContent('')
-        setDiffError(null)
-      } else {
-        // IPC returned an error
-        setDiffContent('')
-        setDiffError(result.error || 'Failed to load diff')
-      }
-    } catch (err: unknown) {
-      setDiffContent('')
-      const message = err instanceof Error ? err.message : String(err)
-      setDiffError(`Failed to load diff: ${message}`)
-    } finally {
-      setLoadingDiff(false)
-    }
-  }, [repoPath, commit.hash, selectedFile?.path])
-
-  // Navigate to previous/next file
-  const handleNavigateFile = useCallback((direction: 'prev' | 'next') => {
-    if (!selectedFile || fileDetails.length === 0) return
-    const currentIdx = fileDetails.findIndex(f => f.path === selectedFile.path)
-    if (currentIdx === -1) return
-    const nextIdx = direction === 'prev' ? currentIdx - 1 : currentIdx + 1
-    if (nextIdx >= 0 && nextIdx < fileDetails.length) {
-      handleFileClick(fileDetails[nextIdx])
-    }
-  }, [selectedFile, fileDetails, handleFileClick])
-
-  // Keyboard navigation for [ and ] to switch between files
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === '[' || e.key === ']') {
-        if (!selectedFile || fileDetails.length === 0) return
-        const currentIdx = fileDetails.findIndex(f => f.path === selectedFile.path)
-        if (currentIdx === -1) return
-        const nextIdx = e.key === '[' ? currentIdx - 1 : currentIdx + 1
-        if (nextIdx >= 0 && nextIdx < fileDetails.length) {
-          e.preventDefault()
-          handleFileClick(fileDetails[nextIdx])
-        }
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectedFile, fileDetails, handleFileClick])
-
-  /** Human-readable change type label */
-  const getChangeTypeLabel = (status: string): string => {
-    switch (status) {
-      case 'A': return 'Added'
-      case 'D': return 'Deleted'
-      case 'M': return 'Modified'
-      case 'R': return 'Renamed'
-      case 'C': return 'Copied'
-      default: return 'Changed'
-    }
-  }
-
-  // Compute selected file index for navigation
-  const selectedFileIdx = selectedFile ? fileDetails.findIndex(f => f.path === selectedFile.path) : -1
-  const hasPrevFile = selectedFileIdx > 0
-  const hasNextFile = selectedFileIdx >= 0 && selectedFileIdx < fileDetails.length - 1
+  // Handle file click — delegate to parent via onFileClick callback
+  const handleFileClick = useCallback((file: CommitFileDetail) => {
+    onFileClick?.(file, commit.hash)
+  }, [onFileClick, commit.hash])
 
   const fileCount = fileDetails.length
 
-  const panelContent = (
+  return (
     <div
       ref={panelRef}
-      className={`${styles.detailPanel} ${overlay ? styles.detailPanelOverlay : ''}`}
+      className={styles.detailPanel}
     >
       <div className={styles.header}>
         <span className={styles.headerTitle}>Commit Details</span>
@@ -339,7 +210,7 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
             <ul className={styles.fileList}>
               {fileDetails.map((file) => {
                 const { dir, name } = splitPath(file.path)
-                const isSelected = selectedFile?.path === file.path
+                const isSelected = selectedFilePath === file.path
                 return (
                   <li key={file.path}>
                     <button
@@ -359,101 +230,6 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
                         </span>
                       )}
                     </button>
-
-                    {/* Inline diff for selected file */}
-                    {isSelected && (
-                      <div className={styles.diffContainer}>
-                        {/* Diff header */}
-                        <div className={styles.diffHeader}>
-                          <div className={styles.diffHeaderInfo}>
-                            <FileStatusIcon status={file.status} size={14} />
-                            <span className={styles.diffHeaderPath}>{file.path}</span>
-                            <span className={styles.diffHeaderType}>{getChangeTypeLabel(file.status)}</span>
-                            {file.oldPath && (
-                              <span className={styles.diffHeaderOldPath}>← {file.oldPath}</span>
-                            )}
-                          </div>
-                          <div className={styles.diffHeaderControls}>
-                            {/* Mode toggle */}
-                            <div className={styles.diffModeToggle}>
-                              <button
-                                className={`${styles.diffModeBtn} ${diffMode === 'inline' ? styles.diffModeBtnActive : ''}`}
-                                onClick={() => setDiffMode('inline')}
-                                title="Inline (unified) diff"
-                              >
-                                Inline
-                              </button>
-                              <button
-                                className={`${styles.diffModeBtn} ${diffMode === 'side-by-side' ? styles.diffModeBtnActive : ''}`}
-                                onClick={() => setDiffMode('side-by-side')}
-                                title="Side-by-side diff"
-                              >
-                                Split
-                              </button>
-                            </div>
-                            {/* File navigation */}
-                            <div className={styles.diffNavBtns}>
-                              <button
-                                className={styles.diffNavBtn}
-                                onClick={() => handleNavigateFile('prev')}
-                                disabled={!hasPrevFile}
-                                title="Previous file ( [ )"
-                              >
-                                <ChevronLeft size={14} />
-                              </button>
-                              <span className={styles.diffNavLabel}>
-                                {selectedFileIdx + 1}/{fileDetails.length}
-                              </span>
-                              <button
-                                className={styles.diffNavBtn}
-                                onClick={() => handleNavigateFile('next')}
-                                disabled={!hasNextFile}
-                                title="Next file ( ] )"
-                              >
-                                <ChevronRight size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Diff content */}
-                        {loadingDiff ? (
-                          <DiffSkeleton />
-                        ) : diffError ? (
-                          <div className={styles.diffError}>
-                            <AlertCircle size={16} />
-                            <span>{diffError}</span>
-                          </div>
-                        ) : isBinaryFile ? (
-                          <div className={styles.diffBinary}>
-                            <Package size={18} />
-                            <span>Binary file changed</span>
-                          </div>
-                        ) : diffContent ? (
-                          isDiffCollapsed ? (
-                            <div className={styles.diffCollapsed}>
-                              <ChevronsUpDown size={16} />
-                              <span>Large diff ({diffLineCount.toLocaleString()} lines) — collapsed by default</span>
-                              <button
-                                className={styles.diffExpandBtn}
-                                onClick={() => setIsDiffCollapsed(false)}
-                              >
-                                Expand
-                              </button>
-                            </div>
-                          ) : (
-                            <DiffViewer
-                              diffContent={diffContent}
-                              filePath={file.path}
-                              initialMode={diffMode}
-                              className={styles.inlineDiff}
-                            />
-                          )
-                        ) : (
-                          <div className={styles.diffEmpty}>No changes in this file</div>
-                        )}
-                      </div>
-                    )}
                   </li>
                 )
               })}
@@ -463,14 +239,4 @@ export function DetailPanel({ detail, repoPath, onClose, overlay = false }: Deta
       </div>
     </div>
   )
-
-  if (overlay) {
-    return (
-      <div className={styles.overlayBackdrop} onClick={handleBackdropClick}>
-        {panelContent}
-      </div>
-    )
-  }
-
-  return panelContent
 }
