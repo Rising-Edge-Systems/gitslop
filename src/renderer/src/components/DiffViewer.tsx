@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Package } from 'lucide-react'
+import { Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import styles from './DiffViewer.module.css'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -382,7 +382,7 @@ const sbsLineTypeClass: Record<string, string> = {
   context: styles.sbsLineContext
 }
 
-const LARGE_FILE_LINE_LIMIT = 5000
+const LARGE_FILE_LINE_LIMIT = 1000
 const INITIAL_DISPLAY_LIMIT = 2000
 
 // ─── Component Props ────────────────────────────────────────────────────────
@@ -398,18 +398,42 @@ export interface DiffViewerProps {
   staged?: boolean
   isUntracked?: boolean
   className?: string
+  /** File change status: M=Modified, A=Added, D=Deleted, R=Renamed */
+  fileStatus?: string
+  /** Current file index (0-based) in the commit's file list */
+  fileIndex?: number
+  /** Total number of files in the commit */
+  fileCount?: number
+  /** Navigate to prev/next file */
+  onNavigateFile?: (direction: 'prev' | 'next') => void
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
+
+/** Map file status code to a label and CSS class */
+function getStatusBadge(status?: string): { label: string; className: string } {
+  switch (status) {
+    case 'A': return { label: 'Added', className: styles.badgeAdded }
+    case 'D': return { label: 'Deleted', className: styles.badgeDeleted }
+    case 'R': case 'C': return { label: 'Renamed', className: styles.badgeRenamed }
+    case 'M': return { label: 'Modified', className: styles.badgeModified }
+    default: return { label: 'Modified', className: styles.badgeModified }
+  }
+}
 
 export function DiffViewer({
   diffContent,
   filePath,
   initialMode = 'inline',
-  className = ''
+  className = '',
+  fileStatus,
+  fileIndex,
+  fileCount,
+  onNavigateFile
 }: DiffViewerProps): React.JSX.Element {
   const [mode, setMode] = useState<DiffViewMode>(initialMode)
   const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT)
+  const [largeDiffExpanded, setLargeDiffExpanded] = useState(false)
   const leftPaneRef = useRef<HTMLDivElement>(null)
   const rightPaneRef = useRef<HTMLDivElement>(null)
   const syncingRef = useRef(false)
@@ -424,9 +448,10 @@ export function DiffViewer({
   const isLargeFile = totalLines > LARGE_FILE_LINE_LIMIT
   const isTruncated = isLargeFile && displayLimit < totalLines
 
-  // Reset display limit on new diff
+  // Reset display limit and collapse state on new diff
   useEffect(() => {
     setDisplayLimit(INITIAL_DISPLAY_LIMIT)
+    setLargeDiffExpanded(false)
   }, [diffContent])
 
   // ─── Scroll Sync (side-by-side) ─────────────────────────────────────────
@@ -449,12 +474,65 @@ export function DiffViewer({
 
   // ─── Binary file ────────────────────────────────────────────────────────
 
+  const statusBadge = getStatusBadge(fileStatus)
+
+  // Shared toolbar for all views
+  const toolbarContent = (
+    <div className={styles.toolbar}>
+      <div className={styles.toolbarLeft}>
+        <span className={styles.filename}>{filePath}</span>
+        {fileStatus && (
+          <span className={`${styles.statusBadge} ${statusBadge.className}`}>
+            {statusBadge.label}
+          </span>
+        )}
+      </div>
+      <div className={styles.toolbarRight}>
+        {fileCount != null && fileCount > 1 && (
+          <div className={styles.fileNav}>
+            <button
+              className={styles.fileNavBtn}
+              onClick={() => onNavigateFile?.('prev')}
+              title="Previous file ([)"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className={styles.fileCounter}>
+              {(fileIndex ?? 0) + 1}/{fileCount}
+            </span>
+            <button
+              className={styles.fileNavBtn}
+              onClick={() => onNavigateFile?.('next')}
+              title="Next file (])"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
+        <div className={styles.modeToggle}>
+          <button
+            className={`${styles.modeBtn} ${mode === 'inline' ? styles.modeBtnActive : ''}`}
+            onClick={() => setMode('inline')}
+            title="Inline (unified) diff"
+          >
+            Inline
+          </button>
+          <button
+            className={`${styles.modeBtn} ${mode === 'side-by-side' ? styles.modeBtnActive : ''}`}
+            onClick={() => setMode('side-by-side')}
+            title="Side-by-side diff"
+          >
+            Split
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (parsed.fileHeader.isBinary) {
     return (
       <div className={`${styles.diffViewer} ${className}`}>
-        <div className={styles.toolbar}>
-          <span className={styles.filename}>{filePath}</span>
-        </div>
+        {toolbarContent}
         <div className={styles.binary}>
           <span className={styles.binaryIcon}><Package size={18} /></span>
           <span>Binary file changed</span>
@@ -469,10 +547,28 @@ export function DiffViewer({
   if (parsed.hunks.length === 0 || !hasValidHeader) {
     return (
       <div className={`${styles.diffViewer} ${className}`}>
-        <div className={styles.toolbar}>
-          <span className={styles.filename}>{filePath}</span>
-        </div>
+        {toolbarContent}
         <pre className={styles.raw}>{diffContent}</pre>
+      </div>
+    )
+  }
+
+  // Large diff (1000+ lines): collapsed by default with placeholder
+  if (isLargeFile && !largeDiffExpanded) {
+    return (
+      <div className={`${styles.diffViewer} ${className}`}>
+        {toolbarContent}
+        <div className={styles.largeDiffPlaceholder}>
+          <span className={styles.largeDiffText}>
+            Large diff — {totalLines.toLocaleString()} lines
+          </span>
+          <button
+            className={styles.largeDiffExpandBtn}
+            onClick={() => setLargeDiffExpanded(true)}
+          >
+            Click to expand
+          </button>
+        </div>
       </div>
     )
   }
@@ -505,28 +601,7 @@ export function DiffViewer({
 
   return (
     <div className={`${styles.diffViewer} ${className}`}>
-      {/* Toolbar */}
-      <div className={styles.toolbar}>
-        <span className={styles.filename}>{filePath}</span>
-        <div className={styles.controls}>
-          <div className={styles.modeToggle}>
-            <button
-              className={`${styles.modeBtn} ${mode === 'inline' ? styles.modeBtnActive : ''}`}
-              onClick={() => setMode('inline')}
-              title="Inline (unified) diff"
-            >
-              Inline
-            </button>
-            <button
-              className={`${styles.modeBtn} ${mode === 'side-by-side' ? styles.modeBtnActive : ''}`}
-              onClick={() => setMode('side-by-side')}
-              title="Side-by-side diff"
-            >
-              Side-by-Side
-            </button>
-          </div>
-        </div>
-      </div>
+      {toolbarContent}
 
       {/* Diff Content */}
       {mode === 'inline' ? (

@@ -295,13 +295,21 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollaps
                     <AlertTriangle size={14} /> {diffError}
                   </div>
                 )}
-                {!diffLoading && !diffError && diffContent !== null && (
-                  <DiffViewer
-                    diffContent={diffContent}
-                    filePath={diffFile}
-                    className={styles.centerDiffViewer}
-                  />
-                )}
+                {!diffLoading && !diffError && diffContent !== null && (() => {
+                  const currentFileDetail = selectedCommit?.fileDetails.find(f => f.path === diffFile)
+                  const currentFileIndex = selectedCommit?.fileDetails.findIndex(f => f.path === diffFile) ?? 0
+                  return (
+                    <DiffViewer
+                      diffContent={diffContent}
+                      filePath={diffFile}
+                      className={styles.centerDiffViewer}
+                      fileStatus={currentFileDetail?.status}
+                      fileIndex={currentFileIndex >= 0 ? currentFileIndex : 0}
+                      fileCount={selectedCommit?.fileDetails.length}
+                      onNavigateFile={onNavigateFile}
+                    />
+                  )
+                })()}
                 {!diffLoading && !diffError && diffContent === null && (
                   <div className={styles.diffLoadingState}>No diff content available</div>
                 )}

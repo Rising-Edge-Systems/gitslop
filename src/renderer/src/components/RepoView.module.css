@@ -218,35 +218,37 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) 0;
+  padding: var(--space-xs) 0;
   flex-shrink: 0;
   font-size: var(--font-sm);
-  min-height: 32px;
+  min-height: 28px;
 }
 
 .diffBackBtn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 2px 4px;
   border: none;
   background: transparent;
   color: var(--text-muted);
   font-size: var(--font-sm);
   font-family: var(--font-family);
   cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: color var(--transition-fast), background-color var(--transition-fast);
+  border-radius: 0;
+  transition: color var(--transition-fast);
+  text-decoration: none;
 }
 
 .diffBackBtn:hover {
   color: var(--text-secondary);
-  background-color: var(--bg-hover);
+  background: transparent;
+  text-decoration: underline;
 }
 
 .diffBackSeparator {
   color: var(--text-muted);
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .diffBackPath {
@@ -255,11 +257,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  font-size: var(--font-sm);
 }
 
 .diffBackHash {
   color: var(--text-secondary);
   font-size: var(--font-xs);
+  font-family: var(--font-mono);
 }
 
 .centerDiffContainer {
