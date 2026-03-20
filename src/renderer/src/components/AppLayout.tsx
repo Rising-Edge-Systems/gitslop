@@ -389,10 +389,9 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   onNavigateFile={handleNavigateFile}
                 />
               </div>
-              {/* Detail panel — plain flex div outside react-resizable-panels.
-                  Same fix as the sidebar: Panels get squeezed to ~1% when
-                  conditionally rendered inside a Group. */}
-              {currentRepo && !layout.detailPanelCollapsed && (
+              {/* Detail panel — always visible when a repo is open.
+                  Shows placeholder when no commit selected, details when one is. */}
+              {currentRepo && (
                 <div style={{
                   width: 340,
                   flexShrink: 0,
@@ -407,13 +406,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     onFileClick={handleFileClick}
                     selectedFilePath={viewingDiff ? diffFile : null}
                     onToggleCollapse={toggleDetailPanelCollapse}
-                    isCollapsed={layout.detailPanelCollapsed}
+                    isCollapsed={false}
                   />
-                </div>
-              )}
-              {currentRepo && layout.detailPanelCollapsed && (
-                <div className="detail-collapsed-strip" onClick={toggleDetailPanelCollapse} title="Expand detail panel">
-                  <ChevronLeft size={14} />
                 </div>
               )}
             </div>
