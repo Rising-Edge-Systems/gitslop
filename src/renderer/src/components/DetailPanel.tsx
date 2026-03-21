@@ -88,8 +88,40 @@ export function DetailPanel({ detail, repoPath, onClose, onFileClick, selectedFi
   const [copiedSha, setCopiedSha] = useState(false)
   const [filesExpanded, setFilesExpanded] = useState(true)
 
+  // ALL hooks must be above the early return to avoid React error #310
+  // ("Rendered more hooks than during the previous render")
+  const commit = detail?.commit
+  const fileDetails = detail?.fileDetails ?? []
+  const totalInsertions = detail?.totalInsertions ?? 0
+  const totalDeletions = detail?.totalDeletions ?? 0
+  const refs = detail?.refs ?? []
+
+  const sigOk = commit?.signatureStatus === 'good'
+  const sigBad = commit?.signatureStatus === 'bad' || commit?.signatureStatus === 'error'
+  const hasSig = commit?.signatureStatus !== 'none' && commit?.signatureStatus !== undefined
+
+  // Copy SHA to clipboard
+  const handleCopySha = useCallback(async () => {
+    if (!commit) return
+    try {
+      await navigator.clipboard.writeText(commit.hash)
+      setCopiedSha(true)
+      setTimeout(() => setCopiedSha(false), 2000)
+    } catch {
+      // Fallback: select all text
+    }
+  }, [commit?.hash])
+
+  // Handle file click — delegate to parent via onFileClick callback
+  const handleFileClick = useCallback((file: CommitFileDetail) => {
+    if (!commit) return
+    onFileClick?.(file, commit.hash)
+  }, [onFileClick, commit?.hash])
+
+  const fileCount = fileDetails.length
+
   // Show empty state when no commit is selected
-  if (!detail) {
+  if (!detail || !commit) {
     return (
       <div ref={panelRef} className={styles.detailPanel}>
         <div className={styles.header}>
@@ -107,29 +139,6 @@ export function DetailPanel({ detail, repoPath, onClose, onFileClick, selectedFi
       </div>
     )
   }
-
-  const { commit, fileDetails, totalInsertions, totalDeletions, refs } = detail
-  const sigOk = commit.signatureStatus === 'good'
-  const sigBad = commit.signatureStatus === 'bad' || commit.signatureStatus === 'error'
-  const hasSig = commit.signatureStatus !== 'none'
-
-  // Copy SHA to clipboard
-  const handleCopySha = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(commit.hash)
-      setCopiedSha(true)
-      setTimeout(() => setCopiedSha(false), 2000)
-    } catch {
-      // Fallback: select all text
-    }
-  }, [commit.hash])
-
-  // Handle file click — delegate to parent via onFileClick callback
-  const handleFileClick = useCallback((file: CommitFileDetail) => {
-    onFileClick?.(file, commit.hash)
-  }, [onFileClick, commit.hash])
-
-  const fileCount = fileDetails.length
 
   return (
     <div
