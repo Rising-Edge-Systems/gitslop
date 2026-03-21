@@ -12,6 +12,7 @@ import { Toolbar } from './Toolbar'
 import { Sidebar } from './Sidebar'
 import { MainContent } from './MainContent'
 import { DetailPanel } from './DetailPanel'
+import { StatusPanel } from './StatusPanel'
 import { TerminalPanel } from './Terminal'
 import { SearchPalette } from './SearchPalette'
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel'
@@ -389,25 +390,36 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   onNavigateFile={handleNavigateFile}
                 />
               </div>
-              {/* Detail panel — always visible when a repo is open.
-                  Shows placeholder when no commit selected, details when one is. */}
+              {/* Right panel — commit details on top, staging area below.
+                  Always visible when a repo is open. */}
               {currentRepo && (
                 <div style={{
                   width: 340,
                   flexShrink: 0,
                   height: '100%',
                   overflow: 'hidden',
-                  borderLeft: '1px solid var(--border)'
+                  borderLeft: '1px solid var(--border)',
+                  display: 'flex',
+                  flexDirection: 'column'
                 }}>
-                  <DetailPanel
-                    detail={selectedCommit}
-                    repoPath={currentRepo}
-                    onClose={handleCloseDetailPanel}
-                    onFileClick={handleFileClick}
-                    selectedFilePath={viewingDiff ? diffFile : null}
-                    onToggleCollapse={toggleDetailPanelCollapse}
-                    isCollapsed={false}
-                  />
+                  <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                    <DetailPanel
+                      detail={selectedCommit}
+                      repoPath={currentRepo}
+                      onClose={handleCloseDetailPanel}
+                      onFileClick={handleFileClick}
+                      selectedFilePath={viewingDiff ? diffFile : null}
+                      onToggleCollapse={toggleDetailPanelCollapse}
+                      isCollapsed={false}
+                    />
+                  </div>
+                  <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)' }}>
+                    <StatusPanel
+                      repoPath={currentRepo}
+                      collapsed={layout.stagingCollapsed}
+                      onToggleCollapse={toggleStagingCollapse}
+                    />
+                  </div>
                 </div>
               )}
             </div>

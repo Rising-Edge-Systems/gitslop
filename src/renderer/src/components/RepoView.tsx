@@ -10,7 +10,7 @@ import { CodeEditor } from './CodeEditor'
 import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from './CommitFilterBar'
 import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
-import { StatusPanel } from './StatusPanel'
+// StatusPanel moved to right panel in AppLayout
 import { DiffViewer } from './DiffViewer'
 
 interface RepoViewProps {
@@ -315,8 +315,7 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollaps
                 )}
               </div>
 
-              {/* Staging Area (below diff) */}
-              <StatusPanel repoPath={repoPath} onRefresh={loadRepoData} collapsed={stagingCollapsed} onToggleCollapse={onToggleStagingCollapse} />
+              {/* Staging Area moved to right panel in AppLayout */}
             </>
           ) : (
             <>
@@ -330,8 +329,7 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollaps
               {/* Commit Graph */}
               <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} filters={graphFilters} />
 
-              {/* Staging Area (below graph) */}
-              <StatusPanel repoPath={repoPath} onRefresh={loadRepoData} collapsed={stagingCollapsed} onToggleCollapse={onToggleStagingCollapse} />
+              {/* Staging Area moved to right panel in AppLayout */}
             </>
           )}
 
