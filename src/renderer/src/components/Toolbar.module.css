@@ -73,6 +73,11 @@
   color: var(--text-secondary);
 }
 
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .btnActive {
   color: var(--accent) !important;
 }
@@ -182,7 +187,7 @@
   height: 100%;
   background: var(--accent);
   border-radius: 2px;
-  transition: width 0.3s ease;
+  transition: width var(--transition-normal);
 }
 
 .notification {
@@ -229,7 +234,7 @@
 }
 
 .forcePushWarningIcon {
-  font-size: 18px;
+  font-size: var(--font-xl);
   flex-shrink: 0;
 }
 

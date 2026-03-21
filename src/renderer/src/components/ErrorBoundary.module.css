@@ -44,7 +44,7 @@
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-lg);
   background: var(--accent);
-  color: #fff;
+  color: var(--btn-primary-text);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-sm);

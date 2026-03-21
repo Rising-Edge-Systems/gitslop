@@ -73,7 +73,7 @@
   align-items: center;
   gap: var(--space-xs);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-xs);
   opacity: 0.7;
   transition: opacity var(--transition-fast);
 }
@@ -102,7 +102,7 @@
   gap: 3px;
   color: var(--info);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--font-xs);
   background: rgba(var(--info-rgb, 100, 180, 255), 0.15);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
@@ -156,7 +156,7 @@
   height: 100%;
   background: var(--accent);
   border-radius: 2px;
-  transition: width 0.2s ease;
+  transition: width var(--transition-normal);
 }
 
 .lastOpText {
@@ -208,6 +208,11 @@
   background: var(--bg-hover);
 }
 
+.refreshBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .refreshBtn:disabled {
   opacity: 0.5;
   cursor: default;
@@ -238,6 +243,11 @@
 .notifBtn:hover {
   color: var(--text-primary);
   background: var(--bg-tertiary);
+}
+
+.notifBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .notifBtnActive {
@@ -348,7 +358,7 @@
   padding: 6px var(--space-md);
   border-bottom: 1px solid var(--border);
   font-size: var(--font-xs);
-  transition: background-color 0.1s ease;
+  transition: background-color var(--transition-fast);
 }
 
 .historyItem:last-child {
@@ -393,7 +403,7 @@
 .historyTime {
   flex-shrink: 0;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: var(--font-xs);
   font-family: var(--font-mono);
 }
 

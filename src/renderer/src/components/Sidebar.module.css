@@ -196,7 +196,7 @@
 }
 
 .sectionCount {
-  font-size: 10px;
+  font-size: var(--font-xs);
   font-weight: 500;
   color: var(--text-muted);
   background-color: var(--bg-tertiary);
@@ -259,7 +259,7 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--font-xs);
   padding: 2px var(--space-xs);
   border-radius: 3px;
   transition: color var(--transition-fast);
@@ -333,12 +333,12 @@
 }
 
 .branchAhead {
-  font-size: 10px;
+  font-size: var(--font-xs);
   color: var(--success);
 }
 
 .branchBehind {
-  font-size: 10px;
+  font-size: var(--font-xs);
   color: var(--error);
 }
 
@@ -448,7 +448,7 @@
 }
 
 .tagDate {
-  font-size: 10px;
+  font-size: var(--font-xs);
   color: var(--text-muted);
   flex-shrink: 0;
   margin-left: auto;
@@ -502,7 +502,7 @@
 }
 
 .stashDate {
-  font-size: 10px;
+  font-size: var(--font-xs);
   color: var(--text-tertiary);
 }
 
@@ -826,6 +826,6 @@
 
 @media (max-width: 700px) {
   .sectionTitle {
-    font-size: 10px;
+    font-size: var(--font-xs);
   }
 }

@@ -37,7 +37,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "RepoView.tsx renders the repo header. The repo name is in titlebar center. Close button should be on the tab (TabBar already has close). Refresh can be a toolbar icon or removed since auto-fetch exists."
     },
     {
@@ -56,7 +56,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "CommitGraph.tsx and CommitGraph.module.css. Rows are in react-window virtualized list. Focus on hover/selected visual states and text truncation/overflow."
     },
     {
@@ -76,7 +76,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "DetailPanel.tsx and DetailPanel.module.css. Panel is 340px wide so space is tight. Use truncation and compact layouts. Focus on typography hierarchy."
     },
     {
@@ -94,7 +94,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "StatusPanel.tsx and StatusPanel.module.css. Was designed for ~900px center panel. Now in 340px right panel. The side-by-side layout won't fit \u2014 needs responsive stacking or tabs."
     },
     {
@@ -113,7 +113,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Sidebar.tsx and Sidebar.module.css. Focus on hover states, active indicators, spacing consistency."
     },
     {
@@ -131,7 +131,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "TabBar.tsx, TitleBar.tsx and their CSS modules. Check for info duplication between tab bar and titlebar."
     },
     {
@@ -148,7 +148,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Sweep across ALL .module.css files. Use grep to find hardcoded colors. Check CommitGraph, StatusPanel, DetailPanel, Sidebar, Toolbar, StatusBar, TabBar modules."
     }
   ]
