@@ -952,100 +952,6 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }
                     })
                   )}
                 </div>
-
-                {/* ─── Commit Form (at bottom of staged column) ─── */}
-                <div className={styles.commitForm}>
-                  {commitError && (
-                    <div className={styles.commitError}>{commitError}</div>
-                  )}
-                  {commitSuccess && (
-                    <div className={styles.commitSuccess}>{commitSuccess}</div>
-                  )}
-                  <div className={styles.commitSubjectRow}>
-                    <input
-                      ref={subjectRef}
-                      className={`${styles.commitSubject} ${subjectOverLimit ? styles.commitSubjectOverLimit : ''}`}
-                      type="text"
-                      value={commitSubject}
-                      onChange={(e) => setCommitSubject(e.target.value)}
-                      placeholder="Commit message..."
-                      disabled={committing}
-                    />
-                    <span className={`${styles.charCount} ${subjectOverLimit ? styles.charCountOver : ''}`}>
-                      {subjectLength}/{SUBJECT_WARN_LENGTH}
-                    </span>
-                  </div>
-                  {!commitBodyExpanded ? (
-                    <button
-                      className={styles.expandBody}
-                      onClick={() => setCommitBodyExpanded(true)}
-                      disabled={committing}
-                    >
-                      + Description
-                    </button>
-                  ) : (
-                    <textarea
-                      className={styles.commitBody}
-                      value={commitBody}
-                      onChange={(e) => setCommitBody(e.target.value)}
-                      placeholder="Extended description (optional)..."
-                      rows={3}
-                      disabled={committing}
-                    />
-                  )}
-                  <div className={styles.commitOptions}>
-                    <label className={styles.commitOption}>
-                      <input
-                        type="checkbox"
-                        checked={amend}
-                        onChange={(e) => setAmend(e.target.checked)}
-                        disabled={committing}
-                      />
-                      Amend
-                    </label>
-                    <label className={styles.commitOption}>
-                      <input
-                        type="checkbox"
-                        checked={signoff}
-                        onChange={(e) => setSignoff(e.target.checked)}
-                        disabled={committing}
-                      />
-                      Sign-off
-                    </label>
-                    <label className={styles.commitOption} title="Sign with GPG key">
-                      <input
-                        type="checkbox"
-                        checked={gpgSign}
-                        onChange={(e) => setGpgSign(e.target.checked)}
-                        disabled={committing}
-                      />
-                      GPG
-                    </label>
-                  </div>
-                  <div className={styles.commitActions}>
-                    <button
-                      className={`${styles.commitBtn} ${styles.commitBtnPrimary}`}
-                      onClick={() => handleCommit(false)}
-                      disabled={!canCommit}
-                      title="Commit (Ctrl+Enter)"
-                    >
-                      {committing ? 'Committing...' : amend ? 'Amend' : 'Commit'}
-                    </button>
-                    <button
-                      className={`${styles.commitBtn} ${styles.commitBtnSecondary}`}
-                      onClick={() => handleCommit(true)}
-                      disabled={!canCommit}
-                      title="Commit and push to remote"
-                    >
-                      {committing ? '...' : 'Commit & Push'}
-                    </button>
-                  </div>
-                  {stagedCount === 0 && !amend && (
-                    <div className={styles.commitHint}>
-                      Stage files to commit.
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           )}
@@ -1094,6 +1000,100 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }
           )}
         </>
       )}
+
+      {/* ─── Commit Form (always visible, pinned at bottom of staging panel) ─── */}
+      <div className={styles.commitForm}>
+        {commitError && (
+          <div className={styles.commitError}>{commitError}</div>
+        )}
+        {commitSuccess && (
+          <div className={styles.commitSuccess}>{commitSuccess}</div>
+        )}
+        <div className={styles.commitSubjectRow}>
+          <input
+            ref={subjectRef}
+            className={`${styles.commitSubject} ${subjectOverLimit ? styles.commitSubjectOverLimit : ''}`}
+            type="text"
+            value={commitSubject}
+            onChange={(e) => setCommitSubject(e.target.value)}
+            placeholder="Commit message..."
+            disabled={committing}
+          />
+          <span className={`${styles.charCount} ${subjectOverLimit ? styles.charCountOver : ''}`}>
+            {subjectLength}/{SUBJECT_WARN_LENGTH}
+          </span>
+        </div>
+        {!commitBodyExpanded ? (
+          <button
+            className={styles.expandBody}
+            onClick={() => setCommitBodyExpanded(true)}
+            disabled={committing}
+          >
+            + Description
+          </button>
+        ) : (
+          <textarea
+            className={styles.commitBody}
+            value={commitBody}
+            onChange={(e) => setCommitBody(e.target.value)}
+            placeholder="Extended description (optional)..."
+            rows={3}
+            disabled={committing}
+          />
+        )}
+        <div className={styles.commitOptions}>
+          <label className={styles.commitOption}>
+            <input
+              type="checkbox"
+              checked={amend}
+              onChange={(e) => setAmend(e.target.checked)}
+              disabled={committing}
+            />
+            Amend
+          </label>
+          <label className={styles.commitOption}>
+            <input
+              type="checkbox"
+              checked={signoff}
+              onChange={(e) => setSignoff(e.target.checked)}
+              disabled={committing}
+            />
+            Sign-off
+          </label>
+          <label className={styles.commitOption} title="Sign with GPG key">
+            <input
+              type="checkbox"
+              checked={gpgSign}
+              onChange={(e) => setGpgSign(e.target.checked)}
+              disabled={committing}
+            />
+            GPG
+          </label>
+        </div>
+        <div className={styles.commitActions}>
+          <button
+            className={`${styles.commitBtn} ${styles.commitBtnPrimary}`}
+            onClick={() => handleCommit(false)}
+            disabled={!canCommit}
+            title="Commit (Ctrl+Enter)"
+          >
+            {committing ? 'Committing...' : amend ? 'Amend' : 'Commit'}
+          </button>
+          <button
+            className={`${styles.commitBtn} ${styles.commitBtnSecondary}`}
+            onClick={() => handleCommit(true)}
+            disabled={!canCommit}
+            title="Commit and push to remote"
+          >
+            {committing ? '...' : 'Commit & Push'}
+          </button>
+        </div>
+        {stagedCount === 0 && !amend && (
+          <div className={styles.commitHint}>
+            Stage files to commit.
+          </div>
+        )}
+      </div>
 
       {/* File Context Menu */}
       {fileContextMenu && (
