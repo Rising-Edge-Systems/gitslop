@@ -65,6 +65,11 @@
   color: var(--text-primary);
 }
 
+.repoInfo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .repoName {
   font-weight: 600;
   color: var(--text-primary);
@@ -154,6 +159,11 @@
 
 .btn:active {
   background-color: var(--border);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .btnClose:hover {

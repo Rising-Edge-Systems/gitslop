@@ -7,9 +7,11 @@ interface TitleBarProps {
   repoPath?: string | null
   theme?: Theme
   onToggleTheme?: () => void
+  /** When true, tabs are visible and showing the repo name — titlebar shows branch only */
+  hasTabs?: boolean
 }
 
-export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): React.JSX.Element {
+export function TitleBar({ repoPath, theme, onToggleTheme, hasTabs = false }: TitleBarProps): React.JSX.Element {
   const [isMaximized, setIsMaximized] = useState(false)
   const [branch, setBranch] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -91,7 +93,7 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
         </div>
       </div>
 
-      {/* Center: repo name + branch (clickable to copy) */}
+      {/* Center: branch info (repo name is in tabs, avoid duplication) */}
       <div className={styles.center}>
         <div className={styles.drag}>
           {repoPath && repoName && (
@@ -100,14 +102,26 @@ export function TitleBar({ repoPath, theme, onToggleTheme }: TitleBarProps): Rea
               onClick={handleCopyRepoInfo}
               title={copied ? 'Copied!' : `${repoPath} — click to copy`}
             >
-              <span className={styles.repoName}>{repoName}</span>
-              {branch && (
-                <>
-                  <span className={styles.repoDivider}>/</span>
+              {/* When tabs are visible, only show branch to avoid duplicating repo name */}
+              {hasTabs ? (
+                branch && (
                   <span className={styles.repoBranch}>
                     <GitBranch size={12} className={styles.branchIcon} />
                     {branch}
                   </span>
+                )
+              ) : (
+                <>
+                  <span className={styles.repoName}>{repoName}</span>
+                  {branch && (
+                    <>
+                      <span className={styles.repoDivider}>/</span>
+                      <span className={styles.repoBranch}>
+                        <GitBranch size={12} className={styles.branchIcon} />
+                        {branch}
+                      </span>
+                    </>
+                  )}
                 </>
               )}
               {copied && <span className={styles.copiedBadge}>Copied!</span>}

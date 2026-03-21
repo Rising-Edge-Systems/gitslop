@@ -109,6 +109,7 @@ function App(): React.JSX.Element {
         repoPath={activeRepoPath}
         theme={settings.theme}
         onToggleTheme={toggleTheme}
+        hasTabs={tabs.length > 0}
       />
       <TabBar
         tabs={tabs}
