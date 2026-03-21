@@ -186,7 +186,14 @@ export function DetailPanel({ detail, repoPath, onClose, onFileClick, selectedFi
               {commit.hash}
             </code>
             <button className={styles.copyBtn} onClick={handleCopySha} title="Copy SHA">
-              {copiedSha ? <Check size={12} className={styles.copySuccess} /> : <Copy size={12} />}
+              {copiedSha ? (
+                <>
+                  <Check size={12} className={styles.copySuccess} />
+                  <span className={styles.copiedText}>Copied!</span>
+                </>
+              ) : (
+                <Copy size={12} />
+              )}
             </button>
           </div>
           <div className={styles.metaRow}>
