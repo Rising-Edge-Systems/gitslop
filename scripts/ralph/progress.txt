@@ -1,147 +1,22 @@
 # Ralph Progress Log
-Started: Fri Mar 20 11:06:14 AM EDT 2026
+Started: Fri Mar 21 2026
 ---
 
 ## Codebase Patterns
-- TypeScript typecheck: `npm run typecheck` (runs both `tsconfig.node.json` and `tsconfig.web.json`)
-- Tab state management is in `src/renderer/src/hooks/useRepoTabs.ts` — tabs persist via localStorage
-- When `activeRepoPath` is null, MainContent shows WelcomeScreen; when set, shows RepoView
-- TabBar is rendered in App.tsx between TitleBar and ErrorBoundary
-- CSS modules are co-located with components (e.g., `TabBar.module.css` alongside `TabBar.tsx`)
-- CSS uses design tokens: `var(--bg-secondary)`, `var(--border)`, `var(--text-muted)`, `var(--transition-fast)`, etc.
-- DetailPanel accepts `detail: CommitDetail | null` — null shows empty state, non-null shows commit info
-- DetailPanel `onFileClick` callback passes `(file, commitHash)` for center-stage diff integration
-- AppLayout always renders the detail Panel inline when `currentRepo` is set (no overlay mode)
-- Detail panel collapse: controlled via `detailPanelCollapsed` in LayoutState, collapsed strip is a 24px div outside the react-resizable-panels Group
-- react-resizable-panels `Group` only accepts `Panel` and `Separator` children — put non-panel elements outside the Group in a flex wrapper
-- Center-stage diff state (viewingDiff/diffFile/diffCommitHash) lives in AppLayout, threaded through MainContent → RepoView
-- `window.electronAPI.git.showCommitFileDiff(repoPath, hash, filePath)` loads diff content for DiffViewer
-- Hover/active states: use `var(--bg-hover)` and `var(--bg-active)` tokens (defined in tokens.css)
-- Section header convention: `var(--font-sm)`, `font-weight: 600`, `text-transform: uppercase`, `letter-spacing: 0.5px`, `color: var(--text-muted)`
-- Use `color-mix(in srgb, var(--color) N%, transparent)` for semi-transparent color variants from tokens
-- Global focus-visible rule in global.css covers all interactive elements — component-level can still override
-
----
-
-## 2026-03-20 - US-UX-001
-- Implemented always-visible tab bar that renders with 1+ tabs open
-- Added '+' button to tab bar for opening welcome screen to add new repos
-- Single tab hides close button; 2+ tabs show close buttons with hover reveal
-- Added `showWelcomeScreen()` to useRepoTabs hook (sets activeIndex to -1)
-- Files changed: TabBar.tsx, TabBar.module.css, App.tsx, useRepoTabs.ts
-- **Learnings for future iterations:**
-  - The `tabs.length <= 1` guard was in TabBar.tsx (not App.tsx) — now removed
-  - `showWelcomeScreen` works by setting activeIndex to -1, making activeRepoPath null
-  - TabBar already had good styling (32px height, --bg-secondary, bottom border) — just needed the guard removed
-  - The `+` button calls showWelcomeScreen which deselects tabs to show WelcomeScreen
----
-
-## 2026-03-20 - US-UX-002
-- Tab bar visual polish — most criteria were already implemented by US-UX-001
-- Adjusted tab max-width from 200px to 160px per acceptance criteria
-- Files changed: TabBar.module.css
-- **Learnings for future iterations:**
-  - Previous iteration (US-UX-001) already implemented most polish: accent bottom border, hover states, close button hover reveal, scrollbar hiding, '+' button styling
-  - The TabBar styling is quite complete now — future stories shouldn't need to touch it
----
-
-## 2026-03-20 - US-UX-003
-- Converted DetailPanel from dual-mode (inline/overlay) to always-inline permanent panel
-- Removed overlay prop, DETAIL_PANEL_BREAKPOINT, useOverlayDetailPanel logic from AppLayout
-- Detail panel now always renders when a repo is open (not gated on selectedCommit)
-- Empty state shows centered GitCommit icon with "Select a commit to view details" text when no commit selected
-- Removed DiffViewer from DetailPanel entirely — diffs will move to center panel in US-UX-005
-- Added onFileClick callback prop and selectedFilePath prop for future center-stage diff integration
-- Cleaned up ~200 lines of overlay/diff CSS from DetailPanel.module.css
-- Files changed: AppLayout.tsx, DetailPanel.tsx, DetailPanel.module.css
-- **Learnings for future iterations:**
-  - DetailPanel now accepts `detail: CommitDetail | null` (nullable) for empty state support
-  - The `onFileClick` callback passes both the file and commitHash — ready for center diff wiring
-  - `selectedFilePath` prop allows highlighting which file's diff is currently shown in center
-  - Overlay-related CSS (backdrop, slideIn animation) has been fully removed
-  - react-resizable-panels Panel is always rendered; the empty state fills it when no commit
----
-
-## 2026-03-20 - US-UX-004
-- Added detailPanelCollapsed boolean to LayoutState with toggleDetailPanelCollapse/setDetailPanelCollapsed functions
-- When expanded: ChevronRight toggle button in detail panel header collapses the panel
-- When collapsed: 24px vertical strip on right edge with ChevronLeft icon to re-expand
-- Collapsed strip is rendered outside react-resizable-panels Group (as sibling in flex container) to avoid invalid children
-- Collapse state persists via localStorage through layout state
-- Files changed: useLayoutState.ts, AppLayout.tsx, DetailPanel.tsx, DetailPanel.module.css, global.css
-- **Learnings for future iterations:**
-  - react-resizable-panels Group only accepts Panel/Separator children — non-panel elements must go outside
-  - Wrapping Group + collapsed strip in a `div style={{ display: 'flex', height: '100%' }}` works well
-  - The collapsed strip approach (removing Panel entirely when collapsed) is simpler than using collapsible prop
-  - DetailPanel now accepts `onToggleCollapse` and `isCollapsed` props
----
-
-## 2026-03-20 - US-UX-005
-- Implemented center-stage diff viewer: clicking a file in DetailPanel opens diff in center panel instead of commit graph
-- Added diff viewing state (viewingDiff, diffFile, diffCommitHash) to AppLayout, threaded through MainContent to RepoView
-- Wired DetailPanel's onFileClick callback to set diff state in AppLayout
-- RepoView conditionally renders DiffViewer or CommitGraph based on viewingDiff state
-- Added back breadcrumb bar: "← Back to Graph · hash / fileName"
-- Added Escape key to return from diff to graph
-- Added [ and ] key navigation to cycle through files in current commit
-- Diff content loaded via window.electronAPI.git.showCommitFileDiff with loading/error states
-- Staging area renders below diff view (unaffected)
-- Files changed: AppLayout.tsx, MainContent.tsx, RepoView.tsx, RepoView.module.css
-- **Learnings for future iterations:**
-  - Diff state lives in AppLayout (lifted up) — viewingDiff/diffFile/diffCommitHash are passed down through MainContent to RepoView
-  - showCommitFileDiff(repoPath, hash, filePath) returns { success, data: string } — data is raw diff text
-  - DiffViewer accepts diffContent (string) and filePath — already feature-complete, just needs different placement
-  - File navigation uses modular arithmetic to wrap around file list
-  - DetailPanel already had onFileClick/selectedFilePath props from US-UX-003 — just needed wiring in AppLayout
----
-
-## 2026-03-20 - US-UX-006
-- Enhanced diff header bar (~40px) with bold file path (var(--text-primary)), change type badge (Added=green, Modified=blue, Deleted=red, Renamed=yellow), inline/split toggle, file counter "1/N", and prev/next navigation buttons
-- Back breadcrumb restyled: subtle link style with var(--text-muted), hover underline, no heavy button background
-- Line numbers column now has var(--bg-secondary) background for both inline and side-by-side views
-- Added/deleted line number columns get tinted backgrounds matching their line type
-- Large diffs (1000+ lines) collapsed by default with "Large diff — click to expand" placeholder
-- DiffViewer has proper var(--space-md) padding so content doesn't touch panel edges
-- Removed max-height constraints on inline/side-by-side views — they now flex to fill center panel
-- Binary files already had Package icon — kept as-is
-- Files changed: DiffViewer.tsx, DiffViewer.module.css, RepoView.tsx, RepoView.module.css
-- **Learnings for future iterations:**
-  - DiffViewer now accepts fileStatus, fileIndex, fileCount, onNavigateFile props for center-stage integration
-  - Status badge uses getStatusBadge() helper mapping M/A/D/R to label+className
-  - Large diff collapse threshold lowered from 5000 to 1000 lines per acceptance criteria
-  - largeDiffExpanded state resets on diffContent change
-  - Toolbar is now a shared JSX element (toolbarContent) rendered in all code paths (binary, raw, large diff, normal)
-  - RepoView derives file status/index from selectedCommit.fileDetails for DiffViewer props
----
-
-## 2026-03-20 - US-UX-007
-- Polished detail panel file list: filename bold (font-weight 600), directory path normal weight (400)
-- File list items now have 8px vertical padding (var(--space-sm)) instead of 4px (var(--space-xs))
-- Selected file now has 3px left border in var(--accent) color (plus bg-tertiary background)
-- All other acceptance criteria were already met from previous iterations (empty state, header, file icons, stats, scroll)
-- Files changed: DetailPanel.module.css
-- **Learnings for future iterations:**
-  - Most polish criteria were already implemented in US-UX-003 — this story was mostly CSS refinements
-  - The transparent left border trick (border-left: 3px solid transparent) prevents layout shift when selected state adds the accent border
-  - Design token mapping: --space-xs=4px, --space-sm=8px — use --space-sm for 8px padding
----
-
-## 2026-03-20 - US-UX-008
-- Global polish pass: consistent section headers, focus-visible outlines, hover states, border tokens
-- Added --bg-hover and --bg-active tokens to tokens.css for both dark and light themes
-- Standardized all section headers to: var(--font-sm), font-weight 600, text-transform uppercase, letter-spacing 0.5px, var(--text-muted)
-  - Fixed: CommitGraph .title, StatusPanel .panelTitle/.columnTitle, DetailPanel .headerTitle/.filesHeader, BottomPanel .bottomPanelTitle, Sidebar .sectionHeader, CommitGraph .detailTitle/.detailFilesHeader
-- Added global focus-visible outlines (2px solid var(--accent), 2px offset) to all interactive elements in global.css
-- Replaced all hardcoded hover rgba values with var(--bg-hover) in: CommitGraph, StatusPanel, Sidebar, DetailPanel
-- Fixed commit graph row: border-bottom uses var(--border) instead of hardcoded rgba, selected row uses 3px left border
-- Fixed staging area file items: added 8px vertical padding (var(--space-xs)) and transition
-- Replaced hardcoded status colors with color-mix() in StatusPanel (commitError, commitSuccess, cleanBadge, columnCount)
-- Fixed --border-color typo to --border in CommitGraph revert notification
-- Files changed: tokens.css, global.css, CommitGraph.module.css, StatusPanel.module.css, Sidebar.module.css, DetailPanel.module.css, BottomPanel.module.css
-- **Learnings for future iterations:**
-  - --bg-hover and --bg-active tokens were missing from tokens.css but used in 18+ files — now properly defined
-  - color-mix(in srgb, var(--color) N%, transparent) is the modern CSS way to create semi-transparent color variants from tokens
-  - Section header convention: var(--font-sm), 600 weight, uppercase, 0.5px letter-spacing, var(--text-muted)
-  - The global focus-visible rule in global.css covers buttons, roles, tabindex, inputs — component-level focus-visible can still override
-  - Some files still have hardcoded rgba for semantic colors (e.g., cherry-pick/revert buttons) — these are less critical since they're intentional color-specific tints
+- Sidebar: plain flex div (NOT react-resizable-panels), width in pixels via layout.sidebarSize
+- Detail panel: plain flex div (NOT react-resizable-panels), fixed 340px width, always visible
+- Right panel layout: DetailPanel on top + StatusPanel on bottom, stacked in flex column
+- Staging area (StatusPanel): now renders in the RIGHT panel, not the center panel
+- Center panel: only commit graph + diff viewer (no staging area)
+- CSS modules: import styles from './Component.module.css', camelCase class names
+- Design tokens: src/renderer/src/styles/tokens.css — --space-*, --font-*, --radius-*, --border, --bg-hover, --transition-fast
+- Typecheck: npm run typecheck
+- Build: npx electron-vite build && npx electron --no-sandbox .
+- Layout state: useLayoutState() hook, localStorage key 'gitslop-layout-state'
+- State threading: AppLayout → MainContent → RepoView (layout state only in AppLayout)
+- Tab system: useRepoTabs() in App.tsx, TabBar.tsx component
+- Lucide icons: import { IconName } from 'lucide-react'
+- react-resizable-panels: ONLY for vertical split (center+terminal). NOT for sidebar or detail panel.
+- DetailPanel: hooks must ALL be above any early return to avoid React error #310
+- Use the frontend-design skill for any UI changes — invoke it to get design guidance
 ---

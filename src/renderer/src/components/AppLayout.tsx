@@ -402,7 +402,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   display: 'flex',
                   flexDirection: 'column'
                 }}>
-                  <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                  <div style={{ flex: 6, minHeight: 0, overflow: 'hidden' }}>
                     <DetailPanel
                       detail={selectedCommit}
                       repoPath={currentRepo}
@@ -413,7 +413,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       isCollapsed={false}
                     />
                   </div>
-                  <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ flex: 4, minHeight: 0, overflow: 'hidden', borderTop: '1px solid var(--border)' }}>
                     <StatusPanel
                       repoPath={currentRepo}
                       collapsed={layout.stagingCollapsed}
