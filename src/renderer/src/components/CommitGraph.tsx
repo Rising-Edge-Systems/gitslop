@@ -1606,11 +1606,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
       >
         <div className={styles.header}>
           <h3 className={styles.title}>
-            Commit Graph
-            <span className={styles.count}>{commits.length.toLocaleString()} commits</span>
+            Commit Graph <span className={styles.count}>· {commits.length.toLocaleString()}</span>
           </h3>
           <button className={styles.refresh} onClick={handleRefresh} title="Refresh">
-            <RefreshCw size={14} />
+            <RefreshCw size={12} />
           </button>
         </div>
 

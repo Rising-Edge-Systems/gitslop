@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { RefreshCw, X, AlertTriangle, FileText, ArrowLeft } from 'lucide-react'
+import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import styles from './RepoView.module.css'
 import { RepoViewSkeleton } from './Skeleton'
 import blameStyles from './BlameView.module.css'
 import conflictStyles from './ConflictResolver.module.css'
-import editorStyles from './CodeEditor.module.css'
 import { BlameView } from './BlameView'
-import { CodeEditor } from './CodeEditor'
 import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from './CommitFilterBar'
 import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
@@ -15,7 +13,6 @@ import { DiffViewer } from './DiffViewer'
 
 interface RepoViewProps {
   repoPath: string
-  onCloseRepo: () => void
   onCommitSelect?: (detail: CommitDetail | null) => void
   stagingCollapsed: boolean
   onToggleStagingCollapse: () => void
@@ -40,14 +37,13 @@ interface RepoStatus {
   untracked: number
 }
 
-export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollapsed, onToggleStagingCollapse, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile }: RepoViewProps): React.JSX.Element {
+export function RepoView({ repoPath, onCommitSelect, stagingCollapsed, onToggleStagingCollapse, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile }: RepoViewProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showConflictResolver, setShowConflictResolver] = useState(false)
   const [hasConflicts, setHasConflicts] = useState(false)
-  const [showEditor, setShowEditor] = useState(false)
   const [blameFilePath, setBlameFilePath] = useState<string | null>(null)
   const [commitFilters, setCommitFilters] = useState<CommitFilters>(EMPTY_FILTERS)
   const [fileHistoryPath, setFileHistoryPath] = useState<string | undefined>(undefined)
@@ -162,15 +158,6 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollaps
     }
   }, [loadRepoData, repoPath])
 
-  // Show editor panel when a file is opened
-  useEffect(() => {
-    const handler = (): void => {
-      setShowEditor(true)
-    }
-    window.addEventListener('editor:open-file', handler)
-    return () => window.removeEventListener('editor:open-file', handler)
-  }, [])
-
   // Listen for blame open events
   useEffect(() => {
     const handler = (e: Event): void => {
@@ -207,27 +194,8 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollaps
       }
     : undefined
 
-  const repoName = repoPath.split(/[/\\]/).pop() || repoPath
-
   return (
     <div className={styles.repoView}>
-      <div className={styles.repoViewHeader}>
-        <div className={styles.repoViewInfo}>
-          <h2 className={styles.repoViewName}>{repoName}</h2>
-          <span className={styles.repoViewPath} title={repoPath}>
-            {repoPath}
-          </span>
-        </div>
-        <div className={styles.repoViewActions}>
-          <button className={styles.repoViewRefresh} onClick={loadRepoData} title="Refresh">
-            <RefreshCw size={14} />
-          </button>
-          <button className={styles.repoViewClose} onClick={onCloseRepo} title="Close repository">
-            <X size={14} /> Close
-          </button>
-        </div>
-      </div>
-
       {loading && (
         <RepoViewSkeleton />
       )}
@@ -350,21 +318,6 @@ export function RepoView({ repoPath, onCloseRepo, onCommitSelect, stagingCollaps
             </div>
           )}
 
-          {/* Editor Toggle + Panel */}
-          <div className={editorStyles.editorToggleBar}>
-            <button
-              className={`${editorStyles.editorToggleBtn} ${showEditor ? editorStyles.editorToggleBtnActive : ''}`}
-              onClick={() => setShowEditor((prev) => !prev)}
-              title="Toggle Code Editor"
-            >
-              <FileText size={14} /> Editor {showEditor ? '(hide)' : '(show)'}
-            </button>
-          </div>
-          {showEditor && (
-            <div className={editorStyles.codeEditorPanel}>
-              <CodeEditor repoPath={repoPath} onFileSaved={loadRepoData} />
-            </div>
-          )}
         </div>
       )}
     </div>

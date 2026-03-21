@@ -28,8 +28,8 @@
   flex-direction: column;
   min-height: 200px;
   background-color: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: none;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -45,22 +45,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 40px;
-  padding: 0 var(--space-md);
+  height: 28px;
+  padding: 0 var(--space-sm) 0 var(--space-md);
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .title {
-  font-size: var(--font-sm);
+  font-size: var(--font-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   margin: 0;
 }
 
@@ -75,10 +75,12 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 14px;
-  padding: var(--space-xs) var(--space-sm);
+  font-size: 12px;
+  padding: 2px var(--space-xs);
   border-radius: var(--radius-sm);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  display: flex;
+  align-items: center;
 }
 
 .refresh:hover {

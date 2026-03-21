@@ -378,7 +378,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                 <MainContent
                   currentRepo={currentRepo}
                   onRepoOpen={onRepoOpen}
-                  onCloseRepo={onCloseRepo}
                   onCommitSelect={handleCommitSelect}
                   stagingCollapsed={layout.stagingCollapsed}
                   onToggleStagingCollapse={toggleStagingCollapse}
