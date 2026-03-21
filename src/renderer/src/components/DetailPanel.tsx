@@ -1,6 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react'
 import {
-  X,
   GitCommit,
   User,
   Calendar,
@@ -22,15 +21,10 @@ import type { CommitDetail, CommitFileDetail } from './CommitGraph'
 interface DetailPanelProps {
   detail: CommitDetail | null
   repoPath: string | null
-  onClose: () => void
   /** Callback when a file is clicked in the changed files list */
   onFileClick?: (file: CommitFileDetail, commitHash: string) => void
   /** Path of the currently selected file (whose diff is open in center panel) */
   selectedFilePath?: string | null
-  /** Callback to toggle collapse/expand the detail panel */
-  onToggleCollapse?: () => void
-  /** Whether the detail panel is collapsed */
-  isCollapsed?: boolean
 }
 
 function formatRelativeDate(dateStr: string): string {
@@ -83,7 +77,7 @@ function splitPath(filePath: string): { dir: string; name: string } {
   return { dir: filePath.substring(0, lastSlash + 1), name: filePath.substring(lastSlash + 1) }
 }
 
-export function DetailPanel({ detail, repoPath, onClose, onFileClick, selectedFilePath, onToggleCollapse }: DetailPanelProps): React.JSX.Element {
+export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath }: DetailPanelProps): React.JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null)
   const [copiedSha, setCopiedSha] = useState(false)
   const [filesExpanded, setFilesExpanded] = useState(true)
@@ -126,11 +120,6 @@ export function DetailPanel({ detail, repoPath, onClose, onFileClick, selectedFi
       <div ref={panelRef} className={styles.detailPanel}>
         <div className={styles.header}>
           <span className={styles.headerTitle}>Commit Details</span>
-          {onToggleCollapse && (
-            <button className={styles.collapseBtn} onClick={onToggleCollapse} title="Collapse detail panel">
-              <ChevronRight size={16} />
-            </button>
-          )}
         </div>
         <div className={styles.emptyState}>
           <GitCommit size={48} className={styles.emptyStateIcon} />
@@ -147,16 +136,6 @@ export function DetailPanel({ detail, repoPath, onClose, onFileClick, selectedFi
     >
       <div className={styles.header}>
         <span className={styles.headerTitle}>Commit Details</span>
-        <div className={styles.headerActions}>
-          {onToggleCollapse && (
-            <button className={styles.collapseBtn} onClick={onToggleCollapse} title="Collapse detail panel">
-              <ChevronRight size={16} />
-            </button>
-          )}
-          <button className={styles.closeBtn} onClick={onClose} title="Close detail panel">
-            <X size={16} />
-          </button>
-        </div>
       </div>
 
       <div className={styles.content}>

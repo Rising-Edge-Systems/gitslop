@@ -379,8 +379,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   currentRepo={currentRepo}
                   onRepoOpen={onRepoOpen}
                   onCommitSelect={handleCommitSelect}
-                  stagingCollapsed={layout.stagingCollapsed}
-                  onToggleStagingCollapse={toggleStagingCollapse}
                   viewingDiff={viewingDiff}
                   diffFile={diffFile}
                   diffCommitHash={diffCommitHash}
@@ -405,11 +403,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     <DetailPanel
                       detail={selectedCommit}
                       repoPath={currentRepo}
-                      onClose={handleCloseDetailPanel}
                       onFileClick={handleFileClick}
                       selectedFilePath={viewingDiff ? diffFile : null}
-                      onToggleCollapse={toggleDetailPanelCollapse}
-                      isCollapsed={false}
                     />
                   </div>
                   <div style={{ flex: 4, minHeight: 0, overflow: 'hidden', borderTop: '1px solid var(--border)' }}>

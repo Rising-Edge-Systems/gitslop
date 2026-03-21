@@ -14,8 +14,6 @@ import { DiffViewer } from './DiffViewer'
 interface RepoViewProps {
   repoPath: string
   onCommitSelect?: (detail: CommitDetail | null) => void
-  stagingCollapsed: boolean
-  onToggleStagingCollapse: () => void
   // Center-stage diff props
   viewingDiff?: boolean
   diffFile?: string | null
@@ -37,7 +35,7 @@ interface RepoStatus {
   untracked: number
 }
 
-export function RepoView({ repoPath, onCommitSelect, stagingCollapsed, onToggleStagingCollapse, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile }: RepoViewProps): React.JSX.Element {
+export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile }: RepoViewProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [loading, setLoading] = useState(true)
