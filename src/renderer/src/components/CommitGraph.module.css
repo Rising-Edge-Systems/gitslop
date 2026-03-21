@@ -127,12 +127,16 @@
   height: 34px;
   padding-right: var(--space-md);
   cursor: pointer;
-  transition: background-color 0.1s ease;
+  transition: background-color var(--transition-fast);
   border-bottom: 1px solid var(--border);
 }
 
 .row:hover {
   background-color: var(--bg-hover);
+}
+
+.row:hover .hash {
+  color: var(--accent);
 }
 
 .row:focus-visible {
@@ -143,6 +147,10 @@
 .rowSelected {
   background-color: var(--bg-active) !important;
   border-left: 3px solid var(--accent);
+}
+
+.rowSelected .hash {
+  color: var(--accent);
 }
 
 .rowSelected .message {
@@ -169,9 +177,10 @@
 .hash {
   font-size: var(--font-sm);
   font-family: var(--font-mono);
-  color: var(--accent);
+  color: var(--text-muted);
   flex-shrink: 0;
   cursor: default;
+  transition: color var(--transition-fast);
 }
 
 .refs {
@@ -184,12 +193,13 @@
 .ref {
   font-size: 10px;
   font-weight: 600;
-  padding: 1px 6px;
+  padding: 4px 8px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1;
 }
 
 .refHead {
@@ -261,20 +271,21 @@
 
 .author {
   font-size: var(--font-sm);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   flex-shrink: 0;
-  max-width: 120px;
+  width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 0 var(--space-md);
+  text-align: right;
 }
 
 .date {
   font-size: var(--font-xs);
   color: var(--text-muted);
   flex-shrink: 0;
-  min-width: 60px;
+  width: 70px;
   text-align: right;
 }
 
@@ -523,7 +534,7 @@
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: background-color 0.1s ease;
+  transition: background-color var(--transition-fast);
 }
 
 .detailFileItem:hover {
