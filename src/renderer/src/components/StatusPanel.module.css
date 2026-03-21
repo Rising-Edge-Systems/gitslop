@@ -140,13 +140,13 @@
 
 .twoColumnLayout {
   display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .column {
-  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -154,7 +154,7 @@
 }
 
 .columnUnstaged {
-  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .columnHeader {
@@ -222,13 +222,16 @@
   color: var(--text-secondary);
   cursor: pointer;
   font-size: var(--font-xs);
-  padding: 2px var(--space-sm);
+  padding: 2px 5px;
   border-radius: var(--radius-sm);
   font-weight: 500;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  gap: 0;
+  width: 22px;
+  height: 22px;
 }
 
 .actionBtn:hover:not(:disabled) {
@@ -252,7 +255,6 @@
 
 .actionDiscardAll {
   color: var(--btn-danger-bg) !important;
-  padding: 2px 5px;
 }
 
 .actionDiscardAll:hover:not(:disabled) {
@@ -413,10 +415,7 @@
 }
 
 .fileDir {
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: none;
 }
 
 /* ─── Commit Form ──────────────────────────────────────────────────────── */
@@ -543,15 +542,18 @@
 .commitActions {
   display: flex;
   gap: var(--space-xs);
+  flex-wrap: nowrap;
 }
 
 .commitBtn {
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: var(--radius-sm);
-  font-size: var(--font-sm);
+  font-size: var(--font-xs);
   font-weight: 500;
   cursor: pointer;
   border: none;
+  white-space: nowrap;
+  flex: 1;
   transition: background var(--transition-fast), opacity var(--transition-fast);
 }
 

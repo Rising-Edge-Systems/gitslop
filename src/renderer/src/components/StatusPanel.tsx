@@ -791,7 +791,7 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }
                           disabled={operationInProgress}
                           title="Stage All Changes"
                         >
-                          <Plus size={12} /> Stage All
+                          <Plus size={14} />
                         </button>
                         <button
                           className={`${styles.actionBtn} ${styles.actionDiscardAll}`}
@@ -894,7 +894,7 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }
                         disabled={operationInProgress}
                         title="Unstage All"
                       >
-                        <Minus size={12} /> Unstage All
+                        <Minus size={14} />
                       </button>
                     )}
                   </div>
