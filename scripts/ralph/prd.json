@@ -1,36 +1,36 @@
 {
   "project": "GitSlop",
   "branchName": "ralph/ux-overhaul",
-  "description": "Frontend design scrutiny pass — fix visual issues, spacing, information hierarchy, and interaction problems across all views. Use the frontend-design skill for aesthetic evaluation.",
+  "description": "Frontend design scrutiny pass \u2014 fix visual issues, spacing, information hierarchy, and interaction problems across all views. Use the frontend-design skill for aesthetic evaluation.",
   "userStories": [
     {
       "id": "US-FD-001",
-      "title": "Right Panel Layout — Details + Staging Split",
+      "title": "Right Panel Layout \u2014 Details + Staging Split",
       "description": "As a user, I want the right panel to properly divide space between commit details (top) and staging area (bottom) so both are usable.",
       "acceptanceCriteria": [
         "The right panel (340px) is split vertically: commit details takes top ~60%, staging area takes bottom ~40%",
-        "Both sections scroll independently — commit details scrolls its own content, staging scrolls its own file lists",
+        "Both sections scroll independently \u2014 commit details scrolls its own content, staging scrolls its own file lists",
         "A subtle 1px border separates the two sections",
-        "The staging area header 'STAGING AREA · N files' is always visible as a sticky bar at the split point",
-        "File names in the staging area truncate with ellipsis — no overflow or clipping",
+        "The staging area header 'STAGING AREA \u00b7 N files' is always visible as a sticky bar at the split point",
+        "File names in the staging area truncate with ellipsis \u2014 no overflow or clipping",
         "The commit form (message input, commit button) is always visible at the bottom without scrolling",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "The right panel in AppLayout.tsx contains DetailPanel + StatusPanel stacked in a flex column. Use flex-shrink, min-height, and overflow-y: auto to share space. The commit form should use flex-shrink: 0 to stay pinned."
     },
     {
       "id": "US-FD-002",
-      "title": "Center Panel — Remove Repo Header Redundancy",
+      "title": "Center Panel \u2014 Remove Repo Header Redundancy",
       "description": "As a user, I want the center panel to maximize space for the commit graph.",
       "acceptanceCriteria": [
-        "The repo name + path header ('gitslop /home/benki/...') is removed from center panel — already shown in titlebar",
+        "The repo name + path header ('gitslop /home/benki/...') is removed from center panel \u2014 already shown in titlebar",
         "The 'Close' button moves to the tab bar (close tab = close repo) or titlebar",
         "The refresh button moves to the toolbar or is removed (auto-fetch handles it)",
         "The 'Filter History' bar is more compact (28px height)",
-        "The 'COMMIT GRAPH · N commits' header is compact — 28px, inline with refresh icon",
+        "The 'COMMIT GRAPH \u00b7 N commits' header is compact \u2014 28px, inline with refresh icon",
         "The 'Editor (show)' button at bottom is removed or moved to toolbar",
         "Net result: first commit row is higher, more visible rows",
         "Typecheck passes",
@@ -48,7 +48,7 @@
         "Each commit row has hover background (var(--bg-hover)) with var(--transition-fast)",
         "Selected commit row has 3px left accent border (var(--accent)) and subtle background tint",
         "Commit hash is monospace, muted, brightens on hover",
-        "Commit message truncates with ellipsis — never pushes author/date off screen",
+        "Commit message truncates with ellipsis \u2014 never pushes author/date off screen",
         "Author name and date are right-aligned, muted, fixed-width so they don't jump",
         "Branch/tag pill badges have consistent padding (4px 8px), var(--radius-sm), don't overlap message",
         "Row height is consistent at 34px with vertical centering",
@@ -86,7 +86,7 @@
       "acceptanceCriteria": [
         "The two-column layout (unstaged | staged) stacks vertically at 340px: unstaged on top, staged below",
         "File items show: status icon, filename (truncated ellipsis), +/- button right-aligned",
-        "Directory paths hidden at narrow width — show on hover tooltip only",
+        "Directory paths hidden at narrow width \u2014 show on hover tooltip only",
         "'Stage All' and 'Unstage All' are compact icon buttons, not full-width text",
         "Commit message input is full-width",
         "Commit/push buttons are compact, single line, no wrapping",
@@ -95,7 +95,7 @@
       ],
       "priority": 5,
       "passes": false,
-      "notes": "StatusPanel.tsx and StatusPanel.module.css. Was designed for ~900px center panel. Now in 340px right panel. The side-by-side layout won't fit — needs responsive stacking or tabs."
+      "notes": "StatusPanel.tsx and StatusPanel.module.css. Was designed for ~900px center panel. Now in 340px right panel. The side-by-side layout won't fit \u2014 needs responsive stacking or tabs."
     },
     {
       "id": "US-FD-006",
@@ -125,7 +125,7 @@
         "Active tab has 2px bottom accent border",
         "Tab text truncates at max-width 160px with ellipsis",
         "'+' button is subtle: Plus icon, var(--text-muted), hover brightens",
-        "Titlebar center doesn't duplicate the tab name — shows branch only, or nothing if tab shows repo name",
+        "Titlebar center doesn't duplicate the tab name \u2014 shows branch only, or nothing if tab shows repo name",
         "With one tab, avoid redundancy between tab name and titlebar",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
@@ -139,7 +139,7 @@
       "title": "Global Color and Typography Consistency Sweep",
       "description": "As a developer, I want all components to use design tokens consistently with no hardcoded values.",
       "acceptanceCriteria": [
-        "Grep all .module.css files for hardcoded hex colors (#xxx) — replace with var(--*) tokens",
+        "Grep all .module.css files for hardcoded hex colors (#xxx) \u2014 replace with var(--*) tokens",
         "All section headers use same style: var(--font-xs), font-weight 600, uppercase, letter-spacing 0.5px",
         "All interactive elements have focus-visible outlines",
         "All hover states use var(--transition-fast)",

@@ -20,3 +20,19 @@ Started: Fri Mar 21 2026
 - DetailPanel: hooks must ALL be above any early return to avoid React error #310
 - Use the frontend-design skill for any UI changes — invoke it to get design guidance
 ---
+
+## 2026-03-21 - US-FD-001
+- Implemented right panel 60/40 vertical split between DetailPanel (top) and StatusPanel (bottom)
+- Moved commit form from inside staged column to panel-level, always visible regardless of collapse state
+- Made staging header sticky with z-index
+- Fixed file name truncation with text-overflow: ellipsis
+- Removed duplicate border-left from DetailPanel (container already has it)
+- Made StatusPanel fill its container (height: 100%), removed margin/border/radius from panel container
+- Changed twoColumnLayout from fixed max-height to flex: 1 with overflow: hidden
+- Files changed: AppLayout.tsx, StatusPanel.tsx, StatusPanel.module.css, DetailPanel.module.css
+- **Learnings for future iterations:**
+  - Commit form was nested inside the staged column — had to move it to panel level for always-visible behavior
+  - The previous commit (029df1b) already contained CSS/AppLayout changes from a prior iteration
+  - StatusPanel.module.css .panel had border, border-radius, margin-bottom that made it look like a card — removed for full-height panel mode
+  - The twoColumnLayout had max-height: 360px which prevented it from filling available space
+---
