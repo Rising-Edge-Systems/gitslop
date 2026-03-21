@@ -1821,29 +1821,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
         />
       )}
 
-      {/* Commit detail panel */}
-      {(commitDetail || loadingDetail) && (
-        <div className={styles.detailWrapper}>
-          {loadingDetail && !commitDetail ? (
-            <div className={styles.detailPanel}>
-              <div className={styles.detailHeader}>
-                <h3 className={styles.detailTitle}>Commit Details</h3>
-                <button className={styles.detailClose} onClick={handleCloseDetail}><X size={16} /></button>
-              </div>
-              <div className={styles.detailLoading}>
-                <span className={styles.spinner}><Loader2 size={16} /></span>
-                Loading...
-              </div>
-            </div>
-          ) : commitDetail ? (
-            <CommitDetailPanel
-              detail={commitDetail}
-              repoPath={repoPath}
-              onClose={handleCloseDetail}
-            />
-          ) : null}
-        </div>
-      )}
+      {/* Commit detail panel removed — details shown in the permanent right panel (DetailPanel in AppLayout) */}
     </div>
   )
 }
