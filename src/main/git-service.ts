@@ -678,6 +678,20 @@ export class GitService {
   }
 
   /**
+   * Get the full content of a file at a specific commit.
+   */
+  async showFileAtCommit(
+    repoPath: string,
+    hash: string,
+    filePath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<string> {
+    const args = ['show', `${hash}:${filePath}`]
+    const result = await this.exec(args, repoPath, { signal: options?.signal })
+    return result.stdout
+  }
+
+  /**
    * Clone a remote repository with progress reporting.
    * Uses spawn instead of execFile to get real-time stderr progress output.
    */

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertTriangle, ArrowLeft } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, FileCode, GitCompare } from 'lucide-react'
 import styles from './RepoView.module.css'
 import { RepoViewSkeleton } from './Skeleton'
 import blameStyles from './BlameView.module.css'
@@ -53,6 +53,12 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
   const [diffLoading, setDiffLoading] = useState(false)
   const [diffError, setDiffError] = useState<string | null>(null)
 
+  // ─── Full File View ─────────────────────────────────────────────────────
+  const [centerViewMode, setCenterViewMode] = useState<'diff' | 'file'>('diff')
+  const [fileContent, setFileContent] = useState<string | null>(null)
+  const [fileLoading, setFileLoading] = useState(false)
+  const [fileError, setFileError] = useState<string | null>(null)
+
   // Load diff content when viewingDiff / diffFile / diffCommitHash changes
   useEffect(() => {
     if (!viewingDiff || !diffFile || !diffCommitHash) {
@@ -81,6 +87,45 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
       })
     return () => { cancelled = true }
   }, [viewingDiff, diffFile, diffCommitHash, repoPath])
+
+  // Reset to diff view when file changes
+  useEffect(() => {
+    setCenterViewMode('diff')
+    setFileContent(null)
+    setFileError(null)
+  }, [diffFile, diffCommitHash])
+
+  // Load full file content when switching to file view
+  useEffect(() => {
+    if (centerViewMode !== 'file' || !diffFile || !diffCommitHash) {
+      return
+    }
+    let cancelled = false
+    setFileLoading(true)
+    setFileError(null)
+    window.electronAPI.git.showFileAtCommit(repoPath, diffCommitHash, diffFile)
+      .then((result) => {
+        if (cancelled) return
+        if (result.success && typeof result.data === 'string') {
+          // Detect binary content (null bytes indicate binary)
+          if (result.data.includes('\0')) {
+            setFileError('Binary file — cannot display')
+          } else {
+            setFileContent(result.data)
+          }
+        } else {
+          setFileError(result.error || 'Failed to load file content')
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setFileError(err instanceof Error ? err.message : 'Failed to load file content')
+      })
+      .finally(() => {
+        if (!cancelled) setFileLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [centerViewMode, diffFile, diffCommitHash, repoPath])
 
   // Escape key returns from diff to graph; [ and ] navigate files
   useEffect(() => {
@@ -239,7 +284,7 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
           {/* Center-Stage Diff View OR Commit Graph */}
           {viewingDiff && diffFile && diffCommitHash ? (
             <>
-              {/* Back breadcrumb bar */}
+              {/* Back breadcrumb bar with Diff/File toggle */}
               <div className={styles.diffBackBar}>
                 <button className={styles.diffBackBtn} onClick={onBackToGraph}>
                   <ArrowLeft size={14} />
@@ -251,39 +296,88 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
                   {' / '}
                   {diffFile}
                 </span>
+                <div className={styles.viewModeToggle}>
+                  <button
+                    className={`${styles.viewModeBtn} ${centerViewMode === 'diff' ? styles.viewModeBtnActive : ''}`}
+                    onClick={() => setCenterViewMode('diff')}
+                    title="View diff"
+                  >
+                    <GitCompare size={13} />
+                    Diff
+                  </button>
+                  <button
+                    className={`${styles.viewModeBtn} ${centerViewMode === 'file' ? styles.viewModeBtnActive : ''}`}
+                    onClick={() => setCenterViewMode('file')}
+                    title="View full file"
+                  >
+                    <FileCode size={13} />
+                    File
+                  </button>
+                </div>
               </div>
 
               {/* Diff content */}
-              <div className={styles.centerDiffContainer}>
-                {diffLoading && (
-                  <div className={styles.diffLoadingState}>Loading diff…</div>
-                )}
-                {diffError && (
-                  <div className={styles.diffErrorState}>
-                    <AlertTriangle size={14} /> {diffError}
-                  </div>
-                )}
-                {!diffLoading && !diffError && diffContent !== null && (() => {
-                  const currentFileDetail = selectedCommit?.fileDetails.find(f => f.path === diffFile)
-                  const currentFileIndex = selectedCommit?.fileDetails.findIndex(f => f.path === diffFile) ?? 0
-                  return (
-                    <DiffViewer
-                      diffContent={diffContent}
-                      filePath={diffFile}
-                      initialMode={diffViewMode}
-                      onModeChange={onDiffViewModeChange}
-                      className={styles.centerDiffViewer}
-                      fileStatus={currentFileDetail?.status}
-                      fileIndex={currentFileIndex >= 0 ? currentFileIndex : 0}
-                      fileCount={selectedCommit?.fileDetails.length}
-                      onNavigateFile={onNavigateFile}
-                    />
-                  )
-                })()}
-                {!diffLoading && !diffError && diffContent === null && (
-                  <div className={styles.diffLoadingState}>No diff content available</div>
-                )}
-              </div>
+              {centerViewMode === 'diff' && (
+                <div className={styles.centerDiffContainer}>
+                  {diffLoading && (
+                    <div className={styles.diffLoadingState}>Loading diff…</div>
+                  )}
+                  {diffError && (
+                    <div className={styles.diffErrorState}>
+                      <AlertTriangle size={14} /> {diffError}
+                    </div>
+                  )}
+                  {!diffLoading && !diffError && diffContent !== null && (() => {
+                    const currentFileDetail = selectedCommit?.fileDetails.find(f => f.path === diffFile)
+                    const currentFileIndex = selectedCommit?.fileDetails.findIndex(f => f.path === diffFile) ?? 0
+                    return (
+                      <DiffViewer
+                        diffContent={diffContent}
+                        filePath={diffFile}
+                        initialMode={diffViewMode}
+                        onModeChange={onDiffViewModeChange}
+                        className={styles.centerDiffViewer}
+                        fileStatus={currentFileDetail?.status}
+                        fileIndex={currentFileIndex >= 0 ? currentFileIndex : 0}
+                        fileCount={selectedCommit?.fileDetails.length}
+                        onNavigateFile={onNavigateFile}
+                      />
+                    )
+                  })()}
+                  {!diffLoading && !diffError && diffContent === null && (
+                    <div className={styles.diffLoadingState}>No diff content available</div>
+                  )}
+                </div>
+              )}
+
+              {/* Full file content */}
+              {centerViewMode === 'file' && (
+                <div className={styles.centerDiffContainer}>
+                  {fileLoading && (
+                    <div className={styles.diffLoadingState}>Loading file…</div>
+                  )}
+                  {fileError && (
+                    <div className={styles.diffErrorState}>
+                      <AlertTriangle size={14} /> {fileError}
+                    </div>
+                  )}
+                  {!fileLoading && !fileError && fileContent !== null && (
+                    <div className={styles.fullFileViewer}>
+                      <pre className={styles.fullFilePre}>
+                        <code>{fileContent.split('\n').map((line, i) => (
+                          <div key={i} className={styles.fullFileLine}>
+                            <span className={styles.fullFileLineNum}>{i + 1}</span>
+                            <span className={styles.fullFileLineContent}>{line}</span>
+                          </div>
+                        ))}</code>
+                      </pre>
+                    </div>
+                  )}
+                  {!fileLoading && !fileError && fileContent !== null && fileContent.length === 0 && (
+                    <div className={styles.diffLoadingState}>Empty file</div>
+                  )}
+                </div>
+              )}
 
               {/* Staging Area moved to right panel in AppLayout */}
             </>

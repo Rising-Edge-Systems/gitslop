@@ -57,6 +57,7 @@ declare global {
         diff: (repoPath: string, filePath?: string, opts?: { staged?: boolean }) => Promise<GitServiceResult>
         showCommit: (repoPath: string, hash: string) => Promise<GitServiceResult>
         showCommitFileDiff: (repoPath: string, hash: string, filePath: string) => Promise<GitServiceResult>
+        showFileAtCommit: (repoPath: string, hash: string, filePath: string) => Promise<GitServiceResult>
         cancelOperation: (operationId: string) => Promise<{ success: boolean; error?: string }>
         exec: (args: string[], repoPath: string) => Promise<GitServiceResult>
         checkout: (repoPath: string, branchName: string) => Promise<GitServiceResult>
