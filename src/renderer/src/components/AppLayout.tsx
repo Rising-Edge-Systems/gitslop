@@ -56,7 +56,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setDiffViewMode,
     setDetailStagingSplit,
     setFileListView,
-    setStagingInternalSplit
+    setStagingInternalSplit,
+    setDetailInternalSplit
   } = useLayoutState()
 
   const {
@@ -521,6 +522,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       selectedFilePath={viewingDiff ? diffFile : null}
                       fileListView={layout.fileListView}
                       onFileListViewChange={setFileListView}
+                      detailInternalSplit={layout.detailInternalSplit}
+                      onDetailInternalSplitChange={setDetailInternalSplit}
                     />
                   </div>
                   <div

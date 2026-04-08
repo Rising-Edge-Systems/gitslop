@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   GitCommit,
   User,
@@ -159,6 +159,10 @@ interface DetailPanelProps {
   fileListView?: FileListView
   /** Callback to change file list view mode */
   onFileListViewChange?: (view: FileListView) => void
+  /** Internal split: percent for metadata share (top) vs files (bottom) */
+  detailInternalSplit?: number
+  /** Callback to change internal split */
+  onDetailInternalSplitChange?: (split: number) => void
 }
 
 function formatRelativeDate(dateStr: string): string {
@@ -211,10 +215,55 @@ function splitPath(filePath: string): { dir: string; name: string } {
   return { dir: filePath.substring(0, lastSlash + 1), name: filePath.substring(lastSlash + 1) }
 }
 
-export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, fileListView = 'path', onFileListViewChange }: DetailPanelProps): React.JSX.Element {
+export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, fileListView = 'path', onFileListViewChange, detailInternalSplit = 40, onDetailInternalSplitChange }: DetailPanelProps): React.JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null)
+  const splitContainerRef = useRef<HTMLDivElement>(null)
+  const isDraggingInternalSplitRef = useRef(false)
+  const [isDraggingInternalSplit, setIsDraggingInternalSplit] = useState(false)
   const [copiedSha, setCopiedSha] = useState(false)
   const [filesExpanded, setFilesExpanded] = useState(true)
+
+  // Internal split drag handlers
+  const handleInternalSplitDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDraggingInternalSplitRef.current = true
+    setIsDraggingInternalSplit(true)
+    document.body.classList.add('sidebar-dragging')
+    const startY = e.clientY
+    const startSplit = detailInternalSplit
+
+    const handleMouseMove = (ev: MouseEvent): void => {
+      if (!isDraggingInternalSplitRef.current || !splitContainerRef.current) return
+      const containerHeight = splitContainerRef.current.getBoundingClientRect().height
+      if (containerHeight <= 0) return
+      const deltaY = ev.clientY - startY
+      const deltaPct = (deltaY / containerHeight) * 100
+      const newSplit = startSplit + deltaPct
+      onDetailInternalSplitChange?.(newSplit)
+    }
+
+    const handleMouseUp = (): void => {
+      isDraggingInternalSplitRef.current = false
+      setIsDraggingInternalSplit(false)
+      document.body.classList.remove('sidebar-dragging')
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [detailInternalSplit, onDetailInternalSplitChange])
+
+  const handleInternalSplitDoubleClick = useCallback(() => {
+    onDetailInternalSplitChange?.(40)
+  }, [onDetailInternalSplitChange])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      document.body.classList.remove('sidebar-dragging')
+    }
+  }, [])
 
   // ALL hooks must be above the early return to avoid React error #310
   // ("Rendered more hooks than during the previous render")
@@ -272,148 +321,188 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
         <span className={styles.headerTitle}>Commit Details</span>
       </div>
 
-      <div className={styles.content}>
-        {/* Commit subject */}
-        <h3 className={styles.subject}>{commit.subject}</h3>
+      <div ref={splitContainerRef} style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
+        {/* Metadata section (top) */}
+        <div style={{
+          height: `calc(${detailInternalSplit}% - 2px)`,
+          minHeight: 100,
+          overflow: 'hidden',
+          transition: isDraggingInternalSplit ? 'none' : undefined
+        }}>
+          <div className={styles.content}>
+            {/* Commit subject */}
+            <h3 className={styles.subject}>{commit.subject}</h3>
 
-        {/* Refs (branches, tags) */}
-        {refs.length > 0 && (
-          <div className={styles.refs}>
-            {refs.map((ref) => (
-              <span key={ref.name} className={`${styles.refBadge} ${styles[`ref${ref.type.charAt(0).toUpperCase()}${ref.type.slice(1)}`] || ''}`}>
-                {ref.name}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Metadata */}
-        <div className={styles.meta}>
-          <div className={styles.metaRow}>
-            <GitCommit size={14} className={styles.metaIcon} />
-            <code
-              className={styles.sha}
-              onClick={handleCopySha}
-              title="Click to copy full SHA"
-            >
-              {commit.hash}
-            </code>
-            <button className={styles.copyBtn} onClick={handleCopySha} title="Copy SHA">
-              {copiedSha ? (
-                <>
-                  <Check size={12} className={styles.copySuccess} />
-                  <span className={styles.copiedText}>Copied!</span>
-                </>
-              ) : (
-                <Copy size={12} />
-              )}
-            </button>
-          </div>
-          <div className={styles.metaRow}>
-            <User size={14} className={styles.metaIcon} />
-            <span>{commit.authorName} &lt;{commit.authorEmail}&gt;</span>
-          </div>
-          <div className={styles.metaRow}>
-            <Calendar size={14} className={styles.metaIcon} />
-            <span className={styles.dateAbsolute}>{formatAbsoluteDate(commit.authorDate)}</span>
-            <span className={styles.dateRelative}>({formatRelativeDate(commit.authorDate)})</span>
-          </div>
-          {hasSig && (
-            <div className={styles.metaRow}>
-              {sigOk ? <ShieldCheck size={14} className={styles.sigGood} /> : sigBad ? <ShieldAlert size={14} className={styles.sigBad} /> : <ShieldAlert size={14} className={styles.metaIcon} />}
-              <span>{sigOk ? 'Verified' : sigBad ? 'Bad signature' : commit.signatureStatus}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Body */}
-        {commit.body && (
-          <pre className={styles.body}>{commit.body}</pre>
-        )}
-
-        {/* Changed files */}
-        <div className={styles.filesSection}>
-          <div className={styles.filesHeaderRow}>
-            <button
-              className={styles.filesHeader}
-              onClick={() => setFilesExpanded(!filesExpanded)}
-            >
-              {filesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              <FileText size={14} />
-              <span className={styles.filesTitle}>
-                {fileCount} file{fileCount !== 1 ? 's' : ''} changed
-              </span>
-              {(totalInsertions > 0 || totalDeletions > 0) && (
-                <span className={styles.statsSummary}>
-                  {totalInsertions > 0 && <span className={styles.statsAdded}>+{totalInsertions}</span>}
-                  {totalInsertions > 0 && totalDeletions > 0 && ' '}
-                  {totalDeletions > 0 && <span className={styles.statsRemoved}>-{totalDeletions}</span>}
-                </span>
-              )}
-            </button>
-            {filesExpanded && (
-              <div className={styles.viewToggle}>
-                <button
-                  className={`${styles.viewToggleBtn} ${fileListView === 'path' ? styles.viewToggleBtnActive : ''}`}
-                  onClick={() => onFileListViewChange?.('path')}
-                  title="Flat list view"
-                >
-                  <List size={14} />
-                </button>
-                <button
-                  className={`${styles.viewToggleBtn} ${fileListView === 'tree' ? styles.viewToggleBtnActive : ''}`}
-                  onClick={() => onFileListViewChange?.('tree')}
-                  title="Directory tree view"
-                >
-                  <FolderTree size={14} />
-                </button>
+            {/* Refs (branches, tags) */}
+            {refs.length > 0 && (
+              <div className={styles.refs}>
+                {refs.map((ref) => (
+                  <span key={ref.name} className={`${styles.refBadge} ${styles[`ref${ref.type.charAt(0).toUpperCase()}${ref.type.slice(1)}`] || ''}`}>
+                    {ref.name}
+                  </span>
+                ))}
               </div>
             )}
+
+            {/* Metadata */}
+            <div className={styles.meta}>
+              <div className={styles.metaRow}>
+                <GitCommit size={14} className={styles.metaIcon} />
+                <code
+                  className={styles.sha}
+                  onClick={handleCopySha}
+                  title="Click to copy full SHA"
+                >
+                  {commit.hash}
+                </code>
+                <button className={styles.copyBtn} onClick={handleCopySha} title="Copy SHA">
+                  {copiedSha ? (
+                    <>
+                      <Check size={12} className={styles.copySuccess} />
+                      <span className={styles.copiedText}>Copied!</span>
+                    </>
+                  ) : (
+                    <Copy size={12} />
+                  )}
+                </button>
+              </div>
+              <div className={styles.metaRow}>
+                <User size={14} className={styles.metaIcon} />
+                <span>{commit.authorName} &lt;{commit.authorEmail}&gt;</span>
+              </div>
+              <div className={styles.metaRow}>
+                <Calendar size={14} className={styles.metaIcon} />
+                <span className={styles.dateAbsolute}>{formatAbsoluteDate(commit.authorDate)}</span>
+                <span className={styles.dateRelative}>({formatRelativeDate(commit.authorDate)})</span>
+              </div>
+              {hasSig && (
+                <div className={styles.metaRow}>
+                  {sigOk ? <ShieldCheck size={14} className={styles.sigGood} /> : sigBad ? <ShieldAlert size={14} className={styles.sigBad} /> : <ShieldAlert size={14} className={styles.metaIcon} />}
+                  <span>{sigOk ? 'Verified' : sigBad ? 'Bad signature' : commit.signatureStatus}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Body */}
+            {commit.body && (
+              <pre className={styles.body}>{commit.body}</pre>
+            )}
           </div>
+        </div>
 
-          {filesExpanded && fileListView === 'path' && (
-            <ul className={styles.fileList}>
-              {fileDetails.map((file) => {
-                const { dir, name } = splitPath(file.path)
-                const isSelected = selectedFilePath === file.path
-                return (
-                  <li key={file.path}>
+        {/* Drag handle */}
+        <div
+          style={{
+            height: 5,
+            flexShrink: 0,
+            cursor: 'row-resize',
+            background: isDraggingInternalSplit ? 'var(--border)' : 'transparent',
+            borderTop: '1px solid var(--border)',
+            transition: 'background 0.15s ease'
+          }}
+          onMouseDown={handleInternalSplitDragStart}
+          onDoubleClick={handleInternalSplitDoubleClick}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
+          onMouseLeave={(e) => { if (!isDraggingInternalSplit) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+        />
+
+        {/* Files section (bottom) */}
+        <div style={{
+          height: `calc(${100 - detailInternalSplit}% - 3px)`,
+          minHeight: 80,
+          overflow: 'hidden',
+          transition: isDraggingInternalSplit ? 'none' : undefined
+        }}>
+          <div className={styles.filesWrapper}>
+            <div className={styles.filesSection} style={{ borderTop: 'none' }}>
+              <div className={styles.filesHeaderRow}>
+                <button
+                  className={styles.filesHeader}
+                  onClick={() => setFilesExpanded(!filesExpanded)}
+                >
+                  {filesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  <FileText size={14} />
+                  <span className={styles.filesTitle}>
+                    {fileCount} file{fileCount !== 1 ? 's' : ''} changed
+                  </span>
+                  {(totalInsertions > 0 || totalDeletions > 0) && (
+                    <span className={styles.statsSummary}>
+                      {totalInsertions > 0 && <span className={styles.statsAdded}>+{totalInsertions}</span>}
+                      {totalInsertions > 0 && totalDeletions > 0 && ' '}
+                      {totalDeletions > 0 && <span className={styles.statsRemoved}>-{totalDeletions}</span>}
+                    </span>
+                  )}
+                </button>
+                {filesExpanded && (
+                  <div className={styles.viewToggle}>
                     <button
-                      className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''}`}
-                      onClick={() => handleFileClick(file)}
-                      title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
+                      className={`${styles.viewToggleBtn} ${fileListView === 'path' ? styles.viewToggleBtnActive : ''}`}
+                      onClick={() => onFileListViewChange?.('path')}
+                      title="Flat list view"
                     >
-                      <FileStatusIcon status={file.status} />
-                      <span className={styles.fileName}>
-                        {dir && <span className={styles.fileDir}>{dir}</span>}
-                        {name}
-                      </span>
-                      {(file.insertions > 0 || file.deletions > 0) && (
-                        <span className={styles.fileStats}>
-                          {file.insertions > 0 && <span className={styles.statsAdded}>+{file.insertions}</span>}
-                          {file.deletions > 0 && <span className={styles.statsRemoved}>-{file.deletions}</span>}
-                        </span>
-                      )}
+                      <List size={14} />
                     </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+                    <button
+                      className={`${styles.viewToggleBtn} ${fileListView === 'tree' ? styles.viewToggleBtnActive : ''}`}
+                      onClick={() => onFileListViewChange?.('tree')}
+                      title="Directory tree view"
+                    >
+                      <FolderTree size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
 
-          {filesExpanded && fileListView === 'tree' && (
-            <ul className={styles.fileList}>
-              {buildFileTree(fileDetails).map((node) => (
-                <FileTreeNodeComponent
-                  key={node.fullPath}
-                  node={node}
-                  depth={0}
-                  onFileClick={handleFileClick}
-                  selectedFilePath={selectedFilePath}
-                />
-              ))}
-            </ul>
-          )}
+              {filesExpanded && fileListView === 'path' && (
+                <ul className={styles.fileList}>
+                  {fileDetails.map((file) => {
+                    const { dir, name } = splitPath(file.path)
+                    const isSelected = selectedFilePath === file.path
+                    return (
+                      <li key={file.path}>
+                        <button
+                          className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''}`}
+                          onClick={() => handleFileClick(file)}
+                          title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
+                        >
+                          <FileStatusIcon status={file.status} />
+                          <span className={styles.fileName}>
+                            {dir && <span className={styles.fileDir}>{dir}</span>}
+                            {name}
+                          </span>
+                          {(file.insertions > 0 || file.deletions > 0) && (
+                            <span className={styles.fileStats}>
+                              {file.insertions > 0 && <span className={styles.statsAdded}>+{file.insertions}</span>}
+                              {file.deletions > 0 && <span className={styles.statsRemoved}>-{file.deletions}</span>}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+
+              {filesExpanded && fileListView === 'tree' && (
+                <ul className={styles.fileList}>
+                  {buildFileTree(fileDetails).map((node) => (
+                    <FileTreeNodeComponent
+                      key={node.fullPath}
+                      node={node}
+                      depth={0}
+                      onFileClick={handleFileClick}
+                      selectedFilePath={selectedFilePath}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

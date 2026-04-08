@@ -209,6 +209,7 @@ export interface LayoutState {
   detailStagingSplit: number // 0-100, percent for detail share
   fileListView: FileListView
   stagingInternalSplit: number // 0-100, percent for file list share (top) vs commit form (bottom)
+  detailInternalSplit: number // 0-100, percent for metadata share (top) vs files (bottom)
 }
 
 const STORAGE_KEY = 'gitslop-layout-state'
@@ -225,7 +226,8 @@ const DEFAULT_LAYOUT: LayoutState = {
   diffViewMode: 'inline',
   detailStagingSplit: 60,
   fileListView: 'path',
-  stagingInternalSplit: 65
+  stagingInternalSplit: 65,
+  detailInternalSplit: 40
 }
 
 // Sidebar pixel bounds
@@ -260,6 +262,9 @@ function loadLayout(): LayoutState {
       // Clamp stagingInternalSplit to valid range
       if (layout.stagingInternalSplit == null || layout.stagingInternalSplit < 20) layout.stagingInternalSplit = DEFAULT_LAYOUT.stagingInternalSplit
       if (layout.stagingInternalSplit > 90) layout.stagingInternalSplit = 90
+      // Clamp detailInternalSplit to valid range
+      if (layout.detailInternalSplit == null || layout.detailInternalSplit < 15) layout.detailInternalSplit = DEFAULT_LAYOUT.detailInternalSplit
+      if (layout.detailInternalSplit > 85) layout.detailInternalSplit = 85
 
       return layout
     }
@@ -294,6 +299,7 @@ export function useLayoutState(): {
   setDetailStagingSplit: (split: number) => void
   setFileListView: (view: FileListView) => void
   setStagingInternalSplit: (split: number) => void
+  setDetailInternalSplit: (split: number) => void
 } {
   const [layout, setLayout] = useState<LayoutState>(loadLayout)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -393,6 +399,11 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, stagingInternalSplit: clamped }))
   }, [])
 
+  const setDetailInternalSplit = useCallback((split: number) => {
+    const clamped = Math.max(15, Math.min(85, Math.round(split)))
+    setLayout((prev) => ({ ...prev, detailInternalSplit: clamped }))
+  }, [])
+
   return {
     layout,
     setSidebarSize,
@@ -409,6 +420,7 @@ export function useLayoutState(): {
     setDiffViewMode,
     setDetailStagingSplit,
     setFileListView,
-    setStagingInternalSplit
+    setStagingInternalSplit,
+    setDetailInternalSplit
   }
 }
