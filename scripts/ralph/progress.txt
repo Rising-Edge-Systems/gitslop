@@ -18,7 +18,8 @@ Started: Mon Apr 8 2026
 - Layout state: useLayoutState() hook, localStorage key 'gitslop-layout-state', 300ms debounced save
 - LayoutState fields: sidebarSize, bottomPanelSize, bottomPanelVisible, sidebarVisible, sidebarCollapsed, rightPanelSize, stagingCollapsed, detailPanelCollapsed, detailStagingSplit
 - Drag handle pattern: sidebar uses isDraggingRef + mousedown/mousemove/mouseup on document + body class 'sidebar-dragging'
-- IPC pattern: git-service.ts method → git-ipc.ts handler → preload/index.ts expose → useLayoutState.ts type declaration
+- IPC pattern: git-service.ts method → git-ipc.ts handler → preload/index.ts expose → useLayoutState.ts type declaration (4 files for each new git operation)
+- Binary file detection: check for null bytes (\0) in string content returned from git show
 - DetailPanel hooks: ALL hooks must be above any early return to avoid React error #310
 - CommitFileDetail type: { path, status, insertions, deletions, oldPath? } from CommitGraph.tsx
 ---
@@ -96,5 +97,21 @@ Started: Mon Apr 8 2026
   - The filesHeader button needed to be wrapped in a filesHeaderRow div to accommodate the toggle buttons alongside it
   - buildFileTree sorts directories first, then alphabetically within each level
   - FileTreeNodeComponent uses local useState for expanded state — each directory independently tracks its own expand/collapse
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-DD-006
+- Added "View Full File Content at Commit" feature — toggle between Diff and File views in center panel
+- Backend: added showFileAtCommit(repoPath, hash, filePath) IPC handler using `git show HASH:PATH`
+- Frontend: added Diff/File toggle buttons in the back-breadcrumb bar (diffBackBar), with GitCompare and FileCode icons
+- Full file viewer shows line numbers, monospace font, hover highlight per line
+- Binary file detection via null byte check — shows "Binary file — cannot display" message
+- View mode resets to 'diff' when switching files (does NOT persist — diff is primary use case)
+- Files changed: git-service.ts, git-ipc.ts, preload/index.ts, useLayoutState.ts, RepoView.tsx, RepoView.module.css
+- **Learnings for future iterations:**
+  - `git show HASH:PATH` returns raw file content — binary files may contain null bytes
+  - The viewModeToggle is styled as a segmented control (pill buttons with active state) using bg-tertiary container + bg-primary active
+  - centerViewMode state is local to RepoView — intentionally NOT persisted (always defaults to 'diff')
+  - The toggle is placed in diffBackBar with margin-left:auto to push it to the right
   - No browser testing tools available — manual verification needed
 ---
