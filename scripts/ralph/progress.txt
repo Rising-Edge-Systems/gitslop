@@ -5,7 +5,7 @@ Started: Mon Apr 8 2026
 ## Codebase Patterns
 - Sidebar: plain CSS flex div (NOT react-resizable-panels), width in pixels via layout.sidebarSize, drag handle in AppLayout
 - Detail panel: plain CSS flex div, fixed 340px width (to be made resizable), always visible when repo open
-- Right panel: DetailPanel (flex:6) + StatusPanel (flex:4) stacked vertically in a 340px column
+- Right panel: DetailPanel + StatusPanel stacked vertically, split ratio via layout.detailStagingSplit (percent, default 60)
 - Staging area (StatusPanel): renders in the RIGHT panel, not center
 - Center panel: commit graph OR diff viewer (swapped via viewingDiff state)
 - DiffViewer: local useState for mode ('inline'|'side-by-side'), accepts initialMode prop, used in RepoView
@@ -16,7 +16,7 @@ Started: Mon Apr 8 2026
 - Typecheck: npm run typecheck
 - Build: npx electron-vite build && npx electron --no-sandbox .
 - Layout state: useLayoutState() hook, localStorage key 'gitslop-layout-state', 300ms debounced save
-- LayoutState fields: sidebarSize, bottomPanelSize, bottomPanelVisible, sidebarVisible, sidebarCollapsed, rightPanelSize (unused!), stagingCollapsed, detailPanelCollapsed
+- LayoutState fields: sidebarSize, bottomPanelSize, bottomPanelVisible, sidebarVisible, sidebarCollapsed, rightPanelSize, stagingCollapsed, detailPanelCollapsed, detailStagingSplit
 - Drag handle pattern: sidebar uses isDraggingRef + mousedown/mousemove/mouseup on document + body class 'sidebar-dragging'
 - IPC pattern: git-service.ts method → git-ipc.ts handler → preload/index.ts expose → useLayoutState.ts type declaration
 - DetailPanel hooks: ALL hooks must be above any early return to avoid React error #310
@@ -63,4 +63,22 @@ Started: Mon Apr 8 2026
   - Right panel drag: delta is subtracted (not added) because dragging left = wider panel
   - The `sidebar-dragging` body class disables user-select during drag — reuse it for any drag interaction
   - isDraggingRight state used to disable transition during drag for smooth resizing
+---
+
+## 2026-04-08 - US-DD-004
+- Added resizable vertical split between DetailPanel and StatusPanel in the right panel
+- Added `detailStagingSplit: number` (0-100, default 60) to LayoutState with clamping 10-90
+- Added `setDetailStagingSplit` callback to useLayoutState hook
+- Replaced flex:6/flex:4 with calc()-based percentage heights driven by detailStagingSplit
+- Added 5px horizontal drag handle with row-resize cursor, hover highlight, and double-click reset to 60%
+- Used rightPanelContainerRef to measure container height for delta-to-percent conversion
+- Reused sidebar-dragging body class for user-select:none during drag
+- Split persists via existing localStorage debounced save
+- Files changed: useLayoutState.ts, AppLayout.tsx
+- **Learnings for future iterations:**
+  - Vertical drag: convert clientY delta to percentage of container height, not pixels
+  - The drag handle div needs flexShrink:0 to prevent it from collapsing to zero
+  - calc() with percentage works well for split panels: `calc(${split}% - 2px)` for top, `calc(${100-split}% - 3px)` for bottom (accounting for the 5px handle)
+  - minHeight:100 on each section prevents collapse, but clamping in setDetailStagingSplit (10-90) is the primary guard
+  - No browser testing tools available — manual verification needed
 ---

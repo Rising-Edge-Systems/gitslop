@@ -77,7 +77,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Similar to sidebar/right panel drag handle but vertical. Track container height via ref, calculate detail height as containerHeight * (detailStagingSplit / 100). The drag delta adjusts the percentage. Clamp so neither section goes below 100px. Use the same isDragging ref pattern."
     },
     {
