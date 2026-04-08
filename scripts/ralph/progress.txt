@@ -182,3 +182,19 @@ Started: Mon Apr 8 2026
   - The preload must expose cleanup functions (() => void) for all IPC listeners to avoid memory leaks
   - No browser testing tools available — manual verification needed
 ---
+
+## 2026-04-08 - US-PM-005
+- Added Edit, View, and Help menus to the native Electron application menu bar
+- Edit menu: all role-based items (Undo, Redo, Cut, Copy, Paste, Select All)
+- View menu: Toggle Sidebar (IPC), Toggle Terminal (IPC), Zoom In/Out/Reset (role), Toggle Full Screen (role), Dev Tools (role)
+- Help menu: Keyboard Shortcuts (IPC), About GitSlop (dialog.showMessageBox with app/Electron/Chromium/Node versions)
+- Added 3 new IPC channels: menu:toggle-sidebar, menu:toggle-terminal, menu:keyboard-shortcuts
+- App.tsx dispatches custom DOM events for sidebar/terminal/keyboard shortcuts
+- AppLayout.tsx listens for DOM events and calls toggleSidebar()/toggleBottomPanel()
+- Files changed: src/main/index.ts, src/preload/index.ts, src/renderer/src/App.tsx, src/renderer/src/hooks/useLayoutState.ts, src/renderer/src/components/AppLayout.tsx
+- **Learnings for future iterations:**
+  - Electron role-based menu items handle their own accelerators — no need to specify click handlers for undo/redo/cut/copy/paste/selectAll/zoom/fullscreen/devtools
+  - The DOM event bridge pattern (IPC → App.tsx → window.dispatchEvent → AppLayout listener) works well for menu commands that need access to layout state
+  - dialog.showMessageBox() in main process can show app version info via app.getVersion() and process.versions
+  - No browser testing tools available — manual verification needed
+---

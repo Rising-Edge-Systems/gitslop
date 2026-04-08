@@ -85,7 +85,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Add to same Menu.buildFromTemplate() from US-PM-004. Edit is entirely role-based. View mixes roles with IPC. Help uses dialog.showMessageBox for About."
     },
     {
