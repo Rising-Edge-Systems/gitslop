@@ -115,3 +115,20 @@ Started: Mon Apr 8 2026
   - The toggle is placed in diffBackBar with margin-left:auto to push it to the right
   - No browser testing tools available — manual verification needed
 ---
+
+## 2026-04-08 - US-PM-001
+- Added resizable internal split between file lists and commit form in StatusPanel
+- Added `stagingInternalSplit: number` (0-100, default 65) to LayoutState with clamping 20-90
+- Added `setStagingInternalSplit` callback to useLayoutState hook
+- Wrapped file lists section and commit form in a flex container with calc()-based percentage heights
+- Added 5px drag handle with row-resize cursor, hover highlight, double-click reset to 65%
+- Used internalSplitContainerRef for delta-to-percent conversion during drag
+- Min heights: 80px for file lists, 120px for commit form
+- Split persists via existing localStorage debounced save
+- Files changed: useLayoutState.ts, StatusPanel.tsx, AppLayout.tsx
+- **Learnings for future iterations:**
+  - StatusPanel internal structure: header → file lists section → drag handle → commit form, all inside a flex column container
+  - The `!collapsed` conditional now wraps the entire split container (file lists + drag handle + commit form), not just the file lists
+  - The commitForm CSS class originally had `border-top: 1px solid var(--border)` — removed via inline style override since the drag handle provides the visual separation
+  - No browser testing tools available — manual verification needed
+---
