@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, PanelRight, PanelBottom } from 'lucide-react'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 import {
   Group,
@@ -57,7 +57,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setDetailStagingSplit,
     setFileListView,
     setStagingInternalSplit,
-    setDetailInternalSplit
+    setDetailInternalSplit,
+    toggleRightPanelPosition
   } = useLayoutState()
 
   const {
@@ -328,6 +329,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const dragStartYDetailRef = useRef(0)
   const dragStartSplitRef = useRef(0)
   const rightPanelContainerRef = useRef<HTMLDivElement>(null)
+  const columnsContentRef = useRef<HTMLDivElement>(null)
 
   const handleDetailSplitDragStart = useCallback(
     (e: React.MouseEvent) => {
@@ -340,7 +342,10 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
       const onMouseMove = (ev: MouseEvent): void => {
         if (!isDraggingDetailSplitRef.current) return
-        const container = rightPanelContainerRef.current
+        // In bottom mode, use the full columns container; in right mode, use the right panel container
+        const container = layout.rightPanelPosition === 'bottom'
+          ? columnsContentRef.current
+          : rightPanelContainerRef.current
         if (!container) return
         const containerHeight = container.clientHeight
         if (containerHeight === 0) return
@@ -361,7 +366,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       document.addEventListener('mousemove', onMouseMove)
       document.addEventListener('mouseup', onMouseUp)
     },
-    [layout.detailStagingSplit, setDetailStagingSplit]
+    [layout.detailStagingSplit, layout.rightPanelPosition, setDetailStagingSplit]
   )
 
   const handleDetailSplitDoubleClick = useCallback(() => {
@@ -487,64 +492,130 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
         {appSettings.sidebarPosition === 'left' && dragHandle}
         <Group orientation="vertical" id="gitslop-outer-vertical" style={{ flex: 1, minWidth: 0 }}>
           <Panel id="columns" minSize={20}>
-            <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-              {/* Center panel — takes remaining space */}
-              <div style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden' }}>
-                <MainContent
-                  currentRepo={currentRepo}
-                  onRepoOpen={onRepoOpen}
-                  onCommitSelect={handleCommitSelect}
-                  viewingDiff={viewingDiff}
-                  diffFile={diffFile}
-                  diffCommitHash={diffCommitHash}
-                  selectedCommit={selectedCommit}
-                  onBackToGraph={handleBackToGraph}
-                  onNavigateFile={handleNavigateFile}
-                  diffViewMode={layout.diffViewMode}
-                  onDiffViewModeChange={setDiffViewMode}
-                />
-              </div>
-              {/* Right panel drag handle + commit details on top, staging area below.
-                  Always visible when a repo is open. */}
-              {currentRepo && (
-                <div
-                  className="sidebar-drag-handle"
-                  style={{ cursor: 'col-resize' }}
-                  onMouseDown={handleRightDragStart}
-                  onDoubleClick={handleRightDragHandleDoubleClick}
-                />
-              )}
-              {currentRepo && (
-                <div
-                  ref={rightPanelContainerRef}
-                  style={{
-                    width: layout.rightPanelSize,
-                    flexShrink: 0,
-                    height: '100%',
-                    overflow: 'hidden',
-                    borderLeft: '1px solid var(--border)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: isDraggingRight ? 'none' : undefined
-                  }}
-                >
-                  <div style={{
-                    height: `calc(${layout.detailStagingSplit}% - 2px)`,
-                    minHeight: 100,
-                    overflow: 'hidden',
-                    transition: isDraggingDetailSplit ? 'none' : undefined
-                  }}>
-                    <DetailPanel
-                      detail={selectedCommit}
-                      repoPath={currentRepo}
-                      onFileClick={handleFileClick}
-                      selectedFilePath={viewingDiff ? diffFile : null}
-                      fileListView={layout.fileListView}
-                      onFileListViewChange={setFileListView}
-                      detailInternalSplit={layout.detailInternalSplit}
-                      onDetailInternalSplitChange={setDetailInternalSplit}
+            <div ref={columnsContentRef} style={{ display: 'flex', flexDirection: layout.rightPanelPosition === 'bottom' ? 'column' : 'row', height: '100%', overflow: 'hidden' }}>
+              {/* Top row: center panel + right panel (when position is 'right') */}
+              <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                {/* Center panel — takes remaining space */}
+                <div style={{ flex: 1, minWidth: 0, height: '100%', overflow: 'hidden' }}>
+                  <MainContent
+                    currentRepo={currentRepo}
+                    onRepoOpen={onRepoOpen}
+                    onCommitSelect={handleCommitSelect}
+                    viewingDiff={viewingDiff}
+                    diffFile={diffFile}
+                    diffCommitHash={diffCommitHash}
+                    selectedCommit={selectedCommit}
+                    onBackToGraph={handleBackToGraph}
+                    onNavigateFile={handleNavigateFile}
+                    diffViewMode={layout.diffViewMode}
+                    onDiffViewModeChange={setDiffViewMode}
+                  />
+                </div>
+                {/* Right panel drag handle + commit details on top, staging area below.
+                    Only shown when position is 'right'. */}
+                {currentRepo && layout.rightPanelPosition === 'right' && (
+                  <div
+                    className="sidebar-drag-handle"
+                    style={{ cursor: 'col-resize' }}
+                    onMouseDown={handleRightDragStart}
+                    onDoubleClick={handleRightDragHandleDoubleClick}
+                  />
+                )}
+                {currentRepo && layout.rightPanelPosition === 'right' && (
+                  <div
+                    ref={rightPanelContainerRef}
+                    style={{
+                      width: layout.rightPanelSize,
+                      flexShrink: 0,
+                      height: '100%',
+                      overflow: 'hidden',
+                      borderLeft: '1px solid var(--border)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      transition: isDraggingRight ? 'none' : undefined
+                    }}
+                  >
+                    {/* Position toggle button */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      padding: '2px 4px',
+                      borderBottom: '1px solid var(--border)',
+                      flexShrink: 0
+                    }}>
+                      <button
+                        onClick={toggleRightPanelPosition}
+                        title="Move panel to bottom"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '3px',
+                          borderRadius: 'var(--radius-sm)',
+                          transition: 'background-color var(--transition-fast), color var(--transition-fast)'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                      >
+                        <PanelBottom size={14} />
+                      </button>
+                    </div>
+                    <div style={{
+                      height: `calc(${layout.detailStagingSplit}% - 2px)`,
+                      minHeight: 100,
+                      overflow: 'hidden',
+                      transition: isDraggingDetailSplit ? 'none' : undefined
+                    }}>
+                      <DetailPanel
+                        detail={selectedCommit}
+                        repoPath={currentRepo}
+                        onFileClick={handleFileClick}
+                        selectedFilePath={viewingDiff ? diffFile : null}
+                        fileListView={layout.fileListView}
+                        onFileListViewChange={setFileListView}
+                        detailInternalSplit={layout.detailInternalSplit}
+                        onDetailInternalSplitChange={setDetailInternalSplit}
+                      />
+                    </div>
+                    <div
+                      style={{
+                        height: 5,
+                        flexShrink: 0,
+                        cursor: 'row-resize',
+                        background: isDraggingDetailSplit ? 'var(--border)' : 'transparent',
+                        borderTop: '1px solid var(--border)',
+                        transition: 'background 0.15s ease'
+                      }}
+                      onMouseDown={handleDetailSplitDragStart}
+                      onDoubleClick={handleDetailSplitDoubleClick}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
+                      onMouseLeave={(e) => { if (!isDraggingDetailSplit) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
                     />
+                    <div style={{
+                      height: `calc(${100 - layout.detailStagingSplit}% - 3px)`,
+                      minHeight: 100,
+                      overflow: 'hidden',
+                      transition: isDraggingDetailSplit ? 'none' : undefined
+                    }}>
+                      <StatusPanel
+                        repoPath={currentRepo}
+                        collapsed={layout.stagingCollapsed}
+                        onToggleCollapse={toggleStagingCollapse}
+                        stagingInternalSplit={layout.stagingInternalSplit}
+                        onStagingInternalSplitChange={setStagingInternalSplit}
+                      />
+                    </div>
                   </div>
+                )}
+              </div>
+              {/* Bottom panel strip: detail + staging side-by-side (when position is 'bottom') */}
+              {currentRepo && layout.rightPanelPosition === 'bottom' && (
+                <>
                   <div
                     style={{
                       height: 5,
@@ -559,21 +630,77 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
                     onMouseLeave={(e) => { if (!isDraggingDetailSplit) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
                   />
-                  <div style={{
-                    height: `calc(${100 - layout.detailStagingSplit}% - 3px)`,
-                    minHeight: 100,
-                    overflow: 'hidden',
-                    transition: isDraggingDetailSplit ? 'none' : undefined
-                  }}>
-                    <StatusPanel
-                      repoPath={currentRepo}
-                      collapsed={layout.stagingCollapsed}
-                      onToggleCollapse={toggleStagingCollapse}
-                      stagingInternalSplit={layout.stagingInternalSplit}
-                      onStagingInternalSplitChange={setStagingInternalSplit}
-                    />
+                  <div
+                    ref={rightPanelContainerRef}
+                    style={{
+                      height: `calc(${100 - layout.detailStagingSplit}% - 5px)`,
+                      minHeight: 120,
+                      flexShrink: 0,
+                      overflow: 'hidden',
+                      display: 'flex',
+                      flexDirection: 'row',
+                      transition: isDraggingDetailSplit ? 'none' : undefined
+                    }}
+                  >
+                    {/* Position toggle button */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'flex-start',
+                      padding: '4px 2px',
+                      borderRight: '1px solid var(--border)',
+                      flexShrink: 0
+                    }}>
+                      <button
+                        onClick={toggleRightPanelPosition}
+                        title="Move panel to right"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '3px',
+                          borderRadius: 'var(--radius-sm)',
+                          transition: 'background-color var(--transition-fast), color var(--transition-fast)'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                      >
+                        <PanelRight size={14} />
+                      </button>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <DetailPanel
+                        detail={selectedCommit}
+                        repoPath={currentRepo}
+                        onFileClick={handleFileClick}
+                        selectedFilePath={viewingDiff ? diffFile : null}
+                        fileListView={layout.fileListView}
+                        onFileListViewChange={setFileListView}
+                        detailInternalSplit={layout.detailInternalSplit}
+                        onDetailInternalSplitChange={setDetailInternalSplit}
+                      />
+                    </div>
+                    <div style={{
+                      width: 1,
+                      flexShrink: 0,
+                      background: 'var(--border)'
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <StatusPanel
+                        repoPath={currentRepo}
+                        collapsed={layout.stagingCollapsed}
+                        onToggleCollapse={toggleStagingCollapse}
+                        stagingInternalSplit={layout.stagingInternalSplit}
+                        onStagingInternalSplitChange={setStagingInternalSplit}
+                      />
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
           </Panel>

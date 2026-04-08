@@ -205,6 +205,7 @@ declare global {
 
 export type DiffViewMode = 'inline' | 'side-by-side'
 export type FileListView = 'path' | 'tree'
+export type RightPanelPosition = 'right' | 'bottom'
 
 export interface LayoutState {
   sidebarSize: number
@@ -220,6 +221,7 @@ export interface LayoutState {
   fileListView: FileListView
   stagingInternalSplit: number // 0-100, percent for file list share (top) vs commit form (bottom)
   detailInternalSplit: number // 0-100, percent for metadata share (top) vs files (bottom)
+  rightPanelPosition: RightPanelPosition
 }
 
 const STORAGE_KEY = 'gitslop-layout-state'
@@ -237,7 +239,8 @@ const DEFAULT_LAYOUT: LayoutState = {
   detailStagingSplit: 60,
   fileListView: 'path',
   stagingInternalSplit: 65,
-  detailInternalSplit: 40
+  detailInternalSplit: 40,
+  rightPanelPosition: 'right'
 }
 
 // Sidebar pixel bounds
@@ -275,6 +278,10 @@ function loadLayout(): LayoutState {
       // Clamp detailInternalSplit to valid range
       if (layout.detailInternalSplit == null || layout.detailInternalSplit < 15) layout.detailInternalSplit = DEFAULT_LAYOUT.detailInternalSplit
       if (layout.detailInternalSplit > 85) layout.detailInternalSplit = 85
+      // Validate rightPanelPosition
+      if (layout.rightPanelPosition !== 'right' && layout.rightPanelPosition !== 'bottom') {
+        layout.rightPanelPosition = DEFAULT_LAYOUT.rightPanelPosition
+      }
 
       return layout
     }
@@ -310,6 +317,8 @@ export function useLayoutState(): {
   setFileListView: (view: FileListView) => void
   setStagingInternalSplit: (split: number) => void
   setDetailInternalSplit: (split: number) => void
+  setRightPanelPosition: (position: RightPanelPosition) => void
+  toggleRightPanelPosition: () => void
 } {
   const [layout, setLayout] = useState<LayoutState>(loadLayout)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -414,6 +423,17 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, detailInternalSplit: clamped }))
   }, [])
 
+  const setRightPanelPosition = useCallback((position: RightPanelPosition) => {
+    setLayout((prev) => ({ ...prev, rightPanelPosition: position }))
+  }, [])
+
+  const toggleRightPanelPosition = useCallback(() => {
+    setLayout((prev) => ({
+      ...prev,
+      rightPanelPosition: prev.rightPanelPosition === 'right' ? 'bottom' : 'right'
+    }))
+  }, [])
+
   return {
     layout,
     setSidebarSize,
@@ -431,6 +451,8 @@ export function useLayoutState(): {
     setDetailStagingSplit,
     setFileListView,
     setStagingInternalSplit,
-    setDetailInternalSplit
+    setDetailInternalSplit,
+    setRightPanelPosition,
+    toggleRightPanelPosition
   }
 }
