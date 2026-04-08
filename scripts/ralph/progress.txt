@@ -132,3 +132,22 @@ Started: Mon Apr 8 2026
   - The commitForm CSS class originally had `border-top: 1px solid var(--border)` — removed via inline style override since the drag handle provides the visual separation
   - No browser testing tools available — manual verification needed
 ---
+
+## 2026-04-08 - US-PM-002
+- Added resizable internal split between commit metadata and changed files list in DetailPanel
+- Added `detailInternalSplit: number` (0-100, default 40) to LayoutState with clamping 15-85
+- Added `setDetailInternalSplit` callback to useLayoutState hook
+- Split the single `.content` scrollable div into two sections: metadata (top, scrollable) and files (bottom, scrollable)
+- Added 5px drag handle with row-resize cursor, hover highlight, double-click reset to 40%
+- Used splitContainerRef for delta-to-percent conversion during drag
+- Min heights: metadata 100px, files 80px
+- Added `.filesWrapper` CSS class for scrollable files section container
+- Split persists via existing localStorage debounced save
+- Files changed: useLayoutState.ts, DetailPanel.tsx, DetailPanel.module.css, AppLayout.tsx
+- **Learnings for future iterations:**
+  - DetailPanel internal structure is now: header → split container (metadata top + drag handle + files bottom)
+  - The `.content` class provides scrolling for the metadata section; `.filesWrapper` provides scrolling for the files section
+  - The `borderTop` on `.filesSection` was overridden with inline `style={{ borderTop: 'none' }}` since the drag handle provides visual separation
+  - Same drag pattern used: mousedown/mousemove/mouseup on document, body class 'sidebar-dragging' for user-select:none
+  - No browser testing tools available — manual verification needed
+---
