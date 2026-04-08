@@ -1,149 +1,36 @@
 # Ralph Progress Log
-Started: Fri Mar 21 2026
+Started: Mon Apr 8 2026
 ---
 
 ## Codebase Patterns
-- Sidebar: plain flex div (NOT react-resizable-panels), width in pixels via layout.sidebarSize
-- Detail panel: plain flex div (NOT react-resizable-panels), fixed 340px width, always visible
-- Right panel layout: DetailPanel on top + StatusPanel on bottom, stacked in flex column
-- Staging area (StatusPanel): now renders in the RIGHT panel, not the center panel
-- Center panel: only commit graph + diff viewer (no staging area)
+- Sidebar: plain CSS flex div (NOT react-resizable-panels), width in pixels via layout.sidebarSize, drag handle in AppLayout
+- Detail panel: plain CSS flex div, fixed 340px width (to be made resizable), always visible when repo open
+- Right panel: DetailPanel (flex:6) + StatusPanel (flex:4) stacked vertically in a 340px column
+- Staging area (StatusPanel): renders in the RIGHT panel, not center
+- Center panel: commit graph OR diff viewer (swapped via viewingDiff state)
+- DiffViewer: local useState for mode ('inline'|'side-by-side'), accepts initialMode prop, used in RepoView
+- Sidebar collapsed: icon rail (48px) with RAIL_SECTIONS icons, overlay code EXISTS but may be clipped by overflow:hidden on parent
 - CSS modules: import styles from './Component.module.css', camelCase class names
-- Design tokens: src/renderer/src/styles/tokens.css — --space-*, --font-*, --radius-*, --border, --bg-hover, --transition-fast
+- Design tokens: --space-*, --font-*, --radius-*, --border, --bg-hover, --transition-fast
 - Typecheck: npm run typecheck
 - Build: npx electron-vite build && npx electron --no-sandbox .
-- Layout state: useLayoutState() hook, localStorage key 'gitslop-layout-state'
-- State threading: AppLayout → MainContent → RepoView (layout state only in AppLayout)
-- Tab system: useRepoTabs() in App.tsx, TabBar.tsx component
-- Lucide icons: import { IconName } from 'lucide-react'
-- react-resizable-panels: ONLY for vertical split (center+terminal). NOT for sidebar or detail panel.
-- DetailPanel: hooks must ALL be above any early return to avoid React error #310
-- Use the frontend-design skill for any UI changes — invoke it to get design guidance
+- Layout state: useLayoutState() hook, localStorage key 'gitslop-layout-state', 300ms debounced save
+- LayoutState fields: sidebarSize, bottomPanelSize, bottomPanelVisible, sidebarVisible, sidebarCollapsed, rightPanelSize (unused!), stagingCollapsed, detailPanelCollapsed
+- Drag handle pattern: sidebar uses isDraggingRef + mousedown/mousemove/mouseup on document + body class 'sidebar-dragging'
+- IPC pattern: git-service.ts method → git-ipc.ts handler → preload/index.ts expose → useLayoutState.ts type declaration
+- DetailPanel hooks: ALL hooks must be above any early return to avoid React error #310
+- CommitFileDetail type: { path, status, insertions, deletions, oldPath? } from CommitGraph.tsx
 ---
 
-## 2026-03-21 - US-FD-001
-- Implemented right panel 60/40 vertical split between DetailPanel (top) and StatusPanel (bottom)
-- Moved commit form from inside staged column to panel-level, always visible regardless of collapse state
-- Made staging header sticky with z-index
-- Fixed file name truncation with text-overflow: ellipsis
-- Removed duplicate border-left from DetailPanel (container already has it)
-- Made StatusPanel fill its container (height: 100%), removed margin/border/radius from panel container
-- Changed twoColumnLayout from fixed max-height to flex: 1 with overflow: hidden
-- Files changed: AppLayout.tsx, StatusPanel.tsx, StatusPanel.module.css, DetailPanel.module.css
+## 2026-04-08 - US-DD-001
+- Lifted diff view mode (inline/side-by-side) from DiffViewer local state to LayoutState for persistence
+- Added `diffViewMode: DiffViewMode` field to LayoutState with default 'inline'
+- Added `onModeChange` callback prop to DiffViewer, fired when user toggles mode
+- Threaded diffViewMode and onDiffViewModeChange through AppLayout → MainContent → RepoView → DiffViewer
+- Files changed: useLayoutState.ts, DiffViewer.tsx, RepoView.tsx, MainContent.tsx, AppLayout.tsx
 - **Learnings for future iterations:**
-  - Commit form was nested inside the staged column — had to move it to panel level for always-visible behavior
-  - The previous commit (029df1b) already contained CSS/AppLayout changes from a prior iteration
-  - StatusPanel.module.css .panel had border, border-radius, margin-bottom that made it look like a card — removed for full-height panel mode
-  - The twoColumnLayout had max-height: 360px which prevented it from filling available space
----
-
-## 2026-03-21 - US-FD-002
-- Removed repo header redundancy from center panel (name/path already in titlebar)
-- Made CommitGraph header compact: 28px height, smaller font, `·` separator with count
-- Made CommitFilterBar compact: 28px height, no border/radius (flush with graph), uppercase label style
-- Removed padding from RepoView container and gap from content — graph is now flush/full-width
-- Removed unused `onCloseRepo` prop from RepoView and MainContent (close is on tab bar)
-- Cleaned up ~180 lines of dead CSS (header, summary cards, branch list styles)
-- Files changed: RepoView.tsx, RepoView.module.css, CommitGraph.tsx, CommitGraph.module.css, CommitFilterBar.module.css, MainContent.tsx, AppLayout.tsx
-- **Learnings for future iterations:**
-  - The repo header was already removed from JSX in a prior iteration but CSS lingered — always clean up dead CSS
-  - CommitGraph container had border-radius and border — removed for flush look when no padding
-  - `onCloseRepo` was threaded App→AppLayout→MainContent→RepoView but unused in RepoView — safe to remove from RepoView/MainContent, AppLayout still keeps it for tab close
-  - FilterBar border-radius and margins added visual gaps — removing them and using border-bottom only gives flush integration
----
-
-## 2026-03-21 - US-FD-003
-- Refined commit graph row visual states: hover, selection, hash color, author/date alignment
-- Changed hash color from --accent to --text-muted with brightening on hover (transition to --accent)
-- Updated row transition to use var(--transition-fast) instead of hardcoded 0.1s
-- Made ref pill badges use consistent 4px 8px padding with line-height: 1
-- Fixed author column: set fixed width 120px, right-aligned, changed color to --text-muted
-- Fixed date column: set fixed width 70px for no-jump layout
-- Files changed: CommitGraph.module.css
-- **Learnings for future iterations:**
-  - Hash color was --accent (always bright blue) — changed to muted with hover brightening for subtler default look
-  - Author/date had flexible widths causing layout shifts — fixed-width prevents jumping
-  - Row already had hover/selected states but transition was hardcoded — use var(--transition-fast) consistently
-  - Ref badges had tight 1px 6px padding — 4px 8px matches acceptance criteria for better touch targets
----
-
-## 2026-03-21 - US-FD-004
-- Improved Detail Panel typography and layout consistency
-- Added "Copied!" text feedback on SHA copy button (was just a check icon)
-- Changed meta row gap from var(--space-xs) to var(--space-sm) for consistent spacing between items
-- Updated section headers (headerTitle, filesHeader) to use var(--font-xs) for consistent section header style
-- Updated ref badge padding to 4px 8px with line-height: 1 for consistent pill appearance
-- Added focus-visible outlines (2px solid var(--accent)) to all interactive elements: collapseBtn, closeBtn, copyBtn, filesHeader, fileItem
-- Files changed: DetailPanel.tsx, DetailPanel.module.css
-- **Learnings for future iterations:**
-  - DetailPanel already had most acceptance criteria met from prior work — main gaps were "Copied!" text feedback, focus-visible outlines, and consistent section header sizing
-  - All section headers across the app should use var(--font-xs), font-weight 600, uppercase, letter-spacing 0.5px for consistency
-  - Ref badge padding should be 4px 8px (not 2px var(--space-sm)) for better touch targets and consistency with CommitGraph badges
----
-
-## 2026-03-21 - US-FD-005
-- Adapted staging area for narrow 340px right panel
-- Changed two-column layout from side-by-side (flex-direction: row) to vertical stacking (flex-direction: column)
-- Made "Stage All" and "Unstage All" buttons compact icon-only (removed text labels, fixed 22x22px)
-- Hidden directory paths by default (display: none on .fileDir) — full path shown via existing title tooltip on hover
-- Made commit buttons compact: smaller font (font-xs), nowrap, flex: 1 so they share width evenly
-- Removed border-right from columnUnstaged, added border-bottom for vertical stacking
-- Files changed: StatusPanel.tsx, StatusPanel.module.css
-- **Learnings for future iterations:**
-  - The two-column layout was designed for ~900px center panel — changing to flex-direction: column is the simplest fix for narrow panels
-  - File items already had title attributes with full paths — hiding fileDir via CSS is cleaner than removing the JSX (keeps the DOM for potential future use)
-  - Action buttons at 22x22px with icon-only look cleaner in narrow panels than text labels that get cramped
----
-
-## 2026-03-21 - US-FD-006
-- Polished sidebar hover states, active indicators, spacing, and visual consistency
-- Branch items: increased vertical padding to 6px, added 3px left accent border for active branch
-- Section headers: changed font-size from var(--font-sm) to var(--font-xs) for consistent section header style across app
-- Replaced all hardcoded `0.1s` transitions with var(--transition-fast) on branch, remote, tag, and stash items
-- Chevron rotation transition changed from hardcoded 200ms to var(--transition-normal)
-- Added focus-visible outlines to tabs and collapse button
-- Enhanced search input focus state with explicit focus-visible
-- Removed border-bottom from last section to prevent double borders
-- Tag items: increased vertical padding from 3px to 6px for consistency
-- Remote branch items: padding updated to 6px vertical for consistency
-- Files changed: Sidebar.module.css
-- **Learnings for future iterations:**
-  - Branch items had no left border — adding `border-left: 3px solid transparent` as default then coloring on `.branchItemCurrent` gives a clean active indicator without layout shift
-  - All sidebar list items (branch, remote, remoteBranch, tag, stash) had inconsistent transition values (0.1s hardcoded) — should always use var(--transition-fast)
-  - Section headers across the app should use var(--font-xs) not var(--font-sm) for the uppercase label style
-  - Last section border-bottom creates visual double border at container edge — use :last-child to remove
----
-
-## 2026-03-21 - US-FD-007
-- Removed repo name from titlebar center when tabs are visible — titlebar now shows branch only
-- Added `hasTabs` prop to TitleBar, passed from App.tsx based on `tabs.length > 0`
-- When `hasTabs=true`, center shows only `GitBranch icon + branch name` (no repo name or divider)
-- When `hasTabs=false` (no tabs/welcome screen), center shows full `repoName / branch` as before
-- Added focus-visible outlines (2px solid var(--accent)) to: TitleBar buttons (.btn, .repoInfo), TabBar tabs (.tab), add tab button (.addTabButton), close tab button (.tabClose)
-- Files changed: TitleBar.tsx, TitleBar.module.css, TabBar.module.css, App.tsx
-- **Learnings for future iterations:**
-  - TitleBar and TabBar are both rendered in App.tsx — TitleBar above TabBar, both outside AppLayout
-  - Tab `name` comes from `repoPath.split(/[/\\]/).pop()` in useRepoTabs — same as repoName in TitleBar, hence the duplication
-  - TitleBar has a `handleCopyRepoInfo` that copies `repoName (branch)` — kept this working regardless of display mode
-  - Combined height: TitleBar 36px + TabBar 32px = 68px total, already within spec
-  - Active tab already had 2px bottom accent border via `::after` pseudo-element
-  - Tab max-width was already 160px with ellipsis truncation
----
-
-## 2026-03-21 - US-FD-008
-- Global color and typography consistency sweep across all key CSS modules
-- Replaced hardcoded `#fff` in ErrorBoundary.module.css with `var(--btn-primary-text)`
-- Replaced hardcoded `10px` font sizes with `var(--font-xs)` across CommitGraph, StatusPanel, StatusBar, Sidebar, CommitFilterBar
-- Replaced hardcoded `12px` with `var(--font-sm)` in CommitGraph refresh button
-- Replaced hardcoded `14px` with `var(--font-md)` in CommitGraph detailSubject
-- Replaced hardcoded `18px` with `var(--font-xl)` in Toolbar forcePushWarningIcon
-- Replaced all hardcoded transition durations (0.1s, 0.15s, 0.2s, 0.3s) with var(--transition-fast) or var(--transition-normal) across CommitGraph, StatusPanel, StatusBar, Toolbar, CommitFilterBar
-- Added focus-visible outlines (2px solid var(--accent)) to: Toolbar .btn, StatusBar .refreshBtn/.notifBtn, StatusPanel .actionBtn/.commitBtn/.commitSubject, CommitFilterBar .toggle/.input/.applyBtn/.clearBtn, CommitGraph .detailClose/.cherryPickBtn/.revertBtn
-- Files changed: ErrorBoundary.module.css, CommitGraph.module.css, StatusPanel.module.css, StatusBar.module.css, Toolbar.module.css, CommitFilterBar.module.css, Sidebar.module.css
-- **Learnings for future iterations:**
-  - Most hex colors in module.css files are already var() fallbacks (e.g., `var(--success, #a6e3a1)`) which is acceptable — only truly hardcoded colors need fixing
-  - Font-size token scale: --font-xs: 11px, --font-sm: 12px, --font-md: 13px, --font-lg: 15px, --font-xl: 18px — sizes like 7px, 8px, 9px for tiny icons/badges don't have tokens and are OK to keep
-  - Transition tokens: --transition-fast: 120ms ease for hover states, --transition-normal: 200ms ease for transforms/animations
-  - Files that already had focus-visible: TabBar, TitleBar, Sidebar, DetailPanel, CommitGraph (rows), ContextMenu
-  - rgba() color values in CSS are used for transparent tints of semantic colors — these don't have tokens and are acceptable
+  - Props must be threaded through AppLayout → MainContent → RepoView → DiffViewer (4 layers)
+  - DiffViewer is also used in StatusPanel.tsx but that instance doesn't need mode persistence
+  - The `DiffViewMode` type is exported from DiffViewer.tsx and can also be exported from useLayoutState.ts
+  - LayoutState auto-persists to localStorage via debounced save — just add the field and it works
 ---
