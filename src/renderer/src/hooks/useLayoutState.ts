@@ -208,6 +208,7 @@ export interface LayoutState {
   diffViewMode: DiffViewMode
   detailStagingSplit: number // 0-100, percent for detail share
   fileListView: FileListView
+  stagingInternalSplit: number // 0-100, percent for file list share (top) vs commit form (bottom)
 }
 
 const STORAGE_KEY = 'gitslop-layout-state'
@@ -223,7 +224,8 @@ const DEFAULT_LAYOUT: LayoutState = {
   detailPanelCollapsed: false,
   diffViewMode: 'inline',
   detailStagingSplit: 60,
-  fileListView: 'path'
+  fileListView: 'path',
+  stagingInternalSplit: 65
 }
 
 // Sidebar pixel bounds
@@ -255,6 +257,9 @@ function loadLayout(): LayoutState {
       // Clamp detailStagingSplit to valid range
       if (layout.detailStagingSplit == null || layout.detailStagingSplit < 10) layout.detailStagingSplit = DEFAULT_LAYOUT.detailStagingSplit
       if (layout.detailStagingSplit > 90) layout.detailStagingSplit = 90
+      // Clamp stagingInternalSplit to valid range
+      if (layout.stagingInternalSplit == null || layout.stagingInternalSplit < 20) layout.stagingInternalSplit = DEFAULT_LAYOUT.stagingInternalSplit
+      if (layout.stagingInternalSplit > 90) layout.stagingInternalSplit = 90
 
       return layout
     }
@@ -288,6 +293,7 @@ export function useLayoutState(): {
   setDiffViewMode: (mode: DiffViewMode) => void
   setDetailStagingSplit: (split: number) => void
   setFileListView: (view: FileListView) => void
+  setStagingInternalSplit: (split: number) => void
 } {
   const [layout, setLayout] = useState<LayoutState>(loadLayout)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -382,6 +388,11 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, fileListView: view }))
   }, [])
 
+  const setStagingInternalSplit = useCallback((split: number) => {
+    const clamped = Math.max(20, Math.min(90, Math.round(split)))
+    setLayout((prev) => ({ ...prev, stagingInternalSplit: clamped }))
+  }, [])
+
   return {
     layout,
     setSidebarSize,
@@ -397,6 +408,7 @@ export function useLayoutState(): {
     toggleDetailPanelCollapse,
     setDiffViewMode,
     setDetailStagingSplit,
-    setFileListView
+    setFileListView,
+    setStagingInternalSplit
   }
 }

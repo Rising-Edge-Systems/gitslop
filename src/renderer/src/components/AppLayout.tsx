@@ -55,7 +55,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     toggleDetailPanelCollapse,
     setDiffViewMode,
     setDetailStagingSplit,
-    setFileListView
+    setFileListView,
+    setStagingInternalSplit
   } = useLayoutState()
 
   const {
@@ -546,6 +547,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       repoPath={currentRepo}
                       collapsed={layout.stagingCollapsed}
                       onToggleCollapse={toggleStagingCollapse}
+                      stagingInternalSplit={layout.stagingInternalSplit}
+                      onStagingInternalSplitChange={setStagingInternalSplit}
                     />
                   </div>
                 </div>

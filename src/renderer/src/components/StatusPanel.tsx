@@ -36,6 +36,8 @@ interface StatusPanelProps {
   onRefresh?: () => void
   collapsed: boolean
   onToggleCollapse: () => void
+  stagingInternalSplit: number
+  onStagingInternalSplitChange: (split: number) => void
 }
 
 // ─── CSS Module Lookup Maps ──────────────────────────────────────────────────
@@ -95,7 +97,7 @@ function fileDir(filePath: string): string {
 
 const SUBJECT_WARN_LENGTH = 72
 
-export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }: StatusPanelProps): React.JSX.Element {
+export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, stagingInternalSplit, onStagingInternalSplitChange }: StatusPanelProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -126,6 +128,9 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }
   const panelRef = useRef<HTMLDivElement>(null)
   const statusLoadInFlightRef = useRef(false)
   const subjectRef = useRef<HTMLInputElement>(null)
+  const isDraggingInternalSplitRef = useRef(false)
+  const internalSplitContainerRef = useRef<HTMLDivElement>(null)
+  const [isDraggingInternalSplit, setIsDraggingInternalSplit] = useState(false)
 
   const loadStatus = useCallback(async () => {
     if (!mountedRef.current) return
@@ -237,6 +242,40 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }
     return () => document.removeEventListener('keydown', handleKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFile, selectedFiles, operationInProgress, status])
+
+  // Internal split drag handlers (file lists vs commit form)
+  const handleInternalSplitDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDraggingInternalSplitRef.current = true
+    setIsDraggingInternalSplit(true)
+    document.body.classList.add('sidebar-dragging')
+    const startY = e.clientY
+    const startSplit = stagingInternalSplit
+
+    const onMouseMove = (ev: MouseEvent): void => {
+      if (!isDraggingInternalSplitRef.current || !internalSplitContainerRef.current) return
+      const containerHeight = internalSplitContainerRef.current.getBoundingClientRect().height
+      if (containerHeight <= 0) return
+      const deltaY = ev.clientY - startY
+      const deltaPct = (deltaY / containerHeight) * 100
+      onStagingInternalSplitChange(startSplit + deltaPct)
+    }
+
+    const onMouseUp = (): void => {
+      isDraggingInternalSplitRef.current = false
+      setIsDraggingInternalSplit(false)
+      document.body.classList.remove('sidebar-dragging')
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [stagingInternalSplit, onStagingInternalSplitChange])
+
+  const handleInternalSplitDoubleClick = useCallback(() => {
+    onStagingInternalSplitChange(65) // reset to default
+  }, [onStagingInternalSplitChange])
 
   // ─── Stage/Unstage Operations ─────────────────────────────────────────────
 
@@ -763,7 +802,15 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }
       </button>
 
       {!collapsed && (
-        <>
+        <div ref={internalSplitContainerRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+          <div style={{
+            height: `calc(${stagingInternalSplit}% - 2px)`,
+            minHeight: 80,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            transition: isDraggingInternalSplit ? 'none' : undefined
+          }}>
           {isClean ? (
             <div className={styles.panelClean}>
               <span className={styles.panelCleanIcon}><Check size={16} /></span>
@@ -998,11 +1045,30 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }
               </div>
             </div>
           )}
-        </>
-      )}
-
-      {/* ─── Commit Form (always visible, pinned at bottom of staging panel) ─── */}
-      <div className={styles.commitForm}>
+          </div>
+          {/* ─── Internal Split Drag Handle ─── */}
+          <div
+            style={{
+              height: 5,
+              flexShrink: 0,
+              cursor: 'row-resize',
+              background: isDraggingInternalSplit ? 'var(--border)' : 'transparent',
+              borderTop: '1px solid var(--border)',
+              transition: 'background 0.15s ease'
+            }}
+            onMouseDown={handleInternalSplitDragStart}
+            onDoubleClick={handleInternalSplitDoubleClick}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
+            onMouseLeave={(e) => { if (!isDraggingInternalSplit) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+          />
+          {/* ─── Commit Form ─── */}
+          <div style={{
+            height: `calc(${100 - stagingInternalSplit}% - 3px)`,
+            minHeight: 120,
+            overflow: 'auto',
+            transition: isDraggingInternalSplit ? 'none' : undefined
+          }}>
+      <div className={styles.commitForm} style={{ borderTop: 'none' }}>
         {commitError && (
           <div className={styles.commitError}>{commitError}</div>
         )}
@@ -1094,6 +1160,9 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse }
           </div>
         )}
       </div>
+          </div>
+        </div>
+      )}
 
       {/* File Context Menu */}
       {fileContextMenu && (
