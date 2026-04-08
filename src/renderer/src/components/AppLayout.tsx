@@ -363,7 +363,9 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
             width: layout.sidebarCollapsed ? 48 : layout.sidebarSize,
             flexShrink: 0,
             height: '100%',
-            overflow: 'hidden',
+            overflow: layout.sidebarCollapsed ? 'visible' : 'hidden',
+            position: 'relative',
+            zIndex: layout.sidebarCollapsed ? 20 : undefined,
             borderRight: '1px solid var(--border)',
             transition: isDragging ? 'none' : 'width 200ms ease-out'
           }}>
@@ -445,7 +447,9 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
             width: layout.sidebarCollapsed ? 48 : layout.sidebarSize,
             flexShrink: 0,
             height: '100%',
-            overflow: 'hidden',
+            overflow: layout.sidebarCollapsed ? 'visible' : 'hidden',
+            position: 'relative',
+            zIndex: layout.sidebarCollapsed ? 20 : undefined,
             borderLeft: '1px solid var(--border)',
             transition: isDragging ? 'none' : 'width 200ms ease-out'
           }}>
