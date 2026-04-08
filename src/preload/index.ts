@@ -418,6 +418,33 @@ const extendedElectronAPI = {
       return () => {
         ipcRenderer.removeListener('menu:settings', handler)
       }
+    },
+    onToggleSidebar: (callback: () => void): (() => void) => {
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on('menu:toggle-sidebar', handler)
+      return () => {
+        ipcRenderer.removeListener('menu:toggle-sidebar', handler)
+      }
+    },
+    onToggleTerminal: (callback: () => void): (() => void) => {
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on('menu:toggle-terminal', handler)
+      return () => {
+        ipcRenderer.removeListener('menu:toggle-terminal', handler)
+      }
+    },
+    onKeyboardShortcuts: (callback: () => void): (() => void) => {
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on('menu:keyboard-shortcuts', handler)
+      return () => {
+        ipcRenderer.removeListener('menu:keyboard-shortcuts', handler)
+      }
     }
   }
 }

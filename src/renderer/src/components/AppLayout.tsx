@@ -143,6 +143,25 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     }
   }, [windowWidth, setSidebarCollapsed])
 
+  // Menu bar IPC → DOM event listeners for sidebar/terminal toggles and keyboard shortcuts
+  useEffect(() => {
+    const handleToggleSidebarMenu = (): void => { toggleSidebar() }
+    const handleToggleTerminalMenu = (): void => { toggleBottomPanel() }
+    const handleKeyboardShortcutsMenu = (): void => {
+      // Dispatch a keyboard-shortcuts-panel event for any component that shows it
+      window.dispatchEvent(new CustomEvent('menu:show-keyboard-shortcuts'))
+    }
+
+    window.addEventListener('menu:toggle-sidebar', handleToggleSidebarMenu)
+    window.addEventListener('menu:toggle-terminal', handleToggleTerminalMenu)
+    window.addEventListener('menu:keyboard-shortcuts', handleKeyboardShortcutsMenu)
+    return () => {
+      window.removeEventListener('menu:toggle-sidebar', handleToggleSidebarMenu)
+      window.removeEventListener('menu:toggle-terminal', handleToggleTerminalMenu)
+      window.removeEventListener('menu:keyboard-shortcuts', handleKeyboardShortcutsMenu)
+    }
+  }, [toggleSidebar, toggleBottomPanel])
+
   // Auto-fetch: fetches on configurable interval, tracks incoming changes
   const { incomingChanges, lastFetchTime, fetching: autoFetching, manualRefresh } = useAutoFetch({
     repoPath: currentRepo,

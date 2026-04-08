@@ -119,6 +119,27 @@ function App(): React.JSX.Element {
       })
     )
 
+    // View > Toggle Sidebar
+    cleanups.push(
+      window.electronAPI.menu.onToggleSidebar(() => {
+        window.dispatchEvent(new CustomEvent('menu:toggle-sidebar'))
+      })
+    )
+
+    // View > Toggle Terminal
+    cleanups.push(
+      window.electronAPI.menu.onToggleTerminal(() => {
+        window.dispatchEvent(new CustomEvent('menu:toggle-terminal'))
+      })
+    )
+
+    // Help > Keyboard Shortcuts
+    cleanups.push(
+      window.electronAPI.menu.onKeyboardShortcuts(() => {
+        window.dispatchEvent(new CustomEvent('menu:keyboard-shortcuts'))
+      })
+    )
+
     return () => {
       cleanups.forEach((fn) => fn())
     }

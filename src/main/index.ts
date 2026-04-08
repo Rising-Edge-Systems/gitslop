@@ -228,6 +228,81 @@ app.whenReady().then(async () => {
           }
         }
       ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Toggle Sidebar',
+          accelerator: 'CmdOrCtrl+B',
+          click: (): void => {
+            const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('menu:toggle-sidebar')
+            }
+          }
+        },
+        {
+          label: 'Toggle Terminal',
+          accelerator: 'CmdOrCtrl+`',
+          click: (): void => {
+            const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('menu:toggle-terminal')
+            }
+          }
+        },
+        { type: 'separator' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { role: 'resetZoom' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+        { type: 'separator' },
+        { role: 'toggleDevTools' }
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Keyboard Shortcuts',
+          click: (): void => {
+            const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('menu:keyboard-shortcuts')
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'About GitSlop',
+          click: (): void => {
+            const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              dialog.showMessageBox(win, {
+                type: 'info',
+                title: 'About GitSlop',
+                message: 'GitSlop',
+                detail: `Version: ${app.getVersion()}\nElectron: ${process.versions.electron}\nChromium: ${process.versions.chrome}\nNode.js: ${process.versions.node}`,
+                buttons: ['OK']
+              })
+            }
+          }
+        }
+      ]
     }
   ]
 

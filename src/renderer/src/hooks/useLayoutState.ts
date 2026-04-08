@@ -195,6 +195,9 @@ declare global {
         onInitRepository: (callback: () => void) => () => void
         onCloseTab: (callback: () => void) => () => void
         onSettings: (callback: () => void) => () => void
+        onToggleSidebar: (callback: () => void) => () => void
+        onToggleTerminal: (callback: () => void) => () => void
+        onKeyboardShortcuts: (callback: () => void) => () => void
       }
     }
   }
