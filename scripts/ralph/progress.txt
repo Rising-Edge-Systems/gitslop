@@ -164,3 +164,21 @@ Started: Mon Apr 8 2026
   - CSS variables for theming mean you don't need separate light/dark scrollbar blocks — the variables handle both themes
   - No browser testing tools available — manual verification needed
 ---
+
+## 2026-04-08 - US-PM-004
+- Added native Electron application menu with File menu (New Window, Open Repository, Clone Repository, Init Repository, Close Tab, Settings, Quit)
+- Menu built via Menu.buildFromTemplate() and Menu.setApplicationMenu() in main/index.ts
+- Added menu IPC namespace in preload with onOpenRepository, onCloneRepository, onInitRepository, onCloseTab, onSettings listeners
+- Added Window.electronAPI.menu type declarations in useLayoutState.ts
+- App.tsx listens for all menu IPC events and dispatches actions
+- Clone Repository dispatches custom DOM event 'menu:clone-repository' which Toolbar and WelcomeScreen listen for
+- Init Repository opens directory dialog and calls git.init directly from App.tsx
+- Files changed: src/main/index.ts, src/preload/index.ts, src/renderer/src/App.tsx, src/renderer/src/hooks/useLayoutState.ts, src/renderer/src/components/Toolbar.tsx, src/renderer/src/components/WelcomeScreen.tsx
+- **Learnings for future iterations:**
+  - Menu.setApplicationMenu() works on macOS even with frame:false/titleBarStyle:hidden — menu bar is at the OS level
+  - Use CmdOrCtrl for cross-platform accelerators (Cmd on macOS, Ctrl on Linux/Windows)
+  - Menu IPC pattern: main sends webContents.send('menu:X'), preload exposes ipcRenderer.on('menu:X'), renderer listens via electronAPI.menu.onX()
+  - Custom DOM events (window.dispatchEvent) are a good way to bridge App-level menu actions to deeply nested components (Toolbar, WelcomeScreen)
+  - The preload must expose cleanup functions (() => void) for all IPC listeners to avoid memory leaks
+  - No browser testing tools available — manual verification needed
+---

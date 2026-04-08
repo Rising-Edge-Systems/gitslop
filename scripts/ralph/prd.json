@@ -69,7 +69,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Import Menu from electron in main/index.ts. Build template in app.whenReady(). IPC: mainWindow.webContents.send('menu:X'). Preload: ipcRenderer.on('menu:X', callback)."
     },
     {
