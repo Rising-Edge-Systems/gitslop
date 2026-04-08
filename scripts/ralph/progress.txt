@@ -9,7 +9,8 @@ Started: Mon Apr 8 2026
 - Staging area (StatusPanel): renders in the RIGHT panel, not center
 - Center panel: commit graph OR diff viewer (swapped via viewingDiff state)
 - DiffViewer: local useState for mode ('inline'|'side-by-side'), accepts initialMode prop, used in RepoView
-- Sidebar collapsed: icon rail (48px) with RAIL_SECTIONS icons, overlay code EXISTS but may be clipped by overflow:hidden on parent
+- Sidebar collapsed: icon rail (48px) with RAIL_SECTIONS icons, overlay floats via overflow:visible + z-index on container
+- Sidebar container in AppLayout: TWO instances (left + right position) — always update both
 - CSS modules: import styles from './Component.module.css', camelCase class names
 - Design tokens: --space-*, --font-*, --radius-*, --border, --bg-hover, --transition-fast
 - Typecheck: npm run typecheck
@@ -33,4 +34,17 @@ Started: Mon Apr 8 2026
   - DiffViewer is also used in StatusPanel.tsx but that instance doesn't need mode persistence
   - The `DiffViewMode` type is exported from DiffViewer.tsx and can also be exported from useLayoutState.ts
   - LayoutState auto-persists to localStorage via debounced save — just add the field and it works
+---
+
+## 2026-04-08 - US-DD-002
+- Fixed sidebar icon rail overlays not appearing when sidebar is collapsed
+- Root cause: parent container div in AppLayout.tsx had `overflow: 'hidden'` which clipped the absolutely-positioned overlay
+- Fix: Changed overflow to `'visible'` when `layout.sidebarCollapsed` is true, added `position: 'relative'` and `zIndex: 20` to sidebar container
+- Applied to both left and right sidebar position variants
+- Files changed: AppLayout.tsx
+- **Learnings for future iterations:**
+  - The sidebar container in AppLayout has two instances — one for `sidebarPosition === 'left'` and one for `'right'` — both need matching changes
+  - Overlay z-index stacking: container gets z-index 20, overlay inside has z-index 100 — this creates a stacking context that floats above the center panel
+  - The overlay for right-positioned sidebar still opens to the right (left: 48px) — may need future fix to open leftward
+  - No browser testing tools available — manual verification needed
 ---

@@ -36,7 +36,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "The overlay implementation ALREADY EXISTS in Sidebar.tsx (lines 1988-2120). The bug is likely that the parent div in AppLayout.tsx has overflow: hidden which clips the absolute-positioned overlay. The sidebar container div at AppLayout line ~373 has style={{ overflow: 'hidden' }} — this needs to change to overflow: visible when collapsed, or the overlay needs to use a React portal to render outside the container. Check z-index too — the overlay needs z-index higher than the center panel."
     },
     {
