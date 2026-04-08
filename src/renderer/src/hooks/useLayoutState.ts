@@ -192,6 +192,8 @@ declare global {
   }
 }
 
+export type DiffViewMode = 'inline' | 'side-by-side'
+
 export interface LayoutState {
   sidebarSize: number
   bottomPanelSize: number
@@ -201,6 +203,7 @@ export interface LayoutState {
   rightPanelSize: number
   stagingCollapsed: boolean
   detailPanelCollapsed: boolean
+  diffViewMode: DiffViewMode
 }
 
 const STORAGE_KEY = 'gitslop-layout-state'
@@ -213,7 +216,8 @@ const DEFAULT_LAYOUT: LayoutState = {
   sidebarCollapsed: false,
   rightPanelSize: 25,
   stagingCollapsed: false,
-  detailPanelCollapsed: false
+  detailPanelCollapsed: false,
+  diffViewMode: 'inline'
 }
 
 // Sidebar pixel bounds
@@ -266,6 +270,7 @@ export function useLayoutState(): {
   toggleStagingCollapse: () => void
   setDetailPanelCollapsed: (collapsed: boolean) => void
   toggleDetailPanelCollapse: () => void
+  setDiffViewMode: (mode: DiffViewMode) => void
 } {
   const [layout, setLayout] = useState<LayoutState>(loadLayout)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -346,6 +351,10 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, detailPanelCollapsed: !prev.detailPanelCollapsed }))
   }, [])
 
+  const setDiffViewMode = useCallback((mode: DiffViewMode) => {
+    setLayout((prev) => ({ ...prev, diffViewMode: mode }))
+  }, [])
+
   return {
     layout,
     setSidebarSize,
@@ -358,6 +367,7 @@ export function useLayoutState(): {
     setStagingCollapsed,
     toggleStagingCollapse,
     setDetailPanelCollapsed,
-    toggleDetailPanelCollapse
+    toggleDetailPanelCollapse,
+    setDiffViewMode
   }
 }

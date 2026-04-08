@@ -9,7 +9,7 @@ import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from 
 import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
 // StatusPanel moved to right panel in AppLayout
-import { DiffViewer } from './DiffViewer'
+import { DiffViewer, type DiffViewMode } from './DiffViewer'
 
 interface RepoViewProps {
   repoPath: string
@@ -21,6 +21,8 @@ interface RepoViewProps {
   selectedCommit?: CommitDetail | null
   onBackToGraph?: () => void
   onNavigateFile?: (direction: 'prev' | 'next') => void
+  diffViewMode?: DiffViewMode
+  onDiffViewModeChange?: (mode: DiffViewMode) => void
 }
 
 interface BranchInfo {
@@ -35,7 +37,7 @@ interface RepoStatus {
   untracked: number
 }
 
-export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile }: RepoViewProps): React.JSX.Element {
+export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange }: RepoViewProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -268,6 +270,8 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
                     <DiffViewer
                       diffContent={diffContent}
                       filePath={diffFile}
+                      initialMode={diffViewMode}
+                      onModeChange={onDiffViewModeChange}
                       className={styles.centerDiffViewer}
                       fileStatus={currentFileDetail?.status}
                       fileIndex={currentFileIndex >= 0 ? currentFileIndex : 0}

@@ -392,6 +392,8 @@ export interface DiffViewerProps {
   filePath: string
   /** If not specified, defaults to 'inline' */
   initialMode?: DiffViewMode
+  /** Called when user toggles between inline and side-by-side mode */
+  onModeChange?: (mode: DiffViewMode) => void
   /** Callback for hunk staging (from StatusPanel integration) */
   onStageHunk?: (hunkIdx: number) => void
   onUnstageHunk?: (hunkIdx: number) => void
@@ -425,6 +427,7 @@ export function DiffViewer({
   diffContent,
   filePath,
   initialMode = 'inline',
+  onModeChange,
   className = '',
   fileStatus,
   fileIndex,
@@ -512,14 +515,14 @@ export function DiffViewer({
         <div className={styles.modeToggle}>
           <button
             className={`${styles.modeBtn} ${mode === 'inline' ? styles.modeBtnActive : ''}`}
-            onClick={() => setMode('inline')}
+            onClick={() => { setMode('inline'); onModeChange?.('inline') }}
             title="Inline (unified) diff"
           >
             Inline
           </button>
           <button
             className={`${styles.modeBtn} ${mode === 'side-by-side' ? styles.modeBtnActive : ''}`}
-            onClick={() => setMode('side-by-side')}
+            onClick={() => { setMode('side-by-side'); onModeChange?.('side-by-side') }}
             title="Side-by-side diff"
           >
             Split

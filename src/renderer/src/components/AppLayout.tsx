@@ -51,7 +51,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setSidebarCollapsed,
     toggleStagingCollapse,
     setDetailPanelCollapsed,
-    toggleDetailPanelCollapse
+    toggleDetailPanelCollapse,
+    setDiffViewMode
   } = useLayoutState()
 
   const {
@@ -385,6 +386,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   selectedCommit={selectedCommit}
                   onBackToGraph={handleBackToGraph}
                   onNavigateFile={handleNavigateFile}
+                  diffViewMode={layout.diffViewMode}
+                  onDiffViewModeChange={setDiffViewMode}
                 />
               </div>
               {/* Right panel — commit details on top, staging area below.

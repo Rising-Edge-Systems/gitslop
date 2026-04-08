@@ -2,6 +2,7 @@ import React from 'react'
 import { WelcomeScreen } from './WelcomeScreen'
 import { RepoView } from './RepoView'
 import type { CommitDetail } from './CommitGraph'
+import type { DiffViewMode } from './DiffViewer'
 
 interface MainContentProps {
   currentRepo: string | null
@@ -14,9 +15,11 @@ interface MainContentProps {
   selectedCommit?: CommitDetail | null
   onBackToGraph?: () => void
   onNavigateFile?: (direction: 'prev' | 'next') => void
+  diffViewMode?: DiffViewMode
+  onDiffViewModeChange?: (mode: DiffViewMode) => void
 }
 
-export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCommitSelect, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile }: MainContentProps): React.JSX.Element {
+export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCommitSelect, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange }: MainContentProps): React.JSX.Element {
   if (!currentRepo) {
     return (
       <div className="main-content main-content--centered">
@@ -36,6 +39,8 @@ export const MainContent = React.memo(function MainContent({ currentRepo, onRepo
         selectedCommit={selectedCommit}
         onBackToGraph={onBackToGraph}
         onNavigateFile={onNavigateFile}
+        diffViewMode={diffViewMode}
+        onDiffViewModeChange={onDiffViewModeChange}
       />
     </div>
   )
