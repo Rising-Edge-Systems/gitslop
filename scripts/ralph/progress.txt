@@ -82,3 +82,19 @@ Started: Mon Apr 8 2026
   - minHeight:100 on each section prevents collapse, but clamping in setDetailStagingSplit (10-90) is the primary guard
   - No browser testing tools available — manual verification needed
 ---
+
+## 2026-04-08 - US-DD-005
+- Added file list view toggle (flat path vs directory tree) in DetailPanel changed files section
+- Built `buildFileTree()` utility that converts flat CommitFileDetail[] into a recursive tree structure
+- Built recursive `FileTreeNodeComponent` with collapsible directories (expanded by default), status icons, and +/- stats
+- Added `fileListView: 'path' | 'tree'` to LayoutState with default 'path', persists via localStorage
+- Added List and FolderTree toggle buttons in the files section header row
+- Threaded fileListView and setFileListView through AppLayout → DetailPanel
+- Files changed: useLayoutState.ts, DetailPanel.tsx, DetailPanel.module.css, AppLayout.tsx
+- **Learnings for future iterations:**
+  - Tree view uses depth-based paddingLeft (depth * 16 + 8) for indentation — pure inline style, no CSS nesting
+  - The filesHeader button needed to be wrapped in a filesHeaderRow div to accommodate the toggle buttons alongside it
+  - buildFileTree sorts directories first, then alphabetically within each level
+  - FileTreeNodeComponent uses local useState for expanded state — each directory independently tracks its own expand/collapse
+  - No browser testing tools available — manual verification needed
+---

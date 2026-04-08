@@ -98,7 +98,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Build a utility function buildFileTree(files: CommitFileDetail[]) that returns a tree: { name: string, fullPath: string, isDir: boolean, children: TreeNode[], file?: CommitFileDetail }. Split each file path by '/' and insert into the tree. Render with a recursive FileTreeNode component. Directories start expanded by default."
     },
     {
