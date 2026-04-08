@@ -49,6 +49,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     toggleSidebar,
     toggleSidebarCollapse,
     setSidebarCollapsed,
+    setRightPanelSize,
     toggleStagingCollapse,
     setDetailPanelCollapsed,
     toggleDetailPanelCollapse,
@@ -256,6 +257,48 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setSidebarSize(DEFAULT_SIDEBAR_WIDTH)
   }, [setSidebarSize])
 
+  // ─── Right Panel Drag Handle ──────────────────────────────────────────────
+  const DEFAULT_RIGHT_PANEL_WIDTH = 340
+  const isDraggingRightRef = useRef(false)
+  const [isDraggingRight, setIsDraggingRight] = useState(false)
+  const dragStartXRightRef = useRef(0)
+  const dragStartWidthRightRef = useRef(0)
+
+  const handleRightDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      isDraggingRightRef.current = true
+      setIsDraggingRight(true)
+      dragStartXRightRef.current = e.clientX
+      dragStartWidthRightRef.current = layout.rightPanelSize
+      document.body.classList.add('sidebar-dragging')
+
+      const onMouseMove = (ev: MouseEvent): void => {
+        if (!isDraggingRightRef.current) return
+        const delta = ev.clientX - dragStartXRightRef.current
+        // Dragging LEFT makes the right panel wider
+        const newWidth = dragStartWidthRightRef.current - delta
+        setRightPanelSize(newWidth)
+      }
+
+      const onMouseUp = (): void => {
+        isDraggingRightRef.current = false
+        setIsDraggingRight(false)
+        document.body.classList.remove('sidebar-dragging')
+        document.removeEventListener('mousemove', onMouseMove)
+        document.removeEventListener('mouseup', onMouseUp)
+      }
+
+      document.addEventListener('mousemove', onMouseMove)
+      document.addEventListener('mouseup', onMouseUp)
+    },
+    [layout.rightPanelSize, setRightPanelSize]
+  )
+
+  const handleRightDragHandleDoubleClick = useCallback(() => {
+    setRightPanelSize(DEFAULT_RIGHT_PANEL_WIDTH)
+  }, [setRightPanelSize])
+
   const sidebarExpanded = layout.sidebarVisible && !layout.sidebarCollapsed
 
   const dragHandle = sidebarExpanded ? (
@@ -392,17 +435,26 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   onDiffViewModeChange={setDiffViewMode}
                 />
               </div>
-              {/* Right panel — commit details on top, staging area below.
+              {/* Right panel drag handle + commit details on top, staging area below.
                   Always visible when a repo is open. */}
               {currentRepo && (
+                <div
+                  className="sidebar-drag-handle"
+                  style={{ cursor: 'col-resize' }}
+                  onMouseDown={handleRightDragStart}
+                  onDoubleClick={handleRightDragHandleDoubleClick}
+                />
+              )}
+              {currentRepo && (
                 <div style={{
-                  width: 340,
+                  width: layout.rightPanelSize,
                   flexShrink: 0,
                   height: '100%',
                   overflow: 'hidden',
                   borderLeft: '1px solid var(--border)',
                   display: 'flex',
-                  flexDirection: 'column'
+                  flexDirection: 'column',
+                  transition: isDraggingRight ? 'none' : undefined
                 }}>
                   <div style={{ flex: 6, minHeight: 0, overflow: 'hidden' }}>
                     <DetailPanel

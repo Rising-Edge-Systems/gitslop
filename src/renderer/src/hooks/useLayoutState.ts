@@ -214,7 +214,7 @@ const DEFAULT_LAYOUT: LayoutState = {
   bottomPanelVisible: false,
   sidebarVisible: true,
   sidebarCollapsed: false,
-  rightPanelSize: 25,
+  rightPanelSize: 340,
   stagingCollapsed: false,
   detailPanelCollapsed: false,
   diffViewMode: 'inline'
@@ -223,7 +223,9 @@ const DEFAULT_LAYOUT: LayoutState = {
 // Sidebar pixel bounds
 const MIN_SIDEBAR_SIZE = 180
 const MAX_SIDEBAR_SIZE = 400
-const MIN_RIGHT_PANEL_SIZE = 15
+const MIN_RIGHT_PANEL_SIZE = 280
+const MAX_RIGHT_PANEL_SIZE = 600
+const DEFAULT_RIGHT_PANEL_SIZE = 340
 const MIN_BOTTOM_PANEL_SIZE = 10
 
 function loadLayout(): LayoutState {
@@ -238,7 +240,11 @@ function loadLayout(): LayoutState {
       // Clamp sidebar to valid pixel range
       if (layout.sidebarSize < MIN_SIDEBAR_SIZE) layout.sidebarSize = MIN_SIDEBAR_SIZE
       if (layout.sidebarSize > MAX_SIDEBAR_SIZE) layout.sidebarSize = MAX_SIDEBAR_SIZE
-      if (layout.rightPanelSize < MIN_RIGHT_PANEL_SIZE) layout.rightPanelSize = DEFAULT_LAYOUT.rightPanelSize
+      // Migrate old percentage-based rightPanelSize (< 100) to pixel width
+      if (layout.rightPanelSize < 100) layout.rightPanelSize = DEFAULT_RIGHT_PANEL_SIZE
+      // Clamp right panel to valid pixel range
+      if (layout.rightPanelSize < MIN_RIGHT_PANEL_SIZE) layout.rightPanelSize = MIN_RIGHT_PANEL_SIZE
+      if (layout.rightPanelSize > MAX_RIGHT_PANEL_SIZE) layout.rightPanelSize = MAX_RIGHT_PANEL_SIZE
       if (layout.bottomPanelSize < MIN_BOTTOM_PANEL_SIZE) layout.bottomPanelSize = DEFAULT_LAYOUT.bottomPanelSize
 
       return layout
@@ -300,7 +306,8 @@ export function useLayoutState(): {
   }, [])
 
   const setRightPanelSize = useCallback((size: number) => {
-    setLayout((prev) => ({ ...prev, rightPanelSize: size }))
+    const clamped = Math.max(MIN_RIGHT_PANEL_SIZE, Math.min(MAX_RIGHT_PANEL_SIZE, Math.round(size)))
+    setLayout((prev) => ({ ...prev, rightPanelSize: clamped }))
   }, [])
 
   const toggleBottomPanel = useCallback(() => {
