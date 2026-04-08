@@ -48,3 +48,19 @@ Started: Mon Apr 8 2026
   - The overlay for right-positioned sidebar still opens to the right (left: 48px) — may need future fix to open leftward
   - No browser testing tools available — manual verification needed
 ---
+
+## 2026-04-08 - US-DD-003
+- Added resizable right panel width with drag handle between center and right panels
+- Changed rightPanelSize from percentage (25) to pixels (340) with migration for old values
+- Added clamping: min 280px, max 600px, default 340px
+- Reused sidebar-drag-handle CSS class for consistent styling
+- Drag direction: dragging LEFT makes right panel wider (delta subtracted from width)
+- Double-click resets to 340px default
+- Width persists via existing localStorage debounced save
+- Files changed: useLayoutState.ts, AppLayout.tsx
+- **Learnings for future iterations:**
+  - The sidebar-drag-handle CSS class can be reused for any vertical drag divider — it handles cursor, width, hover highlight
+  - Right panel drag: delta is subtracted (not added) because dragging left = wider panel
+  - The `sidebar-dragging` body class disables user-select during drag — reuse it for any drag interaction
+  - isDraggingRight state used to disable transition during drag for smooth resizing
+---

@@ -56,7 +56,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Copy the sidebar drag handle pattern from AppLayout.tsx lines 230-266. The right panel drag handle goes BETWEEN the center div and the right panel div. Drag direction: dragging LEFT makes the right panel wider. The rightPanelSize field already exists in LayoutState but stores a percentage — change it to pixels and add migration (if < 100, multiply by 12.8 and clamp)."
     },
     {
