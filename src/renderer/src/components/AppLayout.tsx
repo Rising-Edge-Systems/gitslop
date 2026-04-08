@@ -53,7 +53,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     toggleStagingCollapse,
     setDetailPanelCollapsed,
     toggleDetailPanelCollapse,
-    setDiffViewMode
+    setDiffViewMode,
+    setDetailStagingSplit
   } = useLayoutState()
 
   const {
@@ -299,6 +300,52 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setRightPanelSize(DEFAULT_RIGHT_PANEL_WIDTH)
   }, [setRightPanelSize])
 
+  // ─── Detail/Staging Vertical Split Drag Handle ────────────────────────────
+  const isDraggingDetailSplitRef = useRef(false)
+  const [isDraggingDetailSplit, setIsDraggingDetailSplit] = useState(false)
+  const dragStartYDetailRef = useRef(0)
+  const dragStartSplitRef = useRef(0)
+  const rightPanelContainerRef = useRef<HTMLDivElement>(null)
+
+  const handleDetailSplitDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      isDraggingDetailSplitRef.current = true
+      setIsDraggingDetailSplit(true)
+      dragStartYDetailRef.current = e.clientY
+      dragStartSplitRef.current = layout.detailStagingSplit
+      document.body.classList.add('sidebar-dragging')
+
+      const onMouseMove = (ev: MouseEvent): void => {
+        if (!isDraggingDetailSplitRef.current) return
+        const container = rightPanelContainerRef.current
+        if (!container) return
+        const containerHeight = container.clientHeight
+        if (containerHeight === 0) return
+        const delta = ev.clientY - dragStartYDetailRef.current
+        const deltaPercent = (delta / containerHeight) * 100
+        const newSplit = dragStartSplitRef.current + deltaPercent
+        setDetailStagingSplit(newSplit)
+      }
+
+      const onMouseUp = (): void => {
+        isDraggingDetailSplitRef.current = false
+        setIsDraggingDetailSplit(false)
+        document.body.classList.remove('sidebar-dragging')
+        document.removeEventListener('mousemove', onMouseMove)
+        document.removeEventListener('mouseup', onMouseUp)
+      }
+
+      document.addEventListener('mousemove', onMouseMove)
+      document.addEventListener('mouseup', onMouseUp)
+    },
+    [layout.detailStagingSplit, setDetailStagingSplit]
+  )
+
+  const handleDetailSplitDoubleClick = useCallback(() => {
+    setDetailStagingSplit(60)
+  }, [setDetailStagingSplit])
+
   const sidebarExpanded = layout.sidebarVisible && !layout.sidebarCollapsed
 
   const dragHandle = sidebarExpanded ? (
@@ -446,17 +493,25 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                 />
               )}
               {currentRepo && (
-                <div style={{
-                  width: layout.rightPanelSize,
-                  flexShrink: 0,
-                  height: '100%',
-                  overflow: 'hidden',
-                  borderLeft: '1px solid var(--border)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  transition: isDraggingRight ? 'none' : undefined
-                }}>
-                  <div style={{ flex: 6, minHeight: 0, overflow: 'hidden' }}>
+                <div
+                  ref={rightPanelContainerRef}
+                  style={{
+                    width: layout.rightPanelSize,
+                    flexShrink: 0,
+                    height: '100%',
+                    overflow: 'hidden',
+                    borderLeft: '1px solid var(--border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: isDraggingRight ? 'none' : undefined
+                  }}
+                >
+                  <div style={{
+                    height: `calc(${layout.detailStagingSplit}% - 2px)`,
+                    minHeight: 100,
+                    overflow: 'hidden',
+                    transition: isDraggingDetailSplit ? 'none' : undefined
+                  }}>
                     <DetailPanel
                       detail={selectedCommit}
                       repoPath={currentRepo}
@@ -464,7 +519,26 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       selectedFilePath={viewingDiff ? diffFile : null}
                     />
                   </div>
-                  <div style={{ flex: 4, minHeight: 0, overflow: 'hidden', borderTop: '1px solid var(--border)' }}>
+                  <div
+                    style={{
+                      height: 5,
+                      flexShrink: 0,
+                      cursor: 'row-resize',
+                      background: isDraggingDetailSplit ? 'var(--border)' : 'transparent',
+                      borderTop: '1px solid var(--border)',
+                      transition: 'background 0.15s ease'
+                    }}
+                    onMouseDown={handleDetailSplitDragStart}
+                    onDoubleClick={handleDetailSplitDoubleClick}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
+                    onMouseLeave={(e) => { if (!isDraggingDetailSplit) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                  />
+                  <div style={{
+                    height: `calc(${100 - layout.detailStagingSplit}% - 3px)`,
+                    minHeight: 100,
+                    overflow: 'hidden',
+                    transition: isDraggingDetailSplit ? 'none' : undefined
+                  }}>
                     <StatusPanel
                       repoPath={currentRepo}
                       collapsed={layout.stagingCollapsed}

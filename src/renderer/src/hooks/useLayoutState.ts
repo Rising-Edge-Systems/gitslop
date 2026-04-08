@@ -204,6 +204,7 @@ export interface LayoutState {
   stagingCollapsed: boolean
   detailPanelCollapsed: boolean
   diffViewMode: DiffViewMode
+  detailStagingSplit: number // 0-100, percent for detail share
 }
 
 const STORAGE_KEY = 'gitslop-layout-state'
@@ -217,7 +218,8 @@ const DEFAULT_LAYOUT: LayoutState = {
   rightPanelSize: 340,
   stagingCollapsed: false,
   detailPanelCollapsed: false,
-  diffViewMode: 'inline'
+  diffViewMode: 'inline',
+  detailStagingSplit: 60
 }
 
 // Sidebar pixel bounds
@@ -246,6 +248,9 @@ function loadLayout(): LayoutState {
       if (layout.rightPanelSize < MIN_RIGHT_PANEL_SIZE) layout.rightPanelSize = MIN_RIGHT_PANEL_SIZE
       if (layout.rightPanelSize > MAX_RIGHT_PANEL_SIZE) layout.rightPanelSize = MAX_RIGHT_PANEL_SIZE
       if (layout.bottomPanelSize < MIN_BOTTOM_PANEL_SIZE) layout.bottomPanelSize = DEFAULT_LAYOUT.bottomPanelSize
+      // Clamp detailStagingSplit to valid range
+      if (layout.detailStagingSplit == null || layout.detailStagingSplit < 10) layout.detailStagingSplit = DEFAULT_LAYOUT.detailStagingSplit
+      if (layout.detailStagingSplit > 90) layout.detailStagingSplit = 90
 
       return layout
     }
@@ -277,6 +282,7 @@ export function useLayoutState(): {
   setDetailPanelCollapsed: (collapsed: boolean) => void
   toggleDetailPanelCollapse: () => void
   setDiffViewMode: (mode: DiffViewMode) => void
+  setDetailStagingSplit: (split: number) => void
 } {
   const [layout, setLayout] = useState<LayoutState>(loadLayout)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -362,6 +368,11 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, diffViewMode: mode }))
   }, [])
 
+  const setDetailStagingSplit = useCallback((split: number) => {
+    const clamped = Math.max(10, Math.min(90, Math.round(split)))
+    setLayout((prev) => ({ ...prev, detailStagingSplit: clamped }))
+  }, [])
+
   return {
     layout,
     setSidebarSize,
@@ -375,6 +386,7 @@ export function useLayoutState(): {
     toggleStagingCollapse,
     setDetailPanelCollapsed,
     toggleDetailPanelCollapse,
-    setDiffViewMode
+    setDiffViewMode,
+    setDetailStagingSplit
   }
 }
