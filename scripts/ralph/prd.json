@@ -52,7 +52,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Add to global.css. Use ::-webkit-scrollbar, ::-webkit-scrollbar-track, ::-webkit-scrollbar-thumb. Electron uses Chromium so webkit prefix works."
     },
     {

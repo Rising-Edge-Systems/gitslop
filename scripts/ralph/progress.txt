@@ -151,3 +151,16 @@ Started: Mon Apr 8 2026
   - Same drag pattern used: mousedown/mousemove/mouseup on document, body class 'sidebar-dragging' for user-select:none
   - No browser testing tools available — manual verification needed
 ---
+
+## 2026-04-08 - US-PM-003
+- Added dark-themed scrollbars globally via ::-webkit-scrollbar CSS in global.css
+- Scrollbar width/height: 8px, thumb uses var(--border) with 4px border-radius
+- Thumb hover uses var(--text-muted) for a brighter highlight
+- Track and corner are transparent
+- Light theme automatically works because CSS variables (--border, --text-muted) are redefined under [data-theme="light"] in tokens.css
+- Files changed: global.css
+- **Learnings for future iterations:**
+  - Electron uses Chromium so ::-webkit-scrollbar pseudo-elements work everywhere in the app
+  - CSS variables for theming mean you don't need separate light/dark scrollbar blocks — the variables handle both themes
+  - No browser testing tools available — manual verification needed
+---
