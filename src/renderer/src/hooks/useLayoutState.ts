@@ -193,6 +193,7 @@ declare global {
 }
 
 export type DiffViewMode = 'inline' | 'side-by-side'
+export type FileListView = 'path' | 'tree'
 
 export interface LayoutState {
   sidebarSize: number
@@ -205,6 +206,7 @@ export interface LayoutState {
   detailPanelCollapsed: boolean
   diffViewMode: DiffViewMode
   detailStagingSplit: number // 0-100, percent for detail share
+  fileListView: FileListView
 }
 
 const STORAGE_KEY = 'gitslop-layout-state'
@@ -219,7 +221,8 @@ const DEFAULT_LAYOUT: LayoutState = {
   stagingCollapsed: false,
   detailPanelCollapsed: false,
   diffViewMode: 'inline',
-  detailStagingSplit: 60
+  detailStagingSplit: 60,
+  fileListView: 'path'
 }
 
 // Sidebar pixel bounds
@@ -283,6 +286,7 @@ export function useLayoutState(): {
   toggleDetailPanelCollapse: () => void
   setDiffViewMode: (mode: DiffViewMode) => void
   setDetailStagingSplit: (split: number) => void
+  setFileListView: (view: FileListView) => void
 } {
   const [layout, setLayout] = useState<LayoutState>(loadLayout)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -373,6 +377,10 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, detailStagingSplit: clamped }))
   }, [])
 
+  const setFileListView = useCallback((view: FileListView) => {
+    setLayout((prev) => ({ ...prev, fileListView: view }))
+  }, [])
+
   return {
     layout,
     setSidebarSize,
@@ -387,6 +395,7 @@ export function useLayoutState(): {
     setDetailPanelCollapsed,
     toggleDetailPanelCollapse,
     setDiffViewMode,
-    setDetailStagingSplit
+    setDetailStagingSplit,
+    setFileListView
   }
 }

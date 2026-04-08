@@ -54,7 +54,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setDetailPanelCollapsed,
     toggleDetailPanelCollapse,
     setDiffViewMode,
-    setDetailStagingSplit
+    setDetailStagingSplit,
+    setFileListView
   } = useLayoutState()
 
   const {
@@ -517,6 +518,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       repoPath={currentRepo}
                       onFileClick={handleFileClick}
                       selectedFilePath={viewingDiff ? diffFile : null}
+                      fileListView={layout.fileListView}
+                      onFileListViewChange={setFileListView}
                     />
                   </div>
                   <div

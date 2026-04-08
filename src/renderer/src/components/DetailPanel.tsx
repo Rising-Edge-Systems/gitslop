@@ -13,10 +13,140 @@ import {
   Copy,
   Check,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  List,
+  FolderTree,
+  Folder,
+  FolderOpen
 } from 'lucide-react'
 import styles from './DetailPanel.module.css'
 import type { CommitDetail, CommitFileDetail } from './CommitGraph'
+import type { FileListView } from '../hooks/useLayoutState'
+
+/** Tree node for directory tree view of changed files */
+interface FileTreeNode {
+  name: string
+  fullPath: string
+  isDir: boolean
+  children: FileTreeNode[]
+  file?: CommitFileDetail
+}
+
+/** Build a directory tree from a flat list of file details */
+function buildFileTree(files: CommitFileDetail[]): FileTreeNode[] {
+  const root: FileTreeNode = { name: '', fullPath: '', isDir: true, children: [] }
+
+  for (const file of files) {
+    const parts = file.path.split('/')
+    let current = root
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      const isLast = i === parts.length - 1
+      const partPath = parts.slice(0, i + 1).join('/')
+
+      if (isLast) {
+        // Leaf file node
+        current.children.push({
+          name: part,
+          fullPath: file.path,
+          isDir: false,
+          children: [],
+          file
+        })
+      } else {
+        // Directory node — find or create
+        let dirNode = current.children.find((c) => c.isDir && c.name === part)
+        if (!dirNode) {
+          dirNode = { name: part, fullPath: partPath, isDir: true, children: [] }
+          current.children.push(dirNode)
+        }
+        current = dirNode
+      }
+    }
+  }
+
+  // Sort: directories first, then alphabetical
+  const sortTree = (nodes: FileTreeNode[]): void => {
+    nodes.sort((a, b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+    for (const node of nodes) {
+      if (node.isDir) sortTree(node.children)
+    }
+  }
+  sortTree(root.children)
+
+  return root.children
+}
+
+/** Recursive component to render a tree node */
+function FileTreeNodeComponent({
+  node,
+  depth,
+  onFileClick,
+  selectedFilePath
+}: {
+  node: FileTreeNode
+  depth: number
+  onFileClick: (file: CommitFileDetail) => void
+  selectedFilePath?: string | null
+}): React.JSX.Element {
+  const [expanded, setExpanded] = useState(true)
+
+  if (node.isDir) {
+    return (
+      <li>
+        <button
+          className={styles.treeDir}
+          style={{ paddingLeft: depth * 16 + 8 }}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          {expanded ? <FolderOpen size={12} className={styles.treeDirIcon} /> : <Folder size={12} className={styles.treeDirIcon} />}
+          <span className={styles.treeDirName}>{node.name}</span>
+        </button>
+        {expanded && (
+          <ul className={styles.treeChildren}>
+            {node.children.map((child) => (
+              <FileTreeNodeComponent
+                key={child.fullPath}
+                node={child}
+                depth={depth + 1}
+                onFileClick={onFileClick}
+                selectedFilePath={selectedFilePath}
+              />
+            ))}
+          </ul>
+        )}
+      </li>
+    )
+  }
+
+  // File leaf node
+  const file = node.file!
+  const isSelected = selectedFilePath === file.path
+  return (
+    <li>
+      <button
+        className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''}`}
+        style={{ paddingLeft: depth * 16 + 8 }}
+        onClick={() => onFileClick(file)}
+        title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
+      >
+        <FileStatusIcon status={file.status} />
+        <span className={styles.fileName}>{node.name}</span>
+        {(file.insertions > 0 || file.deletions > 0) && (
+          <span className={styles.fileStats}>
+            {file.insertions > 0 && <span className={styles.statsAdded}>+{file.insertions}</span>}
+            {file.deletions > 0 && <span className={styles.statsRemoved}>-{file.deletions}</span>}
+          </span>
+        )}
+      </button>
+    </li>
+  )
+}
 
 interface DetailPanelProps {
   detail: CommitDetail | null
@@ -25,6 +155,10 @@ interface DetailPanelProps {
   onFileClick?: (file: CommitFileDetail, commitHash: string) => void
   /** Path of the currently selected file (whose diff is open in center panel) */
   selectedFilePath?: string | null
+  /** Current file list view mode */
+  fileListView?: FileListView
+  /** Callback to change file list view mode */
+  onFileListViewChange?: (view: FileListView) => void
 }
 
 function formatRelativeDate(dateStr: string): string {
@@ -77,7 +211,7 @@ function splitPath(filePath: string): { dir: string; name: string } {
   return { dir: filePath.substring(0, lastSlash + 1), name: filePath.substring(lastSlash + 1) }
 }
 
-export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath }: DetailPanelProps): React.JSX.Element {
+export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, fileListView = 'path', onFileListViewChange }: DetailPanelProps): React.JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null)
   const [copiedSha, setCopiedSha] = useState(false)
   const [filesExpanded, setFilesExpanded] = useState(true)
@@ -199,25 +333,45 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath }:
 
         {/* Changed files */}
         <div className={styles.filesSection}>
-          <button
-            className={styles.filesHeader}
-            onClick={() => setFilesExpanded(!filesExpanded)}
-          >
-            {filesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            <FileText size={14} />
-            <span className={styles.filesTitle}>
-              {fileCount} file{fileCount !== 1 ? 's' : ''} changed
-            </span>
-            {(totalInsertions > 0 || totalDeletions > 0) && (
-              <span className={styles.statsSummary}>
-                {totalInsertions > 0 && <span className={styles.statsAdded}>+{totalInsertions}</span>}
-                {totalInsertions > 0 && totalDeletions > 0 && ' '}
-                {totalDeletions > 0 && <span className={styles.statsRemoved}>-{totalDeletions}</span>}
+          <div className={styles.filesHeaderRow}>
+            <button
+              className={styles.filesHeader}
+              onClick={() => setFilesExpanded(!filesExpanded)}
+            >
+              {filesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <FileText size={14} />
+              <span className={styles.filesTitle}>
+                {fileCount} file{fileCount !== 1 ? 's' : ''} changed
               </span>
+              {(totalInsertions > 0 || totalDeletions > 0) && (
+                <span className={styles.statsSummary}>
+                  {totalInsertions > 0 && <span className={styles.statsAdded}>+{totalInsertions}</span>}
+                  {totalInsertions > 0 && totalDeletions > 0 && ' '}
+                  {totalDeletions > 0 && <span className={styles.statsRemoved}>-{totalDeletions}</span>}
+                </span>
+              )}
+            </button>
+            {filesExpanded && (
+              <div className={styles.viewToggle}>
+                <button
+                  className={`${styles.viewToggleBtn} ${fileListView === 'path' ? styles.viewToggleBtnActive : ''}`}
+                  onClick={() => onFileListViewChange?.('path')}
+                  title="Flat list view"
+                >
+                  <List size={14} />
+                </button>
+                <button
+                  className={`${styles.viewToggleBtn} ${fileListView === 'tree' ? styles.viewToggleBtnActive : ''}`}
+                  onClick={() => onFileListViewChange?.('tree')}
+                  title="Directory tree view"
+                >
+                  <FolderTree size={14} />
+                </button>
+              </div>
             )}
-          </button>
+          </div>
 
-          {filesExpanded && (
+          {filesExpanded && fileListView === 'path' && (
             <ul className={styles.fileList}>
               {fileDetails.map((file) => {
                 const { dir, name } = splitPath(file.path)
@@ -244,6 +398,20 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath }:
                   </li>
                 )
               })}
+            </ul>
+          )}
+
+          {filesExpanded && fileListView === 'tree' && (
+            <ul className={styles.fileList}>
+              {buildFileTree(fileDetails).map((node) => (
+                <FileTreeNodeComponent
+                  key={node.fullPath}
+                  node={node}
+                  depth={0}
+                  onFileClick={handleFileClick}
+                  selectedFilePath={selectedFilePath}
+                />
+              ))}
             </ul>
           )}
         </div>

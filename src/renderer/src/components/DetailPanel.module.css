@@ -409,3 +409,82 @@
   margin-left: auto;
 }
 
+/* ===== Files header row with toggle ===== */
+.filesHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.viewToggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-right: var(--space-sm);
+}
+
+.viewToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.viewToggleBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.viewToggleBtnActive {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+/* ===== Tree view ===== */
+.treeChildren {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.treeDir {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 3px var(--space-sm);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  transition: background-color var(--transition-fast);
+}
+
+.treeDir:hover {
+  background: var(--bg-hover);
+}
+
+.treeDirIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.treeDirName {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
