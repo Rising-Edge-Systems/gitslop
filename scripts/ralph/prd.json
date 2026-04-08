@@ -103,7 +103,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "In AppLayout: if rightPanelPosition is 'bottom', render detail+staging below center. Use a toggle button instead of drag-and-drop."
     }
   ]

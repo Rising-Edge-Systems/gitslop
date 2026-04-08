@@ -22,6 +22,7 @@ Started: Mon Apr 8 2026
 - Binary file detection: check for null bytes (\0) in string content returned from git show
 - DetailPanel hooks: ALL hooks must be above any early return to avoid React error #310
 - CommitFileDetail type: { path, status, insertions, deletions, oldPath? } from CommitGraph.tsx
+- Right panel position: layout.rightPanelPosition ('right' | 'bottom') determines if detail+staging is a column on right or horizontal strip below center
 ---
 
 ## 2026-04-08 - US-DD-001
@@ -196,5 +197,24 @@ Started: Mon Apr 8 2026
   - Electron role-based menu items handle their own accelerators — no need to specify click handlers for undo/redo/cut/copy/paste/selectAll/zoom/fullscreen/devtools
   - The DOM event bridge pattern (IPC → App.tsx → window.dispatchEvent → AppLayout listener) works well for menu commands that need access to layout state
   - dialog.showMessageBox() in main process can show app version info via app.getVersion() and process.versions
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-PM-006
+- Added movable right panel position — users can toggle between 'right' (column on right) and 'bottom' (horizontal strip below center)
+- Added `rightPanelPosition: 'right' | 'bottom'` to LayoutState with default 'right', persists via localStorage
+- Added `setRightPanelPosition` and `toggleRightPanelPosition` callbacks to useLayoutState hook
+- When 'right': existing layout with DetailPanel + StatusPanel stacked vertically in right column
+- When 'bottom': DetailPanel and StatusPanel render side-by-side in a horizontal strip below the center panel, full width
+- Toggle button (PanelBottom/PanelRight icons) in the right panel header area switches position
+- Drag handle between center and bottom strip reuses detailStagingSplit for resizing
+- columnsContentRef added for proper drag-to-percent calculation in bottom mode
+- Terminal panel always stays at the very bottom below everything
+- Files changed: useLayoutState.ts, AppLayout.tsx
+- **Learnings for future iterations:**
+  - The detailStagingSplit percentage is reused for both modes — in right mode it splits detail/staging vertically, in bottom mode it splits center/bottom-strip vertically
+  - When in bottom mode, the drag handler needs to measure the full columns container height (columnsContentRef), not the right panel container
+  - PanelRight and PanelBottom from lucide-react are good icons for position toggle buttons
+  - The bottom strip uses flex-direction:row with a 1px border divider between detail and staging panels
   - No browser testing tools available — manual verification needed
 ---
