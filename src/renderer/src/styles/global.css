@@ -1,5 +1,28 @@
 /* Color variables, typography, spacing, and design tokens are in tokens.css */
 
+/* ─── Dark-Themed Scrollbars ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 * {
   margin: 0;
   padding: 0;
