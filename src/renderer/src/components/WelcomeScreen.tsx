@@ -20,6 +20,15 @@ export function WelcomeScreen({ onRepoOpen }: WelcomeScreenProps): React.JSX.Ele
     })
   }, [])
 
+  // Listen for menu:clone-repository custom event from app menu
+  useEffect(() => {
+    const handler = (): void => {
+      setShowCloneDialog(true)
+    }
+    window.addEventListener('menu:clone-repository', handler)
+    return () => window.removeEventListener('menu:clone-repository', handler)
+  }, [])
+
   const handleOpenRepo = useCallback(async () => {
     setError(null)
     setErrorPath(null)

@@ -75,6 +75,55 @@ function App(): React.JSX.Element {
     }
   }, [handleRepoOpen])
 
+  // Menu bar IPC listeners
+  useEffect(() => {
+    const cleanups: (() => void)[] = []
+
+    // File > Open Repository — main process already shows the dialog and sends the path
+    cleanups.push(
+      window.electronAPI.menu.onOpenRepository((repoPath: string) => {
+        handleRepoOpen(repoPath)
+      })
+    )
+
+    // File > Clone Repository — dispatch custom event for WelcomeScreen/Toolbar to handle
+    cleanups.push(
+      window.electronAPI.menu.onCloneRepository(() => {
+        window.dispatchEvent(new CustomEvent('menu:clone-repository'))
+      })
+    )
+
+    // File > Init Repository — open directory picker, then init
+    cleanups.push(
+      window.electronAPI.menu.onInitRepository(async () => {
+        const dirPath = await window.electronAPI.dialog.openDirectory()
+        if (!dirPath) return
+        const result = await window.electronAPI.git.init(dirPath)
+        if (result.success) {
+          handleRepoOpen(dirPath)
+        }
+      })
+    )
+
+    // File > Close Tab
+    cleanups.push(
+      window.electronAPI.menu.onCloseTab(() => {
+        handleCloseRepo()
+      })
+    )
+
+    // File > Settings
+    cleanups.push(
+      window.electronAPI.menu.onSettings(() => {
+        openSettings()
+      })
+    )
+
+    return () => {
+      cleanups.forEach((fn) => fn())
+    }
+  }, [handleRepoOpen, handleCloseRepo, openSettings])
+
   // Tab keyboard shortcuts
   const handleNextTab = useShortcutHandler(nextTab)
   const handlePrevTab = useShortcutHandler(prevTab)

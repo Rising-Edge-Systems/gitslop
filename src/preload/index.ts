@@ -372,6 +372,53 @@ const extendedElectronAPI = {
       const idx = cliOpenRepoListeners.indexOf(callback)
       if (idx >= 0) cliOpenRepoListeners.splice(idx, 1)
     }
+  },
+  menu: {
+    onOpenRepository: (callback: (repoPath: string) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, repoPath: string): void => {
+        callback(repoPath)
+      }
+      ipcRenderer.on('menu:open-repository', handler)
+      return () => {
+        ipcRenderer.removeListener('menu:open-repository', handler)
+      }
+    },
+    onCloneRepository: (callback: () => void): (() => void) => {
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on('menu:clone-repository', handler)
+      return () => {
+        ipcRenderer.removeListener('menu:clone-repository', handler)
+      }
+    },
+    onInitRepository: (callback: () => void): (() => void) => {
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on('menu:init-repository', handler)
+      return () => {
+        ipcRenderer.removeListener('menu:init-repository', handler)
+      }
+    },
+    onCloseTab: (callback: () => void): (() => void) => {
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on('menu:close-tab', handler)
+      return () => {
+        ipcRenderer.removeListener('menu:close-tab', handler)
+      }
+    },
+    onSettings: (callback: () => void): (() => void) => {
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on('menu:settings', handler)
+      return () => {
+        ipcRenderer.removeListener('menu:settings', handler)
+      }
+    }
   }
 }
 

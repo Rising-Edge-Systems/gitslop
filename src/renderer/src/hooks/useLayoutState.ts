@@ -189,6 +189,13 @@ declare global {
         onExit: (callback: (payload: { id: string; exitCode: number }) => void) => () => void
       }
       onCliOpenRepo?: (callback: (repoPath: string) => void) => () => void
+      menu: {
+        onOpenRepository: (callback: (repoPath: string) => void) => () => void
+        onCloneRepository: (callback: () => void) => () => void
+        onInitRepository: (callback: () => void) => () => void
+        onCloseTab: (callback: () => void) => () => void
+        onSettings: (callback: () => void) => () => void
+      }
     }
   }
 }

@@ -154,6 +154,15 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
     return () => { cancelled = true }
   }, [currentRepo])
 
+  // Listen for menu:clone-repository custom event from app menu
+  useEffect(() => {
+    const handler = (): void => {
+      setCloneDialogOpen(true)
+    }
+    window.addEventListener('menu:clone-repository', handler)
+    return () => window.removeEventListener('menu:clone-repository', handler)
+  }, [])
+
   // Show a temporary notification — delegates to onNotify if available
   const showNotification = useCallback((type: 'success' | 'error', message: string, details?: string) => {
     if (onNotify) {

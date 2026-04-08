@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { join } from 'path'
 import { readFile, writeFile } from 'fs'
 import { watch as chokidarWatch, type FSWatcher } from 'chokidar'
@@ -152,6 +152,87 @@ app.whenReady().then(async () => {
   }
 
   createWindow()
+
+  // ─── Application Menu ────────────────────────────────────────────────────
+  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New Window',
+          click: (): void => {
+            createWindow()
+          }
+        },
+        {
+          label: 'Open Repository',
+          accelerator: 'CmdOrCtrl+O',
+          click: async (): Promise<void> => {
+            const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+            if (!win || win.isDestroyed()) return
+            const result = await dialog.showOpenDialog(win, {
+              properties: ['openDirectory']
+            })
+            if (!result.canceled && result.filePaths.length > 0) {
+              win.webContents.send('menu:open-repository', result.filePaths[0])
+            }
+          }
+        },
+        {
+          label: 'Clone Repository',
+          accelerator: 'CmdOrCtrl+Shift+C',
+          click: (): void => {
+            const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('menu:clone-repository')
+            }
+          }
+        },
+        {
+          label: 'Init Repository',
+          click: (): void => {
+            const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('menu:init-repository')
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Close Tab',
+          accelerator: 'CmdOrCtrl+W',
+          click: (): void => {
+            const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('menu:close-tab')
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Settings',
+          accelerator: 'CmdOrCtrl+,',
+          click: (): void => {
+            const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('menu:settings')
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Quit',
+          accelerator: 'CmdOrCtrl+Q',
+          click: (): void => {
+            app.quit()
+          }
+        }
+      ]
+    }
+  ]
+
+  const menu = Menu.buildFromTemplate(menuTemplate)
+  Menu.setApplicationMenu(menu)
 
   // ─── CLI: --open-repo <path> support (for GUI testing) ────────────────────
   const openRepoArg = process.argv.find((_, i) => process.argv[i - 1] === '--open-repo')
