@@ -1128,7 +1128,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
   }, [repoPath, pageSize, buildFilterOpts, fetchTotalCount, onLoadComplete])
 
   const loadMoreCommits = useCallback(async () => {
-    if (loadingMore) return
+    if (loadingMore || pageSize === 0) return
     setLoadingMore(true)
     try {
       const logOpts: { all: boolean; maxCount?: number; skip?: number; author?: string; since?: string; until?: string; grep?: string; path?: string } = buildFilterOpts()

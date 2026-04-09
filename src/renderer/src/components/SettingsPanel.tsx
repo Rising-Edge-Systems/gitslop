@@ -404,6 +404,20 @@ function GitSection({
           placeholder="main"
         />
       </SettingsRow>
+
+      <SettingsRow label="Commit History Depth" description="Maximum number of commits to load in the graph (0 = all)">
+        <select
+          className={styles.select}
+          value={settings.commitHistoryDepth}
+          onChange={(e) => onUpdate({ commitHistoryDepth: Number(e.target.value) })}
+        >
+          <option value={500}>500</option>
+          <option value={1000}>1,000</option>
+          <option value={2500}>2,500</option>
+          <option value={5000}>5,000</option>
+          <option value={0}>All</option>
+        </select>
+      </SettingsRow>
     </div>
   )
 }

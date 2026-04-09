@@ -24,6 +24,7 @@ export interface AppSettings {
   gpgKeyId: string
   autoStashOnPull: boolean
   defaultBranchName: string
+  commitHistoryDepth: number // 0 = all commits
 
   // Editor
   tabSize: number
@@ -49,6 +50,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   gpgKeyId: '',
   autoStashOnPull: false,
   defaultBranchName: 'main',
+  commitHistoryDepth: 500,
 
   // Editor
   tabSize: 4,

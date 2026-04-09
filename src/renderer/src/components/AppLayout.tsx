@@ -29,7 +29,7 @@ interface AppLayoutProps {
   onRepoOpen: (repoPath: string) => void
   onCloseRepo: () => void
   onOpenSettings: () => void
-  settings: { sidebarPosition: 'left' | 'right'; autoFetchInterval: number }
+  settings: { sidebarPosition: 'left' | 'right'; autoFetchInterval: number; commitHistoryDepth: number }
   getTabState: (repoPath: string) => TabPerTabState
   saveTabState: (repoPath: string, state: Partial<TabPerTabState>) => void
 }
@@ -528,6 +528,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     diffViewMode={layout.diffViewMode}
                     onDiffViewModeChange={setDiffViewMode}
                     showBranchLabels={layout.showBranchLabels}
+                    commitHistoryDepth={appSettings.commitHistoryDepth}
                   />
                 </div>
                 {/* Right panel drag handle + commit details on top, staging area below.

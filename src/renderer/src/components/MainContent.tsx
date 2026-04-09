@@ -19,9 +19,10 @@ interface MainContentProps {
   diffViewMode?: DiffViewMode
   onDiffViewModeChange?: (mode: DiffViewMode) => void
   showBranchLabels?: boolean
+  commitHistoryDepth?: number
 }
 
-export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels }: MainContentProps): React.JSX.Element {
+export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels, commitHistoryDepth }: MainContentProps): React.JSX.Element {
   if (!currentRepo) {
     return (
       <div className="main-content main-content--centered">
@@ -45,6 +46,7 @@ export const MainContent = React.memo(function MainContent({ currentRepo, onRepo
         diffViewMode={diffViewMode}
         onDiffViewModeChange={onDiffViewModeChange}
         showBranchLabels={showBranchLabels}
+        commitHistoryDepth={commitHistoryDepth}
       />
     </div>
   )
