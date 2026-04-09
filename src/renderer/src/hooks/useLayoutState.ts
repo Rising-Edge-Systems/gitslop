@@ -202,6 +202,9 @@ declare global {
         login: (pat: string) => Promise<GitServiceResult>
         getUser: () => Promise<GitServiceResult>
         logout: () => Promise<GitServiceResult>
+        addAccount: (pat: string, label: string) => Promise<GitServiceResult>
+        getAccounts: () => Promise<GitServiceResult>
+        removeAccount: (accountId: string) => Promise<GitServiceResult>
         isLoggedIn: () => Promise<GitServiceResult>
         parseRemote: (repoPath: string) => Promise<GitServiceResult>
         listPullRequests: (owner: string, repo: string, state?: string) => Promise<GitServiceResult>

@@ -39,13 +39,24 @@ export interface Profile {
   sshKeyPath?: string
 }
 
+interface IntegrationAccount {
+  id: string
+  label: string      // user-chosen name like "Work" or "Personal"
+  username: string    // fetched from API after login
+  token: string       // encrypted via safeStorage
+  instanceUrl?: string // for self-hosted GitLab
+}
+
 interface StoreSchema {
   recentRepos: RecentRepo[]
   profiles: Profile[]
   activeProfileId: string
-  githubToken: string  // encrypted via safeStorage
-  gitlabToken: string  // encrypted via safeStorage
-  gitlabInstanceUrl: string
+  githubAccounts: IntegrationAccount[]
+  gitlabAccounts: IntegrationAccount[]
+  // Legacy single-token fields (migrated on load)
+  githubToken?: string
+  gitlabToken?: string
+  gitlabInstanceUrl?: string
 }
 
 const store = new Store<StoreSchema>({
@@ -53,9 +64,8 @@ const store = new Store<StoreSchema>({
     recentRepos: [],
     profiles: [],
     activeProfileId: '',
-    githubToken: '',
-    gitlabToken: '',
-    gitlabInstanceUrl: 'https://gitlab.com'
+    githubAccounts: [],
+    gitlabAccounts: []
   }
 })
 
@@ -476,58 +486,113 @@ function decryptToken(stored: string): string {
   return ''
 }
 
-ipcMain.handle('github:login', async (_event, pat: string) => {
+// Migrate legacy single-token to multi-account on first access
+function migrateGitHubLegacy(): void {
+  const legacy = store.get('githubToken' as keyof StoreSchema, '') as string
+  if (legacy && legacy !== '') {
+    const token = decryptToken(legacy)
+    if (token) {
+      const accounts = store.get('githubAccounts', [])
+      if (accounts.length === 0) {
+        accounts.push({ id: `gh-${Date.now()}`, label: 'Default', username: '', token: encryptToken(token) })
+        store.set('githubAccounts', accounts)
+      }
+    }
+    store.delete('githubToken' as keyof StoreSchema)
+  }
+}
+
+ipcMain.handle('github:addAccount', async (_event, pat: string, label: string) => {
   try {
-    // Validate PAT by fetching user info
     const { statusCode, data } = await githubApiRequest('GET', '/user', pat)
     if (statusCode !== 200) {
       const parsed = JSON.parse(data)
       return { success: false, error: parsed.message || 'Authentication failed' }
     }
     const user = JSON.parse(data)
-    // Store encrypted token
-    const encrypted = encryptToken(pat)
-    store.set('githubToken', encrypted)
+    const account: IntegrationAccount = {
+      id: `gh-${Date.now()}`,
+      label: label || user.login,
+      username: user.login,
+      token: encryptToken(pat)
+    }
+    const accounts = store.get('githubAccounts', [])
+    accounts.push(account)
+    store.set('githubAccounts', accounts)
     return {
       success: true,
-      data: {
-        login: user.login,
-        name: user.name || user.login,
-        avatarUrl: user.avatar_url,
-        email: user.email
-      }
+      data: { id: account.id, label: account.label, username: user.login, name: user.name || user.login, avatarUrl: user.avatar_url, email: user.email }
     }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Login failed' }
   }
 })
 
+ipcMain.handle('github:getAccounts', async () => {
+  migrateGitHubLegacy()
+  const accounts = store.get('githubAccounts', [])
+  const results = []
+  for (const acct of accounts) {
+    const token = decryptToken(acct.token)
+    if (!token) continue
+    try {
+      const { statusCode, data } = await githubApiRequest('GET', '/user', token)
+      if (statusCode === 200) {
+        const user = JSON.parse(data)
+        results.push({ id: acct.id, label: acct.label, username: user.login, name: user.name || user.login, avatarUrl: user.avatar_url, email: user.email })
+      } else {
+        results.push({ id: acct.id, label: acct.label, username: acct.username, name: acct.username, avatarUrl: '', email: '', error: 'Token expired' })
+      }
+    } catch {
+      results.push({ id: acct.id, label: acct.label, username: acct.username, name: acct.username, avatarUrl: '', email: '', error: 'Connection failed' })
+    }
+  }
+  return { success: true, data: results }
+})
+
+ipcMain.handle('github:removeAccount', (_event, accountId: string) => {
+  const accounts = store.get('githubAccounts', [])
+  store.set('githubAccounts', accounts.filter((a: IntegrationAccount) => a.id !== accountId))
+  return { success: true }
+})
+
+// Legacy compatibility — getUser returns first account, login adds account
 ipcMain.handle('github:getUser', async () => {
-  const encrypted = store.get('githubToken', '')
-  const token = decryptToken(encrypted)
+  migrateGitHubLegacy()
+  const accounts = store.get('githubAccounts', [])
+  if (accounts.length === 0) return { success: false, error: 'Not logged in' }
+  const token = decryptToken(accounts[0].token)
   if (!token) return { success: false, error: 'Not logged in' }
   try {
     const { statusCode, data } = await githubApiRequest('GET', '/user', token)
+    if (statusCode !== 200) return { success: false, error: 'Token invalid' }
+    const user = JSON.parse(data)
+    return { success: true, data: { login: user.login, name: user.name || user.login, avatarUrl: user.avatar_url, email: user.email } }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed' }
+  }
+})
+
+ipcMain.handle('github:login', async (_event, pat: string) => {
+  try {
+    const { statusCode, data } = await githubApiRequest('GET', '/user', pat)
     if (statusCode !== 200) {
-      return { success: false, error: 'Token invalid or expired' }
+      const parsed = JSON.parse(data)
+      return { success: false, error: parsed.message || 'Authentication failed' }
     }
     const user = JSON.parse(data)
-    return {
-      success: true,
-      data: {
-        login: user.login,
-        name: user.name || user.login,
-        avatarUrl: user.avatar_url,
-        email: user.email
-      }
-    }
+    const account: IntegrationAccount = { id: `gh-${Date.now()}`, label: user.login, username: user.login, token: encryptToken(pat) }
+    const accounts = store.get('githubAccounts', [])
+    accounts.push(account)
+    store.set('githubAccounts', accounts)
+    return { success: true, data: { login: user.login, name: user.name || user.login, avatarUrl: user.avatar_url, email: user.email } }
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : 'Failed to get user' }
+    return { success: false, error: err instanceof Error ? err.message : 'Login failed' }
   }
 })
 
 ipcMain.handle('github:logout', () => {
-  store.set('githubToken', '')
+  store.set('githubAccounts', [])
   return { success: true }
 })
 

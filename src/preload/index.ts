@@ -393,6 +393,12 @@ const electronAPI = {
       ipcRenderer.invoke('github:getUser'),
     logout: (): Promise<GitServiceResult> =>
       ipcRenderer.invoke('github:logout'),
+    addAccount: (pat: string, label: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:addAccount', pat, label),
+    getAccounts: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:getAccounts'),
+    removeAccount: (accountId: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:removeAccount', accountId),
     isLoggedIn: (): Promise<GitServiceResult> =>
       ipcRenderer.invoke('github:isLoggedIn'),
     parseRemote: (repoPath: string): Promise<GitServiceResult> =>

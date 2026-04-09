@@ -1201,76 +1201,82 @@ interface GitHubUser {
   email: string | null
 }
 
+interface GitHubAccount {
+  id: string
+  label: string
+  username: string
+  name: string
+  avatarUrl: string
+  email: string | null
+  error?: string
+}
+
 function GitHubSection(): React.JSX.Element {
-  const [user, setUser] = useState<GitHubUser | null>(null)
+  const [accounts, setAccounts] = useState<GitHubAccount[]>([])
   const [loading, setLoading] = useState(true)
-  const [loggingIn, setLoggingIn] = useState(false)
-  const [loggingOut, setLoggingOut] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(false)
   const [pat, setPat] = useState('')
+  const [label, setLabel] = useState('')
   const [showPat, setShowPat] = useState(false)
   const [error, setError] = useState('')
 
-  // Check login status on mount
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        const result = await window.electronAPI.github.getUser()
-        if (mounted && result.success && result.data) {
-          setUser(result.data)
-        }
-      } catch {
-        // Not logged in
-      } finally {
-        if (mounted) setLoading(false)
+  const loadAccounts = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.github.getAccounts()
+      if (result.success && result.data) {
+        setAccounts(result.data as GitHubAccount[])
       }
-    })()
-    return () => { mounted = false }
+    } catch {
+      // No accounts
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  const handleLogin = useCallback(async () => {
+  useEffect(() => { loadAccounts() }, [loadAccounts])
+
+  const handleAddAccount = useCallback(async () => {
     if (!pat.trim()) {
       setError('Please enter a Personal Access Token')
       return
     }
-    setLoggingIn(true)
+    setAdding(true)
     setError('')
     try {
-      const result = await window.electronAPI.github.login(pat.trim())
-      if (result.success && result.data) {
-        setUser(result.data)
+      const result = await window.electronAPI.github.addAccount(pat.trim(), label.trim())
+      if (result.success) {
         setPat('')
+        setLabel('')
         setShowPat(false)
+        setShowAddForm(false)
+        loadAccounts()
       } else {
         setError(result.error || 'Authentication failed')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {
-      setLoggingIn(false)
+      setAdding(false)
     }
-  }, [pat])
+  }, [pat, label, loadAccounts])
 
-  const handleLogout = useCallback(async () => {
-    setLoggingOut(true)
+  const handleRemoveAccount = useCallback(async (accountId: string) => {
     try {
-      await window.electronAPI.github.logout()
-      setUser(null)
-      setError('')
+      await window.electronAPI.github.removeAccount(accountId)
+      loadAccounts()
     } catch {
-      // Ignore logout errors
-    } finally {
-      setLoggingOut(false)
+      // Ignore
     }
-  }, [])
+  }, [loadAccounts])
 
   if (loading) {
     return (
       <div className={styles.sectionContent}>
-        <h3 className={styles.sectionTitle}>GitHub</h3>
+        <h3 className={styles.sectionTitle}>GitHub Accounts</h3>
         <div className={styles.ghLoading}>
           <Loader2 size={16} className={styles.sshSpinner} />
-          <span>Checking login status…</span>
+          <span>Loading accounts…</span>
         </div>
       </div>
     )
@@ -1278,77 +1284,59 @@ function GitHubSection(): React.JSX.Element {
 
   return (
     <div className={styles.sectionContent}>
-      <h3 className={styles.sectionTitle}>GitHub</h3>
+      <h3 className={styles.sectionTitle}>GitHub Accounts</h3>
 
-      {user ? (
-        /* ── Logged-in state ─── */
-        <div className={styles.ghUserCard}>
-          <div className={styles.ghUserInfo}>
-            <img
-              src={user.avatarUrl}
-              alt={user.login}
-              className={styles.ghAvatar}
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-            />
-            <div className={styles.ghUserDetails}>
-              <span className={styles.ghUserName}>{user.name}</span>
-              <span className={styles.ghUserLogin}>@{user.login}</span>
-              {user.email && (
-                <span className={styles.ghUserEmail}>{user.email}</span>
-              )}
+      {/* Account list */}
+      {accounts.length > 0 && (
+        <div className={styles.ghAccountList}>
+          {accounts.map((acct) => (
+            <div key={acct.id} className={styles.ghUserCard}>
+              <div className={styles.ghUserInfo}>
+                {acct.avatarUrl && (
+                  <img src={acct.avatarUrl} alt={acct.username} className={styles.ghAvatar}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                )}
+                <div className={styles.ghUserDetails}>
+                  <span className={styles.ghUserName}>{acct.label || acct.name}</span>
+                  <span className={styles.ghUserLogin}>@{acct.username}</span>
+                  {acct.error && <span className={styles.ghError} style={{ marginTop: 2 }}>{acct.error}</span>}
+                </div>
+              </div>
+              <button className={styles.ghLogoutBtn} onClick={() => handleRemoveAccount(acct.id)} title="Remove account">
+                <Trash2 size={14} />
+              </button>
             </div>
-          </div>
-          <div className={styles.ghUserActions}>
-            <a
-              href={`https://github.com/${user.login}`}
-              className={styles.ghProfileLink}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => {
-                e.preventDefault()
-                // Use shell.openExternal via window.open which is handled by the app
-                window.open(`https://github.com/${user.login}`, '_blank')
-              }}
-            >
-              <ExternalLink size={14} />
-              <span>View Profile</span>
-            </a>
-            <button
-              className={styles.ghLogoutBtn}
-              onClick={handleLogout}
-              disabled={loggingOut}
-            >
-              {loggingOut ? (
-                <Loader2 size={14} className={styles.sshSpinner} />
-              ) : (
-                <LogOut size={14} />
-              )}
-              <span>Logout</span>
-            </button>
-          </div>
+          ))}
         </div>
-      ) : (
-        /* ── Login state ─── */
+      )}
+
+      {accounts.length === 0 && !showAddForm && (
+        <p className={styles.ghLoginDesc}>No GitHub accounts connected.</p>
+      )}
+
+      {/* Add account form */}
+      {showAddForm ? (
         <div className={styles.ghLoginSection}>
           <p className={styles.ghLoginDesc}>
-            Connect your GitHub account using a Personal Access Token (PAT).
-            You can create one at{' '}
-            <a
-              href="https://github.com/settings/tokens"
-              className={styles.ghLink}
-              onClick={(e) => {
-                e.preventDefault()
-                window.open('https://github.com/settings/tokens', '_blank')
-              }}
-            >
+            Add a GitHub account using a Personal Access Token.
+            Create one at{' '}
+            <a href="https://github.com/settings/tokens" className={styles.ghLink}
+              onClick={(e) => { e.preventDefault(); window.open('https://github.com/settings/tokens', '_blank') }}>
               github.com/settings/tokens
             </a>
-            .
           </p>
           <p className={styles.ghScopeHint}>
             Recommended scopes: <code>repo</code>, <code>read:user</code>, <code>read:org</code>
           </p>
           <div className={styles.ghTokenInput}>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Account label (e.g., Work, Personal)"
+              className={styles.ghInput}
+              style={{ marginBottom: 6 }}
+            />
             <div className={styles.ghTokenField}>
               <input
                 type={showPat ? 'text' : 'password'}
@@ -1356,45 +1344,30 @@ function GitHubSection(): React.JSX.Element {
                 onChange={(e) => { setPat(e.target.value); setError('') }}
                 placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
                 className={styles.ghInput}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleLogin()
-                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddAccount() }}
               />
-              <button
-                className={styles.ghToggleVisibility}
-                onClick={() => setShowPat(!showPat)}
-                title={showPat ? 'Hide token' : 'Show token'}
-                type="button"
-              >
+              <button className={styles.ghToggleVisibility} onClick={() => setShowPat(!showPat)} title={showPat ? 'Hide' : 'Show'} type="button">
                 {showPat ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
-            <button
-              className={styles.ghLoginBtn}
-              onClick={handleLogin}
-              disabled={loggingIn || !pat.trim()}
-            >
-              {loggingIn ? (
-                <>
-                  <Loader2 size={14} className={styles.sshSpinner} />
-                  <span>Verifying…</span>
-                </>
-              ) : (
-                <>
-                  <Github size={14} />
-                  <span>Login</span>
-                </>
-              )}
-            </button>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 6 }}>
+              <button className={styles.ghLoginBtn} onClick={handleAddAccount} disabled={adding || !pat.trim()}>
+                {adding ? <><Loader2 size={14} className={styles.sshSpinner} /> Verifying…</> : <><Github size={14} /> Add Account</>}
+              </button>
+              <button className={styles.ghLogoutBtn} onClick={() => { setShowAddForm(false); setPat(''); setLabel(''); setError('') }}>
+                Cancel
+              </button>
+            </div>
           </div>
-          {error && (
-            <div className={styles.ghError}>{error}</div>
-          )}
+          {error && <div className={styles.ghError}>{error}</div>}
           <p className={styles.ghSecurityNote}>
-            <ShieldCheck size={13} />
-            Your token is encrypted and stored securely on this device.
+            <ShieldCheck size={13} /> Tokens are encrypted and stored securely on this device.
           </p>
         </div>
+      ) : (
+        <button className={styles.ghLoginBtn} onClick={() => setShowAddForm(true)} style={{ marginTop: 'var(--space-sm)' }}>
+          <Plus size={14} /> Add Account
+        </button>
       )}
     </div>
   )
