@@ -222,3 +222,25 @@ Started: Thu Apr  9 03:30:47 AM EDT 2026
   - `window.open(url, '_blank')` works in Electron renderer for opening external links
   - RailSection type must be updated when adding new sidebar sections (union type + RAIL_SECTIONS array)
 ---
+
+## 2026-04-09 - US-MP-011
+- Implemented GitLab integration: PAT login, user info display, merge requests (list, detail, create)
+- Files changed: index.ts, preload/index.ts, useLayoutState.ts, SettingsPanel.tsx, Sidebar.tsx
+- **What was done:**
+  - Added `gitlabApiRequest()` helper supporting configurable instance URL (self-hosted + gitlab.com) with both HTTPS and HTTP
+  - Created `parseGitLabRemote()` to extract project path from SSH/HTTPS remote URLs, matching against configured instance hostname
+  - Added 9 IPC handlers: gitlab:login, gitlab:getUser, gitlab:logout, gitlab:isLoggedIn, gitlab:getInstanceUrl, gitlab:parseRemote, gitlab:listMergeRequests, gitlab:getMergeRequest, gitlab:createMergeRequest
+  - Token stored securely via existing `encryptToken`/`decryptToken` helpers using safeStorage
+  - GitLab Settings section with instance URL field (defaults to gitlab.com), PAT input, user card display
+  - MergeRequestsSection in Sidebar: auto-detects GitLab remotes, shows open/merged MR list, detail overlay with description/comments/files, create MR dialog
+  - Added 'gitlab' to SettingsSection type and 'mergerequests' to RailSection type
+  - Reused all existing PR CSS styles (prItem, prFilterRow, prDetailOverlay, etc.) for consistent UI
+- **Learnings for future iterations:**
+  - GitLab API uses `PRIVATE-TOKEN` header (not `Authorization: token`)
+  - GitLab uses URL-encoded project path (`encodeURIComponent(projectPath)`) instead of owner/repo
+  - GitLab MR numbers shown as `!123` (not `#123` like GitHub PRs)
+  - GitLab API `state` for open MRs is `opened` (not `open`), and `merged` (not `closed`)
+  - GitLab labels in MR list are plain strings, not objects with color — style differently
+  - `gitlabApiRequest` needs to handle both http and https for self-hosted instances
+  - GitLab changes endpoint returns diff data but not per-file line counts like GitHub
+---
