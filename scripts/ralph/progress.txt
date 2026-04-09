@@ -126,3 +126,23 @@ Started: Thu Apr  9 03:30:47 AM EDT 2026
   - Profile IPC doesn't use withWatcherSuppression since git config changes don't affect file watcher
   - SettingsPanel accepts optional currentRepo prop for features that need repo context
 ---
+
+## 2026-04-09 - US-MP-007
+- Implemented SSH Key Management feature in Settings panel
+- Files changed: index.ts, preload/index.ts, SettingsPanel.tsx, SettingsPanel.module.css, useLayoutState.ts
+- **What was done:**
+  - Added 5 IPC handlers in main process: sshkeys:list, sshkeys:readPublicKey, sshkeys:copyToClipboard, sshkeys:generate, sshkeys:testConnection
+  - sshkeys:list scans ~/.ssh/ for .pub files and their matching private keys, reads fingerprints via ssh-keygen -l
+  - sshkeys:generate uses child_process.exec to run ssh-keygen with Ed25519 or RSA 4096-bit types
+  - sshkeys:testConnection runs `ssh -T` against a given host and parses output for authentication success
+  - Exposed sshkeys namespace in preload with full type definitions
+  - Added 'sshkeys' to SettingsSection type union and sections array with KeyRound icon
+  - SSHKeysSection component: lists existing keys with type badge and fingerprint, copy public key button, generate new key form, test SSH connection UI
+  - Full CSS module styles following existing patterns (sshKeyCard, sshKeyTypeBadge, sshTestSection, etc.)
+- **Learnings for future iterations:**
+  - `clipboard` from electron main process used for sshkeys:copyToClipboard — imported from `electron`
+  - ssh-keygen -l -f <pubkey> returns: `bits fingerprint comment (TYPE)` — parse TYPE from parens
+  - `ssh -T git@github.com` returns exit code 1 even on success — must catch the error and parse stdout/stderr
+  - child_process.exec needs promisify for async/await usage in main process
+  - SSHKeyInfo interface: { name, path, pubKeyPath, type, fingerprint }
+---

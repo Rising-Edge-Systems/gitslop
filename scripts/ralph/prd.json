@@ -120,7 +120,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Filesystem operations on ~/.ssh/. Use child_process.exec for ssh-keygen. Read directory for key listing. All in main process via IPC."
     },
     {
