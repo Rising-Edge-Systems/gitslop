@@ -585,23 +585,19 @@
 /* ─── Scrollbar Change Markers ─────────────────────────────────────────── */
 
 .scrollbarMarkerColumn {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 10px;
-  height: 100%;
-  z-index: 3;
-  pointer-events: none;
-  background: transparent;
+  position: relative;
+  width: 12px;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  cursor: pointer;
 }
 
 .scrollbarMarker {
   position: absolute;
   right: 1px;
-  width: 8px;
+  left: 1px;
   border-radius: 1px;
-  pointer-events: auto;
-  cursor: pointer;
 }
 
 .scrollbarMarkerAdded {
@@ -624,10 +620,17 @@
   pointer-events: none;
 }
 
-/* Wrapper to provide positioning context for the marker column.
-   Used inside both the main diffViewer (for inline) and sbsView (for full diff panes). */
+/* Flex row: scroll area + marker gutter side by side */
+.diffWithMarkers {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* The actual scroll container for diff content */
 .scrollableWithMarkers {
-  position: relative;
   flex: 1;
   min-height: 0;
   min-width: 0;
