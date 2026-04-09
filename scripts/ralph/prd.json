@@ -1,70 +1,59 @@
 {
   "project": "GitSlop",
   "branchName": "feature/commit-graph-visual-feedback",
-  "description": "Add full-file diff view mode — shows complete old and new files side by side with changes highlighted.",
+  "description": "Add scrollbar change markers to diff viewer — colored indicators on the scrollbar showing where additions and deletions are in the file.",
   "userStories": [
     {
-      "id": "US-FD-001",
-      "title": "IPC: Fetch Old File Content at Parent Commit",
-      "description": "As a developer, I need to fetch the old version of a file (from the parent commit) so we can display it alongside the new version.",
+      "id": "US-SM-001",
+      "title": "Scrollbar Change Markers for Inline Diff View",
+      "description": "As a user, I want colored markers on the scrollbar showing where changes are in the diff so I can quickly navigate to them.",
       "acceptanceCriteria": [
-        "Add showFileAtParent(repoPath, commitHash, filePath) method to git-service.ts",
-        "It runs: git show PARENT_HASH:PATH where PARENT_HASH is the first parent of commitHash",
-        "To get the parent hash: git rev-parse COMMIT_HASH^1",
-        "If the file is new (added), return empty string for old content",
-        "If the file is deleted, the new content (from showFileAtCommit) will be empty",
-        "Register IPC handler in git-ipc.ts: 'git:showFileAtParent'",
-        "Expose in preload/index.ts: electronAPI.git.showFileAtParent(repoPath, hash, filePath)",
-        "Add type declaration in useLayoutState.ts Window.electronAPI",
-        "Binary file detection: if content contains null bytes, return { binary: true }",
+        "A thin overlay column (8-10px wide) is rendered on the right edge of the inline diff view, overlaying or beside the scrollbar",
+        "The column spans the full height of the scrollable area",
+        "For each changed line in the diff, a small colored marker is rendered at the proportional vertical position: green for additions, red for deletions",
+        "Marker height is proportional — a single changed line is 2-3px, a hunk of 10 changed lines is ~15-20px",
+        "Markers are semi-transparent so overlapping ones blend (opacity 0.6-0.7)",
+        "Clicking a marker scrolls the diff to that position",
+        "The marker column has position: sticky or absolute so it stays visible while scrolling horizontally",
+        "Works for both inline diff view and the full diff view",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Follow the exact same pattern as the existing showFileAtCommit: git-service.ts method -> git-ipc.ts handler -> preload expose -> type declaration. The parent hash comes from git rev-parse HASH^1. For merge commits with multiple parents, use the first parent."
+      "notes": "Implementation: render a thin absolute-positioned div on the right edge of the scroll container (.inlineView or .fullDiffPane). Calculate each changed line's position as (lineIndex / totalLines) * containerHeight. Render small colored divs at those positions. For click-to-scroll: onClick calculates the target scrollTop from the click position ratio and scrolls the container. The diff data (hunks with line types) already exists — just need to extract line positions."
     },
     {
-      "id": "US-FD-002",
-      "title": "Full Diff View Mode — Side-by-Side Complete Files with Highlights",
-      "description": "As a user, I want a 'Full Diff' view that shows the complete old and new files side by side with changes highlighted in red/green.",
+      "id": "US-SM-002",
+      "title": "Scrollbar Change Markers for Side-by-Side Diff View",
+      "description": "As a user, I want change markers on both panes of the side-by-side diff view.",
       "acceptanceCriteria": [
-        "Add a third view mode toggle button in the center diff header bar: 'Diff' | 'Full' | 'File'",
-        "Diff = existing hunk-based diff view (unchanged)",
-        "File = existing raw file view (unchanged)",
-        "Full = new view: two panes side by side showing complete old file (left) and new file (right)",
-        "In Full mode: fetch old content via showFileAtParent and new content via showFileAtCommit",
-        "Lines that are additions (only in new file) are highlighted with green background",
-        "Lines that are deletions (only in old file) are highlighted with red background",
-        "Lines that are unchanged appear in both panes with no highlight",
-        "Use the existing diff hunks data to determine which line ranges are changed — map hunk line numbers to the full file lines",
-        "Both panes scroll in sync (reuse the existing scroll sync from side-by-side diff view)",
-        "Both panes show line numbers",
-        "Syntax highlighting on all lines (not just changed ones)",
-        "Loading state while fetching both file versions",
+        "Each pane (left/old and right/new) in the side-by-side view gets its own marker column",
+        "Left pane markers: red for deleted lines at their proportional positions",
+        "Right pane markers: green for added lines at their proportional positions",
+        "Context lines (unchanged) have no markers",
+        "Clicking a marker scrolls that pane to the position (and the other pane syncs via existing scroll sync)",
+        "Markers work in both the regular side-by-side diff view and the full diff view",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "The key challenge is mapping diff hunks to full file lines. Parse the diff to find which line numbers in old/new files are changed. Then when rendering the full files, highlight those lines. Can reuse the SideBySideDiffView component as a base — it already has two-pane scroll sync. The difference is it renders ALL lines, not just diff lines. Use the existing DiffHunk data: each hunk has oldStart/oldCount and newStart/newCount plus line-by-line +/- markers."
+      "passes": false,
+      "notes": "Same approach as US-SM-001 but applied to each .sbsPane. The SideBySideDiffView already has scroll sync — clicking a marker on one pane should trigger the scroll handler which syncs the other pane. Each pane's marker column is independently positioned."
     },
     {
-      "id": "US-FD-003",
-      "title": "Full Diff View — Polish and Edge Cases",
-      "description": "As a developer, I want the full diff view to handle edge cases and look polished.",
+      "id": "US-SM-003",
+      "title": "Viewport Indicator on Scrollbar Markers",
+      "description": "As a user, I want to see where my current viewport is relative to the change markers.",
       "acceptanceCriteria": [
-        "New files (added): left pane shows 'New file' placeholder, right pane shows full content all highlighted green",
-        "Deleted files: left pane shows full content all highlighted red, right pane shows 'File deleted' placeholder",
-        "Renamed files: header shows 'old/path → new/path', both files displayed normally",
-        "Binary files: show 'Binary file — cannot display' in both panes",
-        "Large files (>5000 lines): show 'Large file — click to load' placeholder, load on click",
-        "The OLD/NEW pane headers are sticky at the top (position: sticky, top: 0)",
-        "Pane headers show the file path and line count",
-        "The view mode preference (Diff/Full/File) persists — update the existing diffViewMode in LayoutState to support 'inline' | 'side-by-side' | 'full' | 'file'",
+        "A semi-transparent rectangle overlay on the marker column shows the currently visible portion of the file",
+        "The rectangle's position and height are proportional to scrollTop and clientHeight relative to scrollHeight",
+        "The rectangle updates in real time as the user scrolls",
+        "The rectangle has a subtle border (1px var(--border)) and very light background (rgba white 5%)",
+        "The viewport indicator is behind the change markers (lower z-index) so markers are always visible",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Update DiffViewMode type in useLayoutState.ts to include 'full' and 'file'. The mode toggle buttons in DiffViewer need to show 4 options now. The RepoView center diff area already handles 'file' mode separately — add 'full' mode alongside it. Edge cases: for new files, git show PARENT^1:path will fail — catch the error and treat as empty content."
+      "passes": false,
+      "notes": "Listen to the scroll event on the diff container. Calculate viewport rect: top = (scrollTop / scrollHeight) * markerColumnHeight, height = (clientHeight / scrollHeight) * markerColumnHeight. Render as an absolute-positioned div. Update via onScroll handler with requestAnimationFrame for smooth updates."
     }
   ]
 }
