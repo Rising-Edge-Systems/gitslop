@@ -445,6 +445,21 @@ export function gitOperationFinished(): void {
   _gitOperationFinished(watcherState)
 }
 
+/**
+ * Send a repo:changed event immediately, bypassing watcher suppression.
+ * Used after git operations complete to ensure the UI refreshes,
+ * since the normal file watcher events are suppressed during operations.
+ */
+export function sendRepoChangedForced(): void {
+  // Small delay to let git finish writing to disk
+  setTimeout(() => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('repo:changed')
+    }
+  }, 150)
+}
+
 function sendRepoChanged(): void {
   // Drop events while git operations are in progress or during suppression window
   if (_isWatcherSuppressed(watcherState)) {

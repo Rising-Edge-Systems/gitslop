@@ -5,7 +5,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { gitService, GitErrorCode } from './git-service'
 import type { GitError } from './git-service'
-import { gitOperationStarted, gitOperationFinished } from './index'
+import { gitOperationStarted, gitOperationFinished, sendRepoChangedForced } from './index'
 
 /**
  * Wrap a git operation that modifies .git/ directory (commits, checkouts, merges, etc.)
@@ -14,7 +14,11 @@ import { gitOperationStarted, gitOperationFinished } from './index'
 async function withWatcherSuppression<T>(fn: () => Promise<T>): Promise<T> {
   gitOperationStarted()
   try {
-    return await fn()
+    const result = await fn()
+    // After successful git operation, force a repo:changed event
+    // so the UI refreshes immediately (watcher events are suppressed)
+    sendRepoChangedForced()
+    return result
   } finally {
     gitOperationFinished()
   }
