@@ -105,19 +105,25 @@ function App(): React.JSX.Element {
       })
     )
 
-    // File > Close Tab
+    // File > Close Tab (IPC from native menu + DOM event from in-app menu)
     cleanups.push(
       window.electronAPI.menu.onCloseTab(() => {
         handleCloseRepo()
       })
     )
+    const handleCloseTabEvent = (): void => { handleCloseRepo() }
+    window.addEventListener('menu:close-tab', handleCloseTabEvent)
+    cleanups.push(() => window.removeEventListener('menu:close-tab', handleCloseTabEvent))
 
-    // File > Settings
+    // File > Settings (IPC from native menu + DOM event from in-app menu)
     cleanups.push(
       window.electronAPI.menu.onSettings(() => {
         openSettings()
       })
     )
+    const handleSettingsEvent = (): void => { openSettings() }
+    window.addEventListener('menu:settings', handleSettingsEvent)
+    cleanups.push(() => window.removeEventListener('menu:settings', handleSettingsEvent))
 
     // View > Toggle Sidebar
     cleanups.push(
@@ -179,6 +185,8 @@ function App(): React.JSX.Element {
         repoPath={activeRepoPath}
         theme={settings.theme}
         onToggleTheme={toggleTheme}
+        onCloseTab={handleCloseRepo}
+        onOpenSettings={openSettings}
       />
       <TabBar
         tabs={tabs}

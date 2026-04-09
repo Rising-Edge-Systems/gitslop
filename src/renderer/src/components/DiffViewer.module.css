@@ -250,6 +250,13 @@
   min-height: 0;
 }
 
+/* Inner wrapper stretches to the width of the longest line,
+   so backgrounds on .line elements cover the full scrollable width */
+.inlineViewInner {
+  display: inline-block;
+  min-width: 100%;
+}
+
 .hunk {
   border-bottom: 1px solid var(--border);
 }
@@ -268,9 +275,6 @@
   font-size: var(--font-xs);
   font-family: var(--font-mono);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 1;
 }
 
 .hunkHeaderText {
@@ -396,6 +400,11 @@
   min-width: 0;
 }
 
+.sbsPaneInner {
+  display: inline-block;
+  min-width: 100%;
+}
+
 .sbsLeft {
   border-right: 1px solid var(--border);
 }
@@ -423,9 +432,6 @@
   font-family: var(--font-mono);
   opacity: 0.8;
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 24px;
-  z-index: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

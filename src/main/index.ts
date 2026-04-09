@@ -88,6 +88,19 @@ ipcMain.handle('window:close', () => {
   mainWindow?.close()
 })
 
+ipcMain.handle('menu:about', async () => {
+  const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+  if (win && !win.isDestroyed()) {
+    await dialog.showMessageBox(win, {
+      type: 'info',
+      title: 'About GitSlop',
+      message: 'GitSlop',
+      detail: `A powerful, open-source Git client.\n\nVersion: ${app.getVersion()}\nElectron: ${process.versions.electron}\nChromium: ${process.versions.chrome}\nNode.js: ${process.versions.node}\nPlatform: ${process.platform} ${process.arch}`,
+      buttons: ['OK']
+    })
+  }
+})
+
 ipcMain.handle('window:isMaximized', () => {
   return mainWindow?.isMaximized() ?? false
 })

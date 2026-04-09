@@ -20,6 +20,7 @@ const electronAPI = {
     minimize: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
     maximize: (): Promise<void> => ipcRenderer.invoke('window:maximize'),
     close: (): Promise<void> => ipcRenderer.invoke('window:close'),
+    about: (): Promise<void> => ipcRenderer.invoke('menu:about'),
     isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
     onMaximizeChange: (callback: (isMaximized: boolean) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, value: boolean): void => {

@@ -1,13 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, PanelRight, PanelBottom } from 'lucide-react'
 import { useWindowWidth } from '../hooks/useWindowWidth'
-import {
-  Group,
-  Panel,
-  Separator,
-  usePanelRef
-} from 'react-resizable-panels'
-import type { PanelSize } from 'react-resizable-panels'
+// react-resizable-panels fully removed — all panels use plain CSS flex divs with drag handles
 import { Toolbar } from './Toolbar'
 import { Sidebar } from './Sidebar'
 import { MainContent } from './MainContent'
@@ -149,8 +143,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     const handleToggleSidebarMenu = (): void => { toggleSidebar() }
     const handleToggleTerminalMenu = (): void => { toggleBottomPanel() }
     const handleKeyboardShortcutsMenu = (): void => {
-      // Dispatch a keyboard-shortcuts-panel event for any component that shows it
-      window.dispatchEvent(new CustomEvent('menu:show-keyboard-shortcuts'))
+      setTimeout(() => setShortcutsOpen(true), 0)
     }
 
     window.addEventListener('menu:toggle-sidebar', handleToggleSidebarMenu)
@@ -170,12 +163,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     onNotify: addNotification
   })
 
-  const handleBottomResize = useCallback(
-    (panelSize: PanelSize) => {
-      setBottomPanelSize(panelSize.asPercentage)
-    },
-    [setBottomPanelSize]
-  )
+  // handleBottomResize removed — terminal uses plain CSS div now
 
   // handleRightPanelResize removed — detail panel is now a plain CSS div, not a react-resizable-panels Panel
 
@@ -226,13 +214,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setDiffFile(files[newIdx].path)
   }, [selectedCommit, diffFile])
 
-  // Panel ref for terminal double-click-to-reset
-  const bottomPanelRef = usePanelRef()
-  const DEFAULT_BOTTOM_SIZE = 25
-
-  const handleBottomDividerDoubleClick = useCallback(() => {
-    bottomPanelRef.current?.resize(DEFAULT_BOTTOM_SIZE)
-  }, [bottomPanelRef])
+  // Terminal double-click-to-reset removed — handled inline in drag handle
 
   // ─── Sidebar Drag Handle ──────────────────────────────────────────────────
   const DEFAULT_SIDEBAR_WIDTH = 260
@@ -490,9 +472,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
           </div>
         )}
         {appSettings.sidebarPosition === 'left' && dragHandle}
-        <Group orientation="vertical" id="gitslop-outer-vertical" style={{ flex: 1, minWidth: 0 }}>
-          <Panel id="columns" minSize={20}>
-            <div ref={columnsContentRef} style={{ display: 'flex', flexDirection: layout.rightPanelPosition === 'bottom' ? 'column' : 'row', height: '100%', overflow: 'hidden' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div ref={columnsContentRef} style={{ display: 'flex', flexDirection: layout.rightPanelPosition === 'bottom' ? 'column' : 'row', flex: 1, minHeight: 0, overflow: 'hidden' }}>
               {/* Top row: center panel + right panel (when position is 'right') */}
               <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
                 {/* Center panel — takes remaining space */}
@@ -720,24 +701,50 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                 </>
               )}
             </div>
-          </Panel>
-          {layout.bottomPanelVisible && (
-            <>
-              <Separator className="resize-handle resize-handle-vertical" onDoubleClick={handleBottomDividerDoubleClick} />
-              <Panel
-                id="bottom"
-                defaultSize={layout.bottomPanelSize}
-                minSize={10}
-                maxSize={60}
-                onResize={handleBottomResize}
-                panelRef={bottomPanelRef}
-                className="panel-animate-terminal"
-              >
-                <TerminalPanel currentRepo={currentRepo} onToggle={toggleBottomPanel} />
-              </Panel>
-            </>
-          )}
-        </Group>
+        {/* Terminal panel — plain CSS div with drag handle, inside the vertical flex column */}
+        {layout.bottomPanelVisible && (
+          <>
+            <div
+              style={{
+                height: 5,
+                flexShrink: 0,
+                cursor: 'row-resize',
+                background: 'transparent',
+                borderTop: '1px solid var(--border)',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                const startY = e.clientY
+                const startHeight = layout.bottomPanelSize
+                document.body.classList.add('sidebar-dragging')
+                const onMove = (ev: MouseEvent): void => {
+                  const delta = startY - ev.clientY
+                  const newHeight = Math.max(100, Math.min(500, startHeight + delta))
+                  setBottomPanelSize(newHeight)
+                }
+                const onUp = (): void => {
+                  document.body.classList.remove('sidebar-dragging')
+                  document.removeEventListener('mousemove', onMove)
+                  document.removeEventListener('mouseup', onUp)
+                }
+                document.addEventListener('mousemove', onMove)
+                document.addEventListener('mouseup', onUp)
+              }}
+              onDoubleClick={() => setBottomPanelSize(200)}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+            />
+            <div style={{
+              height: layout.bottomPanelSize,
+              flexShrink: 0,
+              overflow: 'hidden'
+            }}>
+              <TerminalPanel currentRepo={currentRepo} onToggle={toggleBottomPanel} />
+            </div>
+          </>
+        )}
+        </div>
         {/* Sidebar — right position */}
         {appSettings.sidebarPosition === 'right' && dragHandle}
         {layout.sidebarVisible && appSettings.sidebarPosition === 'right' && (

@@ -6,6 +6,9 @@ interface MenuBarProps {
   repoPath: string | null
   theme: 'dark' | 'light'
   onToggleTheme: () => void
+  onCloseTab?: () => void
+  onOpenSettings?: () => void
+  onShowKeyboardShortcuts?: () => void
 }
 
 interface MenuItem {
@@ -21,7 +24,7 @@ interface MenuDef {
   items: MenuItem[]
 }
 
-export function MenuBar({ repoPath, theme, onToggleTheme }: MenuBarProps): React.JSX.Element {
+export function MenuBar({ repoPath, theme, onToggleTheme, onCloseTab, onOpenSettings, onShowKeyboardShortcuts }: MenuBarProps): React.JSX.Element {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [isMaximized, setIsMaximized] = useState(false)
   const menuBarRef = useRef<HTMLDivElement>(null)
@@ -84,9 +87,9 @@ export function MenuBar({ repoPath, theme, onToggleTheme }: MenuBarProps): React
           }
         }},
         { separator: true, label: '' },
-        { label: 'Close Tab', accelerator: 'Ctrl+W', onClick: () => window.dispatchEvent(new CustomEvent('menu:close-tab')) },
+        { label: 'Close Tab', accelerator: 'Ctrl+W', onClick: () => onCloseTab?.() },
         { separator: true, label: '' },
-        { label: 'Settings', accelerator: 'Ctrl+,', onClick: () => window.dispatchEvent(new CustomEvent('menu:settings')) },
+        { label: 'Settings', accelerator: 'Ctrl+,', onClick: () => onOpenSettings?.() },
         { separator: true, label: '' },
         { label: 'Quit', accelerator: 'Ctrl+Q', onClick: () => window.electronAPI.window.close() }
       ]
@@ -120,8 +123,7 @@ export function MenuBar({ repoPath, theme, onToggleTheme }: MenuBarProps): React
         { label: 'Keyboard Shortcuts', accelerator: 'Ctrl+?', onClick: () => window.dispatchEvent(new CustomEvent('menu:keyboard-shortcuts')) },
         { separator: true, label: '' },
         { label: 'About GitSlop', onClick: () => {
-          // Trigger about from main process
-          window.dispatchEvent(new CustomEvent('menu:about'))
+          window.electronAPI.window.about?.()
         }}
       ]
     }
