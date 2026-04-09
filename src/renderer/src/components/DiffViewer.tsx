@@ -691,6 +691,47 @@ function ScrollbarMarkers({
   maxMarkerHeight?: number
 }): React.JSX.Element {
   const columnRef = useRef<HTMLDivElement>(null)
+  const [viewport, setViewport] = useState<{ top: number; height: number }>({ top: 0, height: 100 })
+
+  // Update viewport indicator on scroll and resize
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    let rafId: number | null = null
+
+    const updateViewport = (): void => {
+      rafId = null
+      const el = containerRef.current
+      if (!el) return
+      const { scrollTop, scrollHeight, clientHeight } = el
+      if (scrollHeight <= 0) return
+      const topPct = (scrollTop / scrollHeight) * 100
+      const heightPct = (clientHeight / scrollHeight) * 100
+      setViewport({ top: topPct, height: heightPct })
+    }
+
+    const onScroll = (): void => {
+      if (rafId == null) {
+        rafId = requestAnimationFrame(updateViewport)
+      }
+    }
+
+    // Initial calculation
+    updateViewport()
+
+    container.addEventListener('scroll', onScroll, { passive: true })
+
+    // Also update on resize (content might change size)
+    const ro = new ResizeObserver(() => updateViewport())
+    ro.observe(container)
+
+    return () => {
+      container.removeEventListener('scroll', onScroll)
+      ro.disconnect()
+      if (rafId != null) cancelAnimationFrame(rafId)
+    }
+  }, [containerRef])
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -711,6 +752,14 @@ function ScrollbarMarkers({
       className={styles.scrollbarMarkerColumn}
       onClick={handleClick}
     >
+      {/* Viewport indicator — behind markers (lower z-index) */}
+      <div
+        className={styles.scrollbarViewport}
+        style={{
+          top: `${viewport.top}%`,
+          height: `${viewport.height}%`
+        }}
+      />
       {markers.map((m, i) => {
         const top = `${m.position * 100}%`
         // Clamp pixel height between min and max

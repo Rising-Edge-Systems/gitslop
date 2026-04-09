@@ -612,6 +612,18 @@
   background: rgba(243, 139, 168, 0.65);
 }
 
+/* Viewport indicator — shows current visible area on the marker column */
+.scrollbarViewport {
+  position: absolute;
+  right: 0;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 1px;
+  z-index: -1;
+  pointer-events: none;
+}
+
 /* Wrapper to provide positioning context for the marker column.
    Used inside both the main diffViewer (for inline) and sbsView (for full diff panes). */
 .scrollableWithMarkers {
