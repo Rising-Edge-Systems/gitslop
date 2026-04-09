@@ -1,211 +1,130 @@
 {
   "project": "GitSlop",
-  "branchName": "feature/mega-polish",
-  "description": "Mega PRD: fix graph bugs, improve merge UI, add missing context menu actions, graph refresh after operations, current branch indicator, profiles, SSH keys, commit signing, GitHub/GitLab integration.",
+  "branchName": "feature/graph-refresh-and-scale",
+  "description": "Fix commit graph refresh after push/fetch/remote operations and make the graph performant with large repos (many branches, thousands of commits). Plus GitHub OAuth Device Flow login and GitLab multi-account.",
   "userStories": [
     {
-      "id": "US-MP-001",
-      "title": "Current Branch Visual Indicator in Commit Graph",
-      "description": "As a user, I want to clearly see which branch I am currently on in the commit graph.",
+      "id": "US-GR-001",
+      "title": "Force Graph Refresh After Push, Fetch, Pull",
+      "description": "As a user, I want the commit graph to update remote ref tags after push/fetch/pull without having to close and reopen the repo.",
       "acceptanceCriteria": [
-        "The current branch's pill badge in the commit graph has a distinct visual treatment: bold border, brighter color, or a checkmark/dot icon prefix",
-        "The HEAD commit row has a stronger left accent border (3px var(--accent)) to distinguish it from selected commits",
-        "If the current branch label is off-screen (scrolled away), show a small floating indicator at the top of the graph: 'HEAD: branchname'",
+        "After a successful push (Toolbar push button), the commit graph reloads and remote ref labels (origin/main etc.) update",
+        "After a successful fetch, the graph reloads to show new remote commits and updated remote refs",
+        "After a successful pull, the graph reloads",
+        "The fix: git push/fetch/pull don't change local working tree files so onRepoChanged watcher doesn't fire. After these operations, dispatch a manual refresh event",
+        "Add a custom event 'graph:force-refresh' that CommitGraph listens for and triggers loadCommits()",
+        "Toolbar.tsx (or wherever push/fetch/pull are triggered) dispatches 'graph:force-refresh' after successful operations",
+        "The loadCommits() skip-if-unchanged check (first+last hash comparison) must also compare refs \u2014 after push, commits are the same but refs change",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "CommitGraph.tsx renders ref badges. The HEAD ref already has a CircleDot icon. Enhancement: make it more prominent. The current branch is available from git status data."
+      "passes": false,
+      "notes": "CommitGraph.tsx loadCommits() on line 1047-1053 skips updates if first+last hashes match. After push, hashes ARE the same but refs on commits change (origin/main moves). Need to also compare ref strings or force a full reload after push/fetch/pull. The graph:force-refresh event should bypass the skip-if-unchanged check."
     },
     {
-      "id": "US-MP-002",
-      "title": "Graph Refresh After Git Operations",
-      "description": "As a user, I want the commit graph to automatically refresh after merge, rebase, checkout, commit, push, pull, and other git operations.",
+      "id": "US-GR-002",
+      "title": "Limit Initial Commit Load with Pagination",
+      "description": "As a user, I want the commit graph to load quickly even on repos with thousands of commits and many branches.",
       "acceptanceCriteria": [
-        "After a successful merge (MergeDialog), the commit graph reloads",
-        "After a successful commit (StatusPanel), the graph reloads",
-        "After checkout, push, pull, fetch, rebase, cherry-pick, revert — graph reloads",
-        "The reload preserves scroll position where possible",
-        "Use the existing onRepoChanged file watcher — verify it fires after all operations",
-        "If watcher doesn't fire for some operations, trigger manual refresh via a callback or event",
+        "By default, load only the most recent 500 commits (git log --all -n 500)",
+        "Show a 'Load more commits' button or automatic lazy loading at the bottom of the graph",
+        "Clicking 'Load more' fetches the next 500 commits (using --skip or date-based pagination)",
+        "The total commit count is shown in the graph header: 'Showing 500 of 12,345 commits'",
+        "The lane assignment algorithm handles incremental data without recalculating everything",
+        "The canvas fallback threshold (50,000) still applies for rendering",
+        "Filters (author, date, grep) still work \u2014 they're passed to git log alongside the limit",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "The app has an onRepoChanged file watcher. Check if MergeDialog calls onRefresh after completion. CommitGraph listens to onRepoChanged — verify the listener works. MergeDialog should dispatch a refresh event or call a callback prop after merge completes."
+      "passes": false,
+      "notes": "Currently git log is called with { all: true } and no maxCount. Add maxCount: 500 to the options. For 'load more', track the skip offset and append to existing commits. The git-service.ts log method already supports maxCount option. The graph header currently shows 'N COMMITS' \u2014 update to show 'Showing N of total'."
     },
     {
-      "id": "US-MP-003",
-      "title": "Add Merge to Commit Right-Click Context Menu",
-      "description": "As a user, I want to merge a branch by right-clicking a commit in the graph.",
+      "id": "US-GR-003",
+      "title": "Collapse Inactive Branches in Graph",
+      "description": "As a user, I want the graph to be readable even with many branches by collapsing inactive ones.",
       "acceptanceCriteria": [
-        "Right-clicking a commit that has branch refs shows 'Merge [branchname] into [current branch]'",
-        "Clicking opens MergeDialog pre-filled with the selected branch",
-        "If commit has no branch refs or is on current branch, merge option not shown",
-        "After merge completes, graph refreshes",
+        "Branches with no commits in the visible range are not shown as lanes (they don't take up horizontal space)",
+        "The lane assignment algorithm only assigns lanes to branches that have visible commits",
+        "Merged branches that have no unmerged commits collapse into the target branch lane",
+        "The maximum number of visible lanes is capped (e.g., 15-20) \u2014 additional branches are shown as a single 'N more branches' indicator",
+        "Users can expand collapsed branches by clicking the indicator",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Commit context menu in CommitGraph.tsx. Branch ref context menus already have merge. Add merge to the COMMIT context menu when refs are present."
+      "passes": false,
+      "notes": "The lane assignment in laneAssignment.ts assigns a new lane for each branch divergence. With many branches, this creates dozens of lanes making the graph very wide and unreadable. GitKraken solves this by only showing active lanes and collapsing merged branches. The key change is in assignLanes() \u2014 track which lanes have visible commits and skip/merge inactive ones."
     },
     {
-      "id": "US-MP-004",
-      "title": "Redesign MergeDialog — Clean, Polished UI",
-      "description": "As a user, I want the merge dialog to look polished and not crammed.",
+      "id": "US-GR-004",
+      "title": "Configurable Commit History Depth",
+      "description": "As a user, I want to configure how many commits to load in the graph.",
       "acceptanceCriteria": [
-        "Proper modal overlay (centered, max-width 480px, proper padding var(--space-lg))",
-        "Title: 'Merge into [current branch]'",
-        "Branch selector: searchable dropdown showing branches to merge from",
-        "Preview: ahead/behind counts, number of commits to merge",
-        "Options: --no-ff checkbox, --squash checkbox",
-        "Merge button: deep blue (#3b82f6), white text, font-weight 600",
-        "Cancel button: subtle secondary style",
-        "Loading state with spinner during merge",
-        "Error state with clear message",
-        "Success: brief confirmation then auto-close",
-        "Uses MergeDialog.module.css with design tokens, not global branch-dialog classes",
+        "Settings > Git section has a 'Commit history depth' option: 500, 1000, 2500, 5000, All",
+        "The selected depth is used as maxCount in the git log call",
+        "Default is 500",
+        "The setting persists via useSettings",
+        "Changing the setting triggers a graph reload",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "MergeDialog.tsx (360 lines) needs visual redesign. Currently uses branch-dialog global CSS. Rewrite CSS module. The merge IPC (mergePreview, merge) already exists."
+      "passes": false,
+      "notes": "Add commitHistoryDepth to the settings interface in useSettings.ts. Pass it through to CommitGraph via RepoView. CommitGraph uses it as the maxCount for git log."
     },
     {
-      "id": "US-MP-005",
-      "title": "Enhanced Commit Context Menu",
-      "description": "As a user, I want the commit right-click menu to have all GitKraken-like actions.",
+      "id": "US-GR-005",
+      "title": "Refresh Status Bar and Sidebar After Remote Operations",
+      "description": "As a user, I want the status bar ahead/behind counts and sidebar branch list to update after push/fetch/pull.",
       "acceptanceCriteria": [
-        "Full menu: Checkout, Cherry-pick, Revert, Reset Soft, Reset Mixed, Reset Hard (with warning), Create branch, Create tag, Copy SHA, Copy commit message",
-        "If commit has branch refs: Merge [branch] into current, Rebase current onto [branch]",
-        "Separators between action groups",
-        "Dangerous actions (Reset Hard) styled in red",
-        "All repo-modifying actions trigger graph refresh",
+        "After push: status bar ahead/behind updates (ahead count should decrease to 0)",
+        "After fetch: status bar shows new incoming count, sidebar shows new remote branches if any",
+        "After pull: status bar updates, sidebar branch list refreshes",
+        "Use the same 'graph:force-refresh' event from US-GR-001 \u2014 other components also listen to it",
+        "Or use onRepoChanged if it can be made to fire after remote operations (e.g., touch a file after push)",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Existing menu has most items. Add: copy commit message, split reset into soft/mixed/hard, add merge/rebase when branch refs present. Group with separators."
+      "passes": false,
+      "notes": "StatusBar.tsx and Sidebar.tsx both listen to onRepoChanged for refresh. After push/fetch/pull, if onRepoChanged doesn't fire, these components won't update either. The graph:force-refresh event should be listened to by all components that show git state."
     },
     {
-      "id": "US-MP-006",
-      "title": "Profiles — Create, Edit, Switch",
-      "description": "As a user, I want named profiles with author name and email to switch between identities.",
+      "id": "US-GR-006",
+      "title": "GitHub OAuth Device Flow \u2014 Login with GitHub",
+      "description": "As a user, I want to click Login with GitHub instead of manually creating and pasting a PAT.",
       "acceptanceCriteria": [
-        "Settings panel has a 'Profiles' section",
-        "Create profile: name, author name (user.name), author email (user.email)",
-        "Edit and delete profiles",
-        "Default profile selection",
-        "Profiles stored in electron-store config.json",
-        "Switching profiles runs git config user.name and user.email on current repo",
-        "Profile indicator in status bar shows active profile",
-        "Quick profile selector in toolbar or status bar",
+        "GitHub OAuth App client_id is stored as a constant: Ov23liAVjXNTZR7qBroD",
+        "Login flow: POST https://github.com/login/device/code with client_id and scope=repo,read:user,read:org",
+        "Response includes device_code, user_code, verification_uri, interval",
+        "Show user a dialog: \"Enter code XXXX-XXXX at github.com/login/device\" with a button to open the URL",
+        "Poll POST https://github.com/login/oauth/access_token with client_id, device_code, grant_type=urn:ietf:params:oauth:grant-type:device_code at the given interval",
+        "When user authorizes: response includes access_token \u2014 store it encrypted like PAT",
+        "Fetch user info with the token and add as an account (same as PAT flow)",
+        "Cancel button stops polling",
+        "Error handling: expired code, access denied, slow_down response",
+        "The Login with GitHub button is shown alongside the existing PAT input (user can choose either method)",
+        "All HTTP requests use https module in main process (not renderer) via IPC",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Store in electron-store: { profiles: [{ id, name, authorName, authorEmail, isDefault }] }. Add IPC for CRUD. Apply via git config commands. SettingsPanel.tsx already has sections — add Profiles."
+      "passes": false,
+      "notes": "Client ID: Ov23liAVjXNTZR7qBroD. Device flow docs: https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow. The polling endpoint returns error=authorization_pending while waiting, error=slow_down if polling too fast, or access_token on success. All API calls must go through main process (IPC) because renderer cant make cross-origin requests. Add IPC handlers: github:startDeviceFlow, github:pollDeviceFlow, github:cancelDeviceFlow."
     },
     {
-      "id": "US-MP-007",
-      "title": "SSH Key Management",
-      "description": "As a user, I want to manage SSH keys from within the app.",
+      "id": "US-GR-007",
+      "title": "GitLab Multi-Account Support",
+      "description": "As a user, I want to connect multiple GitLab accounts (including self-hosted instances).",
       "acceptanceCriteria": [
-        "Settings has SSH Keys section",
-        "List existing keys from ~/.ssh/",
-        "Generate new key: Ed25519 or RSA, name, optional passphrase",
-        "Uses ssh-keygen via child_process",
-        "Copy public key to clipboard button",
-        "Test connection: ssh -T git@github.com with result display",
+        "GitLab section in settings shows list of connected accounts (same pattern as GitHub multi-account)",
+        "Each account has: label, username, instance URL, avatar, remove button with confirmation",
+        "Add Account form: instance URL field (default gitlab.com), PAT input, label",
+        "Backend: gitlabAccounts array in electron-store, addAccount/getAccounts/removeAccount IPC handlers",
+        "Legacy single gitlabToken migrated to multi-account on first access",
+        "Each account stores its instance URL so different accounts can be on different GitLab instances",
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Filesystem operations on ~/.ssh/. Use child_process.exec for ssh-keygen. Read directory for key listing. All in main process via IPC."
-    },
-    {
-      "id": "US-MP-008",
-      "title": "Commit Signing Configuration",
-      "description": "As a user, I want to configure GPG or SSH commit signing per profile.",
-      "acceptanceCriteria": [
-        "Profile editor has Signing section: None, GPG, SSH",
-        "GPG: dropdown of available keys (gpg --list-keys), selected stored in profile",
-        "SSH: dropdown of SSH keys, selected stored in profile",
-        "Applying profile sets git config commit.gpgsign, user.signingkey, gpg.format",
-        "Existing signature display in commit details works correctly",
-        "Typecheck passes"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "GPG listing via existing getAvailableGpgKeys IPC. SSH signing: gpg.format=ssh, user.signingkey=path/to/key.pub. Apply via git config on profile switch."
-    },
-    {
-      "id": "US-MP-009",
-      "title": "GitHub Integration — OAuth Login",
-      "description": "As a user, I want to log in to GitHub from GitSlop.",
-      "acceptanceCriteria": [
-        "Settings has GitHub section",
-        "Login uses GitHub OAuth device flow or Personal Access Token input",
-        "Token stored securely (electron safeStorage or encrypted in electron-store)",
-        "Shows logged-in user: avatar, username",
-        "Logout clears token",
-        "Typecheck passes"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "GitHub device flow: POST /login/device/code, show code to user, poll /login/oauth/access_token. Or simpler: let user paste a PAT. Store with safeStorage. GET /user for user info."
-    },
-    {
-      "id": "US-MP-010",
-      "title": "GitHub — View and Create Pull Requests",
-      "description": "As a user, I want to view and create GitHub PRs from within GitSlop.",
-      "acceptanceCriteria": [
-        "When GitHub remote detected, show Pull Requests section in sidebar",
-        "List open PRs: title, number, author, status, CI checks",
-        "Click PR to see details: description, comments, review status, files changed",
-        "Create PR button: dialog with title, description, base branch, head branch",
-        "After creating, show PR URL with link to open in browser",
-        "Typecheck passes"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": "Parse owner/repo from remote URL. GitHub API: GET /repos/OWNER/REPO/pulls, POST /repos/OWNER/REPO/pulls. New PullRequests component for sidebar."
-    },
-    {
-      "id": "US-MP-011",
-      "title": "GitLab Integration — Login and Merge Requests",
-      "description": "As a user, I want to log in to GitLab and view/create merge requests.",
-      "acceptanceCriteria": [
-        "Settings has GitLab section with instance URL field (gitlab.com default, supports self-hosted)",
-        "Login via Personal Access Token (user pastes token)",
-        "Token stored securely",
-        "Shows logged-in user info",
-        "List open MRs when GitLab remote detected",
-        "Create MR dialog: title, description, source/target branch",
-        "Typecheck passes"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": "GitLab API: /api/v4. PAT simpler than OAuth for self-hosted. Parse project from remote URL. Reuse PR list UI components."
-    },
-    {
-      "id": "US-MP-012",
-      "title": "Interactive Rebase UI",
-      "description": "As a user, I want to interactively rebase commits with a visual UI for reordering, squashing, and editing.",
-      "acceptanceCriteria": [
-        "Right-click a branch or commit > 'Interactive rebase' opens the rebase UI",
-        "Shows list of commits to be rebased with drag-to-reorder",
-        "Each commit has a dropdown: pick, squash, fixup, edit, drop, reword",
-        "Preview of the result before executing",
-        "Execute button runs git rebase --interactive with the specified actions",
-        "Progress indicator during rebase",
-        "Conflict resolution integration (existing ConflictResolver)",
-        "Abort button if rebase goes wrong",
-        "Typecheck passes"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": "The rebaseInteractive IPC handler already exists. The UI needs: commit list with drag-reorder, action dropdowns, and progress tracking. RebaseDialog.tsx exists but may need enhancement."
+      "passes": false,
+      "notes": "Follow the exact same pattern as GitHub multi-account (US from mega-polish). The key difference: GitLab accounts have an instanceUrl field (defaults to https://gitlab.com). The API base is instanceUrl + /api/v4. GET /api/v4/user for user info."
     }
   ]
 }
