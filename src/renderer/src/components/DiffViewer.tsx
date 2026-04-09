@@ -675,6 +675,7 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
 
   return (
     <div className={styles.inlineView}>
+      <div className={styles.inlineViewInner}>
       {hunks.map((hunk, hunkIdx) => (
         <div key={hunkIdx} className={styles.hunk}>
           <div className={styles.hunkHeader}>
@@ -733,6 +734,7 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
           })}
         </div>
       ))}
+      </div>
     </div>
   )
 }
@@ -821,6 +823,7 @@ function SideBySideDiffView({
         ref={leftPaneRef}
         onScroll={() => onScrollSync('left')}
       >
+        <div className={styles.sbsPaneInner}>
         <div className={styles.sbsPaneHeader}>Old</div>
         {pairs.map((pair, idx) => {
           const hh = hunkHeaderMap.get(idx)
@@ -852,6 +855,7 @@ function SideBySideDiffView({
             </React.Fragment>
           )
         })}
+        </div>
       </div>
 
       {/* Right pane (new) */}
@@ -860,6 +864,7 @@ function SideBySideDiffView({
         ref={rightPaneRef}
         onScroll={() => onScrollSync('right')}
       >
+        <div className={styles.sbsPaneInner}>
         <div className={styles.sbsPaneHeader}>New</div>
         {pairs.map((pair, idx) => {
           const hh = hunkHeaderMap.get(idx)
@@ -891,6 +896,7 @@ function SideBySideDiffView({
             </React.Fragment>
           )
         })}
+        </div>
       </div>
     </div>
   )

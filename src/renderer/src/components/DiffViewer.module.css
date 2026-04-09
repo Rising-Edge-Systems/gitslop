@@ -250,6 +250,13 @@
   min-height: 0;
 }
 
+/* Inner wrapper stretches to the width of the longest line,
+   so backgrounds on .line elements cover the full scrollable width */
+.inlineViewInner {
+  display: inline-block;
+  min-width: 100%;
+}
+
 .hunk {
   border-bottom: 1px solid var(--border);
 }
@@ -271,8 +278,6 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  min-width: 100%;
-  width: fit-content;
 }
 
 .hunkHeaderText {
@@ -291,8 +296,6 @@
   line-height: 20px;
   min-height: 20px;
   white-space: pre;
-  min-width: 100%;
-  width: fit-content;
 }
 
 .line:hover {
@@ -400,6 +403,11 @@
   min-width: 0;
 }
 
+.sbsPaneInner {
+  display: inline-block;
+  min-width: 100%;
+}
+
 .sbsLeft {
   border-right: 1px solid var(--border);
 }
@@ -417,8 +425,6 @@
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border);
   font-family: var(--font-family);
-  min-width: 100%;
-  width: fit-content;
 }
 
 .sbsHunkHeader {
