@@ -1,0 +1,220 @@
+# Ralph Progress Log
+Started: Mon Apr 8 2026
+---
+
+## Codebase Patterns
+- Sidebar: plain CSS flex div (NOT react-resizable-panels), width in pixels via layout.sidebarSize, drag handle in AppLayout
+- Detail panel: plain CSS flex div, fixed 340px width (to be made resizable), always visible when repo open
+- Right panel: DetailPanel + StatusPanel stacked vertically, split ratio via layout.detailStagingSplit (percent, default 60)
+- Staging area (StatusPanel): renders in the RIGHT panel, not center
+- Center panel: commit graph OR diff viewer (swapped via viewingDiff state)
+- DiffViewer: local useState for mode ('inline'|'side-by-side'), accepts initialMode prop, used in RepoView
+- Sidebar collapsed: icon rail (48px) with RAIL_SECTIONS icons, overlay floats via overflow:visible + z-index on container
+- Sidebar container in AppLayout: TWO instances (left + right position) — always update both
+- CSS modules: import styles from './Component.module.css', camelCase class names
+- Design tokens: --space-*, --font-*, --radius-*, --border, --bg-hover, --transition-fast
+- Typecheck: npm run typecheck
+- Build: npx electron-vite build && npx electron --no-sandbox .
+- Layout state: useLayoutState() hook, localStorage key 'gitslop-layout-state', 300ms debounced save
+- LayoutState fields: sidebarSize, bottomPanelSize, bottomPanelVisible, sidebarVisible, sidebarCollapsed, rightPanelSize, stagingCollapsed, detailPanelCollapsed, detailStagingSplit
+- Drag handle pattern: sidebar uses isDraggingRef + mousedown/mousemove/mouseup on document + body class 'sidebar-dragging'
+- IPC pattern: git-service.ts method → git-ipc.ts handler → preload/index.ts expose → useLayoutState.ts type declaration (4 files for each new git operation)
+- Binary file detection: check for null bytes (\0) in string content returned from git show
+- DetailPanel hooks: ALL hooks must be above any early return to avoid React error #310
+- CommitFileDetail type: { path, status, insertions, deletions, oldPath? } from CommitGraph.tsx
+- Right panel position: layout.rightPanelPosition ('right' | 'bottom') determines if detail+staging is a column on right or horizontal strip below center
+---
+
+## 2026-04-08 - US-DD-001
+- Lifted diff view mode (inline/side-by-side) from DiffViewer local state to LayoutState for persistence
+- Added `diffViewMode: DiffViewMode` field to LayoutState with default 'inline'
+- Added `onModeChange` callback prop to DiffViewer, fired when user toggles mode
+- Threaded diffViewMode and onDiffViewModeChange through AppLayout → MainContent → RepoView → DiffViewer
+- Files changed: useLayoutState.ts, DiffViewer.tsx, RepoView.tsx, MainContent.tsx, AppLayout.tsx
+- **Learnings for future iterations:**
+  - Props must be threaded through AppLayout → MainContent → RepoView → DiffViewer (4 layers)
+  - DiffViewer is also used in StatusPanel.tsx but that instance doesn't need mode persistence
+  - The `DiffViewMode` type is exported from DiffViewer.tsx and can also be exported from useLayoutState.ts
+  - LayoutState auto-persists to localStorage via debounced save — just add the field and it works
+---
+
+## 2026-04-08 - US-DD-002
+- Fixed sidebar icon rail overlays not appearing when sidebar is collapsed
+- Root cause: parent container div in AppLayout.tsx had `overflow: 'hidden'` which clipped the absolutely-positioned overlay
+- Fix: Changed overflow to `'visible'` when `layout.sidebarCollapsed` is true, added `position: 'relative'` and `zIndex: 20` to sidebar container
+- Applied to both left and right sidebar position variants
+- Files changed: AppLayout.tsx
+- **Learnings for future iterations:**
+  - The sidebar container in AppLayout has two instances — one for `sidebarPosition === 'left'` and one for `'right'` — both need matching changes
+  - Overlay z-index stacking: container gets z-index 20, overlay inside has z-index 100 — this creates a stacking context that floats above the center panel
+  - The overlay for right-positioned sidebar still opens to the right (left: 48px) — may need future fix to open leftward
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-DD-003
+- Added resizable right panel width with drag handle between center and right panels
+- Changed rightPanelSize from percentage (25) to pixels (340) with migration for old values
+- Added clamping: min 280px, max 600px, default 340px
+- Reused sidebar-drag-handle CSS class for consistent styling
+- Drag direction: dragging LEFT makes right panel wider (delta subtracted from width)
+- Double-click resets to 340px default
+- Width persists via existing localStorage debounced save
+- Files changed: useLayoutState.ts, AppLayout.tsx
+- **Learnings for future iterations:**
+  - The sidebar-drag-handle CSS class can be reused for any vertical drag divider — it handles cursor, width, hover highlight
+  - Right panel drag: delta is subtracted (not added) because dragging left = wider panel
+  - The `sidebar-dragging` body class disables user-select during drag — reuse it for any drag interaction
+  - isDraggingRight state used to disable transition during drag for smooth resizing
+---
+
+## 2026-04-08 - US-DD-004
+- Added resizable vertical split between DetailPanel and StatusPanel in the right panel
+- Added `detailStagingSplit: number` (0-100, default 60) to LayoutState with clamping 10-90
+- Added `setDetailStagingSplit` callback to useLayoutState hook
+- Replaced flex:6/flex:4 with calc()-based percentage heights driven by detailStagingSplit
+- Added 5px horizontal drag handle with row-resize cursor, hover highlight, and double-click reset to 60%
+- Used rightPanelContainerRef to measure container height for delta-to-percent conversion
+- Reused sidebar-dragging body class for user-select:none during drag
+- Split persists via existing localStorage debounced save
+- Files changed: useLayoutState.ts, AppLayout.tsx
+- **Learnings for future iterations:**
+  - Vertical drag: convert clientY delta to percentage of container height, not pixels
+  - The drag handle div needs flexShrink:0 to prevent it from collapsing to zero
+  - calc() with percentage works well for split panels: `calc(${split}% - 2px)` for top, `calc(${100-split}% - 3px)` for bottom (accounting for the 5px handle)
+  - minHeight:100 on each section prevents collapse, but clamping in setDetailStagingSplit (10-90) is the primary guard
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-DD-005
+- Added file list view toggle (flat path vs directory tree) in DetailPanel changed files section
+- Built `buildFileTree()` utility that converts flat CommitFileDetail[] into a recursive tree structure
+- Built recursive `FileTreeNodeComponent` with collapsible directories (expanded by default), status icons, and +/- stats
+- Added `fileListView: 'path' | 'tree'` to LayoutState with default 'path', persists via localStorage
+- Added List and FolderTree toggle buttons in the files section header row
+- Threaded fileListView and setFileListView through AppLayout → DetailPanel
+- Files changed: useLayoutState.ts, DetailPanel.tsx, DetailPanel.module.css, AppLayout.tsx
+- **Learnings for future iterations:**
+  - Tree view uses depth-based paddingLeft (depth * 16 + 8) for indentation — pure inline style, no CSS nesting
+  - The filesHeader button needed to be wrapped in a filesHeaderRow div to accommodate the toggle buttons alongside it
+  - buildFileTree sorts directories first, then alphabetically within each level
+  - FileTreeNodeComponent uses local useState for expanded state — each directory independently tracks its own expand/collapse
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-DD-006
+- Added "View Full File Content at Commit" feature — toggle between Diff and File views in center panel
+- Backend: added showFileAtCommit(repoPath, hash, filePath) IPC handler using `git show HASH:PATH`
+- Frontend: added Diff/File toggle buttons in the back-breadcrumb bar (diffBackBar), with GitCompare and FileCode icons
+- Full file viewer shows line numbers, monospace font, hover highlight per line
+- Binary file detection via null byte check — shows "Binary file — cannot display" message
+- View mode resets to 'diff' when switching files (does NOT persist — diff is primary use case)
+- Files changed: git-service.ts, git-ipc.ts, preload/index.ts, useLayoutState.ts, RepoView.tsx, RepoView.module.css
+- **Learnings for future iterations:**
+  - `git show HASH:PATH` returns raw file content — binary files may contain null bytes
+  - The viewModeToggle is styled as a segmented control (pill buttons with active state) using bg-tertiary container + bg-primary active
+  - centerViewMode state is local to RepoView — intentionally NOT persisted (always defaults to 'diff')
+  - The toggle is placed in diffBackBar with margin-left:auto to push it to the right
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-PM-001
+- Added resizable internal split between file lists and commit form in StatusPanel
+- Added `stagingInternalSplit: number` (0-100, default 65) to LayoutState with clamping 20-90
+- Added `setStagingInternalSplit` callback to useLayoutState hook
+- Wrapped file lists section and commit form in a flex container with calc()-based percentage heights
+- Added 5px drag handle with row-resize cursor, hover highlight, double-click reset to 65%
+- Used internalSplitContainerRef for delta-to-percent conversion during drag
+- Min heights: 80px for file lists, 120px for commit form
+- Split persists via existing localStorage debounced save
+- Files changed: useLayoutState.ts, StatusPanel.tsx, AppLayout.tsx
+- **Learnings for future iterations:**
+  - StatusPanel internal structure: header → file lists section → drag handle → commit form, all inside a flex column container
+  - The `!collapsed` conditional now wraps the entire split container (file lists + drag handle + commit form), not just the file lists
+  - The commitForm CSS class originally had `border-top: 1px solid var(--border)` — removed via inline style override since the drag handle provides the visual separation
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-PM-002
+- Added resizable internal split between commit metadata and changed files list in DetailPanel
+- Added `detailInternalSplit: number` (0-100, default 40) to LayoutState with clamping 15-85
+- Added `setDetailInternalSplit` callback to useLayoutState hook
+- Split the single `.content` scrollable div into two sections: metadata (top, scrollable) and files (bottom, scrollable)
+- Added 5px drag handle with row-resize cursor, hover highlight, double-click reset to 40%
+- Used splitContainerRef for delta-to-percent conversion during drag
+- Min heights: metadata 100px, files 80px
+- Added `.filesWrapper` CSS class for scrollable files section container
+- Split persists via existing localStorage debounced save
+- Files changed: useLayoutState.ts, DetailPanel.tsx, DetailPanel.module.css, AppLayout.tsx
+- **Learnings for future iterations:**
+  - DetailPanel internal structure is now: header → split container (metadata top + drag handle + files bottom)
+  - The `.content` class provides scrolling for the metadata section; `.filesWrapper` provides scrolling for the files section
+  - The `borderTop` on `.filesSection` was overridden with inline `style={{ borderTop: 'none' }}` since the drag handle provides visual separation
+  - Same drag pattern used: mousedown/mousemove/mouseup on document, body class 'sidebar-dragging' for user-select:none
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-PM-003
+- Added dark-themed scrollbars globally via ::-webkit-scrollbar CSS in global.css
+- Scrollbar width/height: 8px, thumb uses var(--border) with 4px border-radius
+- Thumb hover uses var(--text-muted) for a brighter highlight
+- Track and corner are transparent
+- Light theme automatically works because CSS variables (--border, --text-muted) are redefined under [data-theme="light"] in tokens.css
+- Files changed: global.css
+- **Learnings for future iterations:**
+  - Electron uses Chromium so ::-webkit-scrollbar pseudo-elements work everywhere in the app
+  - CSS variables for theming mean you don't need separate light/dark scrollbar blocks — the variables handle both themes
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-PM-004
+- Added native Electron application menu with File menu (New Window, Open Repository, Clone Repository, Init Repository, Close Tab, Settings, Quit)
+- Menu built via Menu.buildFromTemplate() and Menu.setApplicationMenu() in main/index.ts
+- Added menu IPC namespace in preload with onOpenRepository, onCloneRepository, onInitRepository, onCloseTab, onSettings listeners
+- Added Window.electronAPI.menu type declarations in useLayoutState.ts
+- App.tsx listens for all menu IPC events and dispatches actions
+- Clone Repository dispatches custom DOM event 'menu:clone-repository' which Toolbar and WelcomeScreen listen for
+- Init Repository opens directory dialog and calls git.init directly from App.tsx
+- Files changed: src/main/index.ts, src/preload/index.ts, src/renderer/src/App.tsx, src/renderer/src/hooks/useLayoutState.ts, src/renderer/src/components/Toolbar.tsx, src/renderer/src/components/WelcomeScreen.tsx
+- **Learnings for future iterations:**
+  - Menu.setApplicationMenu() works on macOS even with frame:false/titleBarStyle:hidden — menu bar is at the OS level
+  - Use CmdOrCtrl for cross-platform accelerators (Cmd on macOS, Ctrl on Linux/Windows)
+  - Menu IPC pattern: main sends webContents.send('menu:X'), preload exposes ipcRenderer.on('menu:X'), renderer listens via electronAPI.menu.onX()
+  - Custom DOM events (window.dispatchEvent) are a good way to bridge App-level menu actions to deeply nested components (Toolbar, WelcomeScreen)
+  - The preload must expose cleanup functions (() => void) for all IPC listeners to avoid memory leaks
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-PM-005
+- Added Edit, View, and Help menus to the native Electron application menu bar
+- Edit menu: all role-based items (Undo, Redo, Cut, Copy, Paste, Select All)
+- View menu: Toggle Sidebar (IPC), Toggle Terminal (IPC), Zoom In/Out/Reset (role), Toggle Full Screen (role), Dev Tools (role)
+- Help menu: Keyboard Shortcuts (IPC), About GitSlop (dialog.showMessageBox with app/Electron/Chromium/Node versions)
+- Added 3 new IPC channels: menu:toggle-sidebar, menu:toggle-terminal, menu:keyboard-shortcuts
+- App.tsx dispatches custom DOM events for sidebar/terminal/keyboard shortcuts
+- AppLayout.tsx listens for DOM events and calls toggleSidebar()/toggleBottomPanel()
+- Files changed: src/main/index.ts, src/preload/index.ts, src/renderer/src/App.tsx, src/renderer/src/hooks/useLayoutState.ts, src/renderer/src/components/AppLayout.tsx
+- **Learnings for future iterations:**
+  - Electron role-based menu items handle their own accelerators — no need to specify click handlers for undo/redo/cut/copy/paste/selectAll/zoom/fullscreen/devtools
+  - The DOM event bridge pattern (IPC → App.tsx → window.dispatchEvent → AppLayout listener) works well for menu commands that need access to layout state
+  - dialog.showMessageBox() in main process can show app version info via app.getVersion() and process.versions
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-08 - US-PM-006
+- Added movable right panel position — users can toggle between 'right' (column on right) and 'bottom' (horizontal strip below center)
+- Added `rightPanelPosition: 'right' | 'bottom'` to LayoutState with default 'right', persists via localStorage
+- Added `setRightPanelPosition` and `toggleRightPanelPosition` callbacks to useLayoutState hook
+- When 'right': existing layout with DetailPanel + StatusPanel stacked vertically in right column
+- When 'bottom': DetailPanel and StatusPanel render side-by-side in a horizontal strip below the center panel, full width
+- Toggle button (PanelBottom/PanelRight icons) in the right panel header area switches position
+- Drag handle between center and bottom strip reuses detailStagingSplit for resizing
+- columnsContentRef added for proper drag-to-percent calculation in bottom mode
+- Terminal panel always stays at the very bottom below everything
+- Files changed: useLayoutState.ts, AppLayout.tsx
+- **Learnings for future iterations:**
+  - The detailStagingSplit percentage is reused for both modes — in right mode it splits detail/staging vertically, in bottom mode it splits center/bottom-strip vertically
+  - When in bottom mode, the drag handler needs to measure the full columns container height (columnsContentRef), not the right panel container
+  - PanelRight and PanelBottom from lucide-react are good icons for position toggle buttons
+  - The bottom strip uses flex-direction:row with a 1px border divider between detail and staging panels
+  - No browser testing tools available — manual verification needed
+---

@@ -1,0 +1,537 @@
+/* DiffViewer.module.css — Scoped styles for DiffViewer component */
+
+/* ─── Diff Viewer Container ─────────────────────────────────────────────── */
+
+.diffViewer {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  padding: var(--space-md);
+}
+
+/* ─── Toolbar / Header Bar ─────────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px var(--space-md);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  gap: var(--space-md);
+  flex-shrink: 0;
+  min-height: 40px;
+  margin: calc(-1 * var(--space-md)) calc(-1 * var(--space-md)) 0;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.filename {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+
+/* ─── Status Badge ─────────────────────────────────────────────────────── */
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.badgeAdded {
+  background: rgba(166, 227, 161, 0.15);
+  color: var(--success);
+}
+
+.badgeModified {
+  background: rgba(137, 180, 250, 0.15);
+  color: var(--accent);
+}
+
+.badgeDeleted {
+  background: rgba(243, 139, 168, 0.15);
+  color: var(--error);
+}
+
+.badgeRenamed {
+  background: rgba(249, 226, 175, 0.15);
+  color: var(--warning);
+}
+
+/* ─── File Navigation ──────────────────────────────────────────────────── */
+
+.fileNav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.fileNavBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.fileNavBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.fileCounter {
+  font-size: var(--font-xs);
+  font-family: var(--font-family);
+  color: var(--text-muted);
+  padding: 0 4px;
+  white-space: nowrap;
+  min-width: 32px;
+  text-align: center;
+}
+
+/* ─── Mode Toggle ──────────────────────────────────────────────────────── */
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.modeToggle {
+  display: flex;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.modeBtn {
+  padding: 3px 10px;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-xs);
+  font-family: var(--font-family);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.modeBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.modeBtnActive {
+  color: var(--bg-tertiary);
+  background: var(--accent);
+  font-weight: 600;
+}
+
+/* ─── Binary File ───────────────────────────────────────────────────────── */
+
+.binary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 14px;
+}
+
+.binaryIcon {
+  font-size: 32px;
+  opacity: 0.6;
+}
+
+.binaryHint {
+  font-size: var(--font-sm);
+  opacity: 0.7;
+}
+
+/* ─── Raw/Fallback ──────────────────────────────────────────────────────── */
+
+.raw {
+  padding: var(--space-md) var(--space-lg);
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  overflow: auto;
+  max-height: 400px;
+}
+
+/* ─── Large Diff Placeholder ───────────────────────────────────────────── */
+
+.largeDiffPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: 48px 20px;
+  font-family: var(--font-family);
+}
+
+.largeDiffText {
+  font-size: var(--font-md);
+  color: var(--text-muted);
+}
+
+.largeDiffExpandBtn {
+  padding: var(--space-xs) var(--space-lg);
+  background: var(--bg-primary);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  transition: all 0.15s ease;
+}
+
+.largeDiffExpandBtn:hover {
+  background: var(--accent);
+  color: var(--bg-tertiary);
+}
+
+/* ─── Inline Diff View ──────────────────────────────────────────────────── */
+
+.inlineView {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.hunk {
+  border-bottom: 1px solid var(--border);
+}
+
+.hunk:last-child {
+  border-bottom: none;
+}
+
+.hunkHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  background: rgba(137, 180, 250, 0.08);
+  color: var(--accent);
+  font-size: var(--font-xs);
+  font-family: var(--font-mono);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.hunkHeaderText {
+  opacity: 0.8;
+}
+
+.hunkHeaderSuffix {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── Diff Line ─────────────────────────────────────────────────────────── */
+
+.line {
+  display: flex;
+  line-height: 20px;
+  min-height: 20px;
+  white-space: pre;
+}
+
+.line:hover {
+  background: rgba(205, 214, 244, 0.03);
+}
+
+.lineNum {
+  display: inline-block;
+  width: 48px;
+  min-width: 48px;
+  text-align: right;
+  padding-right: var(--space-sm);
+  color: var(--text-muted);
+  user-select: none;
+  opacity: 0.6;
+  font-size: var(--font-xs);
+  line-height: 20px;
+  background: var(--bg-secondary);
+}
+
+.linePrefix {
+  display: inline-block;
+  width: 16px;
+  min-width: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  user-select: none;
+  font-weight: 700;
+}
+
+.lineContent {
+  flex: 1;
+  min-width: 0;
+  padding-right: var(--space-md);
+  tab-size: 4;
+}
+
+.lineAdded {
+  background: rgba(166, 227, 161, 0.1);
+}
+
+.lineAdded .linePrefix {
+  color: var(--success);
+}
+
+.lineAdded .lineContent {
+  color: var(--success);
+}
+
+.lineAdded .lineNum {
+  background: rgba(166, 227, 161, 0.08);
+}
+
+.lineRemoved {
+  background: rgba(243, 139, 168, 0.1);
+}
+
+.lineRemoved .linePrefix {
+  color: var(--error);
+}
+
+.lineRemoved .lineContent {
+  color: var(--error);
+}
+
+.lineRemoved .lineNum {
+  background: rgba(243, 139, 168, 0.08);
+}
+
+.lineContext .lineContent {
+  color: var(--text-secondary);
+}
+
+.lineMeta {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── Word-Level Diff Highlights ────────────────────────────────────────── */
+
+.wordAdded {
+  background: rgba(166, 227, 161, 0.3);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.wordRemoved {
+  background: rgba(243, 139, 168, 0.3);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* ─── Side-by-Side Diff View ────────────────────────────────────────────── */
+
+.sbsView {
+  display: flex;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.sbsPane {
+  flex: 1;
+  overflow: auto;
+  min-width: 0;
+}
+
+.sbsLeft {
+  border-right: 1px solid var(--border);
+}
+
+.sbsPaneHeader {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 3px var(--space-md);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-family);
+}
+
+.sbsHunkHeader {
+  padding: 3px var(--space-md);
+  background: rgba(137, 180, 250, 0.08);
+  color: var(--accent);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  opacity: 0.8;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 24px;
+  z-index: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sbsLine {
+  display: flex;
+  line-height: 20px;
+  min-height: 20px;
+  white-space: pre;
+}
+
+.sbsLine:hover {
+  filter: brightness(1.1);
+}
+
+.sbsLineNum {
+  display: inline-block;
+  width: 48px;
+  min-width: 48px;
+  text-align: right;
+  padding-right: var(--space-sm);
+  color: var(--text-muted);
+  user-select: none;
+  opacity: 0.6;
+  font-size: var(--font-xs);
+  line-height: 20px;
+  background: var(--bg-secondary);
+}
+
+.sbsLineContent {
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--space-sm);
+  tab-size: 4;
+}
+
+.sbsLineAdded {
+  background: rgba(166, 227, 161, 0.1);
+}
+
+.sbsLineAdded .sbsLineContent {
+  color: var(--success);
+}
+
+.sbsLineAdded .sbsLineNum {
+  background: rgba(166, 227, 161, 0.08);
+}
+
+.sbsLineRemoved {
+  background: rgba(243, 139, 168, 0.1);
+}
+
+.sbsLineRemoved .sbsLineContent {
+  color: var(--error);
+}
+
+.sbsLineRemoved .sbsLineNum {
+  background: rgba(243, 139, 168, 0.08);
+}
+
+.sbsLineContext .sbsLineContent {
+  color: var(--text-secondary);
+}
+
+.sbsLineEmpty {
+  background: rgba(88, 91, 112, 0.08);
+}
+
+.sbsLineEmpty .sbsLineContent {
+  color: transparent;
+}
+
+/* ─── Truncation / Show More ────────────────────────────────────────────── */
+
+.truncated {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: 10px var(--space-lg);
+  background: rgba(137, 180, 250, 0.05);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-family);
+}
+
+.truncatedInfo {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.showMore,
+.showAll {
+  padding: var(--space-xs) var(--space-md);
+  background: var(--bg-primary);
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-xs);
+  font-family: var(--font-family);
+  transition: all 0.15s ease;
+}
+
+.showMore:hover,
+.showAll:hover {
+  background: var(--accent);
+  color: var(--bg-tertiary);
+}

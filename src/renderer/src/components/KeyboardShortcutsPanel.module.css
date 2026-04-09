@@ -1,0 +1,152 @@
+/* =============================================================================
+   KeyboardShortcutsPanel — CSS Module
+   ============================================================================= */
+
+.panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  width: 560px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg) 20px var(--space-md);
+  border-bottom: 1px solid var(--border);
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: var(--font-xl);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.panelClose {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-xl);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.panelClose:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.panelSearch {
+  padding: var(--space-md) 20px var(--space-sm);
+}
+
+.panelFilter {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-md);
+  font-family: var(--font-family);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.panelFilter:focus {
+  border-color: var(--accent);
+}
+
+.panelFilter::placeholder {
+  color: var(--text-muted);
+}
+
+.panelBody {
+  padding: var(--space-sm) 20px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.category {
+  margin-bottom: var(--space-lg);
+}
+
+.category:last-child {
+  margin-bottom: 0;
+}
+
+.categoryTitle {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px var(--space-sm);
+  border-radius: var(--radius-sm);
+  transition: background 0.1s;
+}
+
+.item:hover {
+  background: var(--bg-primary);
+}
+
+.itemLabel {
+  font-size: var(--font-md);
+  color: var(--text-primary);
+}
+
+.shortcutKeys {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.shortcutKbd {
+  display: inline-block;
+  padding: 2px 6px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+  min-width: 16px;
+  text-align: center;
+}
+
+.shortcutPlus {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin: 0 1px;
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: var(--space-xl) 0;
+  font-size: var(--font-md);
+}

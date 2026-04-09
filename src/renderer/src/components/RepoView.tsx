@@ -1,0 +1,421 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { AlertTriangle, ArrowLeft, FileCode, GitCompare } from 'lucide-react'
+import styles from './RepoView.module.css'
+import { RepoViewSkeleton } from './Skeleton'
+import blameStyles from './BlameView.module.css'
+import conflictStyles from './ConflictResolver.module.css'
+import { BlameView } from './BlameView'
+import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from './CommitFilterBar'
+import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
+import { ConflictResolver } from './ConflictResolver'
+// StatusPanel moved to right panel in AppLayout
+import { DiffViewer, type DiffViewMode } from './DiffViewer'
+
+interface RepoViewProps {
+  repoPath: string
+  onCommitSelect?: (detail: CommitDetail | null) => void
+  // Center-stage diff props
+  viewingDiff?: boolean
+  diffFile?: string | null
+  diffCommitHash?: string | null
+  selectedCommit?: CommitDetail | null
+  onBackToGraph?: () => void
+  onNavigateFile?: (direction: 'prev' | 'next') => void
+  diffViewMode?: DiffViewMode
+  onDiffViewModeChange?: (mode: DiffViewMode) => void
+}
+
+interface BranchInfo {
+  name: string
+  current: boolean
+}
+
+interface RepoStatus {
+  branch: string
+  staged: number
+  unstaged: number
+  untracked: number
+}
+
+export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange }: RepoViewProps): React.JSX.Element {
+  const [status, setStatus] = useState<RepoStatus | null>(null)
+  const [branches, setBranches] = useState<BranchInfo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showConflictResolver, setShowConflictResolver] = useState(false)
+  const [hasConflicts, setHasConflicts] = useState(false)
+  const [blameFilePath, setBlameFilePath] = useState<string | null>(null)
+  const [commitFilters, setCommitFilters] = useState<CommitFilters>(EMPTY_FILTERS)
+  const [fileHistoryPath, setFileHistoryPath] = useState<string | undefined>(undefined)
+
+  // ─── Center-Stage Diff Loading ───────────────────────────────────────────
+  const [diffContent, setDiffContent] = useState<string | null>(null)
+  const [diffLoading, setDiffLoading] = useState(false)
+  const [diffError, setDiffError] = useState<string | null>(null)
+
+  // ─── Full File View ─────────────────────────────────────────────────────
+  const [centerViewMode, setCenterViewMode] = useState<'diff' | 'file'>('diff')
+  const [fileContent, setFileContent] = useState<string | null>(null)
+  const [fileLoading, setFileLoading] = useState(false)
+  const [fileError, setFileError] = useState<string | null>(null)
+
+  // Load diff content when viewingDiff / diffFile / diffCommitHash changes
+  useEffect(() => {
+    if (!viewingDiff || !diffFile || !diffCommitHash) {
+      setDiffContent(null)
+      setDiffError(null)
+      return
+    }
+    let cancelled = false
+    setDiffLoading(true)
+    setDiffError(null)
+    window.electronAPI.git.showCommitFileDiff(repoPath, diffCommitHash, diffFile)
+      .then((result) => {
+        if (cancelled) return
+        if (result.success && result.data) {
+          setDiffContent(result.data as string)
+        } else {
+          setDiffError(result.error || 'Failed to load diff')
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setDiffError(err instanceof Error ? err.message : 'Failed to load diff')
+      })
+      .finally(() => {
+        if (!cancelled) setDiffLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [viewingDiff, diffFile, diffCommitHash, repoPath])
+
+  // Reset to diff view when file changes
+  useEffect(() => {
+    setCenterViewMode('diff')
+    setFileContent(null)
+    setFileError(null)
+  }, [diffFile, diffCommitHash])
+
+  // Load full file content when switching to file view
+  useEffect(() => {
+    if (centerViewMode !== 'file' || !diffFile || !diffCommitHash) {
+      return
+    }
+    let cancelled = false
+    setFileLoading(true)
+    setFileError(null)
+    window.electronAPI.git.showFileAtCommit(repoPath, diffCommitHash, diffFile)
+      .then((result) => {
+        if (cancelled) return
+        if (result.success && typeof result.data === 'string') {
+          // Detect binary content (null bytes indicate binary)
+          if (result.data.includes('\0')) {
+            setFileError('Binary file — cannot display')
+          } else {
+            setFileContent(result.data)
+          }
+        } else {
+          setFileError(result.error || 'Failed to load file content')
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setFileError(err instanceof Error ? err.message : 'Failed to load file content')
+      })
+      .finally(() => {
+        if (!cancelled) setFileLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [centerViewMode, diffFile, diffCommitHash, repoPath])
+
+  // Escape key returns from diff to graph; [ and ] navigate files
+  useEffect(() => {
+    if (!viewingDiff) return
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onBackToGraph?.()
+      } else if (e.key === '[') {
+        e.preventDefault()
+        onNavigateFile?.('prev')
+      } else if (e.key === ']') {
+        e.preventDefault()
+        onNavigateFile?.('next')
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [viewingDiff, onBackToGraph, onNavigateFile])
+
+  const initialLoadDone = useRef(false)
+
+  const loadRepoData = useCallback(async () => {
+    // Only show loading spinner on initial load, not on refreshes
+    if (!initialLoadDone.current) {
+      setLoading(true)
+    }
+    setError(null)
+    try {
+      // Load status
+      const statusResult = await window.electronAPI.git.getStatus(repoPath)
+      if (statusResult.success && statusResult.data) {
+        const data = statusResult.data
+        setStatus({
+          branch: data.branch?.head || data.branch || 'unknown',
+          staged: Array.isArray(data.staged) ? data.staged.length : 0,
+          unstaged: Array.isArray(data.unstaged) ? data.unstaged.length : 0,
+          untracked: Array.isArray(data.untracked) ? data.untracked.length : 0
+        })
+      }
+
+      // Load branches
+      const branchResult = await window.electronAPI.git.getBranches(repoPath)
+      if (branchResult.success && Array.isArray(branchResult.data)) {
+        setBranches(
+          branchResult.data.map((b: { name: string; current: boolean }) => ({
+            name: b.name,
+            current: b.current
+          }))
+        )
+      }
+
+      // Check for conflicts
+      const conflictsResult = await window.electronAPI.git.getConflictedFiles(repoPath)
+      if (conflictsResult.success && Array.isArray(conflictsResult.data) && conflictsResult.data.length > 0) {
+        setHasConflicts(true)
+        setShowConflictResolver(true)
+      } else {
+        setHasConflicts(false)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load repository data')
+    } finally {
+      setLoading(false)
+      initialLoadDone.current = true
+    }
+  }, [repoPath])
+
+  useEffect(() => {
+    loadRepoData()
+    // Start file watcher for this repo
+    window.electronAPI.watcher.start(repoPath)
+    return () => {
+      window.electronAPI.watcher.stop()
+    }
+  }, [loadRepoData, repoPath])
+
+  // Listen for blame open events
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const detail = (e as CustomEvent<{ filePath: string }>).detail
+      if (detail?.filePath) {
+        setBlameFilePath(detail.filePath)
+      }
+    }
+    window.addEventListener('blame:open', handler)
+    return () => window.removeEventListener('blame:open', handler)
+  }, [])
+
+  // Listen for "show history for file" events (from context menus)
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const detail = (e as CustomEvent<{ path: string }>).detail
+      if (detail?.path) {
+        setFileHistoryPath(detail.path)
+        setCommitFilters((prev) => ({ ...prev, path: detail.path }))
+      }
+    }
+    window.addEventListener('commit-filter:file-history', handler)
+    return () => window.removeEventListener('commit-filter:file-history', handler)
+  }, [])
+
+  // Convert CommitFilters to CommitLogFilters (only non-empty values)
+  const graphFilters: CommitLogFilters | undefined = hasActiveFilters(commitFilters)
+    ? {
+        ...(commitFilters.author ? { author: commitFilters.author } : {}),
+        ...(commitFilters.since ? { since: commitFilters.since } : {}),
+        ...(commitFilters.until ? { until: commitFilters.until } : {}),
+        ...(commitFilters.grep ? { grep: commitFilters.grep } : {}),
+        ...(commitFilters.path ? { path: commitFilters.path } : {})
+      }
+    : undefined
+
+  return (
+    <div className={styles.repoView}>
+      {loading && (
+        <RepoViewSkeleton />
+      )}
+
+      {error && (
+        <div className={styles.repoViewError}>
+          <span><AlertTriangle size={14} /></span> {error}
+          <button onClick={loadRepoData}>Retry</button>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className={styles.repoViewContent}>
+          {/* Conflict Banner */}
+          {hasConflicts && !showConflictResolver && (
+            <div className={conflictStyles.conflictBanner}>
+              <span className={conflictStyles.conflictBannerIcon}><AlertTriangle size={16} /></span>
+              <span>Merge conflicts detected. Resolve them to continue.</span>
+              <button
+                className={conflictStyles.conflictBannerBtn}
+                onClick={() => setShowConflictResolver(true)}
+              >
+                Open Conflict Resolver
+              </button>
+            </div>
+          )}
+
+          {/* Conflict Resolver Overlay */}
+          {showConflictResolver && (
+            <ConflictResolver
+              repoPath={repoPath}
+              onResolved={() => {
+                setShowConflictResolver(false)
+                setHasConflicts(false)
+                loadRepoData()
+              }}
+              onClose={() => setShowConflictResolver(false)}
+            />
+          )}
+
+          {/* Center-Stage Diff View OR Commit Graph */}
+          {viewingDiff && diffFile && diffCommitHash ? (
+            <>
+              {/* Back breadcrumb bar with Diff/File toggle */}
+              <div className={styles.diffBackBar}>
+                <button className={styles.diffBackBtn} onClick={onBackToGraph}>
+                  <ArrowLeft size={14} />
+                  <span>Back to Graph</span>
+                </button>
+                <span className={styles.diffBackSeparator}>·</span>
+                <span className={styles.diffBackPath}>
+                  <code className={styles.diffBackHash}>{diffCommitHash.substring(0, 7)}</code>
+                  {' / '}
+                  {diffFile}
+                </span>
+                <div className={styles.viewModeToggle}>
+                  <button
+                    className={`${styles.viewModeBtn} ${centerViewMode === 'diff' ? styles.viewModeBtnActive : ''}`}
+                    onClick={() => setCenterViewMode('diff')}
+                    title="View diff"
+                  >
+                    <GitCompare size={13} />
+                    Diff
+                  </button>
+                  <button
+                    className={`${styles.viewModeBtn} ${centerViewMode === 'file' ? styles.viewModeBtnActive : ''}`}
+                    onClick={() => setCenterViewMode('file')}
+                    title="View full file"
+                  >
+                    <FileCode size={13} />
+                    File
+                  </button>
+                </div>
+              </div>
+
+              {/* Diff content */}
+              {centerViewMode === 'diff' && (
+                <div className={styles.centerDiffContainer}>
+                  {diffLoading && (
+                    <div className={styles.diffLoadingState}>Loading diff…</div>
+                  )}
+                  {diffError && (
+                    <div className={styles.diffErrorState}>
+                      <AlertTriangle size={14} /> {diffError}
+                    </div>
+                  )}
+                  {!diffLoading && !diffError && diffContent !== null && (() => {
+                    const currentFileDetail = selectedCommit?.fileDetails.find(f => f.path === diffFile)
+                    const currentFileIndex = selectedCommit?.fileDetails.findIndex(f => f.path === diffFile) ?? 0
+                    return (
+                      <DiffViewer
+                        diffContent={diffContent}
+                        filePath={diffFile}
+                        initialMode={diffViewMode}
+                        onModeChange={onDiffViewModeChange}
+                        className={styles.centerDiffViewer}
+                        fileStatus={currentFileDetail?.status}
+                        fileIndex={currentFileIndex >= 0 ? currentFileIndex : 0}
+                        fileCount={selectedCommit?.fileDetails.length}
+                        onNavigateFile={onNavigateFile}
+                      />
+                    )
+                  })()}
+                  {!diffLoading && !diffError && diffContent === null && (
+                    <div className={styles.diffLoadingState}>No diff content available</div>
+                  )}
+                </div>
+              )}
+
+              {/* Full file content */}
+              {centerViewMode === 'file' && (
+                <div className={styles.centerDiffContainer}>
+                  {fileLoading && (
+                    <div className={styles.diffLoadingState}>Loading file…</div>
+                  )}
+                  {fileError && (
+                    <div className={styles.diffErrorState}>
+                      <AlertTriangle size={14} /> {fileError}
+                    </div>
+                  )}
+                  {!fileLoading && !fileError && fileContent !== null && (
+                    <div className={styles.fullFileViewer}>
+                      <pre className={styles.fullFilePre}>
+                        <code>{fileContent.split('\n').map((line, i) => (
+                          <div key={i} className={styles.fullFileLine}>
+                            <span className={styles.fullFileLineNum}>{i + 1}</span>
+                            <span className={styles.fullFileLineContent}>{line}</span>
+                          </div>
+                        ))}</code>
+                      </pre>
+                    </div>
+                  )}
+                  {!fileLoading && !fileError && fileContent !== null && fileContent.length === 0 && (
+                    <div className={styles.diffLoadingState}>Empty file</div>
+                  )}
+                </div>
+              )}
+
+              {/* Staging Area moved to right panel in AppLayout */}
+            </>
+          ) : (
+            <>
+              {/* Commit History Filters */}
+              <CommitFilterBar
+                filters={commitFilters}
+                onFiltersChange={setCommitFilters}
+                filePath={fileHistoryPath}
+              />
+
+              {/* Commit Graph */}
+              <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} filters={graphFilters} />
+
+              {/* Staging Area moved to right panel in AppLayout */}
+            </>
+          )}
+
+          {/* Blame View */}
+          {blameFilePath && (
+            <div className={blameStyles.viewPanel}>
+              <BlameView
+                repoPath={repoPath}
+                filePath={blameFilePath}
+                onClose={() => setBlameFilePath(null)}
+                onCommitClick={(hash) => {
+                  // Dispatch event to scroll graph to this commit
+                  window.dispatchEvent(
+                    new CustomEvent('graph:scroll-to-commit', { detail: { hash } })
+                  )
+                }}
+              />
+            </div>
+          )}
+
+        </div>
+      )}
+    </div>
+  )
+}

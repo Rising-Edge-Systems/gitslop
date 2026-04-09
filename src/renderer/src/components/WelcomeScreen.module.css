@@ -1,0 +1,269 @@
+/* Welcome Screen */
+.welcomeScreen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2xl);
+  padding: 40px var(--space-xl);
+  max-width: 600px;
+  width: 100%;
+}
+
+.welcomeHero {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.welcomeLogo {
+  font-size: 56px;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.welcomeTitle {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.welcomeSubtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: var(--space-xs);
+}
+
+/* Welcome Error */
+.welcomeError {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px 14px;
+  background-color: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: var(--radius-md);
+  width: 100%;
+  font-size: var(--font-md);
+  color: var(--error);
+}
+
+.welcomeErrorIcon {
+  font-size: var(--font-lg);
+  flex-shrink: 0;
+}
+
+.welcomeErrorText {
+  flex: 1;
+}
+
+.welcomeErrorAction {
+  padding: var(--space-xs) 10px;
+  border: 1px solid rgba(243, 139, 168, 0.4);
+  background: transparent;
+  color: var(--error);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  white-space: nowrap;
+  transition: background-color var(--transition-fast) ease;
+}
+
+.welcomeErrorAction:hover {
+  background-color: rgba(243, 139, 168, 0.15);
+}
+
+.welcomeErrorDismiss {
+  border: none;
+  background: transparent;
+  color: var(--error);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  padding: 2px var(--space-xs);
+  opacity: 0.6;
+  transition: opacity var(--transition-fast) ease;
+}
+
+.welcomeErrorDismiss:hover {
+  opacity: 1;
+}
+
+/* Welcome Actions */
+.welcomeActions {
+  display: flex;
+  gap: var(--font-md);
+  width: 100%;
+}
+
+.welcomeActionBtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 20px var(--font-md);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast) ease, background-color var(--transition-fast) ease, transform 0.1s ease;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+}
+
+.welcomeActionBtn:hover {
+  border-color: var(--accent);
+  background-color: rgba(137, 180, 250, 0.05);
+  transform: translateY(-1px);
+}
+
+.welcomeActionBtn:active {
+  transform: translateY(0);
+}
+
+.welcomeActionIcon {
+  font-size: 24px;
+  color: var(--accent);
+}
+
+.welcomeActionLabel {
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.welcomeActionDesc {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.welcomeActionShortcut {
+  font-size: 11px;
+  color: var(--text-muted);
+  background-color: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-family: var(--font-family);
+  margin-top: var(--space-xs);
+  opacity: 0.6;
+  transition: opacity var(--transition-fast) ease;
+}
+
+.welcomeActionBtn:hover .welcomeActionShortcut {
+  opacity: 1;
+}
+
+/* Recent Repos */
+.welcomeRecent {
+  width: 100%;
+}
+
+.welcomeRecentTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.welcomeRecentList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.welcomeRecentItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-sm) var(--font-md);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast) ease, border-color var(--transition-fast) ease;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  text-align: left;
+  width: 100%;
+}
+
+.welcomeRecentItem:hover {
+  background-color: var(--bg-secondary);
+  border-color: var(--border);
+}
+
+.welcomeRecentIcon {
+  font-size: 18px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.welcomeRecentInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.welcomeRecentName {
+  font-size: var(--font-md);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.welcomeRecentPath {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.welcomeRecentDate {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.welcomeRecentRemove {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: var(--space-xs) 6px;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: opacity var(--transition-fast) ease, background-color var(--transition-fast) ease, color var(--transition-fast) ease;
+  flex-shrink: 0;
+}
+
+.welcomeRecentItem:hover .welcomeRecentRemove {
+  opacity: 1;
+}
+
+.welcomeRecentRemove:hover {
+  background-color: var(--border);
+  color: var(--close-hover);
+}
+
+.welcomeRecentEmpty {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-xl) 0;
+  opacity: 0.6;
+  font-style: italic;
+}

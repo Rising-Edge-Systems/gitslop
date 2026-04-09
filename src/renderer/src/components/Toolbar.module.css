@@ -1,0 +1,317 @@
+/* =============================================================================
+   Toolbar — CSS Module
+   ============================================================================= */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--space-sm);
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.toolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.separator {
+  width: 1px;
+  height: 20px;
+  background-color: var(--border);
+  margin: 0 var(--space-sm);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.btn:active {
+  background-color: var(--bg-tertiary);
+}
+
+.btnIcon {
+  font-size: 14px;
+}
+
+.btnLabel {
+  font-size: var(--font-sm);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.btnActive {
+  color: var(--accent) !important;
+}
+
+@keyframes toolbarSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  animation: toolbarSpin 1s linear infinite;
+}
+
+/* Inline spinner — shown next to button label during active operations */
+.inlineSpinner {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+  animation: toolbarSpin 1s linear infinite;
+  color: var(--accent);
+}
+
+/* Overflow menu container */
+.overflowContainer {
+  position: relative;
+}
+
+.overflowMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 160px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 50;
+  padding: var(--space-xs) 0;
+  margin-top: var(--space-xs);
+}
+
+.overflowItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-xs) var(--space-md);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: left;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.overflowItem:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.overflowItem:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.overflowItem:disabled:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.overflowItemActive {
+  color: var(--accent);
+}
+
+.overflowItemIcon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-md);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.progressText {
+  white-space: nowrap;
+}
+
+.progressBar {
+  width: 80px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width var(--transition-normal);
+}
+
+.notification {
+  position: fixed;
+  top: 44px;
+  right: var(--space-lg);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  z-index: 1000;
+  animation: notificationIn 0.2s ease-out;
+  pointer-events: none;
+}
+
+@keyframes notificationIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.notificationSuccess {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+.notificationError {
+  background: var(--error-bg);
+  color: var(--error);
+  border: 1px solid var(--error-border);
+}
+
+/* Force push warning */
+.forcePushWarning {
+  display: flex;
+  gap: var(--space-sm);
+  padding: 10px var(--space-md);
+  background: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.forcePushWarningIcon {
+  font-size: var(--font-xl);
+  flex-shrink: 0;
+}
+
+/* Upstream dialog */
+.upstreamDialogDesc {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+  line-height: 1.4;
+}
+
+/* Pull strategy options */
+.pullStrategyOptions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.pullStrategyOption {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.pullStrategyOption:hover {
+  background: var(--border);
+}
+
+.pullStrategyOption input[type="radio"] {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.pullStrategyOption div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pullStrategyOption strong {
+  font-size: var(--font-md);
+  color: var(--text-primary);
+}
+
+.pullStrategyDesc {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+/* Stash dialog checkbox */
+.stashDialogCheckbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.stashDialogCheckbox input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* Responsive — collapse at small sizes */
+@media (max-width: 700px) {
+  .btnLabel {
+    display: none;
+  }
+
+  .btn {
+    padding: var(--space-xs) 6px;
+  }
+}

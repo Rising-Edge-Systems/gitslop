@@ -1,0 +1,243 @@
+/* =============================================================================
+   RepoView — CSS Module
+   ============================================================================= */
+
+.repoView {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Repo header styles removed — header info now in titlebar/tabs */
+
+.repoViewLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.repoViewSpinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.repoViewError {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  background-color: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--error);
+  font-size: var(--font-md);
+}
+
+.repoViewError button {
+  padding: 4px 10px;
+  border: 1px solid rgba(243, 139, 168, 0.4);
+  background: transparent;
+  color: var(--error);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+}
+
+.repoViewError button:hover {
+  background-color: rgba(243, 139, 168, 0.15);
+}
+
+.repoViewContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Summary card and branch list styles removed — no longer used in center panel */
+
+/* =============================================================================
+   Center-Stage Diff View
+   ============================================================================= */
+
+.diffBackBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  flex-shrink: 0;
+  font-size: var(--font-sm);
+  min-height: 28px;
+}
+
+.diffBackBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  cursor: pointer;
+  border-radius: 0;
+  transition: color var(--transition-fast);
+  text-decoration: none;
+}
+
+.diffBackBtn:hover {
+  color: var(--text-secondary);
+  background: transparent;
+  text-decoration: underline;
+}
+
+.diffBackSeparator {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.diffBackPath {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-size: var(--font-sm);
+}
+
+.diffBackHash {
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  font-family: var(--font-mono);
+}
+
+.centerDiffContainer {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.centerDiffViewer {
+  width: 100%;
+  height: 100%;
+}
+
+.diffLoadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+}
+
+.diffErrorState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 40px;
+  color: var(--error);
+  font-size: var(--font-md);
+}
+
+/* ─── View Mode Toggle (Diff / File) ──────────────────────────────────── */
+
+.viewModeToggle {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: auto;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 1px;
+}
+
+.viewModeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-family: var(--font-family);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  line-height: 1.4;
+}
+
+.viewModeBtn:hover {
+  color: var(--text-secondary);
+}
+
+.viewModeBtnActive {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ─── Full File Viewer ─────────────────────────────────────────────────── */
+
+.fullFileViewer {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.fullFilePre {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.fullFileLine {
+  display: flex;
+  min-height: 20px;
+}
+
+.fullFileLine:hover {
+  background: var(--bg-hover);
+}
+
+.fullFileLineNum {
+  display: inline-block;
+  min-width: 48px;
+  padding: 0 12px 0 8px;
+  text-align: right;
+  color: var(--text-muted);
+  opacity: 0.5;
+  user-select: none;
+  flex-shrink: 0;
+  font-size: var(--font-xs);
+}
+
+.fullFileLineContent {
+  flex: 1;
+  white-space: pre;
+  padding-right: 16px;
+  tab-size: 4;
+}

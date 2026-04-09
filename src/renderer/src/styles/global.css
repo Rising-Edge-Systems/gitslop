@@ -1,0 +1,501 @@
+/* Color variables, typography, spacing, and design tokens are in tokens.css */
+
+/* ─── Dark-Themed Scrollbars ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Global Focus-Visible for Keyboard Navigation ────────────────────── */
+button:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Theme transition — smooth color changes */
+body.theme-transitioning,
+body.theme-transitioning *,
+body.theme-transitioning *::before,
+body.theme-transitioning *::after {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+/* App Layout */
+.app-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ─── Sidebar Drag Handle ──────────────────────────────────────────────── */
+.sidebar-drag-handle {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.sidebar-drag-handle:hover {
+  background-color: var(--border);
+}
+
+.sidebar-drag-handle:hover::after {
+  content: '⋮';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* Prevent text selection while dragging sidebar */
+body.sidebar-dragging {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.sidebar-dragging * {
+  cursor: col-resize !important;
+}
+
+/* ─── Detail Panel Collapsed Strip ─────────────────────────────────────── */
+.detail-collapsed-strip {
+  width: 24px;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.detail-collapsed-strip:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Branch Dialog (New / Rename) */
+.branch-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.branch-dialog {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+}
+
+.branch-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.branch-dialog-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.branch-dialog-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.branch-dialog-close:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.branch-dialog-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.branch-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.branch-dialog-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.branch-dialog-input {
+  padding: 8px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color 0.15s ease;
+  width: 100%;
+}
+
+.branch-dialog-input:focus {
+  border-color: var(--accent);
+}
+
+.branch-dialog-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.branch-dialog-input::placeholder {
+  color: var(--text-muted);
+  font-family: var(--font-family);
+}
+
+.branch-dialog-select {
+  padding: 8px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-family);
+  outline: none;
+  transition: border-color 0.15s ease;
+  width: 100%;
+  cursor: pointer;
+}
+
+.branch-dialog-select:focus {
+  border-color: var(--accent);
+}
+
+.branch-dialog-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.branch-dialog-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.branch-dialog-checkbox-label input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
+.branch-dialog-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--error);
+}
+
+.branch-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.branch-dialog-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-family);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+.branch-dialog-btn-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.branch-dialog-btn-cancel:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.branch-dialog-btn-create {
+  background-color: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg-tertiary);
+}
+
+.branch-dialog-btn-create:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.branch-dialog-btn-create:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.branch-dialog-btn-primary {
+  background-color: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg-tertiary);
+}
+
+.branch-dialog-btn-primary:hover {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.branch-dialog-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.branch-dialog-btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.branch-dialog-btn-secondary:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.branch-dialog-btn-danger {
+  background: var(--btn-danger-bg) !important;
+  color: var(--btn-primary-text) !important;
+  border: 1px solid var(--btn-danger-bg);
+}
+
+.branch-dialog-btn-danger:hover {
+  background: var(--btn-danger-hover) !important;
+}
+
+/* Main Content */
+.main-content {
+  height: 100%;
+  display: flex;
+  overflow: auto;
+  background-color: var(--bg-primary);
+}
+
+.main-content.main-content--centered {
+  align-items: center;
+  justify-content: center;
+}
+
+/* Welcome Screen styles extracted to WelcomeScreen.module.css */
+
+/* CloneDialog styles extracted to CloneDialog.module.css */
+
+
+/* Resize Handles */
+.resize-handle {
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+  position: relative;
+}
+
+.resize-handle:hover,
+.resize-handle[data-resize-handle-active] {
+  background-color: var(--accent);
+}
+
+.resize-handle-horizontal {
+  width: 3px;
+  cursor: col-resize;
+}
+
+.resize-handle-vertical {
+  height: 3px;
+  cursor: row-resize;
+}
+
+/* Responsive rules moved to component CSS modules */
+
+
+
+/* ─── Syntax Highlighting Tokens ───────────────────────────────────────── */
+
+.syn-keyword {
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.syn-string {
+  color: var(--success);
+}
+
+.syn-comment {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.syn-number {
+  color: var(--orange);
+}
+
+.syn-function {
+  color: var(--accent);
+}
+
+.syn-type {
+  color: var(--warning);
+}
+
+.syn-operator {
+  color: var(--info);
+}
+
+
+/* @keyframes slideUp — shared animation */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Panel Animations ────────────────────────────────────────────────── */
+
+@keyframes panelContentFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Panel wrapper animation class for detail panel expand */
+.panel-animate-detail {
+  animation: panelContentFadeIn 200ms ease-out;
+}
+
+/* Panel wrapper animation class for terminal expand */
+.panel-animate-terminal {
+  animation: slideInFromBottom 200ms ease-out;
+}

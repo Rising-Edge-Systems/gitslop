@@ -1,0 +1,175 @@
+/* =============================================================================
+   BottomPanel / Terminal — CSS Module
+   ============================================================================= */
+
+.bottomPanel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-tertiary);
+  border-top: 1px solid var(--border);
+  animation: terminalFadeIn 200ms ease-out;
+}
+
+@keyframes terminalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.bottomPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 30px;
+  padding: 0 var(--space-md);
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.bottomPanelTitle {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.bottomPanelClose {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.bottomPanelClose:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+.bottomPanelContent {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.terminalPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+  font-family: var(--font-mono);
+}
+
+/* Terminal Tabs Bar */
+.terminalTabsBar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.terminalTab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px var(--space-sm);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.terminalTab:hover {
+  background-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.terminalTabActive {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.terminalTabIcon {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.terminalTabTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminalTabClose {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 9px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast);
+  line-height: 1;
+}
+
+.terminalTab:hover .terminalTabClose {
+  opacity: 1;
+}
+
+.terminalTabClose:hover {
+  background-color: rgba(243, 139, 168, 0.3);
+  color: var(--close-hover);
+}
+
+.terminalNewTab {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.terminalNewTab:hover {
+  background-color: var(--border);
+  color: var(--text-primary);
+}
+
+/* Terminal Content Area */
+.terminalContent {
+  overflow: hidden !important;
+  padding: 0;
+}
+
+.terminalContent :global(.xterm) {
+  height: 100%;
+  padding: 4px 0 0 4px;
+}
+
+.terminalContent :global(.xterm-viewport) {
+  overflow-y: auto !important;
+}
+
+.terminalContent :global(.xterm-screen) {
+  height: 100%;
+}
