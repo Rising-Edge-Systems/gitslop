@@ -386,6 +386,16 @@ const electronAPI = {
     testConnection: (host: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('sshkeys:testConnection', host)
   },
+  github: {
+    login: (pat: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:login', pat),
+    getUser: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:getUser'),
+    logout: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:logout'),
+    isLoggedIn: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:isLoggedIn')
+  },
   terminal: {
     create: (opts: { cwd?: string; id?: string }): Promise<{ success: boolean; data?: { id: string }; error?: string }> =>
       ipcRenderer.invoke('terminal:create', opts),

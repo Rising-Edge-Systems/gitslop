@@ -888,3 +888,251 @@
   padding: 6px 0;
   font-style: italic;
 }
+
+/* ─── GitHub Section ─────────────────────────────────────────────────────── */
+
+.ghLoading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: var(--space-md) 0;
+}
+
+.ghUserCard {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.ghUserInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ghAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ghUserDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ghUserName {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ghUserLogin {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.ghUserEmail {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.ghUserActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.ghProfileLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ghProfileLink:hover {
+  background: var(--bg-tertiary);
+}
+
+.ghLogoutBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ghLogoutBtn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.ghLogoutBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ghLoginSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.ghLoginDesc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.ghLink {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.ghLink:hover {
+  text-decoration: underline;
+}
+
+.ghScopeHint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.ghScopeHint code {
+  background: var(--bg-secondary);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  color: var(--accent);
+}
+
+.ghTokenInput {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: stretch;
+}
+
+.ghTokenField {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ghInput {
+  width: 100%;
+  padding: 7px 34px 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-family: var(--font-mono, monospace);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.ghInput:focus {
+  border-color: var(--accent);
+}
+
+.ghInput::placeholder {
+  color: var(--text-tertiary);
+  opacity: 0.6;
+}
+
+.ghToggleVisibility {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+}
+
+.ghToggleVisibility:hover {
+  color: var(--text-secondary);
+}
+
+.ghLoginBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  background: #24292e;
+  color: #fff;
+  border: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.ghLoginBtn:hover:not(:disabled) {
+  background: #2f363d;
+}
+
+.ghLoginBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ghError {
+  font-size: 0.78rem;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.ghSecurityNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  margin: 4px 0 0 0;
+}
+
+.ghSecurityNote svg {
+  color: #22c55e;
+  flex-shrink: 0;
+}

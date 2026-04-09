@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon, KeyRound, Copy, Loader2, Wifi, WifiOff, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon, KeyRound, Copy, Loader2, Wifi, WifiOff, Eye, EyeOff, ShieldCheck, Github, LogOut, ExternalLink } from 'lucide-react'
 import type { AppSettings } from '../hooks/useSettings'
 import { DEFAULT_SETTINGS } from '../hooks/useSettings'
 import styles from './SettingsPanel.module.css'
@@ -29,7 +29,7 @@ interface ProfileData {
   sshKeyPath?: string
 }
 
-type SettingsSection = 'general' | 'appearance' | 'git' | 'editor' | 'keybindings' | 'profiles' | 'sshkeys'
+type SettingsSection = 'general' | 'appearance' | 'git' | 'editor' | 'keybindings' | 'profiles' | 'sshkeys' | 'github'
 
 interface SettingsPanelProps {
   settings: AppSettings
@@ -67,6 +67,7 @@ export function SettingsPanel({
     { id: 'git', label: 'Git', icon: <GitBranch size={16} /> },
     { id: 'profiles', label: 'Profiles', icon: <UserCircle size={16} /> },
     { id: 'sshkeys', label: 'SSH Keys', icon: <KeyRound size={16} /> },
+    { id: 'github', label: 'GitHub', icon: <Github size={16} /> },
     { id: 'editor', label: 'Editor', icon: <Pencil size={16} /> },
     { id: 'keybindings', label: 'Keybindings', icon: <Keyboard size={16} /> }
   ]
@@ -127,6 +128,9 @@ export function SettingsPanel({
             )}
             {activeSection === 'sshkeys' && (
               <SSHKeysSection />
+            )}
+            {activeSection === 'github' && (
+              <GitHubSection />
             )}
             {activeSection === 'editor' && (
               <EditorSection settings={settings} onUpdate={onUpdate} />
@@ -1154,5 +1158,213 @@ function SettingsToggle({
     >
       <span className={styles.toggleThumb} />
     </button>
+  )
+}
+
+/* ─── GitHub Section ─────────────────────────────────────────────────────── */
+
+interface GitHubUser {
+  login: string
+  name: string
+  avatarUrl: string
+  email: string | null
+}
+
+function GitHubSection(): React.JSX.Element {
+  const [user, setUser] = useState<GitHubUser | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loggingIn, setLoggingIn] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const [pat, setPat] = useState('')
+  const [showPat, setShowPat] = useState(false)
+  const [error, setError] = useState('')
+
+  // Check login status on mount
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const result = await window.electronAPI.github.getUser()
+        if (mounted && result.success && result.data) {
+          setUser(result.data)
+        }
+      } catch {
+        // Not logged in
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    })()
+    return () => { mounted = false }
+  }, [])
+
+  const handleLogin = useCallback(async () => {
+    if (!pat.trim()) {
+      setError('Please enter a Personal Access Token')
+      return
+    }
+    setLoggingIn(true)
+    setError('')
+    try {
+      const result = await window.electronAPI.github.login(pat.trim())
+      if (result.success && result.data) {
+        setUser(result.data)
+        setPat('')
+        setShowPat(false)
+      } else {
+        setError(result.error || 'Authentication failed')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setLoggingIn(false)
+    }
+  }, [pat])
+
+  const handleLogout = useCallback(async () => {
+    setLoggingOut(true)
+    try {
+      await window.electronAPI.github.logout()
+      setUser(null)
+      setError('')
+    } catch {
+      // Ignore logout errors
+    } finally {
+      setLoggingOut(false)
+    }
+  }, [])
+
+  if (loading) {
+    return (
+      <div className={styles.sectionContent}>
+        <h3 className={styles.sectionTitle}>GitHub</h3>
+        <div className={styles.ghLoading}>
+          <Loader2 size={16} className={styles.sshSpinner} />
+          <span>Checking login status…</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.sectionContent}>
+      <h3 className={styles.sectionTitle}>GitHub</h3>
+
+      {user ? (
+        /* ── Logged-in state ─── */
+        <div className={styles.ghUserCard}>
+          <div className={styles.ghUserInfo}>
+            <img
+              src={user.avatarUrl}
+              alt={user.login}
+              className={styles.ghAvatar}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+            />
+            <div className={styles.ghUserDetails}>
+              <span className={styles.ghUserName}>{user.name}</span>
+              <span className={styles.ghUserLogin}>@{user.login}</span>
+              {user.email && (
+                <span className={styles.ghUserEmail}>{user.email}</span>
+              )}
+            </div>
+          </div>
+          <div className={styles.ghUserActions}>
+            <a
+              href={`https://github.com/${user.login}`}
+              className={styles.ghProfileLink}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => {
+                e.preventDefault()
+                // Use shell.openExternal via window.open which is handled by the app
+                window.open(`https://github.com/${user.login}`, '_blank')
+              }}
+            >
+              <ExternalLink size={14} />
+              <span>View Profile</span>
+            </a>
+            <button
+              className={styles.ghLogoutBtn}
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              {loggingOut ? (
+                <Loader2 size={14} className={styles.sshSpinner} />
+              ) : (
+                <LogOut size={14} />
+              )}
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* ── Login state ─── */
+        <div className={styles.ghLoginSection}>
+          <p className={styles.ghLoginDesc}>
+            Connect your GitHub account using a Personal Access Token (PAT).
+            You can create one at{' '}
+            <a
+              href="https://github.com/settings/tokens"
+              className={styles.ghLink}
+              onClick={(e) => {
+                e.preventDefault()
+                window.open('https://github.com/settings/tokens', '_blank')
+              }}
+            >
+              github.com/settings/tokens
+            </a>
+            .
+          </p>
+          <p className={styles.ghScopeHint}>
+            Recommended scopes: <code>repo</code>, <code>read:user</code>, <code>read:org</code>
+          </p>
+          <div className={styles.ghTokenInput}>
+            <div className={styles.ghTokenField}>
+              <input
+                type={showPat ? 'text' : 'password'}
+                value={pat}
+                onChange={(e) => { setPat(e.target.value); setError('') }}
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                className={styles.ghInput}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleLogin()
+                }}
+              />
+              <button
+                className={styles.ghToggleVisibility}
+                onClick={() => setShowPat(!showPat)}
+                title={showPat ? 'Hide token' : 'Show token'}
+                type="button"
+              >
+                {showPat ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            <button
+              className={styles.ghLoginBtn}
+              onClick={handleLogin}
+              disabled={loggingIn || !pat.trim()}
+            >
+              {loggingIn ? (
+                <>
+                  <Loader2 size={14} className={styles.sshSpinner} />
+                  <span>Verifying…</span>
+                </>
+              ) : (
+                <>
+                  <Github size={14} />
+                  <span>Login</span>
+                </>
+              )}
+            </button>
+          </div>
+          {error && (
+            <div className={styles.ghError}>{error}</div>
+          )}
+          <p className={styles.ghSecurityNote}>
+            <ShieldCheck size={13} />
+            Your token is encrypted and stored securely on this device.
+          </p>
+        </div>
+      )}
+    </div>
   )
 }

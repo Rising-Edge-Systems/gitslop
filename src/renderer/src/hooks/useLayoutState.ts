@@ -198,6 +198,12 @@ declare global {
         generate: (opts: { name: string; type: 'ed25519' | 'rsa'; passphrase?: string; comment?: string }) => Promise<GitServiceResult>
         testConnection: (host: string) => Promise<GitServiceResult>
       }
+      github: {
+        login: (pat: string) => Promise<GitServiceResult>
+        getUser: () => Promise<GitServiceResult>
+        logout: () => Promise<GitServiceResult>
+        isLoggedIn: () => Promise<GitServiceResult>
+      }
       terminal: {
         create: (opts: { cwd?: string; id?: string }) => Promise<{ success: boolean; data?: { id: string }; error?: string }>
         write: (opts: { id: string; data: string }) => Promise<{ success: boolean; error?: string }>

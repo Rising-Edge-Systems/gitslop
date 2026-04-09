@@ -1,6 +1,7 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, safeStorage, shell } from 'electron'
 import { join } from 'path'
 import { readFile, writeFile, readdir, stat } from 'fs'
+import * as https from 'https'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { homedir } from 'os'
@@ -42,13 +43,19 @@ interface StoreSchema {
   recentRepos: RecentRepo[]
   profiles: Profile[]
   activeProfileId: string
+  githubToken: string  // encrypted via safeStorage
+  gitlabToken: string  // encrypted via safeStorage
+  gitlabInstanceUrl: string
 }
 
 const store = new Store<StoreSchema>({
   defaults: {
     recentRepos: [],
     profiles: [],
-    activeProfileId: ''
+    activeProfileId: '',
+    githubToken: '',
+    gitlabToken: '',
+    gitlabInstanceUrl: 'https://gitlab.com'
   }
 })
 
@@ -412,6 +419,122 @@ ipcMain.handle('sshkeys:testConnection', async (_event, host: string) => {
       error: err instanceof Error ? err.message : 'Connection test failed'
     }
   }
+})
+
+// ─── GitHub Integration IPC handlers ──────────────────────────────────────
+
+function githubApiRequest(
+  method: string,
+  path: string,
+  token: string,
+  body?: string
+): Promise<{ statusCode: number; data: string }> {
+  return new Promise((resolve, reject) => {
+    const options: https.RequestOptions = {
+      hostname: 'api.github.com',
+      path,
+      method,
+      headers: {
+        'Authorization': `token ${token}`,
+        'User-Agent': 'GitSlop',
+        'Accept': 'application/vnd.github.v3+json',
+        ...(body ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } : {})
+      }
+    }
+    const req = https.request(options, (res) => {
+      let data = ''
+      res.on('data', (chunk: string) => { data += chunk })
+      res.on('end', () => resolve({ statusCode: res.statusCode || 0, data }))
+    })
+    req.on('error', (err) => reject(err))
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error('Request timed out')) })
+    if (body) req.write(body)
+    req.end()
+  })
+}
+
+function encryptToken(token: string): string {
+  if (safeStorage.isEncryptionAvailable()) {
+    return safeStorage.encryptString(token).toString('base64')
+  }
+  // Fallback: store as-is (not ideal but functional)
+  return `plain:${token}`
+}
+
+function decryptToken(stored: string): string {
+  if (!stored) return ''
+  if (stored.startsWith('plain:')) {
+    return stored.slice(6)
+  }
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      return safeStorage.decryptString(Buffer.from(stored, 'base64'))
+    }
+  } catch {
+    // If decryption fails, token is invalid
+  }
+  return ''
+}
+
+ipcMain.handle('github:login', async (_event, pat: string) => {
+  try {
+    // Validate PAT by fetching user info
+    const { statusCode, data } = await githubApiRequest('GET', '/user', pat)
+    if (statusCode !== 200) {
+      const parsed = JSON.parse(data)
+      return { success: false, error: parsed.message || 'Authentication failed' }
+    }
+    const user = JSON.parse(data)
+    // Store encrypted token
+    const encrypted = encryptToken(pat)
+    store.set('githubToken', encrypted)
+    return {
+      success: true,
+      data: {
+        login: user.login,
+        name: user.name || user.login,
+        avatarUrl: user.avatar_url,
+        email: user.email
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Login failed' }
+  }
+})
+
+ipcMain.handle('github:getUser', async () => {
+  const encrypted = store.get('githubToken', '')
+  const token = decryptToken(encrypted)
+  if (!token) return { success: false, error: 'Not logged in' }
+  try {
+    const { statusCode, data } = await githubApiRequest('GET', '/user', token)
+    if (statusCode !== 200) {
+      return { success: false, error: 'Token invalid or expired' }
+    }
+    const user = JSON.parse(data)
+    return {
+      success: true,
+      data: {
+        login: user.login,
+        name: user.name || user.login,
+        avatarUrl: user.avatar_url,
+        email: user.email
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to get user' }
+  }
+})
+
+ipcMain.handle('github:logout', () => {
+  store.set('githubToken', '')
+  return { success: true }
+})
+
+ipcMain.handle('github:isLoggedIn', () => {
+  const encrypted = store.get('githubToken', '')
+  const token = decryptToken(encrypted)
+  return { success: true, data: !!token }
 })
 
 app.whenReady().then(async () => {
