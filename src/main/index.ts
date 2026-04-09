@@ -537,6 +537,183 @@ ipcMain.handle('github:isLoggedIn', () => {
   return { success: true, data: !!token }
 })
 
+// Parse GitHub owner/repo from a remote URL
+function parseGitHubRemote(url: string): { owner: string; repo: string } | null {
+  // SSH: git@github.com:owner/repo.git
+  // HTTPS: https://github.com/owner/repo.git or https://github.com/owner/repo
+  const match = url.match(/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?$/)
+  if (match) return { owner: match[1], repo: match[2] }
+  return null
+}
+
+ipcMain.handle('github:parseRemote', async (_event, repoPath: string) => {
+  try {
+    const remotes = await gitService.getRemotes(repoPath)
+    const origin = remotes.find((r: { name: string }) => r.name === 'origin') || remotes[0]
+    if (!origin) return { success: false, error: 'No remotes found' }
+    const parsed = parseGitHubRemote(origin.fetchUrl)
+    if (!parsed) return { success: false, error: 'Not a GitHub repository' }
+    return { success: true, data: parsed }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to parse remote' }
+  }
+})
+
+ipcMain.handle('github:listPullRequests', async (_event, owner: string, repo: string, state?: string) => {
+  const encrypted = store.get('githubToken', '')
+  const token = decryptToken(encrypted)
+  if (!token) return { success: false, error: 'Not logged in to GitHub' }
+  try {
+    const queryState = state || 'open'
+    const { statusCode, data } = await githubApiRequest(
+      'GET',
+      `/repos/${owner}/${repo}/pulls?state=${queryState}&per_page=50&sort=updated&direction=desc`,
+      token
+    )
+    if (statusCode !== 200) {
+      const parsed = JSON.parse(data)
+      return { success: false, error: parsed.message || 'Failed to fetch pull requests' }
+    }
+    const prs = JSON.parse(data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped = prs.map((pr: any) => ({
+      number: pr.number,
+      title: pr.title,
+      state: pr.state,
+      author: pr.user?.login || 'unknown',
+      authorAvatar: pr.user?.avatar_url || '',
+      createdAt: pr.created_at,
+      updatedAt: pr.updated_at,
+      headBranch: pr.head?.ref || '',
+      baseBranch: pr.base?.ref || '',
+      draft: pr.draft || false,
+      htmlUrl: pr.html_url,
+      body: pr.body || '',
+      labels: (pr.labels || []).map((l: { name: string; color: string }) => ({ name: l.name, color: l.color })),
+      reviewStatus: pr.requested_reviewers?.length > 0 ? 'review_requested' : 'none',
+      mergeable: pr.mergeable,
+      additions: pr.additions || 0,
+      deletions: pr.deletions || 0,
+      changedFiles: pr.changed_files || 0
+    }))
+    return { success: true, data: mapped }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch pull requests' }
+  }
+})
+
+ipcMain.handle('github:getPullRequest', async (_event, owner: string, repo: string, prNumber: number) => {
+  const encrypted = store.get('githubToken', '')
+  const token = decryptToken(encrypted)
+  if (!token) return { success: false, error: 'Not logged in to GitHub' }
+  try {
+    // Fetch PR details, comments, and reviews in parallel
+    const [prRes, commentsRes, reviewsRes, filesRes] = await Promise.all([
+      githubApiRequest('GET', `/repos/${owner}/${repo}/pulls/${prNumber}`, token),
+      githubApiRequest('GET', `/repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=50`, token),
+      githubApiRequest('GET', `/repos/${owner}/${repo}/pulls/${prNumber}/reviews?per_page=50`, token),
+      githubApiRequest('GET', `/repos/${owner}/${repo}/pulls/${prNumber}/files?per_page=100`, token)
+    ])
+
+    if (prRes.statusCode !== 200) {
+      const parsed = JSON.parse(prRes.data)
+      return { success: false, error: parsed.message || 'Failed to fetch PR' }
+    }
+
+    const pr = JSON.parse(prRes.data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const comments = commentsRes.statusCode === 200 ? JSON.parse(commentsRes.data).map((c: any) => ({
+      id: c.id,
+      author: c.user?.login || 'unknown',
+      authorAvatar: c.user?.avatar_url || '',
+      body: c.body || '',
+      createdAt: c.created_at
+    })) : []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const reviews = reviewsRes.statusCode === 200 ? JSON.parse(reviewsRes.data).map((r: any) => ({
+      id: r.id,
+      author: r.user?.login || 'unknown',
+      authorAvatar: r.user?.avatar_url || '',
+      state: r.state,
+      body: r.body || '',
+      submittedAt: r.submitted_at
+    })) : []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const files = filesRes.statusCode === 200 ? JSON.parse(filesRes.data).map((f: any) => ({
+      filename: f.filename,
+      status: f.status,
+      additions: f.additions,
+      deletions: f.deletions,
+      changes: f.changes
+    })) : []
+
+    return {
+      success: true,
+      data: {
+        number: pr.number,
+        title: pr.title,
+        state: pr.state,
+        author: pr.user?.login || 'unknown',
+        authorAvatar: pr.user?.avatar_url || '',
+        createdAt: pr.created_at,
+        updatedAt: pr.updated_at,
+        headBranch: pr.head?.ref || '',
+        baseBranch: pr.base?.ref || '',
+        draft: pr.draft || false,
+        htmlUrl: pr.html_url,
+        body: pr.body || '',
+        labels: (pr.labels || []).map((l: { name: string; color: string }) => ({ name: l.name, color: l.color })),
+        mergeable: pr.mergeable,
+        additions: pr.additions || 0,
+        deletions: pr.deletions || 0,
+        changedFiles: pr.changed_files || 0,
+        comments,
+        reviews,
+        files
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch PR details' }
+  }
+})
+
+ipcMain.handle('github:createPullRequest', async (_event, owner: string, repo: string, opts: { title: string; body: string; head: string; base: string; draft?: boolean }) => {
+  const encrypted = store.get('githubToken', '')
+  const token = decryptToken(encrypted)
+  if (!token) return { success: false, error: 'Not logged in to GitHub' }
+  try {
+    const body = JSON.stringify({
+      title: opts.title,
+      body: opts.body,
+      head: opts.head,
+      base: opts.base,
+      draft: opts.draft || false
+    })
+    const { statusCode, data } = await githubApiRequest(
+      'POST',
+      `/repos/${owner}/${repo}/pulls`,
+      token,
+      body
+    )
+    if (statusCode !== 201) {
+      const parsed = JSON.parse(data)
+      return { success: false, error: parsed.message || 'Failed to create pull request' }
+    }
+    const pr = JSON.parse(data)
+    return {
+      success: true,
+      data: {
+        number: pr.number,
+        title: pr.title,
+        htmlUrl: pr.html_url,
+        state: pr.state
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to create pull request' }
+  }
+})
+
 app.whenReady().then(async () => {
   // Register git IPC handlers
   registerGitIpcHandlers()

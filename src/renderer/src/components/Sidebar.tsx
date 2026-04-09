@@ -28,7 +28,8 @@ import {
   Download,
   Bookmark,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  GitPullRequestArrow
 } from 'lucide-react'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
@@ -1711,11 +1712,497 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
   )
 }
 
+// ─── PullRequestsSection ────────────────────────────────────────────────────
+
+interface GitHubPR {
+  number: number
+  title: string
+  state: string
+  author: string
+  authorAvatar: string
+  createdAt: string
+  updatedAt: string
+  headBranch: string
+  baseBranch: string
+  draft: boolean
+  htmlUrl: string
+  body: string
+  labels: { name: string; color: string }[]
+  reviewStatus: string
+  mergeable: boolean | null
+  additions: number
+  deletions: number
+  changedFiles: number
+}
+
+interface GitHubPRDetail extends GitHubPR {
+  comments: { id: number; author: string; authorAvatar: string; body: string; createdAt: string }[]
+  reviews: { id: number; author: string; authorAvatar: string; state: string; body: string; submittedAt: string }[]
+  files: { filename: string; status: string; additions: number; deletions: number; changes: number }[]
+}
+
+interface CreatePRDialogState {
+  open: boolean
+  title: string
+  body: string
+  head: string
+  base: string
+  draft: boolean
+  loading: boolean
+  error: string | null
+}
+
+interface PullRequestsSectionProps {
+  currentRepo: string | null
+}
+
+function PullRequestsSection({ currentRepo }: PullRequestsSectionProps): React.JSX.Element | null {
+  const [prs, setPrs] = useState<GitHubPR[]>([])
+  const [loading, setLoading] = useState(false)
+  const [ghInfo, setGhInfo] = useState<{ owner: string; repo: string } | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [selectedPR, setSelectedPR] = useState<GitHubPRDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [filterState, setFilterState] = useState<'open' | 'closed'>('open')
+  const [createDialog, setCreateDialog] = useState<CreatePRDialogState>({
+    open: false, title: '', body: '', head: '', base: 'main', draft: false, loading: false, error: null
+  })
+  const [branches, setBranches] = useState<string[]>([])
+  const [currentBranch, setCurrentBranch] = useState('')
+  const [createdPR, setCreatedPR] = useState<{ number: number; htmlUrl: string } | null>(null)
+
+  // Check if repo is GitHub and user is logged in
+  useEffect(() => {
+    if (!currentRepo) {
+      setGhInfo(null)
+      setPrs([])
+      return
+    }
+    let cancelled = false
+    const check = async (): Promise<void> => {
+      const [loginRes, parseRes] = await Promise.all([
+        window.electronAPI.github.isLoggedIn(),
+        window.electronAPI.github.parseRemote(currentRepo)
+      ])
+      if (cancelled) return
+      setIsLoggedIn(!!loginRes.data)
+      if (parseRes.success && parseRes.data) {
+        setGhInfo(parseRes.data as { owner: string; repo: string })
+      } else {
+        setGhInfo(null)
+      }
+    }
+    check()
+    return () => { cancelled = true }
+  }, [currentRepo])
+
+  // Load PRs when ghInfo available and logged in
+  const loadPRs = useCallback(async () => {
+    if (!ghInfo || !isLoggedIn) return
+    setLoading(true)
+    try {
+      const result = await window.electronAPI.github.listPullRequests(ghInfo.owner, ghInfo.repo, filterState)
+      if (result.success && Array.isArray(result.data)) {
+        setPrs(result.data as GitHubPR[])
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
+    }
+  }, [ghInfo, isLoggedIn, filterState])
+
+  useEffect(() => {
+    loadPRs()
+  }, [loadPRs])
+
+  // Load branches for create dialog
+  useEffect(() => {
+    if (!currentRepo) return
+    const load = async (): Promise<void> => {
+      const result = await window.electronAPI.git.getBranches(currentRepo)
+      if (result.success && Array.isArray(result.data)) {
+        const branchNames = result.data.map((b: { name: string; current: boolean }) => {
+          if (b.current) setCurrentBranch(b.name)
+          return b.name
+        })
+        setBranches(branchNames)
+      }
+    }
+    load()
+  }, [currentRepo])
+
+  const handlePRClick = useCallback(async (pr: GitHubPR) => {
+    if (!ghInfo) return
+    if (selectedPR?.number === pr.number) {
+      setSelectedPR(null)
+      return
+    }
+    setDetailLoading(true)
+    setSelectedPR(null)
+    try {
+      const result = await window.electronAPI.github.getPullRequest(ghInfo.owner, ghInfo.repo, pr.number)
+      if (result.success && result.data) {
+        setSelectedPR(result.data as GitHubPRDetail)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [ghInfo, selectedPR])
+
+  const openCreateDialog = useCallback(() => {
+    setCreateDialog({
+      open: true,
+      title: '',
+      body: '',
+      head: currentBranch,
+      base: 'main',
+      draft: false,
+      loading: false,
+      error: null
+    })
+    setCreatedPR(null)
+  }, [currentBranch])
+
+  const closeCreateDialog = useCallback(() => {
+    setCreateDialog(prev => ({ ...prev, open: false }))
+    if (createdPR) {
+      loadPRs()
+      setCreatedPR(null)
+    }
+  }, [createdPR, loadPRs])
+
+  const handleCreatePR = useCallback(async () => {
+    if (!ghInfo || !createDialog.title.trim()) return
+    setCreateDialog(prev => ({ ...prev, loading: true, error: null }))
+    try {
+      const result = await window.electronAPI.github.createPullRequest(
+        ghInfo.owner, ghInfo.repo,
+        {
+          title: createDialog.title,
+          body: createDialog.body,
+          head: createDialog.head,
+          base: createDialog.base,
+          draft: createDialog.draft
+        }
+      )
+      if (result.success && result.data) {
+        const data = result.data as { number: number; htmlUrl: string }
+        setCreatedPR(data)
+        setCreateDialog(prev => ({ ...prev, loading: false }))
+      } else {
+        setCreateDialog(prev => ({ ...prev, loading: false, error: result.error || 'Failed to create PR' }))
+      }
+    } catch (err) {
+      setCreateDialog(prev => ({ ...prev, loading: false, error: 'Failed to create pull request' }))
+    }
+  }, [ghInfo, createDialog.title, createDialog.body, createDialog.head, createDialog.base, createDialog.draft])
+
+  const openInBrowser = useCallback((url: string) => {
+    window.open(url, '_blank')
+  }, [])
+
+  // Don't show section if not a GitHub repo
+  if (!ghInfo) return null
+
+  const timeAgo = (dateStr: string): string => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 60) return `${mins}m ago`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.floor(hours / 24)
+    if (days < 30) return `${days}d ago`
+    return new Date(dateStr).toLocaleDateString()
+  }
+
+  return (
+    <>
+      <SidebarSection
+        title="Pull Requests"
+        icon={<GitBranch size={16} />}
+        defaultOpen={true}
+        count={prs.length}
+        headerAction={
+          isLoggedIn ? (
+            <button
+              className={styles.sectionActionBtn}
+              title="Create Pull Request"
+              onClick={(e) => { e.stopPropagation(); openCreateDialog() }}
+            >+</button>
+          ) : undefined
+        }
+      >
+        {!isLoggedIn ? (
+          <div className={styles.prLoginHint}>
+            Log in to GitHub in Settings to view pull requests.
+          </div>
+        ) : (
+          <>
+            <div className={styles.prFilterRow}>
+              <button
+                className={`${styles.prFilterBtn} ${filterState === 'open' ? styles.prFilterBtnActive : ''}`}
+                onClick={() => setFilterState('open')}
+              >
+                <Circle size={12} /> Open
+              </button>
+              <button
+                className={`${styles.prFilterBtn} ${filterState === 'closed' ? styles.prFilterBtnActive : ''}`}
+                onClick={() => setFilterState('closed')}
+              >
+                <Check size={12} /> Closed
+              </button>
+              <button
+                className={styles.prRefreshBtn}
+                onClick={loadPRs}
+                disabled={loading}
+                title="Refresh"
+              >
+                <RefreshCw size={12} className={loading ? styles.prSpinning : ''} />
+              </button>
+            </div>
+            {loading && prs.length === 0 ? (
+              <SkeletonList count={3} />
+            ) : prs.length === 0 ? (
+              <div className={styles.prEmpty}>No {filterState} pull requests</div>
+            ) : (
+              <div className={styles.prList}>
+                {prs.map(pr => (
+                  <div
+                    key={pr.number}
+                    className={`${styles.prItem} ${selectedPR?.number === pr.number ? styles.prItemSelected : ''}`}
+                    onClick={() => handlePRClick(pr)}
+                    tabIndex={0}
+                    role="button"
+                  >
+                    <div className={styles.prItemHeader}>
+                      <span className={`${styles.prNumber}`}>#{pr.number}</span>
+                      <span className={styles.prTitle} title={pr.title}>{pr.title}</span>
+                    </div>
+                    <div className={styles.prItemMeta}>
+                      <span className={styles.prAuthor}>{pr.author}</span>
+                      <span className={styles.prTime}>{timeAgo(pr.updatedAt)}</span>
+                      {pr.draft && <span className={styles.prDraftBadge}>Draft</span>}
+                      {pr.labels.slice(0, 2).map(l => (
+                        <span
+                          key={l.name}
+                          className={styles.prLabel}
+                          style={{ backgroundColor: `#${l.color}20`, color: `#${l.color}`, borderColor: `#${l.color}40` }}
+                        >{l.name}</span>
+                      ))}
+                    </div>
+                    <div className={styles.prBranches}>
+                      <span className={styles.prBranchName}>{pr.headBranch}</span>
+                      <span className={styles.prBranchArrow}>→</span>
+                      <span className={styles.prBranchName}>{pr.baseBranch}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </SidebarSection>
+
+      {/* PR Detail Overlay */}
+      {(selectedPR || detailLoading) && (
+        <div className={styles.prDetailOverlay} onClick={() => { setSelectedPR(null); setDetailLoading(false) }}>
+          <div className={styles.prDetailPanel} onClick={(e) => e.stopPropagation()}>
+            {detailLoading ? (
+              <div className={styles.prDetailLoading}>
+                <RefreshCw size={20} className={styles.prSpinning} />
+                <span>Loading PR details...</span>
+              </div>
+            ) : selectedPR ? (
+              <>
+                <div className={styles.prDetailHeader}>
+                  <div className={styles.prDetailTitleRow}>
+                    <span className={styles.prDetailNumber}>#{selectedPR.number}</span>
+                    <h3 className={styles.prDetailTitle}>{selectedPR.title}</h3>
+                    <button className={styles.prDetailClose} onClick={() => setSelectedPR(null)}><X size={16} /></button>
+                  </div>
+                  <div className={styles.prDetailMetaRow}>
+                    <span className={`${styles.prStateBadge} ${selectedPR.state === 'open' ? styles.prStateBadgeOpen : styles.prStateBadgeClosed}`}>
+                      {selectedPR.state === 'open' ? <Circle size={12} /> : <Check size={12} />} {selectedPR.state}
+                    </span>
+                    <span>{selectedPR.author} wants to merge</span>
+                    <span className={styles.prBranchName}>{selectedPR.headBranch}</span>
+                    <span>into</span>
+                    <span className={styles.prBranchName}>{selectedPR.baseBranch}</span>
+                  </div>
+                  <div className={styles.prDetailStats}>
+                    <span className={styles.prStatAdd}>+{selectedPR.additions}</span>
+                    <span className={styles.prStatDel}>-{selectedPR.deletions}</span>
+                    <span>{selectedPR.changedFiles} files</span>
+                    <button className={styles.prOpenBrowser} onClick={() => openInBrowser(selectedPR.htmlUrl)}>
+                      <ExternalLink size={12} /> Open in Browser
+                    </button>
+                  </div>
+                </div>
+
+                {selectedPR.body && (
+                  <div className={styles.prDetailBody}>
+                    <h4>Description</h4>
+                    <pre className={styles.prBodyText}>{selectedPR.body}</pre>
+                  </div>
+                )}
+
+                {/* Reviews */}
+                {selectedPR.reviews.length > 0 && (
+                  <div className={styles.prDetailSection}>
+                    <h4>Reviews ({selectedPR.reviews.length})</h4>
+                    {selectedPR.reviews.map(r => (
+                      <div key={r.id} className={styles.prReviewItem}>
+                        <span className={`${styles.prReviewState} ${styles[`prReview_${r.state}`] || ''}`}>
+                          {r.state === 'APPROVED' ? <Check size={12} /> : <Circle size={12} />} {r.state.toLowerCase().replace('_', ' ')}
+                        </span>
+                        <span className={styles.prReviewAuthor}>{r.author}</span>
+                        {r.body && <p className={styles.prReviewBody}>{r.body}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Comments */}
+                {selectedPR.comments.length > 0 && (
+                  <div className={styles.prDetailSection}>
+                    <h4>Comments ({selectedPR.comments.length})</h4>
+                    {selectedPR.comments.map(c => (
+                      <div key={c.id} className={styles.prCommentItem}>
+                        <div className={styles.prCommentHeader}>
+                          <span className={styles.prCommentAuthor}>{c.author}</span>
+                          <span className={styles.prCommentTime}>{timeAgo(c.createdAt)}</span>
+                        </div>
+                        <p className={styles.prCommentBody}>{c.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Files Changed */}
+                {selectedPR.files.length > 0 && (
+                  <div className={styles.prDetailSection}>
+                    <h4>Files Changed ({selectedPR.files.length})</h4>
+                    <div className={styles.prFileList}>
+                      {selectedPR.files.map(f => (
+                        <div key={f.filename} className={styles.prFileItem}>
+                          <span className={`${styles.prFileStatus} ${styles[`prFileStatus_${f.status}`] || ''}`}>
+                            {f.status === 'added' ? 'A' : f.status === 'removed' ? 'D' : f.status === 'renamed' ? 'R' : 'M'}
+                          </span>
+                          <span className={styles.prFileName}>{f.filename}</span>
+                          <span className={styles.prFileStats}>
+                            {f.additions > 0 && <span className={styles.prStatAdd}>+{f.additions}</span>}
+                            {f.deletions > 0 && <span className={styles.prStatDel}>-{f.deletions}</span>}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Create PR Dialog */}
+      {createDialog.open && (
+        <div className={styles.prCreateOverlay} onClick={closeCreateDialog}>
+          <div className={styles.prCreateDialog} onClick={(e) => e.stopPropagation()}>
+            {createdPR ? (
+              <div className={styles.prCreatedSuccess}>
+                <Check size={32} className={styles.prCreatedIcon} />
+                <h3>Pull Request Created!</h3>
+                <p>PR #{createdPR.number} has been created successfully.</p>
+                <button className={styles.prOpenBrowser} onClick={() => openInBrowser(createdPR.htmlUrl)}>
+                  <ExternalLink size={14} /> Open in Browser
+                </button>
+                <button className={styles.prCreateCloseBtn} onClick={closeCreateDialog}>Close</button>
+              </div>
+            ) : (
+              <>
+                <h3 className={styles.prCreateTitle}>Create Pull Request</h3>
+                <div className={styles.prCreateField}>
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    value={createDialog.title}
+                    onChange={(e) => setCreateDialog(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Pull request title"
+                    autoFocus
+                  />
+                </div>
+                <div className={styles.prCreateField}>
+                  <label>Description</label>
+                  <textarea
+                    value={createDialog.body}
+                    onChange={(e) => setCreateDialog(prev => ({ ...prev, body: e.target.value }))}
+                    placeholder="Describe your changes..."
+                    rows={4}
+                  />
+                </div>
+                <div className={styles.prCreateBranches}>
+                  <div className={styles.prCreateField}>
+                    <label>Head branch (source)</label>
+                    <select
+                      value={createDialog.head}
+                      onChange={(e) => setCreateDialog(prev => ({ ...prev, head: e.target.value }))}
+                    >
+                      {branches.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <span className={styles.prCreateArrow}>→</span>
+                  <div className={styles.prCreateField}>
+                    <label>Base branch (target)</label>
+                    <select
+                      value={createDialog.base}
+                      onChange={(e) => setCreateDialog(prev => ({ ...prev, base: e.target.value }))}
+                    >
+                      {branches.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <label className={styles.prCreateCheckbox}>
+                  <input
+                    type="checkbox"
+                    checked={createDialog.draft}
+                    onChange={(e) => setCreateDialog(prev => ({ ...prev, draft: e.target.checked }))}
+                  />
+                  Create as draft
+                </label>
+                {createDialog.error && (
+                  <div className={styles.prCreateError}>
+                    <AlertTriangle size={14} /> {createDialog.error}
+                  </div>
+                )}
+                <div className={styles.prCreateActions}>
+                  <button className={styles.prCreateCancelBtn} onClick={closeCreateDialog}>Cancel</button>
+                  <button
+                    className={styles.prCreateSubmitBtn}
+                    onClick={handleCreatePR}
+                    disabled={createDialog.loading || !createDialog.title.trim()}
+                  >
+                    {createDialog.loading ? (
+                      <><RefreshCw size={14} className={styles.prSpinning} /> Creating...</>
+                    ) : 'Create Pull Request'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ─── Sidebar (main export) ──────────────────────────────────────────────────
 
 // ─── Icon Rail Section Definitions ──────────────────────────────────────────
 
-type RailSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'submodules' | 'files'
+type RailSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'submodules' | 'files' | 'pullrequests'
 
 interface RailSectionDef {
   id: RailSection
@@ -1729,7 +2216,8 @@ const RAIL_SECTIONS: RailSectionDef[] = [
   { id: 'remotes', label: 'Remotes', icon: <Globe size={20} /> },
   { id: 'tags', label: 'Tags', icon: <Tag size={20} /> },
   { id: 'stashes', label: 'Stashes', icon: <Archive size={20} /> },
-  { id: 'submodules', label: 'Submodules', icon: <Package size={20} /> }
+  { id: 'submodules', label: 'Submodules', icon: <Package size={20} /> },
+  { id: 'pullrequests', label: 'Pull Requests', icon: <GitPullRequestArrow size={20} /> }
 ]
 
 export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarProps): React.JSX.Element {
@@ -2119,6 +2607,9 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
               {railOverlaySection === 'submodules' && (
                 <SubmodulesSection currentRepo={currentRepo} />
               )}
+              {railOverlaySection === 'pullrequests' && (
+                <PullRequestsSection currentRepo={currentRepo} />
+              )}
               {railOverlaySection === 'files' && (
                 <FileTree
                   currentRepo={currentRepo}
@@ -2343,6 +2834,8 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
       <StashesSection currentRepo={currentRepo} />
 
       <SubmodulesSection currentRepo={currentRepo} />
+
+      <PullRequestsSection currentRepo={currentRepo} />
       </>
       )}
       </div>{/* end sidebarScrollArea */}

@@ -394,7 +394,15 @@ const electronAPI = {
     logout: (): Promise<GitServiceResult> =>
       ipcRenderer.invoke('github:logout'),
     isLoggedIn: (): Promise<GitServiceResult> =>
-      ipcRenderer.invoke('github:isLoggedIn')
+      ipcRenderer.invoke('github:isLoggedIn'),
+    parseRemote: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:parseRemote', repoPath),
+    listPullRequests: (owner: string, repo: string, state?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:listPullRequests', owner, repo, state),
+    getPullRequest: (owner: string, repo: string, prNumber: number): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:getPullRequest', owner, repo, prNumber),
+    createPullRequest: (owner: string, repo: string, opts: { title: string; body: string; head: string; base: string; draft?: boolean }): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:createPullRequest', owner, repo, opts)
   },
   terminal: {
     create: (opts: { cwd?: string; id?: string }): Promise<{ success: boolean; data?: { id: string }; error?: string }> =>
