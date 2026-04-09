@@ -708,6 +708,45 @@ export class GitService {
   }
 
   /**
+   * Get the full content of a file at the parent of a specific commit.
+   * Used for full-diff view to show old file content alongside new.
+   * Returns { binary: true } if the file contains null bytes.
+   * Returns empty string if the file is new (added in this commit).
+   */
+  async showFileAtParent(
+    repoPath: string,
+    hash: string,
+    filePath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<string | { binary: true }> {
+    try {
+      // Get the first parent hash
+      const parentResult = await this.exec(
+        ['rev-parse', `${hash}^1`],
+        repoPath,
+        { signal: options?.signal }
+      )
+      const parentHash = parentResult.stdout.trim()
+
+      // Get the file content at the parent commit
+      const args = ['show', `${parentHash}:${filePath}`]
+      const result = await this.exec(args, repoPath, { signal: options?.signal })
+
+      // Binary file detection: check for null bytes
+      if (result.stdout.includes('\0')) {
+        return { binary: true }
+      }
+
+      return result.stdout
+    } catch {
+      // If rev-parse fails (no parent, e.g. initial commit) or
+      // if git show fails (file is new / didn't exist in parent),
+      // return empty string
+      return ''
+    }
+  }
+
+  /**
    * Get the full content of a file at a specific commit.
    */
   async showFileAtCommit(

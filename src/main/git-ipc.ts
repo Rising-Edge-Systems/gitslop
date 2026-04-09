@@ -343,6 +343,20 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Show File At Parent Commit ────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:showFileAtParent',
+    async (_event, repoPath: string, hash: string, filePath: string) => {
+      try {
+        const data = await gitService.showFileAtParent(repoPath, hash, filePath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Clone ─────────────────────────────────────────────────────────────
 
   ipcMain.handle(
