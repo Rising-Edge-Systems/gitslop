@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
-import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine, ArrowUp, ArrowDown, CheckCircle2 } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ResetDialog } from './ResetDialog'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
@@ -848,6 +848,32 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
   const initialCommitLoadDone = useRef(false)
   const refreshInFlightRef = useRef(false)
 
+  // Ahead/behind tracking state
+  const [aheadCount, setAheadCount] = useState(0)
+  const [behindCount, setBehindCount] = useState(0)
+  const [hasUpstream, setHasUpstream] = useState<boolean | null>(null) // null = unknown/loading
+
+  // Fetch ahead/behind counts
+  const fetchAheadBehind = useCallback(async () => {
+    try {
+      const branchesResult = await window.electronAPI.git.getBranches(repoPath)
+      if (branchesResult.success && Array.isArray(branchesResult.data)) {
+        const current = branchesResult.data.find(
+          (b: { isCurrent?: boolean; current?: boolean }) => b.isCurrent || b.current
+        )
+        if (current) {
+          setAheadCount(current.ahead || 0)
+          setBehindCount(current.behind || 0)
+          setHasUpstream(!!current.upstream)
+        } else {
+          setHasUpstream(false)
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+  }, [repoPath])
+
   // Load commits — only shows loading on initial load, silent on refreshes
   const loadCommits = useCallback(async () => {
     // Prevent overlapping refresh calls
@@ -900,15 +926,17 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
     // Reset initial load flag when repo/filters change
     initialCommitLoadDone.current = false
     loadCommits()
-  }, [loadCommits])
+    fetchAheadBehind()
+  }, [loadCommits, fetchAheadBehind])
 
   // Listen for file watcher events instead of polling
   useEffect(() => {
     const cleanup = window.electronAPI.onRepoChanged?.(() => {
       loadCommits()
+      fetchAheadBehind()
     })
     return () => cleanup?.()
-  }, [loadCommits])
+  }, [loadCommits, fetchAheadBehind])
 
   // Observe container size
   useEffect(() => {
@@ -1377,8 +1405,9 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
 
   const handleRefresh = useCallback(() => {
     loadCommits()
+    fetchAheadBehind()
     onRefresh?.()
-  }, [loadCommits, onRefresh])
+  }, [loadCommits, fetchAheadBehind, onRefresh])
 
   const handleCloseDetail = useCallback(() => {
     setSelectedIndex(-1)
@@ -1443,6 +1472,30 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
           <h3 className={styles.title}>
             Commit Graph <span className={styles.count}>· {commits.length.toLocaleString()}</span>
           </h3>
+          {hasUpstream !== null && (
+            <div className={styles.syncIndicator}>
+              {hasUpstream === false ? (
+                <span className={styles.noUpstream} title="No upstream configured">No upstream</span>
+              ) : aheadCount === 0 && behindCount === 0 ? (
+                <span className={styles.upToDate} title="Up to date with remote">
+                  <CheckCircle2 size={11} /> Up to date
+                </span>
+              ) : (
+                <>
+                  {aheadCount > 0 && (
+                    <span className={styles.aheadBadge} title={`${aheadCount} commit${aheadCount > 1 ? 's' : ''} ahead of remote`}>
+                      <ArrowUp size={11} />{aheadCount}
+                    </span>
+                  )}
+                  {behindCount > 0 && (
+                    <span className={styles.behindBadge} title={`${behindCount} commit${behindCount > 1 ? 's' : ''} behind remote`}>
+                      <ArrowDown size={11} />{behindCount}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
           <button className={styles.refresh} onClick={handleRefresh} title="Refresh">
             <RefreshCw size={12} />
           </button>
