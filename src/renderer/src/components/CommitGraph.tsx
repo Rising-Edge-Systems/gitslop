@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
 import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine, ArrowUp, ArrowDown, CheckCircle2 } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
+import { MergeDialog } from './MergeDialog'
 import { ResetDialog } from './ResetDialog'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { CommitGraphSkeleton } from './Skeleton'
@@ -785,24 +786,47 @@ function CommitRowComponent(props: {
 function buildCommitContextMenuItems(
   commit: GitCommit,
   multiSelectCount: number,
-  onAction: (action: string, commit: GitCommit) => void
+  onAction: (action: string, commit: GitCommit, extra?: string) => void,
+  refs: ParsedRef[],
+  currentBranch: string | null
 ): ContextMenuEntry[] {
   const cherryPickLabel = multiSelectCount > 1
     ? `Cherry-pick ${multiSelectCount} commits`
     : 'Cherry-pick'
 
-  return [
+  // Find branch refs on this commit that are NOT the current branch
+  const mergeableBranches = refs.filter(
+    (r) => (r.type === 'branch' || r.type === 'remote') && r.name !== currentBranch
+  )
+
+  const items: ContextMenuEntry[] = [
     { key: 'checkout', label: 'Checkout', icon: <LogOut size={14} />, onClick: () => onAction('checkout', commit) },
     { key: 'sep1', separator: true as const },
     { key: 'cherry-pick', label: cherryPickLabel, icon: <Cherry size={14} />, onClick: () => onAction('cherry-pick', commit) },
     { key: 'revert', label: 'Revert', icon: <Undo2 size={14} />, onClick: () => onAction('revert', commit) },
     { key: 'reset', label: 'Reset current branch to here', icon: <SkipBack size={14} />, onClick: () => onAction('reset', commit) },
-    { key: 'sep2', separator: true as const },
-    { key: 'create-branch', label: 'Create branch here...', icon: <GitBranch size={14} />, onClick: () => onAction('create-branch', commit) },
-    { key: 'create-tag', label: 'Create tag here...', icon: <Tag size={14} />, onClick: () => onAction('create-tag', commit) },
-    { key: 'sep3', separator: true as const },
-    { key: 'copy-sha', label: 'Copy SHA', icon: <Clipboard size={14} />, shortcut: 'Ctrl+C', onClick: () => onAction('copy-sha', commit) },
   ]
+
+  // Add merge items for each branch ref on this commit (excluding current branch)
+  if (mergeableBranches.length > 0 && currentBranch) {
+    items.push({ key: 'sep-merge', separator: true as const })
+    for (const branch of mergeableBranches) {
+      items.push({
+        key: `merge-${branch.name}`,
+        label: `Merge ${branch.name} into ${currentBranch}`,
+        icon: <GitMerge size={14} />,
+        onClick: () => onAction('merge', commit, branch.name)
+      })
+    }
+  }
+
+  items.push({ key: 'sep2', separator: true as const })
+  items.push({ key: 'create-branch', label: 'Create branch here...', icon: <GitBranch size={14} />, onClick: () => onAction('create-branch', commit) })
+  items.push({ key: 'create-tag', label: 'Create tag here...', icon: <Tag size={14} />, onClick: () => onAction('create-tag', commit) })
+  items.push({ key: 'sep3', separator: true as const })
+  items.push({ key: 'copy-sha', label: 'Copy SHA', icon: <Clipboard size={14} />, shortcut: 'Ctrl+C', onClick: () => onAction('copy-sha', commit) })
+
+  return items
 }
 
 // ─── Branch/Ref Context Menu Items Builder ──────────────────────────────────
@@ -934,6 +958,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
   const [commitDetail, setCommitDetail] = useState<CommitDetail | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [branchContextMenu, setBranchContextMenu] = useState<BranchContextMenuState | null>(null)
+  const [mergeBranch, setMergeBranch] = useState<string | null>(null)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -1404,7 +1429,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
   }, [repoPath, loadCommits])
 
   // Handle context menu actions
-  const handleContextAction = useCallback(async (action: string, commit: GitCommit) => {
+  const handleContextAction = useCallback(async (action: string, commit: GitCommit, extra?: string) => {
     switch (action) {
       case 'checkout':
         try {
@@ -1432,6 +1457,11 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
         break
       case 'revert':
         handleRevert(commit.hash, commit.parentHashes)
+        break
+      case 'merge':
+        if (extra) {
+          setMergeBranch(extra)
+        }
         break
       case 'create-branch':
       case 'create-tag':
@@ -1662,7 +1692,9 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
             items={buildCommitContextMenuItems(
               contextMenu.commit,
               selectedHashes.size > 0 ? selectedHashes.size : 1,
-              handleContextAction
+              handleContextAction,
+              contextMenu.refs,
+              headInfo?.branchName ?? null
             )}
             onClose={() => setContextMenu(null)}
           />
@@ -1679,6 +1711,19 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
               handleRefresh
             )}
             onClose={() => setBranchContextMenu(null)}
+          />
+        )}
+
+        {/* Merge dialog opened from commit context menu */}
+        {mergeBranch && (
+          <MergeDialog
+            currentRepo={repoPath}
+            preselectedBranch={mergeBranch}
+            onClose={() => setMergeBranch(null)}
+            onMergeComplete={() => {
+              setMergeBranch(null)
+              loadCommits()
+            }}
           />
         )}
 
