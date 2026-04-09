@@ -28,3 +28,16 @@ Started: Wed Apr 9 2026
   - The markers use `clamp(minPx, %, maxPx)` for height to ensure visibility for single lines while capping large hunks
   - `computeMarkers` merges consecutive same-type lines into single markers for efficiency
 ---
+
+## 2026-04-09 - US-SM-002
+- Added scrollbar change markers to SideBySideDiffView (the regular side-by-side diff, not FullDiffView which already had them)
+- Left pane gets red markers for removed lines, right pane gets green markers for added lines at proportional positions
+- Wrapped each .sbsPane in scrollableWithMarkers div and added ScrollbarMarkers component
+- Clicking a marker scrolls that pane, and existing scroll sync propagates to the other pane
+- Files changed: DiffViewer.tsx
+- **Learnings for future iterations:**
+  - SideBySideDiffView uses `pairs` array where each pair has `.left` and `.right` — build lineTypes from these for markers
+  - The `scrollableWithMarkers` CSS class already existed from US-SM-001 — just need to wrap panes
+  - FullDiffView already had markers from US-SM-001; only SideBySideDiffView needed them for this story
+  - The `hunkHeaderSet` variable in SideBySideDiffView is unused but predates our changes
+---

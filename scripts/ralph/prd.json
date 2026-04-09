@@ -36,7 +36,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Same approach as US-SM-001 but applied to each .sbsPane. The SideBySideDiffView already has scroll sync — clicking a marker on one pane should trigger the scroll handler which syncs the other pane. Each pane's marker column is independently positioned."
     },
     {
