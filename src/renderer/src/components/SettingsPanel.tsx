@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon, KeyRound, Copy, Loader2, Wifi, WifiOff, Eye, EyeOff, ShieldCheck, Github, LogOut, ExternalLink } from 'lucide-react'
+import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon, KeyRound, Copy, Loader2, Wifi, WifiOff, Eye, EyeOff, ShieldCheck, Github, Gitlab, LogOut, ExternalLink } from 'lucide-react'
 import type { AppSettings } from '../hooks/useSettings'
 import { DEFAULT_SETTINGS } from '../hooks/useSettings'
 import styles from './SettingsPanel.module.css'
@@ -29,7 +29,7 @@ interface ProfileData {
   sshKeyPath?: string
 }
 
-type SettingsSection = 'general' | 'appearance' | 'git' | 'editor' | 'keybindings' | 'profiles' | 'sshkeys' | 'github'
+type SettingsSection = 'general' | 'appearance' | 'git' | 'editor' | 'keybindings' | 'profiles' | 'sshkeys' | 'github' | 'gitlab'
 
 interface SettingsPanelProps {
   settings: AppSettings
@@ -68,6 +68,7 @@ export function SettingsPanel({
     { id: 'profiles', label: 'Profiles', icon: <UserCircle size={16} /> },
     { id: 'sshkeys', label: 'SSH Keys', icon: <KeyRound size={16} /> },
     { id: 'github', label: 'GitHub', icon: <Github size={16} /> },
+    { id: 'gitlab', label: 'GitLab', icon: <Gitlab size={16} /> },
     { id: 'editor', label: 'Editor', icon: <Pencil size={16} /> },
     { id: 'keybindings', label: 'Keybindings', icon: <Keyboard size={16} /> }
   ]
@@ -131,6 +132,9 @@ export function SettingsPanel({
             )}
             {activeSection === 'github' && (
               <GitHubSection />
+            )}
+            {activeSection === 'gitlab' && (
+              <GitLabSection />
             )}
             {activeSection === 'editor' && (
               <EditorSection settings={settings} onUpdate={onUpdate} />
@@ -1351,6 +1355,234 @@ function GitHubSection(): React.JSX.Element {
               ) : (
                 <>
                   <Github size={14} />
+                  <span>Login</span>
+                </>
+              )}
+            </button>
+          </div>
+          {error && (
+            <div className={styles.ghError}>{error}</div>
+          )}
+          <p className={styles.ghSecurityNote}>
+            <ShieldCheck size={13} />
+            Your token is encrypted and stored securely on this device.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── GitLab Section ─────────────────────────────────────────────────────── */
+
+interface GitLabUser {
+  username: string
+  name: string
+  avatarUrl: string
+  email: string | null
+  webUrl: string
+}
+
+function GitLabSection(): React.JSX.Element {
+  const [user, setUser] = useState<GitLabUser | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loggingIn, setLoggingIn] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const [pat, setPat] = useState('')
+  const [showPat, setShowPat] = useState(false)
+  const [instanceUrl, setInstanceUrl] = useState('https://gitlab.com')
+  const [error, setError] = useState('')
+
+  // Check login status on mount
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const [userRes, urlRes] = await Promise.all([
+          window.electronAPI.gitlab.getUser(),
+          window.electronAPI.gitlab.getInstanceUrl()
+        ])
+        if (mounted) {
+          if (userRes.success && userRes.data) {
+            setUser(userRes.data)
+          }
+          if (urlRes.success && urlRes.data) {
+            setInstanceUrl(urlRes.data as string)
+          }
+        }
+      } catch {
+        // Not logged in
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    })()
+    return () => { mounted = false }
+  }, [])
+
+  const handleLogin = useCallback(async () => {
+    if (!pat.trim()) {
+      setError('Please enter a Personal Access Token')
+      return
+    }
+    setLoggingIn(true)
+    setError('')
+    try {
+      const result = await window.electronAPI.gitlab.login(pat.trim(), instanceUrl)
+      if (result.success && result.data) {
+        setUser(result.data)
+        setPat('')
+        setShowPat(false)
+      } else {
+        setError(result.error || 'Authentication failed')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setLoggingIn(false)
+    }
+  }, [pat, instanceUrl])
+
+  const handleLogout = useCallback(async () => {
+    setLoggingOut(true)
+    try {
+      await window.electronAPI.gitlab.logout()
+      setUser(null)
+      setError('')
+    } catch {
+      // Ignore logout errors
+    } finally {
+      setLoggingOut(false)
+    }
+  }, [])
+
+  if (loading) {
+    return (
+      <div className={styles.sectionContent}>
+        <h3 className={styles.sectionTitle}>GitLab</h3>
+        <div className={styles.ghLoading}>
+          <Loader2 size={16} className={styles.sshSpinner} />
+          <span>Checking login status…</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.sectionContent}>
+      <h3 className={styles.sectionTitle}>GitLab</h3>
+
+      {user ? (
+        /* ── Logged-in state ─── */
+        <div className={styles.ghUserCard}>
+          <div className={styles.ghUserInfo}>
+            <img
+              src={user.avatarUrl}
+              alt={user.username}
+              className={styles.ghAvatar}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+            />
+            <div className={styles.ghUserDetails}>
+              <span className={styles.ghUserName}>{user.name}</span>
+              <span className={styles.ghUserLogin}>@{user.username}</span>
+              {user.email && (
+                <span className={styles.ghUserEmail}>{user.email}</span>
+              )}
+            </div>
+          </div>
+          <div className={styles.ghUserActions}>
+            <a
+              href={user.webUrl}
+              className={styles.ghProfileLink}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => {
+                e.preventDefault()
+                window.open(user.webUrl, '_blank')
+              }}
+            >
+              <ExternalLink size={14} />
+              <span>View Profile</span>
+            </a>
+            <button
+              className={styles.ghLogoutBtn}
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              {loggingOut ? (
+                <Loader2 size={14} className={styles.sshSpinner} />
+              ) : (
+                <LogOut size={14} />
+              )}
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* ── Login state ─── */
+        <div className={styles.ghLoginSection}>
+          <p className={styles.ghLoginDesc}>
+            Connect your GitLab account using a Personal Access Token (PAT).
+          </p>
+          <div className={styles.ghTokenInput} style={{ marginBottom: 'var(--space-sm)' }}>
+            <div className={styles.ghTokenField} style={{ flex: 1 }}>
+              <input
+                type="text"
+                value={instanceUrl}
+                onChange={(e) => setInstanceUrl(e.target.value)}
+                placeholder="https://gitlab.com"
+                className={styles.ghInput}
+              />
+            </div>
+          </div>
+          <p className={styles.ghScopeHint}>
+            Instance URL (gitlab.com or self-hosted). Create a PAT at{' '}
+            <a
+              href={`${instanceUrl}/-/user_settings/personal_access_tokens`}
+              className={styles.ghLink}
+              onClick={(e) => {
+                e.preventDefault()
+                window.open(`${instanceUrl}/-/user_settings/personal_access_tokens`, '_blank')
+              }}
+            >
+              Personal Access Tokens
+            </a>
+            {' '}with scopes: <code>api</code>, <code>read_user</code>
+          </p>
+          <div className={styles.ghTokenInput}>
+            <div className={styles.ghTokenField}>
+              <input
+                type={showPat ? 'text' : 'password'}
+                value={pat}
+                onChange={(e) => { setPat(e.target.value); setError('') }}
+                placeholder="glpat-xxxxxxxxxxxxxxxxxxxx"
+                className={styles.ghInput}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleLogin()
+                }}
+              />
+              <button
+                className={styles.ghToggleVisibility}
+                onClick={() => setShowPat(!showPat)}
+                title={showPat ? 'Hide token' : 'Show token'}
+                type="button"
+              >
+                {showPat ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            <button
+              className={styles.ghLoginBtn}
+              onClick={handleLogin}
+              disabled={loggingIn || !pat.trim()}
+              style={{ backgroundColor: '#fc6d26' }}
+            >
+              {loggingIn ? (
+                <>
+                  <Loader2 size={14} className={styles.sshSpinner} />
+                  <span>Verifying…</span>
+                </>
+              ) : (
+                <>
+                  <Gitlab size={14} />
                   <span>Login</span>
                 </>
               )}

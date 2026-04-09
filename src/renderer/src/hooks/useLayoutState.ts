@@ -208,6 +208,17 @@ declare global {
         getPullRequest: (owner: string, repo: string, prNumber: number) => Promise<GitServiceResult>
         createPullRequest: (owner: string, repo: string, opts: { title: string; body: string; head: string; base: string; draft?: boolean }) => Promise<GitServiceResult>
       }
+      gitlab: {
+        login: (pat: string, instanceUrl?: string) => Promise<GitServiceResult>
+        getUser: () => Promise<GitServiceResult>
+        logout: () => Promise<GitServiceResult>
+        isLoggedIn: () => Promise<GitServiceResult>
+        getInstanceUrl: () => Promise<GitServiceResult>
+        parseRemote: (repoPath: string) => Promise<GitServiceResult>
+        listMergeRequests: (projectPath: string, state?: string) => Promise<GitServiceResult>
+        getMergeRequest: (projectPath: string, mrIid: number) => Promise<GitServiceResult>
+        createMergeRequest: (projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }) => Promise<GitServiceResult>
+      }
       terminal: {
         create: (opts: { cwd?: string; id?: string }) => Promise<{ success: boolean; data?: { id: string }; error?: string }>
         write: (opts: { id: string; data: string }) => Promise<{ success: boolean; error?: string }>

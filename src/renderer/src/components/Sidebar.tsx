@@ -29,7 +29,8 @@ import {
   Bookmark,
   PanelLeftClose,
   PanelLeftOpen,
-  GitPullRequestArrow
+  GitPullRequestArrow,
+  Gitlab
 } from 'lucide-react'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
@@ -2198,11 +2199,463 @@ function PullRequestsSection({ currentRepo }: PullRequestsSectionProps): React.J
   )
 }
 
+// ─── MergeRequestsSection (GitLab) ─────────────────────────────────────────
+
+interface GitLabMR {
+  iid: number
+  title: string
+  state: string
+  author: string
+  authorAvatar: string
+  createdAt: string
+  updatedAt: string
+  sourceBranch: string
+  targetBranch: string
+  draft: boolean
+  webUrl: string
+  description: string
+  labels: { name: string }[]
+  mergeStatus: string
+  hasConflicts: boolean
+  userNotesCount: number
+}
+
+interface GitLabMRDetail extends GitLabMR {
+  notes: { id: number; author: string; authorAvatar: string; body: string; createdAt: string }[]
+  files: { filename: string; status: string; additions: number; deletions: number; changes: number }[]
+}
+
+interface CreateMRDialogState {
+  open: boolean
+  title: string
+  description: string
+  sourceBranch: string
+  targetBranch: string
+  loading: boolean
+  error: string | null
+}
+
+interface MergeRequestsSectionProps {
+  currentRepo: string | null
+}
+
+function MergeRequestsSection({ currentRepo }: MergeRequestsSectionProps): React.JSX.Element | null {
+  const [mrs, setMrs] = useState<GitLabMR[]>([])
+  const [loading, setLoading] = useState(false)
+  const [glInfo, setGlInfo] = useState<{ projectPath: string; webUrl: string } | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [selectedMR, setSelectedMR] = useState<GitLabMRDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [filterState, setFilterState] = useState<'open' | 'closed'>('open')
+  const [createDialog, setCreateDialog] = useState<CreateMRDialogState>({
+    open: false, title: '', description: '', sourceBranch: '', targetBranch: 'main', loading: false, error: null
+  })
+  const [branches, setBranches] = useState<string[]>([])
+  const [currentBranch, setCurrentBranch] = useState('')
+  const [createdMR, setCreatedMR] = useState<{ iid: number; webUrl: string } | null>(null)
+
+  // Check if repo is GitLab and user is logged in
+  useEffect(() => {
+    if (!currentRepo) {
+      setGlInfo(null)
+      setMrs([])
+      return
+    }
+    let cancelled = false
+    const check = async (): Promise<void> => {
+      const [loginRes, parseRes] = await Promise.all([
+        window.electronAPI.gitlab.isLoggedIn(),
+        window.electronAPI.gitlab.parseRemote(currentRepo)
+      ])
+      if (cancelled) return
+      setIsLoggedIn(!!loginRes.data)
+      if (parseRes.success && parseRes.data) {
+        setGlInfo(parseRes.data as { projectPath: string; webUrl: string })
+      } else {
+        setGlInfo(null)
+      }
+    }
+    check()
+    return () => { cancelled = true }
+  }, [currentRepo])
+
+  // Load MRs when glInfo available and logged in
+  const loadMRs = useCallback(async () => {
+    if (!glInfo || !isLoggedIn) return
+    setLoading(true)
+    try {
+      const result = await window.electronAPI.gitlab.listMergeRequests(glInfo.projectPath, filterState)
+      if (result.success && Array.isArray(result.data)) {
+        setMrs(result.data as GitLabMR[])
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
+    }
+  }, [glInfo, isLoggedIn, filterState])
+
+  useEffect(() => {
+    loadMRs()
+  }, [loadMRs])
+
+  // Load branches for create dialog
+  useEffect(() => {
+    if (!currentRepo) return
+    const load = async (): Promise<void> => {
+      const result = await window.electronAPI.git.getBranches(currentRepo)
+      if (result.success && Array.isArray(result.data)) {
+        const branchNames = result.data.map((b: { name: string; current: boolean }) => {
+          if (b.current) setCurrentBranch(b.name)
+          return b.name
+        })
+        setBranches(branchNames)
+      }
+    }
+    load()
+  }, [currentRepo])
+
+  const handleMRClick = useCallback(async (mr: GitLabMR) => {
+    if (!glInfo) return
+    if (selectedMR?.iid === mr.iid) {
+      setSelectedMR(null)
+      return
+    }
+    setDetailLoading(true)
+    setSelectedMR(null)
+    try {
+      const result = await window.electronAPI.gitlab.getMergeRequest(glInfo.projectPath, mr.iid)
+      if (result.success && result.data) {
+        setSelectedMR(result.data as GitLabMRDetail)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [glInfo, selectedMR])
+
+  const openCreateDialog = useCallback(() => {
+    setCreateDialog({
+      open: true,
+      title: '',
+      description: '',
+      sourceBranch: currentBranch,
+      targetBranch: 'main',
+      loading: false,
+      error: null
+    })
+    setCreatedMR(null)
+  }, [currentBranch])
+
+  const closeCreateDialog = useCallback(() => {
+    setCreateDialog(prev => ({ ...prev, open: false }))
+    if (createdMR) {
+      loadMRs()
+      setCreatedMR(null)
+    }
+  }, [createdMR, loadMRs])
+
+  const handleCreateMR = useCallback(async () => {
+    if (!glInfo || !createDialog.title.trim()) return
+    setCreateDialog(prev => ({ ...prev, loading: true, error: null }))
+    try {
+      const result = await window.electronAPI.gitlab.createMergeRequest(
+        glInfo.projectPath,
+        {
+          title: createDialog.title,
+          description: createDialog.description,
+          sourceBranch: createDialog.sourceBranch,
+          targetBranch: createDialog.targetBranch
+        }
+      )
+      if (result.success && result.data) {
+        const data = result.data as { iid: number; webUrl: string }
+        setCreatedMR(data)
+        setCreateDialog(prev => ({ ...prev, loading: false }))
+      } else {
+        setCreateDialog(prev => ({ ...prev, loading: false, error: result.error || 'Failed to create MR' }))
+      }
+    } catch {
+      setCreateDialog(prev => ({ ...prev, loading: false, error: 'Failed to create merge request' }))
+    }
+  }, [glInfo, createDialog.title, createDialog.description, createDialog.sourceBranch, createDialog.targetBranch])
+
+  const openInBrowser = useCallback((url: string) => {
+    window.open(url, '_blank')
+  }, [])
+
+  // Don't show section if not a GitLab repo
+  if (!glInfo) return null
+
+  const timeAgo = (dateStr: string): string => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 60) return `${mins}m ago`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.floor(hours / 24)
+    if (days < 30) return `${days}d ago`
+    return new Date(dateStr).toLocaleDateString()
+  }
+
+  return (
+    <>
+      <SidebarSection
+        title="Merge Requests"
+        icon={<Gitlab size={16} />}
+        defaultOpen={true}
+        count={mrs.length}
+        headerAction={
+          isLoggedIn ? (
+            <button
+              className={styles.sectionActionBtn}
+              title="Create Merge Request"
+              onClick={(e) => { e.stopPropagation(); openCreateDialog() }}
+            >+</button>
+          ) : undefined
+        }
+      >
+        {!isLoggedIn ? (
+          <div className={styles.prLoginHint}>
+            Log in to GitLab in Settings to view merge requests.
+          </div>
+        ) : (
+          <>
+            <div className={styles.prFilterRow}>
+              <button
+                className={`${styles.prFilterBtn} ${filterState === 'open' ? styles.prFilterBtnActive : ''}`}
+                onClick={() => setFilterState('open')}
+              >
+                <Circle size={12} /> Open
+              </button>
+              <button
+                className={`${styles.prFilterBtn} ${filterState === 'closed' ? styles.prFilterBtnActive : ''}`}
+                onClick={() => setFilterState('closed')}
+              >
+                <Check size={12} /> Merged
+              </button>
+              <button
+                className={styles.prRefreshBtn}
+                onClick={loadMRs}
+                disabled={loading}
+                title="Refresh"
+              >
+                <RefreshCw size={12} className={loading ? styles.prSpinning : ''} />
+              </button>
+            </div>
+            {loading && mrs.length === 0 ? (
+              <SkeletonList count={3} />
+            ) : mrs.length === 0 ? (
+              <div className={styles.prEmpty}>No {filterState === 'open' ? 'open' : 'merged'} merge requests</div>
+            ) : (
+              <div className={styles.prList}>
+                {mrs.map(mr => (
+                  <div
+                    key={mr.iid}
+                    className={`${styles.prItem} ${selectedMR?.iid === mr.iid ? styles.prItemSelected : ''}`}
+                    onClick={() => handleMRClick(mr)}
+                    tabIndex={0}
+                    role="button"
+                  >
+                    <div className={styles.prItemHeader}>
+                      <span className={styles.prNumber}>!{mr.iid}</span>
+                      <span className={styles.prTitle} title={mr.title}>{mr.title}</span>
+                    </div>
+                    <div className={styles.prItemMeta}>
+                      <span className={styles.prAuthor}>{mr.author}</span>
+                      <span className={styles.prTime}>{timeAgo(mr.updatedAt)}</span>
+                      {mr.draft && <span className={styles.prDraftBadge}>Draft</span>}
+                      {mr.hasConflicts && <span className={styles.prDraftBadge} style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}>Conflicts</span>}
+                      {mr.labels.slice(0, 2).map(l => (
+                        <span
+                          key={l.name}
+                          className={styles.prLabel}
+                          style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                        >{l.name}</span>
+                      ))}
+                    </div>
+                    <div className={styles.prBranches}>
+                      <span className={styles.prBranchName}>{mr.sourceBranch}</span>
+                      <span className={styles.prBranchArrow}>→</span>
+                      <span className={styles.prBranchName}>{mr.targetBranch}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </SidebarSection>
+
+      {/* MR Detail Overlay */}
+      {(selectedMR || detailLoading) && (
+        <div className={styles.prDetailOverlay} onClick={() => { setSelectedMR(null); setDetailLoading(false) }}>
+          <div className={styles.prDetailPanel} onClick={(e) => e.stopPropagation()}>
+            {detailLoading ? (
+              <div className={styles.prDetailLoading}>
+                <RefreshCw size={20} className={styles.prSpinning} />
+                <span>Loading MR details...</span>
+              </div>
+            ) : selectedMR ? (
+              <>
+                <div className={styles.prDetailHeader}>
+                  <div className={styles.prDetailTitleRow}>
+                    <span className={styles.prDetailNumber}>!{selectedMR.iid}</span>
+                    <h3 className={styles.prDetailTitle}>{selectedMR.title}</h3>
+                    <button className={styles.prDetailClose} onClick={() => setSelectedMR(null)}><X size={16} /></button>
+                  </div>
+                  <div className={styles.prDetailMetaRow}>
+                    <span className={`${styles.prStateBadge} ${selectedMR.state === 'opened' ? styles.prStateBadgeOpen : styles.prStateBadgeClosed}`}>
+                      {selectedMR.state === 'opened' ? <Circle size={12} /> : <Check size={12} />} {selectedMR.state}
+                    </span>
+                    <span>{selectedMR.author} wants to merge</span>
+                    <span className={styles.prBranchName}>{selectedMR.sourceBranch}</span>
+                    <span>into</span>
+                    <span className={styles.prBranchName}>{selectedMR.targetBranch}</span>
+                  </div>
+                  <div className={styles.prDetailStats}>
+                    <span>{selectedMR.files.length} files</span>
+                    <span>{selectedMR.userNotesCount} comments</span>
+                    <button className={styles.prOpenBrowser} onClick={() => openInBrowser(selectedMR.webUrl)}>
+                      <ExternalLink size={12} /> Open in Browser
+                    </button>
+                  </div>
+                </div>
+
+                {selectedMR.description && (
+                  <div className={styles.prDetailBody}>
+                    <h4>Description</h4>
+                    <pre className={styles.prBodyText}>{selectedMR.description}</pre>
+                  </div>
+                )}
+
+                {/* Notes (Comments) */}
+                {selectedMR.notes.length > 0 && (
+                  <div className={styles.prDetailSection}>
+                    <h4>Comments ({selectedMR.notes.length})</h4>
+                    {selectedMR.notes.map(n => (
+                      <div key={n.id} className={styles.prCommentItem}>
+                        <div className={styles.prCommentHeader}>
+                          <span className={styles.prCommentAuthor}>{n.author}</span>
+                          <span className={styles.prCommentTime}>{timeAgo(n.createdAt)}</span>
+                        </div>
+                        <p className={styles.prCommentBody}>{n.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Files Changed */}
+                {selectedMR.files.length > 0 && (
+                  <div className={styles.prDetailSection}>
+                    <h4>Files Changed ({selectedMR.files.length})</h4>
+                    <div className={styles.prFileList}>
+                      {selectedMR.files.map(f => (
+                        <div key={f.filename} className={styles.prFileItem}>
+                          <span className={`${styles.prFileStatus} ${styles[`prFileStatus_${f.status}`] || ''}`}>
+                            {f.status === 'added' ? 'A' : f.status === 'removed' ? 'D' : f.status === 'renamed' ? 'R' : 'M'}
+                          </span>
+                          <span className={styles.prFileName}>{f.filename}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Create MR Dialog */}
+      {createDialog.open && (
+        <div className={styles.prCreateOverlay} onClick={closeCreateDialog}>
+          <div className={styles.prCreateDialog} onClick={(e) => e.stopPropagation()}>
+            {createdMR ? (
+              <div className={styles.prCreatedSuccess}>
+                <Check size={32} className={styles.prCreatedIcon} />
+                <h3>Merge Request Created!</h3>
+                <p>MR !{createdMR.iid} has been created successfully.</p>
+                <button className={styles.prOpenBrowser} onClick={() => openInBrowser(createdMR.webUrl)}>
+                  <ExternalLink size={14} /> Open in Browser
+                </button>
+                <button className={styles.prCreateCloseBtn} onClick={closeCreateDialog}>Close</button>
+              </div>
+            ) : (
+              <>
+                <h3 className={styles.prCreateTitle}>Create Merge Request</h3>
+                <div className={styles.prCreateField}>
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    value={createDialog.title}
+                    onChange={(e) => setCreateDialog(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Merge request title"
+                    autoFocus
+                  />
+                </div>
+                <div className={styles.prCreateField}>
+                  <label>Description</label>
+                  <textarea
+                    value={createDialog.description}
+                    onChange={(e) => setCreateDialog(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Describe your changes..."
+                    rows={4}
+                  />
+                </div>
+                <div className={styles.prCreateBranches}>
+                  <div className={styles.prCreateField}>
+                    <label>Source branch</label>
+                    <select
+                      value={createDialog.sourceBranch}
+                      onChange={(e) => setCreateDialog(prev => ({ ...prev, sourceBranch: e.target.value }))}
+                    >
+                      {branches.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <span className={styles.prCreateArrow}>→</span>
+                  <div className={styles.prCreateField}>
+                    <label>Target branch</label>
+                    <select
+                      value={createDialog.targetBranch}
+                      onChange={(e) => setCreateDialog(prev => ({ ...prev, targetBranch: e.target.value }))}
+                    >
+                      {branches.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {createDialog.error && (
+                  <div className={styles.prCreateError}>
+                    <AlertTriangle size={14} /> {createDialog.error}
+                  </div>
+                )}
+                <div className={styles.prCreateActions}>
+                  <button className={styles.prCreateCancelBtn} onClick={closeCreateDialog}>Cancel</button>
+                  <button
+                    className={styles.prCreateSubmitBtn}
+                    onClick={handleCreateMR}
+                    disabled={createDialog.loading || !createDialog.title.trim()}
+                  >
+                    {createDialog.loading ? (
+                      <><RefreshCw size={14} className={styles.prSpinning} /> Creating...</>
+                    ) : 'Create Merge Request'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ─── Sidebar (main export) ──────────────────────────────────────────────────
 
 // ─── Icon Rail Section Definitions ──────────────────────────────────────────
 
-type RailSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'submodules' | 'files' | 'pullrequests'
+type RailSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'submodules' | 'files' | 'pullrequests' | 'mergerequests'
 
 interface RailSectionDef {
   id: RailSection
@@ -2217,7 +2670,8 @@ const RAIL_SECTIONS: RailSectionDef[] = [
   { id: 'tags', label: 'Tags', icon: <Tag size={20} /> },
   { id: 'stashes', label: 'Stashes', icon: <Archive size={20} /> },
   { id: 'submodules', label: 'Submodules', icon: <Package size={20} /> },
-  { id: 'pullrequests', label: 'Pull Requests', icon: <GitPullRequestArrow size={20} /> }
+  { id: 'pullrequests', label: 'Pull Requests', icon: <GitPullRequestArrow size={20} /> },
+  { id: 'mergerequests', label: 'Merge Requests', icon: <Gitlab size={20} /> }
 ]
 
 export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarProps): React.JSX.Element {
@@ -2610,6 +3064,9 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
               {railOverlaySection === 'pullrequests' && (
                 <PullRequestsSection currentRepo={currentRepo} />
               )}
+              {railOverlaySection === 'mergerequests' && (
+                <MergeRequestsSection currentRepo={currentRepo} />
+              )}
               {railOverlaySection === 'files' && (
                 <FileTree
                   currentRepo={currentRepo}
@@ -2836,6 +3293,8 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
       <SubmodulesSection currentRepo={currentRepo} />
 
       <PullRequestsSection currentRepo={currentRepo} />
+
+      <MergeRequestsSection currentRepo={currentRepo} />
       </>
       )}
       </div>{/* end sidebarScrollArea */}

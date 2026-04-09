@@ -714,6 +714,312 @@ ipcMain.handle('github:createPullRequest', async (_event, owner: string, repo: s
   }
 })
 
+// ─── GitLab Integration IPC handlers ──────────────────────────────────────
+
+function gitlabApiRequest(
+  method: string,
+  path: string,
+  token: string,
+  instanceUrl: string,
+  body?: string
+): Promise<{ statusCode: number; data: string }> {
+  return new Promise((resolve, reject) => {
+    const url = new URL(path, instanceUrl)
+    const isHttps = url.protocol === 'https:'
+    const httpModule = isHttps ? https : require('http')
+    const options: https.RequestOptions = {
+      hostname: url.hostname,
+      port: url.port || (isHttps ? 443 : 80),
+      path: url.pathname + url.search,
+      method,
+      headers: {
+        'PRIVATE-TOKEN': token,
+        'User-Agent': 'GitSlop',
+        'Accept': 'application/json',
+        ...(body ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } : {})
+      }
+    }
+    const req = httpModule.request(options, (res: { statusCode?: number; on: (event: string, cb: (chunk?: string) => void) => void }) => {
+      let data = ''
+      res.on('data', (chunk?: string) => { data += chunk || '' })
+      res.on('end', () => resolve({ statusCode: res.statusCode || 0, data }))
+    })
+    req.on('error', (err: Error) => reject(err))
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error('Request timed out')) })
+    if (body) req.write(body)
+    req.end()
+  })
+}
+
+function getGitLabConfig(): { token: string; instanceUrl: string } {
+  const encrypted = store.get('gitlabToken', '')
+  const token = decryptToken(encrypted)
+  const instanceUrl = store.get('gitlabInstanceUrl', 'https://gitlab.com')
+  return { token, instanceUrl }
+}
+
+// Parse GitLab project path from a remote URL
+function parseGitLabRemote(url: string, instanceUrl: string): { projectPath: string; webUrl: string } | null {
+  // Extract the hostname from instanceUrl for matching
+  let instanceHost: string
+  try {
+    instanceHost = new URL(instanceUrl).hostname
+  } catch {
+    instanceHost = 'gitlab.com'
+  }
+
+  // SSH: git@gitlab.com:owner/repo.git or git@gitlab.com:group/subgroup/repo.git
+  const sshMatch = url.match(new RegExp(`${instanceHost.replace(/\./g, '\\.')}[:/](.+?)(?:\\.git)?$`))
+  if (sshMatch) {
+    return { projectPath: sshMatch[1], webUrl: `${instanceUrl}/${sshMatch[1]}` }
+  }
+
+  // HTTPS: https://gitlab.com/owner/repo.git or https://gitlab.com/group/subgroup/repo
+  const httpsMatch = url.match(new RegExp(`${instanceHost.replace(/\./g, '\\.')}[/](.+?)(?:\\.git)?$`))
+  if (httpsMatch) {
+    return { projectPath: httpsMatch[1], webUrl: `${instanceUrl}/${httpsMatch[1]}` }
+  }
+
+  return null
+}
+
+ipcMain.handle('gitlab:login', async (_event, pat: string, instanceUrl?: string) => {
+  try {
+    const baseUrl = instanceUrl || 'https://gitlab.com'
+    // Store instance URL
+    store.set('gitlabInstanceUrl', baseUrl)
+    // Validate PAT by fetching user info
+    const { statusCode, data } = await gitlabApiRequest('GET', '/api/v4/user', pat, baseUrl)
+    if (statusCode !== 200) {
+      let msg = 'Authentication failed'
+      try { msg = JSON.parse(data).message || msg } catch { /* */ }
+      return { success: false, error: msg }
+    }
+    const user = JSON.parse(data)
+    // Store encrypted token
+    const encrypted = encryptToken(pat)
+    store.set('gitlabToken', encrypted)
+    return {
+      success: true,
+      data: {
+        username: user.username,
+        name: user.name || user.username,
+        avatarUrl: user.avatar_url,
+        email: user.email,
+        webUrl: user.web_url
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Login failed' }
+  }
+})
+
+ipcMain.handle('gitlab:getUser', async () => {
+  const { token, instanceUrl } = getGitLabConfig()
+  if (!token) return { success: false, error: 'Not logged in' }
+  try {
+    const { statusCode, data } = await gitlabApiRequest('GET', '/api/v4/user', token, instanceUrl)
+    if (statusCode !== 200) {
+      return { success: false, error: 'Token invalid or expired' }
+    }
+    const user = JSON.parse(data)
+    return {
+      success: true,
+      data: {
+        username: user.username,
+        name: user.name || user.username,
+        avatarUrl: user.avatar_url,
+        email: user.email,
+        webUrl: user.web_url
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to get user' }
+  }
+})
+
+ipcMain.handle('gitlab:logout', () => {
+  store.set('gitlabToken', '')
+  return { success: true }
+})
+
+ipcMain.handle('gitlab:isLoggedIn', () => {
+  const { token } = getGitLabConfig()
+  return { success: true, data: !!token }
+})
+
+ipcMain.handle('gitlab:getInstanceUrl', () => {
+  const instanceUrl = store.get('gitlabInstanceUrl', 'https://gitlab.com')
+  return { success: true, data: instanceUrl }
+})
+
+ipcMain.handle('gitlab:parseRemote', async (_event, repoPath: string) => {
+  try {
+    const { instanceUrl } = getGitLabConfig()
+    const remotes = await gitService.getRemotes(repoPath)
+    const origin = remotes.find((r: { name: string }) => r.name === 'origin') || remotes[0]
+    if (!origin) return { success: false, error: 'No remotes found' }
+    const parsed = parseGitLabRemote(origin.fetchUrl, instanceUrl)
+    if (!parsed) return { success: false, error: 'Not a GitLab repository' }
+    return { success: true, data: parsed }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to parse remote' }
+  }
+})
+
+ipcMain.handle('gitlab:listMergeRequests', async (_event, projectPath: string, state?: string) => {
+  const { token, instanceUrl } = getGitLabConfig()
+  if (!token) return { success: false, error: 'Not logged in to GitLab' }
+  try {
+    const queryState = state === 'closed' ? 'merged' : (state || 'opened')
+    const encodedPath = encodeURIComponent(projectPath)
+    const { statusCode, data } = await gitlabApiRequest(
+      'GET',
+      `/api/v4/projects/${encodedPath}/merge_requests?state=${queryState}&per_page=50&order_by=updated_at&sort=desc`,
+      token,
+      instanceUrl
+    )
+    if (statusCode !== 200) {
+      let msg = 'Failed to fetch merge requests'
+      try { msg = JSON.parse(data).message || msg } catch { /* */ }
+      return { success: false, error: msg }
+    }
+    const mrs = JSON.parse(data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped = mrs.map((mr: any) => ({
+      iid: mr.iid,
+      title: mr.title,
+      state: mr.state,
+      author: mr.author?.username || 'unknown',
+      authorAvatar: mr.author?.avatar_url || '',
+      createdAt: mr.created_at,
+      updatedAt: mr.updated_at,
+      sourceBranch: mr.source_branch || '',
+      targetBranch: mr.target_branch || '',
+      draft: mr.draft || mr.work_in_progress || false,
+      webUrl: mr.web_url,
+      description: mr.description || '',
+      labels: (mr.labels || []).map((l: string) => ({ name: l })),
+      mergeStatus: mr.merge_status,
+      hasConflicts: mr.has_conflicts || false,
+      userNotesCount: mr.user_notes_count || 0
+    }))
+    return { success: true, data: mapped }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch merge requests' }
+  }
+})
+
+ipcMain.handle('gitlab:getMergeRequest', async (_event, projectPath: string, mrIid: number) => {
+  const { token, instanceUrl } = getGitLabConfig()
+  if (!token) return { success: false, error: 'Not logged in to GitLab' }
+  try {
+    const encodedPath = encodeURIComponent(projectPath)
+    // Fetch MR details, notes (comments), and changes (files) in parallel
+    const [mrRes, notesRes, changesRes] = await Promise.all([
+      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/merge_requests/${mrIid}`, token, instanceUrl),
+      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/merge_requests/${mrIid}/notes?per_page=50&sort=asc`, token, instanceUrl),
+      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/merge_requests/${mrIid}/changes`, token, instanceUrl)
+    ])
+
+    if (mrRes.statusCode !== 200) {
+      let msg = 'Failed to fetch MR'
+      try { msg = JSON.parse(mrRes.data).message || msg } catch { /* */ }
+      return { success: false, error: msg }
+    }
+
+    const mr = JSON.parse(mrRes.data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const notes = notesRes.statusCode === 200 ? JSON.parse(notesRes.data).filter((n: any) => !n.system).map((n: any) => ({
+      id: n.id,
+      author: n.author?.username || 'unknown',
+      authorAvatar: n.author?.avatar_url || '',
+      body: n.body || '',
+      createdAt: n.created_at
+    })) : []
+
+    let files: { filename: string; status: string; additions: number; deletions: number; changes: number }[] = []
+    if (changesRes.statusCode === 200) {
+      const changesData = JSON.parse(changesRes.data)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      files = (changesData.changes || []).map((f: any) => ({
+        filename: f.new_path || f.old_path,
+        status: f.new_file ? 'added' : f.deleted_file ? 'removed' : f.renamed_file ? 'renamed' : 'modified',
+        additions: 0, // GitLab changes endpoint doesn't give line counts per file easily
+        deletions: 0,
+        changes: 0
+      }))
+    }
+
+    return {
+      success: true,
+      data: {
+        iid: mr.iid,
+        title: mr.title,
+        state: mr.state,
+        author: mr.author?.username || 'unknown',
+        authorAvatar: mr.author?.avatar_url || '',
+        createdAt: mr.created_at,
+        updatedAt: mr.updated_at,
+        sourceBranch: mr.source_branch || '',
+        targetBranch: mr.target_branch || '',
+        draft: mr.draft || mr.work_in_progress || false,
+        webUrl: mr.web_url,
+        description: mr.description || '',
+        labels: (mr.labels || []).map((l: string) => ({ name: l })),
+        mergeStatus: mr.merge_status,
+        hasConflicts: mr.has_conflicts || false,
+        userNotesCount: mr.user_notes_count || 0,
+        notes,
+        files
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch MR details' }
+  }
+})
+
+ipcMain.handle('gitlab:createMergeRequest', async (_event, projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }) => {
+  const { token, instanceUrl } = getGitLabConfig()
+  if (!token) return { success: false, error: 'Not logged in to GitLab' }
+  try {
+    const encodedPath = encodeURIComponent(projectPath)
+    const body = JSON.stringify({
+      title: opts.title,
+      description: opts.description,
+      source_branch: opts.sourceBranch,
+      target_branch: opts.targetBranch
+    })
+    const { statusCode, data } = await gitlabApiRequest(
+      'POST',
+      `/api/v4/projects/${encodedPath}/merge_requests`,
+      token,
+      instanceUrl,
+      body
+    )
+    if (statusCode !== 201) {
+      let msg = 'Failed to create merge request'
+      try {
+        const parsed = JSON.parse(data)
+        msg = (Array.isArray(parsed.message) ? parsed.message.join(', ') : parsed.message) || msg
+      } catch { /* */ }
+      return { success: false, error: msg }
+    }
+    const mr = JSON.parse(data)
+    return {
+      success: true,
+      data: {
+        iid: mr.iid,
+        title: mr.title,
+        webUrl: mr.web_url,
+        state: mr.state
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to create merge request' }
+  }
+})
+
 app.whenReady().then(async () => {
   // Register git IPC handlers
   registerGitIpcHandlers()

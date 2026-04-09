@@ -404,6 +404,26 @@ const electronAPI = {
     createPullRequest: (owner: string, repo: string, opts: { title: string; body: string; head: string; base: string; draft?: boolean }): Promise<GitServiceResult> =>
       ipcRenderer.invoke('github:createPullRequest', owner, repo, opts)
   },
+  gitlab: {
+    login: (pat: string, instanceUrl?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:login', pat, instanceUrl),
+    getUser: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:getUser'),
+    logout: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:logout'),
+    isLoggedIn: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:isLoggedIn'),
+    getInstanceUrl: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:getInstanceUrl'),
+    parseRemote: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:parseRemote', repoPath),
+    listMergeRequests: (projectPath: string, state?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:listMergeRequests', projectPath, state),
+    getMergeRequest: (projectPath: string, mrIid: number): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:getMergeRequest', projectPath, mrIid),
+    createMergeRequest: (projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:createMergeRequest', projectPath, opts)
+  },
   terminal: {
     create: (opts: { cwd?: string; id?: string }): Promise<{ success: boolean; data?: { id: string }; error?: string }> =>
       ipcRenderer.invoke('terminal:create', opts),
