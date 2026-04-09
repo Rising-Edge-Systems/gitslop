@@ -118,6 +118,20 @@ export function registerGitIpcHandlers(): void {
     }
   })
 
+  // ─── Branches Containing ──────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:getBranchesContaining',
+    async (_event, repoPath: string, hash: string) => {
+      try {
+        const data = await gitService.getBranchesContaining(repoPath, hash)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Tags ────────────────────────────────────────────────────────────────
 
   ipcMain.handle('git:getTags', async (_event, repoPath: string) => {

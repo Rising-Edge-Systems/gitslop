@@ -485,6 +485,36 @@ export class GitService {
   }
 
   /**
+   * Get branches containing a specific commit.
+   * Returns { local: string[], remote: string[] }
+   */
+  async getBranchesContaining(
+    repoPath: string,
+    hash: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ local: string[]; remote: string[] }> {
+    const parseOutput = (stdout: string): string[] =>
+      stdout
+        .split('\n')
+        .map((line) => line.replace(/^\*?\s+/, '').trim())
+        .filter((line) => line.length > 0)
+
+    const [localResult, remoteResult] = await Promise.all([
+      this.exec(['branch', '--contains', hash], repoPath, { signal: options?.signal }).catch(
+        () => ({ stdout: '', stderr: '' })
+      ),
+      this.exec(['branch', '-r', '--contains', hash], repoPath, { signal: options?.signal }).catch(
+        () => ({ stdout: '', stderr: '' })
+      )
+    ])
+
+    return {
+      local: parseOutput(localResult.stdout),
+      remote: parseOutput(remoteResult.stdout)
+    }
+  }
+
+  /**
    * Get all stashes.
    */
   async getStashes(repoPath: string, options?: { signal?: AbortSignal }): Promise<GitStash[]> {

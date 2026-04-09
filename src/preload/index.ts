@@ -48,6 +48,11 @@ const electronAPI = {
       ipcRenderer.invoke('git:getBranches', repoPath),
     getRemotes: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getRemotes', repoPath),
+    getBranchesContaining: (
+      repoPath: string,
+      hash: string
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getBranchesContaining', repoPath, hash),
     getTags: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getTags', repoPath),
     createTag: (

@@ -36,6 +36,7 @@ declare global {
         log: (repoPath: string, opts?: { maxCount?: number; all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string }) => Promise<GitServiceResult>
         getBranches: (repoPath: string) => Promise<GitServiceResult>
         getRemotes: (repoPath: string) => Promise<GitServiceResult>
+        getBranchesContaining: (repoPath: string, hash: string) => Promise<GitServiceResult>
         getTags: (repoPath: string) => Promise<GitServiceResult>
         createTag: (
           repoPath: string,

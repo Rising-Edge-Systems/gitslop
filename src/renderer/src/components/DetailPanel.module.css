@@ -520,3 +520,96 @@
   color: var(--text-secondary);
 }
 
+/* ─── Branches section ──────────────────────────────────────────────────── */
+
+.branchesSection {
+  margin-top: var(--space-sm);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-sm);
+}
+
+.branchesHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: none;
+  border: none;
+  padding: var(--space-xs) 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  width: 100%;
+  text-align: left;
+}
+
+.branchesHeader:hover {
+  color: var(--text-primary);
+}
+
+.branchesSpinner {
+  animation: spin 1s linear infinite;
+  color: var(--text-muted);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.branchesList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-xs) 0;
+}
+
+.branchesLoading {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-style: italic;
+  padding: var(--space-xs) 0;
+}
+
+.branchesEmpty {
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  font-style: italic;
+  padding: var(--space-xs) 0;
+}
+
+.branchItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.branchItem:hover {
+  background: var(--bg-hover);
+}
+
+.branchItemIcon {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.branchItemRemote .branchItemIcon {
+  color: var(--text-muted);
+}
+
+.branchItemRemote {
+  opacity: 0.85;
+}
+
+.branchItemName {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

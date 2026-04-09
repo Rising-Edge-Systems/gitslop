@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   GitCommit,
+  GitBranch,
+  Globe,
   User,
   Calendar,
   FileText,
@@ -17,7 +19,8 @@ import {
   List,
   FolderTree,
   Folder,
-  FolderOpen
+  FolderOpen,
+  Loader2
 } from 'lucide-react'
 import styles from './DetailPanel.module.css'
 import type { CommitDetail, CommitFileDetail } from './CommitGraph'
@@ -226,6 +229,9 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
   const [isDraggingInternalSplit, setIsDraggingInternalSplit] = useState(false)
   const [copiedSha, setCopiedSha] = useState(false)
   const [filesExpanded, setFilesExpanded] = useState(true)
+  const [branchesExpanded, setBranchesExpanded] = useState(true)
+  const [branchesContaining, setBranchesContaining] = useState<{ local: string[]; remote: string[] } | null>(null)
+  const [branchesLoading, setBranchesLoading] = useState(false)
 
   // Internal split drag handlers
   const handleInternalSplitDragStart = useCallback((e: React.MouseEvent) => {
@@ -268,6 +274,39 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
       document.body.classList.remove('sidebar-dragging')
     }
   }, [])
+
+  // Fetch branches containing the selected commit
+  useEffect(() => {
+    const commitHash = detail?.commit?.hash
+    if (!commitHash || !repoPath) {
+      setBranchesContaining(null)
+      return
+    }
+
+    let cancelled = false
+    setBranchesLoading(true)
+
+    window.electronAPI.git
+      .getBranchesContaining(repoPath, commitHash)
+      .then((result) => {
+        if (cancelled) return
+        if (result.success && result.data) {
+          setBranchesContaining(result.data as { local: string[]; remote: string[] })
+        } else {
+          setBranchesContaining({ local: [], remote: [] })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setBranchesContaining({ local: [], remote: [] })
+      })
+      .finally(() => {
+        if (!cancelled) setBranchesLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [detail?.commit?.hash, repoPath])
 
   // ALL hooks must be above the early return to avoid React error #310
   // ("Rendered more hooks than during the previous render")
@@ -406,6 +445,45 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
             {commit.body && (
               <pre className={styles.body}>{commit.body}</pre>
             )}
+
+            {/* Branches containing this commit */}
+            <div className={styles.branchesSection}>
+              <button
+                className={styles.branchesHeader}
+                onClick={() => setBranchesExpanded(!branchesExpanded)}
+              >
+                {branchesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                <GitBranch size={12} />
+                <span>Branches</span>
+                {branchesLoading && <Loader2 size={12} className={styles.branchesSpinner} />}
+              </button>
+              {branchesExpanded && (
+                <div className={styles.branchesList}>
+                  {branchesLoading ? (
+                    <span className={styles.branchesLoading}>Loading branches…</span>
+                  ) : !branchesContaining ||
+                    (branchesContaining.local.length === 0 &&
+                      branchesContaining.remote.length === 0) ? (
+                    <span className={styles.branchesEmpty}>No branches</span>
+                  ) : (
+                    <>
+                      {branchesContaining.local.map((b) => (
+                        <span key={`local:${b}`} className={styles.branchItem}>
+                          <GitBranch size={11} className={styles.branchItemIcon} />
+                          <span className={styles.branchItemName}>{b}</span>
+                        </span>
+                      ))}
+                      {branchesContaining.remote.map((b) => (
+                        <span key={`remote:${b}`} className={`${styles.branchItem} ${styles.branchItemRemote}`}>
+                          <Globe size={11} className={styles.branchItemIcon} />
+                          <span className={styles.branchItemName}>{b}</span>
+                        </span>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
