@@ -72,3 +72,35 @@ Started: Thu Apr  9 04:07:00 PM EDT 2026
   - CommitGraph already had `maxCommits` prop from US-GR-002 — this story just connected it to settings
   - When `pageSize === 0`, the "Load more" button correctly hides because `totalCommitCount === commits.length`
 ---
+
+## 2026-04-09 16:48 - US-GR-005
+- Added `graph:force-refresh` event listeners to RemotesSection (loadRemotes), TagsSection (loadTags), and StatusPanel (loadStatus)
+- These sub-components only had `onRepoChanged` listeners which don't fire after push/fetch (no working tree changes)
+- StatusBar and main Sidebar branch list already had listeners from US-GR-001
+- Files changed: Sidebar.tsx, StatusPanel.tsx
+- **Learnings for future iterations:**
+  - Sidebar.tsx has multiple sub-components (RemotesSection, TagsSection, StashesSection, SubmodulesSection) that each manage their own data loading and refresh listeners independently
+  - When adding cross-component events, check ALL sub-components that have `onRepoChanged` to see if they also need the new event
+  - StashesSection and SubmodulesSection don't need `graph:force-refresh` since stashes/submodules don't change after push/fetch
+---
+
+## 2026-04-09 16:49 - US-GR-006
+- Implemented GitHub OAuth Device Flow login alongside existing PAT method
+- Added `githubFormPost()` helper in main/index.ts for POST requests to github.com (non-API, form-encoded)
+- Added 3 IPC handlers: `github:startDeviceFlow`, `github:pollDeviceFlow`, `github:cancelDeviceFlow`
+- `startDeviceFlow` POSTs to `/login/device/code` with client_id and scopes, returns user_code + verification_uri
+- `pollDeviceFlow` polls `/login/oauth/access_token` in a loop with backoff, handles authorization_pending/slow_down/expired_token/access_denied
+- On success, fetches user info with the token and stores encrypted account (same as PAT flow)
+- `cancelDeviceFlow` sets a cancelled flag on the abort controller to stop polling
+- UI: "Login with GitHub" button shown above PAT input with "or use a token" divider
+- Device flow dialog shows user code with copy button, "Open GitHub" link, and cancel button
+- Spinner + "Waiting for authorization…" while polling
+- Added bridge methods in preload/index.ts and type declarations in useLayoutState.ts
+- Files changed: src/main/index.ts, src/preload/index.ts, src/renderer/src/components/SettingsPanel.tsx, src/renderer/src/hooks/useLayoutState.ts
+- **Learnings for future iterations:**
+  - GitHub Device Flow uses github.com (not api.github.com) for auth endpoints with form-encoded POST
+  - The polling endpoint returns `error=authorization_pending` while waiting — this is normal, not an error
+  - `slow_down` response means increase interval — must handle dynamically
+  - Polling runs in main process (IPC handler) with a cancellation flag pattern since you can't abort from renderer
+  - The existing `githubApiRequest()` uses api.github.com hostname — device flow needs github.com hostname
+---

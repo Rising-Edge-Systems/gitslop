@@ -106,7 +106,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Client ID: Ov23liAVjXNTZR7qBroD. Device flow docs: https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow. The polling endpoint returns error=authorization_pending while waiting, error=slow_down if polling too fast, or access_token on success. All API calls must go through main process (IPC) because renderer cant make cross-origin requests. Add IPC handlers: github:startDeviceFlow, github:pollDeviceFlow, github:cancelDeviceFlow."
     },
     {
