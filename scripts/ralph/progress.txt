@@ -168,3 +168,27 @@ Started: Thu Apr  9 03:30:47 AM EDT 2026
   - SSH signing key path should point to the `.pub` file
   - Reused `sshSpinner` CSS class from SSH keys section for loading states
 ---
+
+## 2026-04-09 - US-MP-009
+- Implemented GitHub integration with PAT-based authentication
+- Files changed: index.ts, preload/index.ts, useLayoutState.ts, SettingsPanel.tsx, SettingsPanel.module.css
+- **What was done:**
+  - Added `safeStorage` import from electron for secure token encryption/decryption
+  - Created `githubApiRequest()` helper for HTTPS requests to GitHub API (using built-in `https` module)
+  - Created `encryptToken()`/`decryptToken()` helpers using `safeStorage.encryptString()`/`decryptString()` with base64 encoding, falls back to plain storage if encryption unavailable
+  - Added 4 IPC handlers: `github:login` (validates PAT via GET /user), `github:getUser`, `github:logout`, `github:isLoggedIn`
+  - Extended StoreSchema with `githubToken`, `gitlabToken`, `gitlabInstanceUrl` fields
+  - Added `github` namespace in preload with login/getUser/logout/isLoggedIn methods
+  - Added `github` types in Window.electronAPI declarations
+  - Added 'github' to SettingsSection type union, sections array with Github icon
+  - Created GitHubSection component: login form with PAT input (show/hide toggle), login button, error display, security note
+  - Logged-in state shows: avatar image, display name, @username, email, "View Profile" link, logout button
+  - Full CSS module styles: ghUserCard, ghAvatar, ghLoginBtn (GitHub dark #24292e), ghTokenField, ghError, ghSecurityNote
+- **Learnings for future iterations:**
+  - `safeStorage.isEncryptionAvailable()` must be checked before encrypt/decrypt — not always available
+  - `safeStorage.encryptString()` returns a Buffer — store as base64 string in electron-store
+  - GitHub API requires `User-Agent` header — any string works (used 'GitSlop')
+  - Built-in `https` module works well for API calls — no need for external dependencies
+  - `Github` icon is available from lucide-react (capital G)
+  - StoreSchema was extended with gitlabToken and gitlabInstanceUrl proactively for US-MP-011
+---

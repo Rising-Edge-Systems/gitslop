@@ -152,7 +152,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "GitHub device flow: POST /login/device/code, show code to user, poll /login/oauth/access_token. Or simpler: let user paste a PAT. Store with safeStorage. GET /user for user info."
     },
     {
