@@ -142,6 +142,15 @@ export function StatusBar({
     }
   }, [currentRepo, fetchBranchInfo])
 
+  // Listen for graph:force-refresh (after push/fetch/pull) to update ahead/behind counts
+  useEffect(() => {
+    const handler = (): void => {
+      fetchBranchInfo()
+    }
+    window.addEventListener('graph:force-refresh', handler)
+    return () => window.removeEventListener('graph:force-refresh', handler)
+  }, [fetchBranchInfo])
+
   // Listen for operation progress
   useEffect(() => {
     const cleanup = window.electronAPI.git.onOperationProgress((progress) => {

@@ -2733,6 +2733,15 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
     }
   }, [currentRepo, loadBranches])
 
+  // Refresh branches on graph:force-refresh (after push/fetch/pull)
+  useEffect(() => {
+    const handler = (): void => {
+      loadBranches()
+    }
+    window.addEventListener('graph:force-refresh', handler)
+    return () => window.removeEventListener('graph:force-refresh', handler)
+  }, [loadBranches])
+
   // ─── Derived data ───────────────────────────────────────────────────────
 
   const currentBranch = branches.find((b) => b.current)?.name || ''

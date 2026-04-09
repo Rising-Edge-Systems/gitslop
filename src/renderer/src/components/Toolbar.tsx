@@ -260,6 +260,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
       const result = await window.electronAPI.git.push(currentRepo)
       if (result.success) {
         showNotification('success', 'Push completed successfully')
+        window.dispatchEvent(new CustomEvent('graph:force-refresh'))
       } else {
         // Check for rejected push (non-fast-forward)
         const errorMsg = result.error || 'Push failed'
@@ -290,6 +291,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
       if (result.success) {
         showNotification('success', 'Force push completed successfully')
         setForcePushDialog({ open: false, loading: false, error: null })
+        window.dispatchEvent(new CustomEvent('graph:force-refresh'))
       } else {
         setForcePushDialog((prev) => ({ ...prev, loading: false, error: result.error || 'Force push failed' }))
       }
@@ -311,6 +313,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
       if (result.success) {
         showNotification('success', `Pushed and set upstream to ${upstreamDialog.selectedRemote}/${upstreamDialog.branchName}`)
         setUpstreamDialog((prev) => ({ ...prev, open: false }))
+        window.dispatchEvent(new CustomEvent('graph:force-refresh'))
       } else {
         setUpstreamDialog((prev) => ({ ...prev, loading: false, error: result.error || 'Push failed' }))
       }
@@ -330,6 +333,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
       const result = await window.electronAPI.git.pull(currentRepo)
       if (result.success) {
         showNotification('success', 'Pull completed successfully')
+        window.dispatchEvent(new CustomEvent('graph:force-refresh'))
       } else {
         showNotification('error', result.error || 'Pull failed')
       }
@@ -354,6 +358,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
       if (result.success) {
         showNotification('success', `Pull (${pullDialog.useRebase ? 'rebase' : 'merge'}) completed successfully`)
         setPullDialog((prev) => ({ ...prev, open: false }))
+        window.dispatchEvent(new CustomEvent('graph:force-refresh'))
       } else {
         setPullDialog((prev) => ({ ...prev, loading: false, error: result.error || 'Pull failed' }))
       }
@@ -373,6 +378,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
       const result = await window.electronAPI.git.fetchWithProgress(currentRepo)
       if (result.success) {
         showNotification('success', 'Fetch completed successfully')
+        window.dispatchEvent(new CustomEvent('graph:force-refresh'))
       } else {
         showNotification('error', result.error || 'Fetch failed')
       }

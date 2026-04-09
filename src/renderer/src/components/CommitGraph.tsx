@@ -1022,7 +1022,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
   }, [repoPath])
 
   // Load commits — only shows loading on initial load, silent on refreshes
-  const loadCommits = useCallback(async () => {
+  // When forceRefresh is true (e.g., after push/fetch/pull), bypass the skip-if-unchanged check
+  const loadCommits = useCallback(async (forceRefresh = false) => {
     // Prevent overlapping refresh calls
     if (refreshInFlightRef.current && initialCommitLoadDone.current) return
     refreshInFlightRef.current = true
@@ -1043,12 +1044,18 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       if (result.success && Array.isArray(result.data)) {
         setCommits((prev) => {
           const newData = result.data as GitCommit[]
-          // Skip state update if commits haven't changed (compare by first+last hash and length)
+          // When force-refreshing (after push/fetch/pull), always update — refs may have changed
+          if (forceRefresh) {
+            return newData
+          }
+          // Skip state update if commits haven't changed (compare by first+last hash, length, and refs)
           if (
             prev.length === newData.length &&
             prev.length > 0 &&
             prev[0].hash === newData[0].hash &&
-            prev[prev.length - 1].hash === newData[newData.length - 1].hash
+            prev[prev.length - 1].hash === newData[newData.length - 1].hash &&
+            prev[0].refs === newData[0].refs &&
+            prev[prev.length - 1].refs === newData[newData.length - 1].refs
           ) {
             return prev
           }
@@ -1100,6 +1107,17 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       fetchAheadBehind()
     })
     return () => cleanup?.()
+  }, [loadCommits, fetchAheadBehind])
+
+  // Listen for graph:force-refresh custom event (dispatched after push/fetch/pull)
+  // This bypasses the skip-if-unchanged check since refs may have changed without new commits
+  useEffect(() => {
+    const handler = (): void => {
+      loadCommits(true)
+      fetchAheadBehind()
+    }
+    window.addEventListener('graph:force-refresh', handler)
+    return () => window.removeEventListener('graph:force-refresh', handler)
   }, [loadCommits, fetchAheadBehind])
 
   // Observe container size
