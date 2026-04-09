@@ -15,6 +15,7 @@ import { Columns } from 'lucide-react'
 interface RepoViewProps {
   repoPath: string
   onCommitSelect?: (detail: CommitDetail | null) => void
+  onRepoLoaded?: () => void
   // Center-stage diff props
   viewingDiff?: boolean
   diffFile?: string | null
@@ -39,7 +40,7 @@ interface RepoStatus {
   untracked: number
 }
 
-export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels }: RepoViewProps): React.JSX.Element {
+export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels }: RepoViewProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -501,7 +502,7 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
               />
 
               {/* Commit Graph */}
-              <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} filters={graphFilters} showBranchLabels={showBranchLabels} />
+              <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} onLoadComplete={onRepoLoaded} filters={graphFilters} showBranchLabels={showBranchLabels} />
 
               {/* Staging Area moved to right panel in AppLayout */}
             </>

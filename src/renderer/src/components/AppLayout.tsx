@@ -69,6 +69,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [selectedCommit, setSelectedCommit] = useState<CommitDetail | null>(null)
+  const [repoSwitching, setRepoSwitching] = useState(false)
 
   // ─── Center-Stage Diff View State ──────────────────────────────────────────
   const [viewingDiff, setViewingDiff] = useState(false)
@@ -95,6 +96,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
     // Restore state for new tab
     if (currentRepo && currentRepo !== prevRepo && prevRepo !== null) {
+      setRepoSwitching(true)
       const restored = getTabState(currentRepo)
       setSidebarCollapsed(restored.sidebarCollapsed)
       // Clear selected commit — it will be re-selected by the commit graph if the hash matches.
@@ -170,6 +172,10 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   // handleBottomResize removed — terminal uses plain CSS div now
 
   // handleRightPanelResize removed — detail panel is now a plain CSS div, not a react-resizable-panels Panel
+
+  const handleRepoLoaded = useCallback(() => {
+    setRepoSwitching(false)
+  }, [])
 
   const handleCommitSelect = useCallback((detail: CommitDetail | null) => {
     setSelectedCommit(detail)
@@ -459,7 +465,33 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
         <KeyboardShortcutsPanel onClose={() => setShortcutsOpen(false)} />
       )}
 
-      <div className="app-body">
+      <div className="app-body" style={{ position: 'relative' }}>
+        {/* Repo switching overlay */}
+        {repoSwitching && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            animation: 'fadeIn 0.15s ease'
+          }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '12px',
+              color: 'var(--text-secondary)'
+            }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
+              <span style={{ fontSize: '13px', fontWeight: 500 }}>Loading repository...</span>
+            </div>
+          </div>
+        )}
         {/* Sidebar — plain div outside react-resizable-panels, sized in pixels */}
         {layout.sidebarVisible && appSettings.sidebarPosition === 'left' && (
           <div style={{
@@ -486,6 +518,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     currentRepo={currentRepo}
                     onRepoOpen={onRepoOpen}
                     onCommitSelect={handleCommitSelect}
+                    onRepoLoaded={handleRepoLoaded}
                     viewingDiff={viewingDiff}
                     diffFile={diffFile}
                     diffCommitHash={diffCommitHash}

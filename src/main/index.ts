@@ -1362,6 +1362,7 @@ ipcMain.handle('file:write', async (_event, filePath: string, content: string) =
 // ─── File Watcher for repo changes (chokidar) ──────────────────────────────
 
 let activeWatcher: FSWatcher | null = null
+let gitRefWatcher: FSWatcher | null = null
 const watcherState = createWatcherState()
 
 /**
@@ -1445,6 +1446,26 @@ ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
     activeWatcher.on('addDir', () => sendRepoChanged())
     activeWatcher.on('unlinkDir', () => sendRepoChanged())
 
+    // Watch .git/refs and .git/HEAD for external changes (CLI commits, other tools).
+    // This watcher uses the suppression-aware sendRepoChanged() so it won't double-fire
+    // with sendRepoChangedForced() from our own IPC git operations.
+    if (gitRefWatcher) {
+      await gitRefWatcher.close()
+      gitRefWatcher = null
+    }
+    const gitDir = join(repoPath, '.git')
+    gitRefWatcher = chokidarWatch(
+      [join(gitDir, 'HEAD'), join(gitDir, 'refs')],
+      {
+        ignoreInitial: true,
+        persistent: true,
+        depth: 5
+      }
+    )
+    gitRefWatcher.on('add', () => sendRepoChanged())
+    gitRefWatcher.on('change', () => sendRepoChanged())
+    gitRefWatcher.on('unlink', () => sendRepoChanged())
+
     return { success: true }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Watch failed' }
@@ -1455,6 +1476,10 @@ ipcMain.handle('watcher:stop', async () => {
   if (activeWatcher) {
     await activeWatcher.close()
     activeWatcher = null
+  }
+  if (gitRefWatcher) {
+    await gitRefWatcher.close()
+    gitRefWatcher = null
   }
   return { success: true }
 })

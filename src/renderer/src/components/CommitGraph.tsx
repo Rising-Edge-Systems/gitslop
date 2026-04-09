@@ -89,6 +89,7 @@ interface CommitGraphProps {
   repoPath: string
   onRefresh?: () => void
   onCommitSelect?: (detail: CommitDetail | null) => void
+  onLoadComplete?: () => void
   filters?: CommitLogFilters
   showBranchLabels?: boolean
 }
@@ -962,7 +963,7 @@ function getFileIcon(filePath: string): React.ReactNode {
 
 // ─── Main CommitGraph Component ───────────────────────────────────────────────
 
-export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, showBranchLabels = true }: CommitGraphProps): React.JSX.Element {
+export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplete, filters, showBranchLabels = true }: CommitGraphProps): React.JSX.Element {
   const [commits, setCommits] = useState<GitCommit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -1062,11 +1063,28 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load commits')
     } finally {
+      const wasInitialLoad = !initialCommitLoadDone.current
       setLoading(false)
       initialCommitLoadDone.current = true
       refreshInFlightRef.current = false
+      if (wasInitialLoad) {
+        onLoadComplete?.()
+      }
     }
-  }, [repoPath, filters])
+  }, [repoPath, filters, onLoadComplete])
+
+  // Clear stale data immediately when repoPath changes so the loading skeleton shows
+  const prevRepoPathRef = useRef(repoPath)
+  useEffect(() => {
+    if (prevRepoPathRef.current !== repoPath) {
+      prevRepoPathRef.current = repoPath
+      setCommits([])
+      setSelectedHash(null)
+      setSelectedIndex(-1)
+      setCommitDetail(null)
+      onCommitSelect?.(null)
+    }
+  }, [repoPath, onCommitSelect])
 
   useEffect(() => {
     // Reset initial load flag when repo/filters change

@@ -456,6 +456,15 @@ body.sidebar-dragging * {
 }
 
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* @keyframes slideUp — shared animation */
 @keyframes slideUp {
   from {
