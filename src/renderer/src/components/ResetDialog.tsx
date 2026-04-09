@@ -10,6 +10,7 @@ interface ResetDialogProps {
   repoPath: string
   targetHash: string
   targetSubject: string
+  defaultMode?: ResetMode
   onClose: () => void
   onResetComplete: () => void
 }
@@ -36,10 +37,11 @@ export function ResetDialog({
   repoPath,
   targetHash,
   targetSubject,
+  defaultMode,
   onClose,
   onResetComplete
 }: ResetDialogProps): React.JSX.Element {
-  const [mode, setMode] = useState<ResetMode>('mixed')
+  const [mode, setMode] = useState<ResetMode>(defaultMode || 'mixed')
   const [hardConfirmation, setHardConfirmation] = useState('')
   const [isResetting, setIsResetting] = useState(false)
   const [error, setError] = useState<string | null>(null)

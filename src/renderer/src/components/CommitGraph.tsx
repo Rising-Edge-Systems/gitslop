@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
-import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine, ArrowUp, ArrowDown, CheckCircle2 } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine, ArrowUp, ArrowDown, CheckCircle2, MessageSquare, GitPullRequestArrow } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { MergeDialog } from './MergeDialog'
 import { ResetDialog } from './ResetDialog'
@@ -804,10 +804,13 @@ function buildCommitContextMenuItems(
     { key: 'sep1', separator: true as const },
     { key: 'cherry-pick', label: cherryPickLabel, icon: <Cherry size={14} />, onClick: () => onAction('cherry-pick', commit) },
     { key: 'revert', label: 'Revert', icon: <Undo2 size={14} />, onClick: () => onAction('revert', commit) },
-    { key: 'reset', label: 'Reset current branch to here', icon: <SkipBack size={14} />, onClick: () => onAction('reset', commit) },
+    { key: 'sep-reset', separator: true as const },
+    { key: 'reset-soft', label: 'Reset Soft to here', icon: <SkipBack size={14} />, onClick: () => onAction('reset', commit, 'soft') },
+    { key: 'reset-mixed', label: 'Reset Mixed to here', icon: <SkipBack size={14} />, onClick: () => onAction('reset', commit, 'mixed') },
+    { key: 'reset-hard', label: 'Reset Hard to here', icon: <SkipBack size={14} />, onClick: () => onAction('reset', commit, 'hard'), danger: true },
   ]
 
-  // Add merge items for each branch ref on this commit (excluding current branch)
+  // Add merge and rebase items for each branch ref on this commit (excluding current branch)
   if (mergeableBranches.length > 0 && currentBranch) {
     items.push({ key: 'sep-merge', separator: true as const })
     for (const branch of mergeableBranches) {
@@ -818,6 +821,14 @@ function buildCommitContextMenuItems(
         onClick: () => onAction('merge', commit, branch.name)
       })
     }
+    for (const branch of mergeableBranches) {
+      items.push({
+        key: `rebase-${branch.name}`,
+        label: `Rebase current onto ${branch.name}`,
+        icon: <GitPullRequestArrow size={14} />,
+        onClick: () => onAction('rebase', commit, branch.name)
+      })
+    }
   }
 
   items.push({ key: 'sep2', separator: true as const })
@@ -825,6 +836,7 @@ function buildCommitContextMenuItems(
   items.push({ key: 'create-tag', label: 'Create tag here...', icon: <Tag size={14} />, onClick: () => onAction('create-tag', commit) })
   items.push({ key: 'sep3', separator: true as const })
   items.push({ key: 'copy-sha', label: 'Copy SHA', icon: <Clipboard size={14} />, shortcut: 'Ctrl+C', onClick: () => onAction('copy-sha', commit) })
+  items.push({ key: 'copy-message', label: 'Copy commit message', icon: <MessageSquare size={14} />, onClick: () => onAction('copy-message', commit) })
 
   return items
 }
@@ -965,7 +977,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
   const [selectedHashes, setSelectedHashes] = useState<Set<string>>(new Set())
   const [cherryPickState, setCherryPickState] = useState<CherryPickState>({ status: 'idle', message: '' })
   const [revertState, setRevertState] = useState<RevertState>({ status: 'idle', message: '' })
-  const [resetTarget, setResetTarget] = useState<{ hash: string; subject: string } | null>(null)
+  const [resetTarget, setResetTarget] = useState<{ hash: string; subject: string; defaultMode?: 'soft' | 'mixed' | 'hard' } | null>(null)
   const initialCommitLoadDone = useRef(false)
   const refreshInFlightRef = useRef(false)
 
@@ -1453,7 +1465,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
         break
       }
       case 'reset':
-        setResetTarget({ hash: commit.hash, subject: commit.subject })
+        setResetTarget({ hash: commit.hash, subject: commit.subject, defaultMode: (extra as 'soft' | 'mixed' | 'hard') || 'mixed' })
         break
       case 'revert':
         handleRevert(commit.hash, commit.parentHashes)
@@ -1462,6 +1474,24 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
         if (extra) {
           setMergeBranch(extra)
         }
+        break
+      case 'rebase':
+        if (extra) {
+          try {
+            const result = await window.electronAPI.git.rebase(repoPath, extra)
+            if (!result.success) {
+              console.error('Rebase failed:', result.error || 'Unknown error')
+            }
+            loadCommits()
+          } catch (err) {
+            console.error('Rebase failed:', err)
+          }
+        }
+        break
+      case 'copy-message':
+        navigator.clipboard.writeText(commit.subject + (commit.body ? '\n\n' + commit.body : '')).catch(() => {
+          // Clipboard write failed silently
+        })
         break
       case 'create-branch':
       case 'create-tag':
@@ -1863,6 +1893,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
           repoPath={repoPath}
           targetHash={resetTarget.hash}
           targetSubject={resetTarget.subject}
+          defaultMode={resetTarget.defaultMode}
           onClose={() => setResetTarget(null)}
           onResetComplete={() => {
             loadCommits()
