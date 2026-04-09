@@ -258,6 +258,131 @@ export function assignLanes(commits: LaneCommit[]): LaneAssignmentResult[] {
   return results
 }
 
+/** Result of lane compaction */
+export interface CompactLanesResult {
+  /** The compacted nodes (lanes remapped to be contiguous) */
+  nodes: LaneAssignmentResult[]
+  /** Number of lanes that were collapsed (beyond the max) */
+  collapsedCount: number
+  /** Branch names that were collapsed */
+  collapsedBranches: string[]
+  /** Total number of active lanes before compaction */
+  totalLanes: number
+}
+
+/** Default maximum number of visible lanes */
+export const MAX_VISIBLE_LANES = 18
+
+/**
+ * Compacts lane assignments to remove gaps and optionally cap the number of
+ * visible lanes. Lanes beyond the cap are folded into the last visible lane.
+ *
+ * This makes the graph readable when there are many branches by:
+ * 1. Removing lane indices that have no commits (gaps between active lanes)
+ * 2. Capping visible lanes at maxLanes — excess lanes are collapsed
+ * 3. Reporting which branches were collapsed for UI indicators
+ *
+ * @param results - Output from assignLanes()
+ * @param maxLanes - Maximum number of visible lanes (default MAX_VISIBLE_LANES)
+ * @returns Compacted results with metadata about collapsed lanes
+ */
+export function compactLanes(
+  results: LaneAssignmentResult[],
+  maxLanes: number = MAX_VISIBLE_LANES
+): CompactLanesResult {
+  if (results.length === 0) {
+    return { nodes: [], collapsedCount: 0, collapsedBranches: [], totalLanes: 0 }
+  }
+
+  // Find all unique lane indices actually used
+  const usedLanes = new Set<number>()
+  for (const r of results) {
+    usedLanes.add(r.lane)
+    for (const conn of r.parentConnections) {
+      usedLanes.add(conn.fromLane)
+      usedLanes.add(conn.toLane)
+    }
+  }
+
+  // Sort used lanes to build a contiguous remapping
+  const sortedLanes = Array.from(usedLanes).sort((a, b) => a - b)
+  const totalLanes = sortedLanes.length
+
+  // Build remap: old lane index -> new contiguous index
+  // Lanes beyond maxLanes-1 all map to maxLanes-1 (the overflow lane)
+  const laneRemap = new Map<number, number>()
+  const overflowLane = maxLanes - 1
+  const collapsedBranches: string[] = []
+  const collapsedLaneSet = new Set<number>()
+
+  for (let i = 0; i < sortedLanes.length; i++) {
+    if (i < maxLanes) {
+      laneRemap.set(sortedLanes[i], i)
+    } else {
+      laneRemap.set(sortedLanes[i], overflowLane)
+      collapsedLaneSet.add(sortedLanes[i])
+    }
+  }
+
+  // Collect collapsed branch names
+  const seenBranches = new Set<string>()
+  for (const r of results) {
+    if (collapsedLaneSet.has(r.lane) && r.laneBranch && !seenBranches.has(r.laneBranch)) {
+      seenBranches.add(r.laneBranch)
+      collapsedBranches.push(r.laneBranch)
+    }
+  }
+
+  // Also gather branch names from the laneBranch field on overflow lanes
+  // that might not have been captured above
+  for (const r of results) {
+    if (collapsedLaneSet.has(r.lane) && r.refs.length > 0) {
+      for (const ref of r.refs) {
+        if ((ref.type === 'branch' || ref.type === 'head') && !seenBranches.has(ref.name)) {
+          seenBranches.add(ref.name)
+          collapsedBranches.push(ref.name)
+        }
+      }
+    }
+  }
+
+  const collapsedCount = Math.max(0, totalLanes - maxLanes)
+
+  // If no compaction needed, return as-is
+  if (collapsedCount === 0 && sortedLanes.every((lane, i) => lane === i)) {
+    return { nodes: results, collapsedCount: 0, collapsedBranches: [], totalLanes }
+  }
+
+  // Remap all lane indices
+  const compacted = results.map((r) => ({
+    ...r,
+    lane: laneRemap.get(r.lane) ?? r.lane,
+    parentConnections: r.parentConnections.map((conn) => ({
+      ...conn,
+      fromLane: laneRemap.get(conn.fromLane) ?? conn.fromLane,
+      toLane: laneRemap.get(conn.toLane) ?? conn.toLane,
+    })),
+  }))
+
+  // Reassign colors to compacted lanes for consistency
+  const laneColorMap = new Map<number, string>()
+  let colorIndex = 0
+  for (const node of compacted) {
+    if (!laneColorMap.has(node.lane)) {
+      if (node.lane === 0 && node.refs.some((ref) => ref.type === 'head')) {
+        laneColorMap.set(0, 'var(--accent)')
+        colorIndex++
+      } else if (!laneColorMap.has(node.lane)) {
+        laneColorMap.set(node.lane, LANE_COLORS[colorIndex % LANE_COLORS.length])
+        colorIndex++
+      }
+    }
+    node.color = laneColorMap.get(node.lane) ?? node.color
+  }
+
+  return { nodes: compacted, collapsedCount, collapsedBranches, totalLanes }
+}
+
 /**
  * Get the maximum lane index used across all results.
  * Useful for calculating graph width.

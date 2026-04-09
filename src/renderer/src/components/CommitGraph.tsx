@@ -8,7 +8,7 @@ import { ResetDialog } from './ResetDialog'
 import { TagDialog } from './TagDialog'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { CommitGraphSkeleton } from './Skeleton'
-import { assignLanes, LANE_COLORS, type ParsedRef, type ParentConnection } from './laneAssignment'
+import { assignLanes, compactLanes, LANE_COLORS, MAX_VISIBLE_LANES, type ParsedRef, type ParentConnection } from './laneAssignment'
 import styles from './CommitGraph.module.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -128,8 +128,15 @@ const CANVAS_THRESHOLD = 50000 // Switch from SVG to Canvas above this commit co
 
 // ─── Graph Layout: uses assignLanes from laneAssignment.ts ───────────────────
 
-function computeGraphLayout(commits: GitCommit[]): GraphNode[] {
-  if (commits.length === 0) return []
+interface GraphLayoutResult {
+  nodes: GraphNode[]
+  collapsedCount: number
+  collapsedBranches: string[]
+  totalLanes: number
+}
+
+function computeGraphLayout(commits: GitCommit[], expandedLanes: boolean): GraphLayoutResult {
+  if (commits.length === 0) return { nodes: [], collapsedCount: 0, collapsedBranches: [], totalLanes: 0 }
 
   // Map full GitCommit to minimal LaneCommit for algorithm
   const laneCommits = commits.map((c) => ({
@@ -140,8 +147,12 @@ function computeGraphLayout(commits: GitCommit[]): GraphNode[] {
 
   const laneResults = assignLanes(laneCommits)
 
+  // Apply lane compaction (collapse inactive/excess lanes)
+  const maxLanes = expandedLanes ? Infinity : MAX_VISIBLE_LANES
+  const compacted = compactLanes(laneResults, maxLanes)
+
   // Join results back with full GitCommit data
-  return laneResults.map((result, i) => ({
+  const nodes = compacted.nodes.map((result, i) => ({
     commit: commits[i],
     lane: result.lane,
     color: result.color,
@@ -150,6 +161,13 @@ function computeGraphLayout(commits: GitCommit[]): GraphNode[] {
     refs: result.refs,
     laneBranch: result.laneBranch
   }))
+
+  return {
+    nodes,
+    collapsedCount: compacted.collapsedCount,
+    collapsedBranches: compacted.collapsedBranches,
+    totalLanes: compacted.totalLanes,
+  }
 }
 
 function getRelativeTime(dateStr: string): string {
@@ -1186,8 +1204,14 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     return () => observer.disconnect()
   }, [])
 
-  // Compute graph layout
-  const nodes = useMemo(() => computeGraphLayout(commits), [commits])
+  // Lane expansion state (collapsed by default, user can expand)
+  const [lanesExpanded, setLanesExpanded] = useState(false)
+
+  // Compute graph layout with lane compaction
+  const graphLayout = useMemo(() => computeGraphLayout(commits, lanesExpanded), [commits, lanesExpanded])
+  const nodes = graphLayout.nodes
+  const collapsedLaneCount = graphLayout.collapsedCount
+  const collapsedBranches = graphLayout.collapsedBranches
 
   const maxColumns = useMemo(() => {
     if (nodes.length === 0) return 1
@@ -1763,6 +1787,18 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
                 </>
               )}
             </div>
+          )}
+          {collapsedLaneCount > 0 && (
+            <button
+              className={styles.collapsedLanesButton}
+              onClick={() => setLanesExpanded(!lanesExpanded)}
+              title={lanesExpanded
+                ? 'Collapse inactive branches'
+                : `${collapsedLaneCount} more branch${collapsedLaneCount > 1 ? 'es' : ''} hidden: ${collapsedBranches.slice(0, 5).join(', ')}${collapsedBranches.length > 5 ? '…' : ''}`}
+            >
+              <GitBranch size={11} />
+              {lanesExpanded ? 'Collapse branches' : `+${collapsedLaneCount} branches`}
+            </button>
           )}
           <button className={styles.refresh} onClick={handleRefresh} title="Refresh">
             <RefreshCw size={12} />

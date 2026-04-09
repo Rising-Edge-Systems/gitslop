@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
   assignLanes,
+  compactLanes,
   parseRefs,
   getMaxLane,
   LANE_COLORS,
+  MAX_VISIBLE_LANES,
   type LaneCommit,
   type LaneAssignmentResult,
 } from '../laneAssignment'
@@ -428,5 +430,104 @@ describe('getMaxLane', () => {
     const results = assignLanes(commits)
     const maxLane = getMaxLane(results)
     expect(maxLane).toBeGreaterThanOrEqual(2) // At least 3 lanes (0, 1, 2)
+  })
+})
+
+// ─── compactLanes ───────────────────────────────────────────────────────────
+
+describe('compactLanes', () => {
+  it('returns empty result for empty input', () => {
+    const result = compactLanes([])
+    expect(result.nodes).toEqual([])
+    expect(result.collapsedCount).toBe(0)
+    expect(result.collapsedBranches).toEqual([])
+    expect(result.totalLanes).toBe(0)
+  })
+
+  it('does not change results when lanes are already contiguous and within limit', () => {
+    const commits = [
+      makeCommit('aaa', ['bbb'], 'HEAD -> main'),
+      makeCommit('bbb', []),
+    ]
+    const results = assignLanes(commits)
+    const compacted = compactLanes(results)
+    expect(compacted.nodes).toEqual(results)
+    expect(compacted.collapsedCount).toBe(0)
+  })
+
+  it('caps lanes at maxLanes and reports collapsed count', () => {
+    // Create an octopus merge with many parents to generate many lanes
+    const parentCount = 25
+    const parents = Array.from({ length: parentCount }, (_, i) => `p${i}`)
+    const commits: LaneCommit[] = [
+      makeCommit('merge', parents, 'HEAD -> main'),
+      ...parents.map((hash, i) => makeCommit(hash, [], i === 0 ? 'feature-a' : i === 20 ? 'feature-z' : '')),
+    ]
+    const results = assignLanes(commits)
+    const compacted = compactLanes(results, 10)
+
+    // Max lane should be 9 (0-indexed, 10 lanes)
+    const maxLane = Math.max(...compacted.nodes.map((n) => n.lane))
+    expect(maxLane).toBe(9)
+
+    // Should have collapsed lanes
+    expect(compacted.collapsedCount).toBeGreaterThan(0)
+    expect(compacted.totalLanes).toBeGreaterThan(10) // many unique lanes from the octopus merge
+  })
+
+  it('remaps parent connections when lanes are compacted', () => {
+    const parents = Array.from({ length: 5 }, (_, i) => `p${i}`)
+    const commits: LaneCommit[] = [
+      makeCommit('merge', parents),
+      ...parents.map((hash) => makeCommit(hash, [])),
+    ]
+    const results = assignLanes(commits)
+    const compacted = compactLanes(results, 3)
+
+    // All parent connections should reference valid lanes (0, 1, or 2)
+    for (const node of compacted.nodes) {
+      expect(node.lane).toBeLessThanOrEqual(2)
+      for (const conn of node.parentConnections) {
+        expect(conn.fromLane).toBeLessThanOrEqual(2)
+        expect(conn.toLane).toBeLessThanOrEqual(2)
+      }
+    }
+  })
+
+  it('collects collapsed branch names', () => {
+    // Create enough branches to exceed a small max
+    const parents = Array.from({ length: 6 }, (_, i) => `p${i}`)
+    const commits: LaneCommit[] = [
+      makeCommit('merge', parents, 'HEAD -> main'),
+      ...parents.map((hash, i) => makeCommit(hash, [], `branch-${i}`)),
+    ]
+    const results = assignLanes(commits)
+    const compacted = compactLanes(results, 4)
+
+    // Should have some collapsed branches
+    expect(compacted.collapsedBranches.length).toBeGreaterThan(0)
+    // Collapsed branches should be from the overflow lanes
+    for (const name of compacted.collapsedBranches) {
+      expect(name).toMatch(/^branch-/)
+    }
+  })
+
+  it('uses MAX_VISIBLE_LANES as default', () => {
+    // Just verify the constant is exported and reasonable
+    expect(MAX_VISIBLE_LANES).toBeGreaterThanOrEqual(10)
+    expect(MAX_VISIBLE_LANES).toBeLessThanOrEqual(30)
+  })
+
+  it('with Infinity maxLanes, no lanes are collapsed', () => {
+    const parents = Array.from({ length: 25 }, (_, i) => `p${i}`)
+    const commits: LaneCommit[] = [
+      makeCommit('merge', parents),
+      ...parents.map((hash) => makeCommit(hash, [])),
+    ]
+    const results = assignLanes(commits)
+    const compacted = compactLanes(results, Infinity)
+
+    expect(compacted.collapsedCount).toBe(0)
+    expect(compacted.collapsedBranches).toEqual([])
   })
 })
