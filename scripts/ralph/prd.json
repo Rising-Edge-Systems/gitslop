@@ -123,7 +123,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the exact same pattern as GitHub multi-account (US from mega-polish). The key difference: GitLab accounts have an instanceUrl field (defaults to https://gitlab.com). The API base is instanceUrl + /api/v4. GET /api/v4/user for user info."
     }
   ]

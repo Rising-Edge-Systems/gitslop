@@ -104,3 +104,22 @@ Started: Thu Apr  9 04:07:00 PM EDT 2026
   - Polling runs in main process (IPC handler) with a cancellation flag pattern since you can't abort from renderer
   - The existing `githubApiRequest()` uses api.github.com hostname — device flow needs github.com hostname
 ---
+
+## 2026-04-09 16:55 - US-GR-007
+- Implemented GitLab multi-account support following exact same pattern as GitHub multi-account
+- Added `migrateGitLabLegacy()` to migrate single gitlabToken + gitlabInstanceUrl to gitlabAccounts array
+- Added IPC handlers: `gitlab:addAccount`, `gitlab:getAccounts`, `gitlab:removeAccount`
+- Updated `getGitLabConfig()` to read from multi-account array (first account used as default for existing MR/parse handlers)
+- Updated legacy `gitlab:login` to add as account, `gitlab:logout` to clear all accounts
+- Converted GitLabSection UI from single-user login/logout to multi-account list with add/remove
+- Each account card shows avatar, name, username, instance URL (if self-hosted), email, profile link, and remove button
+- Add Account form includes instance URL field (defaults to gitlab.com), label, and PAT input
+- Added bridge methods in preload/index.ts and type declarations in useLayoutState.ts
+- Files changed: src/main/index.ts, src/preload/index.ts, src/renderer/src/components/SettingsPanel.tsx, src/renderer/src/hooks/useLayoutState.ts
+- **Learnings for future iterations:**
+  - The IntegrationAccount interface already had instanceUrl field — designed for GitLab from the start
+  - GitLab multi-account uses the same electron-store `gitlabAccounts` array that was already in StoreSchema defaults
+  - Legacy migration must delete both `gitlabToken` AND `gitlabInstanceUrl` from store after migrating
+  - `getGitLabConfig()` still works as the default token provider for MR/parse handlers by reading first account
+  - The GitLab PAT settings link pattern is `{instanceUrl}/-/user_settings/personal_access_tokens`
+---
