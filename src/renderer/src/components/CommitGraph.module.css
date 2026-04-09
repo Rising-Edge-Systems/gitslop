@@ -162,6 +162,36 @@
   box-shadow: 0 2px 12px rgba(137, 180, 250, 0.3);
 }
 
+/* ─── Load More Button ─────────────────────────────────────────────────── */
+
+.loadMoreButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 6px var(--space-md);
+  background: var(--bg-secondary);
+  color: var(--accent);
+  border: none;
+  border-top: 1px solid var(--border-color);
+  font-size: var(--font-xs);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.loadMoreButton:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.loadMoreButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 /* ─── Viewport & List ───────────────────────────────────────────────────── */
 
 .viewport {

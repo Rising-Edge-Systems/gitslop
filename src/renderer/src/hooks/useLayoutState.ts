@@ -33,7 +33,8 @@ declare global {
         isRepo: (dirPath: string) => Promise<boolean>
         init: (dirPath: string) => Promise<{ success: boolean; error?: string }>
         getVersion: () => Promise<GitServiceResult>
-        log: (repoPath: string, opts?: { maxCount?: number; all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string }) => Promise<GitServiceResult>
+        log: (repoPath: string, opts?: { maxCount?: number; skip?: number; all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string }) => Promise<GitServiceResult>
+        commitCount: (repoPath: string, opts?: { all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string }) => Promise<GitServiceResult>
         getBranches: (repoPath: string) => Promise<GitServiceResult>
         getRemotes: (repoPath: string) => Promise<GitServiceResult>
         getBranchesContaining: (repoPath: string, hash: string) => Promise<GitServiceResult>

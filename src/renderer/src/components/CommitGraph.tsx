@@ -85,6 +85,8 @@ export interface CommitLogFilters {
   path?: string
 }
 
+const DEFAULT_PAGE_SIZE = 500
+
 interface CommitGraphProps {
   repoPath: string
   onRefresh?: () => void
@@ -92,6 +94,7 @@ interface CommitGraphProps {
   onLoadComplete?: () => void
   filters?: CommitLogFilters
   showBranchLabels?: boolean
+  maxCommits?: number
 }
 
 interface ContextMenuState {
@@ -963,8 +966,11 @@ function getFileIcon(filePath: string): React.ReactNode {
 
 // ─── Main CommitGraph Component ───────────────────────────────────────────────
 
-export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplete, filters, showBranchLabels = true }: CommitGraphProps): React.JSX.Element {
+export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplete, filters, showBranchLabels = true, maxCommits }: CommitGraphProps): React.JSX.Element {
+  const pageSize = maxCommits ?? DEFAULT_PAGE_SIZE
   const [commits, setCommits] = useState<GitCommit[]>([])
+  const [totalCommitCount, setTotalCommitCount] = useState<number | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [visibleRange, setVisibleRange] = useState({ start: 0, stop: 0 })
@@ -1023,6 +1029,28 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
 
   // Load commits — only shows loading on initial load, silent on refreshes
   // When forceRefresh is true (e.g., after push/fetch/pull), bypass the skip-if-unchanged check
+  const buildFilterOpts = useCallback(() => {
+    const opts: { all: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string } = { all: true }
+    if (filters?.author) opts.author = filters.author
+    if (filters?.since) opts.since = filters.since
+    if (filters?.until) opts.until = filters.until
+    if (filters?.grep) opts.grep = filters.grep
+    if (filters?.path) opts.path = filters.path
+    return opts
+  }, [filters])
+
+  const fetchTotalCount = useCallback(async () => {
+    try {
+      const filterOpts = buildFilterOpts()
+      const result = await window.electronAPI.git.commitCount(repoPath, filterOpts)
+      if (result.success && typeof result.data === 'number') {
+        setTotalCommitCount(result.data)
+      }
+    } catch {
+      // Non-critical — leave total as null
+    }
+  }, [repoPath, buildFilterOpts])
+
   const loadCommits = useCallback(async (forceRefresh = false) => {
     // Prevent overlapping refresh calls
     if (refreshInFlightRef.current && initialCommitLoadDone.current) return
@@ -1033,12 +1061,11 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     }
     setError(null)
     try {
-      const logOpts: { all: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string } = { all: true }
-      if (filters?.author) logOpts.author = filters.author
-      if (filters?.since) logOpts.since = filters.since
-      if (filters?.until) logOpts.until = filters.until
-      if (filters?.grep) logOpts.grep = filters.grep
-      if (filters?.path) logOpts.path = filters.path
+      const logOpts: { all: boolean; maxCount?: number; author?: string; since?: string; until?: string; grep?: string; path?: string } = buildFilterOpts()
+      // Apply pagination — load pageSize commits initially
+      if (pageSize > 0) {
+        logOpts.maxCount = pageSize
+      }
 
       const result = await window.electronAPI.git.log(repoPath, logOpts)
       if (result.success && Array.isArray(result.data)) {
@@ -1067,6 +1094,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
           setError(result.error)
         }
       }
+      // Fetch total count in background (for "Showing N of Total" display)
+      fetchTotalCount()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load commits')
     } finally {
@@ -1078,7 +1107,29 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
         onLoadComplete?.()
       }
     }
-  }, [repoPath, filters, onLoadComplete])
+  }, [repoPath, pageSize, buildFilterOpts, fetchTotalCount, onLoadComplete])
+
+  const loadMoreCommits = useCallback(async () => {
+    if (loadingMore) return
+    setLoadingMore(true)
+    try {
+      const logOpts: { all: boolean; maxCount?: number; skip?: number; author?: string; since?: string; until?: string; grep?: string; path?: string } = buildFilterOpts()
+      logOpts.maxCount = pageSize
+      logOpts.skip = commits.length
+
+      const result = await window.electronAPI.git.log(repoPath, logOpts)
+      if (result.success && Array.isArray(result.data)) {
+        const moreCommits = result.data as GitCommit[]
+        if (moreCommits.length > 0) {
+          setCommits((prev) => [...prev, ...moreCommits])
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load more commits')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [repoPath, commits.length, pageSize, loadingMore, buildFilterOpts])
 
   // Clear stale data immediately when repoPath changes so the loading skeleton shows
   const prevRepoPathRef = useRef(repoPath)
@@ -1086,6 +1137,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     if (prevRepoPathRef.current !== repoPath) {
       prevRepoPathRef.current = repoPath
       setCommits([])
+      setTotalCommitCount(null)
       setSelectedHash(null)
       setSelectedIndex(-1)
       setCommitDetail(null)
@@ -1686,7 +1738,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       >
         <div className={styles.header}>
           <h3 className={styles.title}>
-            Commit Graph <span className={styles.count}>· {commits.length.toLocaleString()}</span>
+            Commit Graph <span className={styles.count}>· {totalCommitCount !== null && totalCommitCount > commits.length ? `Showing ${commits.length.toLocaleString()} of ${totalCommitCount.toLocaleString()}` : commits.length.toLocaleString()}</span>
           </h3>
           {hasUpstream !== null && (
             <div className={styles.syncIndicator}>
@@ -1761,6 +1813,19 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
             title="Jump to HEAD commit"
           >
             <CircleDot size={12} /> HEAD: {headInfo.branchName}
+          </button>
+        )}
+
+        {/* Load More commits button — shown when there are more commits available */}
+        {totalCommitCount !== null && totalCommitCount > commits.length && (
+          <button
+            className={styles.loadMoreButton}
+            onClick={loadMoreCommits}
+            disabled={loadingMore}
+          >
+            {loadingMore
+              ? 'Loading…'
+              : `Load more commits (${(totalCommitCount - commits.length).toLocaleString()} remaining)`}
           </button>
         )}
 

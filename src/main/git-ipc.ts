@@ -75,7 +75,7 @@ export function registerGitIpcHandlers(): void {
 
   ipcMain.handle(
     'git:log',
-    async (_event, repoPath: string, opts?: { maxCount?: number; all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string }) => {
+    async (_event, repoPath: string, opts?: { maxCount?: number; skip?: number; all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string }) => {
       const opId = createOperationId()
       const controller = new AbortController()
       activeControllers.set(opId, controller)
@@ -83,6 +83,7 @@ export function registerGitIpcHandlers(): void {
       try {
         const commits = await gitService.log(repoPath, {
           maxCount: opts?.maxCount,
+          skip: opts?.skip,
           all: opts?.all,
           author: opts?.author,
           since: opts?.since,
@@ -96,6 +97,27 @@ export function registerGitIpcHandlers(): void {
         return { success: false, ...formatError(err), operationId: opId }
       } finally {
         activeControllers.delete(opId)
+      }
+    }
+  )
+
+  // ─── Commit Count ────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:commitCount',
+    async (_event, repoPath: string, opts?: { all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string }) => {
+      try {
+        const count = await gitService.commitCount(repoPath, {
+          all: opts?.all,
+          author: opts?.author,
+          since: opts?.since,
+          until: opts?.until,
+          grep: opts?.grep,
+          path: opts?.path
+        })
+        return { success: true, data: count }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
       }
     }
   )

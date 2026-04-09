@@ -326,6 +326,7 @@ export class GitService {
     repoPath: string,
     options?: {
       maxCount?: number
+      skip?: number
       all?: boolean
       signal?: AbortSignal
       author?: string
@@ -358,6 +359,7 @@ export class GitService {
     const args = ['log', `--format=${format}${RECORD_END}`]
     if (options?.all) args.push('--all')
     if (options?.maxCount) args.push(`-n`, `${options.maxCount}`)
+    if (options?.skip) args.push(`--skip=${options.skip}`)
     if (options?.author) args.push(`--author=${options.author}`)
     if (options?.since) args.push(`--since=${options.since}`)
     if (options?.until) args.push(`--until=${options.until}`)
@@ -377,6 +379,39 @@ export class GitService {
         }
       }
       throw err
+    }
+  }
+
+  /**
+   * Count total commits in the repository (across all branches).
+   * Used for pagination UI to show "Showing N of Total commits".
+   */
+  async commitCount(
+    repoPath: string,
+    options?: {
+      all?: boolean
+      author?: string
+      since?: string
+      until?: string
+      grep?: string
+      path?: string
+      signal?: AbortSignal
+    }
+  ): Promise<number> {
+    const args = ['rev-list', '--count']
+    if (options?.all) args.push('--all')
+    else args.push('HEAD')
+    if (options?.author) args.push(`--author=${options.author}`)
+    if (options?.since) args.push(`--since=${options.since}`)
+    if (options?.until) args.push(`--until=${options.until}`)
+    if (options?.grep) args.push(`--grep=${options.grep}`, '--regexp-ignore-case')
+    if (options?.path) args.push('--', options.path)
+
+    try {
+      const result = await this.exec(args, repoPath, { signal: options?.signal })
+      return parseInt(result.stdout.trim(), 10) || 0
+    } catch {
+      return 0
     }
   }
 
