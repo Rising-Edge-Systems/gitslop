@@ -92,7 +92,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The lane assignment gives each commit a lane index and color, but doesn't directly track which branch name the lane represents. May need to enhance laneAssignment.ts to track the branch name per lane (the branch that opened the lane). Then pass it through to the commit row renderer."
     }
   ]

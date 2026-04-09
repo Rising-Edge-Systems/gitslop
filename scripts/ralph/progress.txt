@@ -278,3 +278,23 @@ Started: Mon Apr 8 2026
   - laneColorMap (lane→color) built from first node per lane is useful for both merge line coloring and pill badge coloring
   - No browser testing tools available — manual verification needed
 ---
+
+## 2026-04-09 - US-CG-005
+- Added subtle branch name labels per commit row in the graph for non-HEAD lanes
+- Enhanced laneAssignment.ts to track branch names per lane via laneBranchMap, populated from branch/head refs on the first commit that opens a lane
+- Added `laneBranch: string | null` to LaneAssignmentResult and GraphNode types
+- Added `showBranchLabels: boolean` to LayoutState (default true, persists via localStorage)
+- Threaded showBranchLabels through AppLayout → MainContent → RepoView → CommitGraph
+- Branch label only shows for non-HEAD lanes and commits without their own ref badges (avoids duplication)
+- Label styled as muted mono text with max-width 120px and ellipsis truncation
+- Added View > Toggle Branch Labels menu item (Cmd/Ctrl+Shift+L) via IPC: main → preload → App.tsx → DOM event → AppLayout
+- CSS: `.laneBranch` class with muted color, mono font, subtle background, truncation
+- Files changed: laneAssignment.ts, CommitGraph.tsx, CommitGraph.module.css, useLayoutState.ts, AppLayout.tsx, MainContent.tsx, RepoView.tsx, App.tsx, preload/index.ts, main/index.ts
+- **Learnings for future iterations:**
+  - Lane branch tracking: the branch name for a lane comes from the first commit in that lane that has a branch/head ref — stored in laneBranchMap and populated in a third pass
+  - showBranchLabels must be threaded through 4 layers: AppLayout → MainContent → RepoView → CommitGraph
+  - The CommitRowComponent receives all shared props via `rowProps` useMemo — add new props there and in CommitRowProps interface
+  - useLayoutState has an explicit return type annotation — new callbacks must be added there too
+  - Branch labels intentionally skip commits that already have ref pill badges (refs.length === 0 check) to avoid visual duplication
+  - No browser testing tools available — manual verification needed
+---

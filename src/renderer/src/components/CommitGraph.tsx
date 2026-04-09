@@ -723,7 +723,7 @@ function CommitRowComponent(props: {
           <span className={styles.refs}>
             {refs.map((ref, idx) => {
               // Branch and head refs use lane color to match their graph lane
-              const useLaneColor = ref.type === 'head' || ref.type === 'branch'
+              const useLaneColor = ref.type === 'head' || ref.type === 'branch' || ref.type === 'remote'
               const laneColorStyle = useLaneColor ? {
                 backgroundColor: `color-mix(in srgb, ${node.color} 18%, transparent)`,
                 borderColor: `color-mix(in srgb, ${node.color} 30%, transparent)`,
