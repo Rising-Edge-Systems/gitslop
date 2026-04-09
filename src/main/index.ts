@@ -277,6 +277,16 @@ app.whenReady().then(async () => {
             }
           }
         },
+        {
+          label: 'Toggle Branch Labels',
+          accelerator: 'CmdOrCtrl+Shift+L',
+          click: (): void => {
+            const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+            if (win && !win.isDestroyed()) {
+              win.webContents.send('menu:toggle-branch-labels')
+            }
+          }
+        },
         { type: 'separator' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },

@@ -38,6 +38,8 @@ export interface LaneAssignmentResult {
   parentConnections: ParentConnection[]
   isMerge: boolean
   refs: ParsedRef[]
+  /** The branch name associated with this commit's lane (derived from the ref that opened the lane) */
+  laneBranch: string | null
 }
 
 // ─── Color Palette ───────────────────────────────────────────────────────────
@@ -107,6 +109,8 @@ export function assignLanes(commits: LaneCommit[]): LaneAssignmentResult[] {
   // Track which lane index a "branch" (identified by the first commit hash seen) maps to
   // so we can assign consistent colors per lane
   const laneColorMap = new Map<number, string>()
+  // Track which branch name is associated with each lane
+  const laneBranchMap = new Map<number, string>()
   let nextColorIndex = 0
 
   function getColorForLane(lane: number): string {
@@ -209,6 +213,14 @@ export function assignLanes(commits: LaneCommit[]): LaneAssignmentResult[] {
 
     const color = getColorForLane(lane)
 
+    // Track the branch name for this lane (from the first commit with a branch/head ref)
+    if (!laneBranchMap.has(lane) && refs.length > 0) {
+      const branchRef = refs.find((r) => r.type === 'head' || r.type === 'branch')
+      if (branchRef) {
+        laneBranchMap.set(lane, branchRef.name)
+      }
+    }
+
     results.push({
       commit,
       lane,
@@ -216,6 +228,7 @@ export function assignLanes(commits: LaneCommit[]): LaneAssignmentResult[] {
       parentConnections,
       isMerge,
       refs,
+      laneBranch: null, // filled in after all lanes are assigned
     })
   }
 
@@ -235,6 +248,11 @@ export function assignLanes(commits: LaneCommit[]): LaneAssignmentResult[] {
         conn.toLane = actualParentLane
       }
     }
+  }
+
+  // Third pass: populate laneBranch from laneBranchMap
+  for (const result of results) {
+    result.laneBranch = laneBranchMap.get(result.lane) || null
   }
 
   return results

@@ -38,6 +38,7 @@ interface GraphNode {
   parentConnections: ParentConnection[]
   isMerge: boolean
   refs: ParsedRef[]
+  laneBranch: string | null
 }
 
 export interface CommitFileDetail {
@@ -86,6 +87,7 @@ interface CommitGraphProps {
   onRefresh?: () => void
   onCommitSelect?: (detail: CommitDetail | null) => void
   filters?: CommitLogFilters
+  showBranchLabels?: boolean
 }
 
 interface ContextMenuState {
@@ -138,7 +140,8 @@ function computeGraphLayout(commits: GitCommit[]): GraphNode[] {
     color: result.color,
     parentConnections: result.parentConnections,
     isMerge: result.isMerge,
-    refs: result.refs
+    refs: result.refs,
+    laneBranch: result.laneBranch
   }))
 }
 
@@ -660,6 +663,7 @@ interface CommitRowProps {
   graphWidth: number
   selectedHash: string | null
   selectedHashes: Set<string>
+  showBranchLabels: boolean
   onRowClick: (index: number, event: React.MouseEvent) => void
   onRowContextMenu: (index: number, event: React.MouseEvent) => void
   onRefContextMenu: (ref: ParsedRef, commitHash: string, event: React.MouseEvent) => void
@@ -672,9 +676,12 @@ function CommitRowComponent(props: {
   index: number
   style: React.CSSProperties
 } & CommitRowProps): React.ReactElement {
-  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, onRowClick, onRowContextMenu, onRefContextMenu, onRowMouseEnter, onRowMouseLeave } = props
+  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, onRowClick, onRowContextMenu, onRefContextMenu, onRowMouseEnter, onRowMouseLeave } = props
   const node = nodes[index]
-  const { commit, refs } = node
+  const { commit, refs, laneBranch } = node
+  // Show branch label for non-HEAD lanes when enabled
+  const isHeadLane = node.lane === 0
+  const showLaneBranch = showBranchLabels && !isHeadLane && laneBranch && refs.length === 0
   const isSelected = commit.hash === selectedHash || selectedHashes.has(commit.hash)
 
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -753,6 +760,12 @@ function CommitRowComponent(props: {
         <span className={styles.message} title={commit.subject}>
           {commit.subject}
         </span>
+
+        {showLaneBranch && (
+          <span className={styles.laneBranch} title={laneBranch}>
+            {laneBranch}
+          </span>
+        )}
       </div>
 
       <span className={styles.author} title={commit.authorEmail}>
@@ -902,7 +915,7 @@ function getFileIcon(filePath: string): React.ReactNode {
 
 // ─── Main CommitGraph Component ───────────────────────────────────────────────
 
-export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: CommitGraphProps): React.JSX.Element {
+export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, showBranchLabels = true }: CommitGraphProps): React.JSX.Element {
   const [commits, setCommits] = useState<GitCommit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -1503,12 +1516,13 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters }: Co
     graphWidth,
     selectedHash,
     selectedHashes,
+    showBranchLabels,
     onRowClick: handleRowClick,
     onRowContextMenu: handleRowContextMenu,
     onRefContextMenu: handleRefContextMenu,
     onRowMouseEnter: handleRowMouseEnter,
     onRowMouseLeave: handleRowMouseLeave
-  }), [nodes, graphWidth, selectedHash, selectedHashes, handleRowClick, handleRowContextMenu, handleRefContextMenu, handleRowMouseEnter, handleRowMouseLeave])
+  }), [nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, handleRowClick, handleRowContextMenu, handleRefContextMenu, handleRowMouseEnter, handleRowMouseLeave])
 
   if (loading && commits.length === 0) {
     return (

@@ -139,6 +139,13 @@ function App(): React.JSX.Element {
       })
     )
 
+    // View > Toggle Branch Labels
+    cleanups.push(
+      window.electronAPI.menu.onToggleBranchLabels(() => {
+        window.dispatchEvent(new CustomEvent('menu:toggle-branch-labels'))
+      })
+    )
+
     // Help > Keyboard Shortcuts
     cleanups.push(
       window.electronAPI.menu.onKeyboardShortcuts(() => {

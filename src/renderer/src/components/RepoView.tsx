@@ -23,6 +23,7 @@ interface RepoViewProps {
   onNavigateFile?: (direction: 'prev' | 'next') => void
   diffViewMode?: DiffViewMode
   onDiffViewModeChange?: (mode: DiffViewMode) => void
+  showBranchLabels?: boolean
 }
 
 interface BranchInfo {
@@ -37,7 +38,7 @@ interface RepoStatus {
   untracked: number
 }
 
-export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange }: RepoViewProps): React.JSX.Element {
+export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels }: RepoViewProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -391,7 +392,7 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
               />
 
               {/* Commit Graph */}
-              <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} filters={graphFilters} />
+              <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} filters={graphFilters} showBranchLabels={showBranchLabels} />
 
               {/* Staging Area moved to right panel in AppLayout */}
             </>

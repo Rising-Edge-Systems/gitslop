@@ -52,7 +52,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setFileListView,
     setStagingInternalSplit,
     setDetailInternalSplit,
-    toggleRightPanelPosition
+    toggleRightPanelPosition,
+    toggleShowBranchLabels
   } = useLayoutState()
 
   const {
@@ -145,16 +146,19 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     const handleKeyboardShortcutsMenu = (): void => {
       setTimeout(() => setShortcutsOpen(true), 0)
     }
+    const handleToggleBranchLabelsMenu = (): void => { toggleShowBranchLabels() }
 
     window.addEventListener('menu:toggle-sidebar', handleToggleSidebarMenu)
     window.addEventListener('menu:toggle-terminal', handleToggleTerminalMenu)
     window.addEventListener('menu:keyboard-shortcuts', handleKeyboardShortcutsMenu)
+    window.addEventListener('menu:toggle-branch-labels', handleToggleBranchLabelsMenu)
     return () => {
       window.removeEventListener('menu:toggle-sidebar', handleToggleSidebarMenu)
       window.removeEventListener('menu:toggle-terminal', handleToggleTerminalMenu)
       window.removeEventListener('menu:keyboard-shortcuts', handleKeyboardShortcutsMenu)
+      window.removeEventListener('menu:toggle-branch-labels', handleToggleBranchLabelsMenu)
     }
-  }, [toggleSidebar, toggleBottomPanel])
+  }, [toggleSidebar, toggleBottomPanel, toggleShowBranchLabels])
 
   // Auto-fetch: fetches on configurable interval, tracks incoming changes
   const { incomingChanges, lastFetchTime, fetching: autoFetching, manualRefresh } = useAutoFetch({
@@ -490,6 +494,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     onNavigateFile={handleNavigateFile}
                     diffViewMode={layout.diffViewMode}
                     onDiffViewModeChange={setDiffViewMode}
+                    showBranchLabels={layout.showBranchLabels}
                   />
                 </div>
                 {/* Right panel drag handle + commit details on top, staging area below.

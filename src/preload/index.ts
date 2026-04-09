@@ -451,6 +451,15 @@ const extendedElectronAPI = {
       return () => {
         ipcRenderer.removeListener('menu:keyboard-shortcuts', handler)
       }
+    },
+    onToggleBranchLabels: (callback: () => void): (() => void) => {
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on('menu:toggle-branch-labels', handler)
+      return () => {
+        ipcRenderer.removeListener('menu:toggle-branch-labels', handler)
+      }
     }
   }
 }

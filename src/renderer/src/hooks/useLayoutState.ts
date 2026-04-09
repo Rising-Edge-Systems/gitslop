@@ -200,6 +200,7 @@ declare global {
         onToggleSidebar: (callback: () => void) => () => void
         onToggleTerminal: (callback: () => void) => () => void
         onKeyboardShortcuts: (callback: () => void) => () => void
+        onToggleBranchLabels: (callback: () => void) => () => void
       }
     }
   }
@@ -224,6 +225,7 @@ export interface LayoutState {
   stagingInternalSplit: number // 0-100, percent for file list share (top) vs commit form (bottom)
   detailInternalSplit: number // 0-100, percent for metadata share (top) vs files (bottom)
   rightPanelPosition: RightPanelPosition
+  showBranchLabels: boolean
 }
 
 const STORAGE_KEY = 'gitslop-layout-state'
@@ -242,7 +244,8 @@ const DEFAULT_LAYOUT: LayoutState = {
   fileListView: 'path',
   stagingInternalSplit: 65,
   detailInternalSplit: 40,
-  rightPanelPosition: 'right'
+  rightPanelPosition: 'right',
+  showBranchLabels: true
 }
 
 // Sidebar pixel bounds
@@ -326,6 +329,8 @@ export function useLayoutState(): {
   setDetailInternalSplit: (split: number) => void
   setRightPanelPosition: (position: RightPanelPosition) => void
   toggleRightPanelPosition: () => void
+  setShowBranchLabels: (show: boolean) => void
+  toggleShowBranchLabels: () => void
 } {
   const [layout, setLayout] = useState<LayoutState>(loadLayout)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -441,6 +446,14 @@ export function useLayoutState(): {
     }))
   }, [])
 
+  const setShowBranchLabels = useCallback((show: boolean) => {
+    setLayout((prev) => ({ ...prev, showBranchLabels: show }))
+  }, [])
+
+  const toggleShowBranchLabels = useCallback(() => {
+    setLayout((prev) => ({ ...prev, showBranchLabels: !prev.showBranchLabels }))
+  }, [])
+
   return {
     layout,
     setSidebarSize,
@@ -460,6 +473,8 @@ export function useLayoutState(): {
     setStagingInternalSplit,
     setDetailInternalSplit,
     setRightPanelPosition,
-    toggleRightPanelPosition
+    toggleRightPanelPosition,
+    setShowBranchLabels,
+    toggleShowBranchLabels
   }
 }
