@@ -1,18 +1,24 @@
 # Ralph Progress Log
-Started: Thu Apr 10 2026
+Started: Thu Apr  9 04:07:00 PM EDT 2026
 ---
 
 ## Codebase Patterns
-- CommitGraph.tsx: loadCommits() fetches git log with { all: true }, no maxCount limit
-- Skip-if-unchanged: lines 1047-1053 compare first+last hash and length — misses ref changes after push
-- onRepoChanged: file watcher fires when working tree files change — does NOT fire after push/fetch/pull (only remote refs change)
-- Toolbar.tsx: push/fetch/pull operations show notifications on success but don't trigger graph refresh
-- git-service.ts log(): accepts maxCount option — already supported, just not used
-- Lane assignment: laneAssignment.ts assignLanes() assigns lanes per branch divergence — no lane collapsing for inactive branches
-- CANVAS_THRESHOLD: 50000 commits triggers canvas renderer instead of SVG
-- Settings: useSettings() hook, settings persisted to localStorage
-- StatusBar: listens to onRepoChanged for ahead/behind updates
-- Sidebar: listens to onRepoChanged for branch list updates
-- Typecheck: npm run typecheck
-- Build: npx electron-vite build && npx electron --no-sandbox .
+- Typecheck: use `npm run typecheck` (not bare `tsc --noEmit`), it runs both `typecheck:node` and `typecheck:web` with correct tsconfigs
+- Tests: `npm test` runs vitest (103 tests currently)
+- Custom events pattern: use `window.dispatchEvent(new CustomEvent('event-name'))` and `window.addEventListener('event-name', handler)` for cross-component communication in renderer
+- Git operations in Toolbar.tsx: push (handlePush, handleForcePush, handleSetUpstream), pull (handlePull, handlePullConfirm), fetch (handleFetch) — all use `window.electronAPI.git.*`
+- File watcher: `window.electronAPI.onRepoChanged` fires on file changes; `withWatcherSuppression` in git-ipc.ts wraps operations and calls `sendRepoChangedForced()` after
+- CommitGraph.tsx loadCommits() has an optimization that skips re-render if first+last hash+refs match — force refresh bypasses this
+
+## 2026-04-09 16:11 - US-GR-001
+- Implemented `graph:force-refresh` custom event dispatched after successful push/fetch/pull in Toolbar.tsx
+- CommitGraph.tsx listens for the event and calls `loadCommits(true)` which bypasses the skip-if-unchanged check
+- Enhanced skip-if-unchanged check to also compare `refs` field on first and last commits
+- StatusBar.tsx and Sidebar.tsx also listen for `graph:force-refresh` to update ahead/behind counts and branch list
+- Files changed: CommitGraph.tsx, Toolbar.tsx, StatusBar.tsx, Sidebar.tsx
+- **Learnings for future iterations:**
+  - The skip check in loadCommits() compares first+last commit hash+length — after push, hashes don't change but refs do
+  - All 7 push/fetch/pull code paths in Toolbar.tsx need the event dispatch (push, force push, set upstream push, pull, pull with options, fetch)
+  - Sidebar has sub-components (RemotesSection, TagsSection) defined in the same file
+  - The main Sidebar component with branch loading is at line ~2677
 ---

@@ -18,7 +18,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "CommitGraph.tsx loadCommits() on line 1047-1053 skips updates if first+last hashes match. After push, hashes ARE the same but refs on commits change (origin/main moves). Need to also compare ref strings or force a full reload after push/fetch/pull. The graph:force-refresh event should bypass the skip-if-unchanged check."
     },
     {
