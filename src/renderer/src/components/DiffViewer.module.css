@@ -245,7 +245,7 @@
 /* ─── Inline Diff View ──────────────────────────────────────────────────── */
 
 .inlineView {
-  overflow: auto;
+  /* overflow handled by parent .scrollableWithMarkers */
   flex: 1;
   min-height: 0;
 }
@@ -631,5 +631,5 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow: auto;
 }

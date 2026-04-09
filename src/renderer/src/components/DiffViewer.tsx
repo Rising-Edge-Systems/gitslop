@@ -825,8 +825,7 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
   }, [hunks])
 
   return (
-    <div className={styles.scrollableWithMarkers}>
-    <div className={styles.inlineView} ref={scrollRef}>
+    <div className={styles.scrollableWithMarkers} ref={scrollRef}>
       <div className={styles.inlineViewInner}>
       {hunks.map((hunk, hunkIdx) => (
         <div key={hunkIdx} className={styles.hunk}>
@@ -887,7 +886,6 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
         </div>
       ))}
       </div>
-    </div>
     <ScrollbarMarkers markers={inlineMarkers} containerRef={scrollRef} />
     </div>
   )
