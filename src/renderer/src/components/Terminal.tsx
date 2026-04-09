@@ -153,11 +153,14 @@ export function TerminalPanel({ currentRepo, onToggle }: TerminalPanelProps): Re
   }, [currentRepo])
 
   // Auto-create first tab when repo is set
+  const autoCreatedRef = useRef(false)
   useEffect(() => {
-    if (currentRepo && tabs.length === 0) {
+    if (currentRepo && tabs.length === 0 && !autoCreatedRef.current) {
+      autoCreatedRef.current = true
       createTab()
     }
-  }, [currentRepo, tabs.length, createTab])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRepo])
 
   // Mount/unmount active terminal to DOM
   useEffect(() => {

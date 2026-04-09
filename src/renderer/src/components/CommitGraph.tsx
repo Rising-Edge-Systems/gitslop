@@ -5,6 +5,7 @@ import { DiffViewer } from './DiffViewer'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
 import { ResetDialog } from './ResetDialog'
+import { TagDialog } from './TagDialog'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { CommitGraphSkeleton } from './Skeleton'
 import { assignLanes, LANE_COLORS, type ParsedRef, type ParentConnection } from './laneAssignment'
@@ -982,6 +983,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
   const [mergeBranch, setMergeBranch] = useState<string | null>(null)
   const [rebaseBranch, setRebaseBranch] = useState<string | null>(null)
   const [rebaseInteractive, setRebaseInteractive] = useState(false)
+  const [tagTarget, setTagTarget] = useState<string | null>(null)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -1504,9 +1506,11 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
         })
         break
       case 'create-branch':
-      case 'create-tag':
-        // Placeholder — these will be implemented in future stories
+        // Placeholder — will be implemented in a future story
         console.log(`Action: ${action} on commit ${commit.shortHash}`)
+        break
+      case 'create-tag':
+        setTagTarget(commit.hash)
         break
     }
   }, [repoPath, selectedHashes, handleCherryPick, handleRevert, loadCommits])
@@ -1780,6 +1784,19 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
             onRebaseComplete={() => {
               setRebaseBranch(null)
               setRebaseInteractive(false)
+              loadCommits()
+            }}
+          />
+        )}
+
+        {/* Tag dialog opened from commit context menu */}
+        {tagTarget && (
+          <TagDialog
+            currentRepo={repoPath}
+            defaultTarget={tagTarget}
+            onClose={() => setTagTarget(null)}
+            onTagCreated={() => {
+              setTagTarget(null)
               loadCommits()
             }}
           />
