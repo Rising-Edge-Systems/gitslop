@@ -24,13 +24,25 @@ interface RecentRepo {
   lastOpened: string
 }
 
+export interface Profile {
+  id: string
+  name: string
+  authorName: string
+  authorEmail: string
+  isDefault: boolean
+}
+
 interface StoreSchema {
   recentRepos: RecentRepo[]
+  profiles: Profile[]
+  activeProfileId: string
 }
 
 const store = new Store<StoreSchema>({
   defaults: {
-    recentRepos: []
+    recentRepos: [],
+    profiles: [],
+    activeProfileId: ''
   }
 })
 
@@ -143,6 +155,86 @@ ipcMain.handle('repos:removeRecent', (_event, repoPath: string) => {
   const filtered = recentRepos.filter((r: RecentRepo) => r.path !== repoPath)
   store.set('recentRepos', filtered)
   return filtered
+})
+
+// Profile IPC handlers
+ipcMain.handle('profiles:list', () => {
+  return store.get('profiles', [])
+})
+
+ipcMain.handle('profiles:getActive', () => {
+  return store.get('activeProfileId', '')
+})
+
+ipcMain.handle('profiles:create', (_event, profile: Omit<Profile, 'id'>) => {
+  const profiles = store.get('profiles', [])
+  const newProfile: Profile = {
+    ...profile,
+    id: `profile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+  }
+  // If this is the first profile or marked as default, clear other defaults
+  if (newProfile.isDefault || profiles.length === 0) {
+    newProfile.isDefault = true
+    for (const p of profiles) {
+      p.isDefault = false
+    }
+  }
+  profiles.push(newProfile)
+  store.set('profiles', profiles)
+  // If this is default and no active profile, set as active
+  if (newProfile.isDefault && !store.get('activeProfileId', '')) {
+    store.set('activeProfileId', newProfile.id)
+  }
+  return newProfile
+})
+
+ipcMain.handle('profiles:update', (_event, id: string, updates: Partial<Omit<Profile, 'id'>>) => {
+  const profiles = store.get('profiles', [])
+  const index = profiles.findIndex((p: Profile) => p.id === id)
+  if (index === -1) return { success: false, error: 'Profile not found' }
+
+  // If setting as default, clear other defaults
+  if (updates.isDefault) {
+    for (const p of profiles) {
+      p.isDefault = false
+    }
+  }
+  profiles[index] = { ...profiles[index], ...updates, id }
+  store.set('profiles', profiles)
+  return { success: true, data: profiles[index] }
+})
+
+ipcMain.handle('profiles:delete', (_event, id: string) => {
+  const profiles = store.get('profiles', [])
+  const filtered = profiles.filter((p: Profile) => p.id !== id)
+  store.set('profiles', filtered)
+  // If deleted profile was active, clear active
+  if (store.get('activeProfileId', '') === id) {
+    // Set to default profile if one exists, otherwise clear
+    const defaultProfile = filtered.find((p: Profile) => p.isDefault)
+    store.set('activeProfileId', defaultProfile ? defaultProfile.id : '')
+  }
+  return filtered
+})
+
+ipcMain.handle('profiles:setActive', (_event, id: string) => {
+  store.set('activeProfileId', id)
+  return { success: true }
+})
+
+ipcMain.handle('profiles:apply', async (_event, id: string, repoPath: string) => {
+  const profiles = store.get('profiles', [])
+  const profile = profiles.find((p: Profile) => p.id === id)
+  if (!profile) return { success: false, error: 'Profile not found' }
+
+  try {
+    await gitService.exec(['config', 'user.name', profile.authorName], repoPath)
+    await gitService.exec(['config', 'user.email', profile.authorEmail], repoPath)
+    store.set('activeProfileId', id)
+    return { success: true, data: profile }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to apply profile' }
+  }
 })
 
 app.whenReady().then(async () => {

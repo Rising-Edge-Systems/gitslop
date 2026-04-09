@@ -219,6 +219,7 @@ function App(): React.JSX.Element {
             onUpdate={updateSettings}
             onReset={resetSettings}
             onClose={closeSettings}
+            currentRepo={activeRepoPath}
           />
         )}
       </ErrorBoundary>

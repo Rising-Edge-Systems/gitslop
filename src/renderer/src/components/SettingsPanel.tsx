@@ -1,23 +1,33 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Settings, Palette, GitBranch, Pencil, Keyboard, X } from 'lucide-react'
+import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon } from 'lucide-react'
 import type { AppSettings } from '../hooks/useSettings'
 import { DEFAULT_SETTINGS } from '../hooks/useSettings'
 import styles from './SettingsPanel.module.css'
 
-type SettingsSection = 'general' | 'appearance' | 'git' | 'editor' | 'keybindings'
+interface ProfileData {
+  id: string
+  name: string
+  authorName: string
+  authorEmail: string
+  isDefault: boolean
+}
+
+type SettingsSection = 'general' | 'appearance' | 'git' | 'editor' | 'keybindings' | 'profiles'
 
 interface SettingsPanelProps {
   settings: AppSettings
   onUpdate: (partial: Partial<AppSettings>) => void
   onReset: () => void
   onClose: () => void
+  currentRepo?: string | null
 }
 
 export function SettingsPanel({
   settings,
   onUpdate,
   onReset,
-  onClose
+  onClose,
+  currentRepo
 }: SettingsPanelProps): React.JSX.Element {
   const [activeSection, setActiveSection] = useState<SettingsSection>('general')
   const panelRef = useRef<HTMLDivElement>(null)
@@ -38,6 +48,7 @@ export function SettingsPanel({
     { id: 'general', label: 'General', icon: <Settings size={16} /> },
     { id: 'appearance', label: 'Appearance', icon: <Palette size={16} /> },
     { id: 'git', label: 'Git', icon: <GitBranch size={16} /> },
+    { id: 'profiles', label: 'Profiles', icon: <UserCircle size={16} /> },
     { id: 'editor', label: 'Editor', icon: <Pencil size={16} /> },
     { id: 'keybindings', label: 'Keybindings', icon: <Keyboard size={16} /> }
   ]
@@ -92,6 +103,9 @@ export function SettingsPanel({
             )}
             {activeSection === 'git' && (
               <GitSection settings={settings} onUpdate={onUpdate} />
+            )}
+            {activeSection === 'profiles' && (
+              <ProfilesSection currentRepo={currentRepo ?? null} />
             )}
             {activeSection === 'editor' && (
               <EditorSection settings={settings} onUpdate={onUpdate} />
@@ -432,6 +446,257 @@ function KeybindingsSection(): React.JSX.Element {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+/* ─── Profiles Section ───────────────────────────────────────────────────── */
+
+function ProfilesSection({ currentRepo }: { currentRepo: string | null }): React.JSX.Element {
+  const [profiles, setProfiles] = useState<ProfileData[]>([])
+  const [activeProfileId, setActiveProfileId] = useState<string>('')
+  const [editing, setEditing] = useState<string | null>(null) // profile id or 'new'
+  const [formName, setFormName] = useState('')
+  const [formAuthorName, setFormAuthorName] = useState('')
+  const [formAuthorEmail, setFormAuthorEmail] = useState('')
+  const [formIsDefault, setFormIsDefault] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadProfiles = useCallback(async () => {
+    try {
+      const list = await window.electronAPI.profiles.list()
+      setProfiles(list)
+      const activeId = await window.electronAPI.profiles.getActive()
+      setActiveProfileId(activeId)
+    } catch {
+      // Ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    loadProfiles()
+  }, [loadProfiles])
+
+  const startCreate = (): void => {
+    setEditing('new')
+    setFormName('')
+    setFormAuthorName('')
+    setFormAuthorEmail('')
+    setFormIsDefault(profiles.length === 0)
+    setError(null)
+  }
+
+  const startEdit = (profile: ProfileData): void => {
+    setEditing(profile.id)
+    setFormName(profile.name)
+    setFormAuthorName(profile.authorName)
+    setFormAuthorEmail(profile.authorEmail)
+    setFormIsDefault(profile.isDefault)
+    setError(null)
+  }
+
+  const cancelEdit = (): void => {
+    setEditing(null)
+    setError(null)
+  }
+
+  const saveProfile = async (): Promise<void> => {
+    if (!formName.trim() || !formAuthorName.trim() || !formAuthorEmail.trim()) {
+      setError('All fields are required')
+      return
+    }
+
+    try {
+      if (editing === 'new') {
+        await window.electronAPI.profiles.create({
+          name: formName.trim(),
+          authorName: formAuthorName.trim(),
+          authorEmail: formAuthorEmail.trim(),
+          isDefault: formIsDefault
+        })
+      } else if (editing) {
+        await window.electronAPI.profiles.update(editing, {
+          name: formName.trim(),
+          authorName: formAuthorName.trim(),
+          authorEmail: formAuthorEmail.trim(),
+          isDefault: formIsDefault
+        })
+      }
+      setEditing(null)
+      setError(null)
+      await loadProfiles()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save profile')
+    }
+  }
+
+  const deleteProfile = async (id: string): Promise<void> => {
+    try {
+      await window.electronAPI.profiles.delete(id)
+      if (editing === id) setEditing(null)
+      await loadProfiles()
+    } catch {
+      // Ignore
+    }
+  }
+
+  const applyProfile = async (id: string): Promise<void> => {
+    if (!currentRepo) {
+      setError('Open a repository first to apply a profile')
+      return
+    }
+    try {
+      const result = await window.electronAPI.profiles.apply(id, currentRepo)
+      if (result.success) {
+        setActiveProfileId(id)
+        setError(null)
+      } else {
+        setError(result.error || 'Failed to apply profile')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to apply profile')
+    }
+  }
+
+  return (
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>Profiles</h3>
+      <p className={styles.sectionDesc}>
+        Manage author identities. Switch profiles to set git user.name and user.email per repository.
+      </p>
+
+      {error && (
+        <div className={styles.profileError}>{error}</div>
+      )}
+
+      {/* Profile list */}
+      <div className={styles.profileList}>
+        {profiles.map((profile) => (
+          <div
+            key={profile.id}
+            className={`${styles.profileCard} ${activeProfileId === profile.id ? styles.profileCardActive : ''}`}
+          >
+            {editing === profile.id ? (
+              <div className={styles.profileForm}>
+                <input
+                  className={styles.input}
+                  type="text"
+                  placeholder="Profile name (e.g. Work, Personal)"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  autoFocus
+                />
+                <input
+                  className={styles.input}
+                  type="text"
+                  placeholder="Author name (user.name)"
+                  value={formAuthorName}
+                  onChange={(e) => setFormAuthorName(e.target.value)}
+                />
+                <input
+                  className={styles.input}
+                  type="email"
+                  placeholder="Author email (user.email)"
+                  value={formAuthorEmail}
+                  onChange={(e) => setFormAuthorEmail(e.target.value)}
+                />
+                <label className={styles.profileCheckboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={formIsDefault}
+                    onChange={(e) => setFormIsDefault(e.target.checked)}
+                  />
+                  Default profile
+                </label>
+                <div className={styles.profileFormActions}>
+                  <button className={styles.profileSaveBtn} onClick={saveProfile}>Save</button>
+                  <button className={styles.profileCancelBtn} onClick={cancelEdit}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className={styles.profileInfo}>
+                  <div className={styles.profileNameRow}>
+                    <span className={styles.profileName}>{profile.name}</span>
+                    {profile.isDefault && <span className={styles.profileDefaultBadge}>Default</span>}
+                    {activeProfileId === profile.id && <span className={styles.profileActiveBadge}>Active</span>}
+                  </div>
+                  <span className={styles.profileDetail}>{profile.authorName} &lt;{profile.authorEmail}&gt;</span>
+                </div>
+                <div className={styles.profileActions}>
+                  <button
+                    className={styles.profileActionBtn}
+                    onClick={() => applyProfile(profile.id)}
+                    title="Apply this profile to current repo"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    className={styles.profileActionBtn}
+                    onClick={() => startEdit(profile)}
+                    title="Edit profile"
+                  >
+                    <PencilIcon size={14} />
+                  </button>
+                  <button
+                    className={`${styles.profileActionBtn} ${styles.profileActionBtnDanger}`}
+                    onClick={() => deleteProfile(profile.id)}
+                    title="Delete profile"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* New profile form */}
+      {editing === 'new' ? (
+        <div className={`${styles.profileCard} ${styles.profileCardNew}`}>
+          <div className={styles.profileForm}>
+            <input
+              className={styles.input}
+              type="text"
+              placeholder="Profile name (e.g. Work, Personal)"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              autoFocus
+            />
+            <input
+              className={styles.input}
+              type="text"
+              placeholder="Author name (user.name)"
+              value={formAuthorName}
+              onChange={(e) => setFormAuthorName(e.target.value)}
+            />
+            <input
+              className={styles.input}
+              type="email"
+              placeholder="Author email (user.email)"
+              value={formAuthorEmail}
+              onChange={(e) => setFormAuthorEmail(e.target.value)}
+            />
+            <label className={styles.profileCheckboxLabel}>
+              <input
+                type="checkbox"
+                checked={formIsDefault}
+                onChange={(e) => setFormIsDefault(e.target.checked)}
+              />
+              Default profile
+            </label>
+            <div className={styles.profileFormActions}>
+              <button className={styles.profileSaveBtn} onClick={saveProfile}>Create</button>
+              <button className={styles.profileCancelBtn} onClick={cancelEdit}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <button className={styles.profileAddBtn} onClick={startCreate}>
+          <Plus size={14} /> Add Profile
+        </button>
+      )}
     </div>
   )
 }

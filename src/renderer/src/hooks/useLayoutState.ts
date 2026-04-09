@@ -182,6 +182,15 @@ declare global {
         addRecent: (repoPath: string, repoName: string) => Promise<RecentRepo[]>
         removeRecent: (repoPath: string) => Promise<RecentRepo[]>
       }
+      profiles: {
+        list: () => Promise<{ id: string; name: string; authorName: string; authorEmail: string; isDefault: boolean }[]>
+        getActive: () => Promise<string>
+        create: (profile: { name: string; authorName: string; authorEmail: string; isDefault: boolean }) => Promise<{ id: string; name: string; authorName: string; authorEmail: string; isDefault: boolean }>
+        update: (id: string, updates: Partial<{ name: string; authorName: string; authorEmail: string; isDefault: boolean }>) => Promise<GitServiceResult>
+        delete: (id: string) => Promise<{ id: string; name: string; authorName: string; authorEmail: string; isDefault: boolean }[]>
+        setActive: (id: string) => Promise<GitServiceResult>
+        apply: (id: string, repoPath: string) => Promise<GitServiceResult>
+      }
       terminal: {
         create: (opts: { cwd?: string; id?: string }) => Promise<{ success: boolean; data?: { id: string }; error?: string }>
         write: (opts: { id: string; data: string }) => Promise<{ success: boolean; error?: string }>

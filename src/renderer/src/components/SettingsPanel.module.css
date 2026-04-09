@@ -369,3 +369,204 @@
   border-color: var(--error);
   background: var(--error-bg);
 }
+
+/* ─── Profiles Section ───────────────────────────────────────────────────── */
+
+.profileError {
+  background: var(--error-bg, rgba(244, 68, 68, 0.1));
+  color: var(--error, #f44);
+  border: 1px solid var(--error, #f44);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-sm);
+  margin-bottom: var(--space-md);
+}
+
+.profileList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.profileCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  transition: border-color var(--transition-fast) ease;
+}
+
+.profileCard:hover {
+  border-color: var(--border-hover, var(--text-muted));
+}
+
+.profileCardActive {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary));
+}
+
+.profileCardNew {
+  border-style: dashed;
+}
+
+.profileInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profileNameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.profileName {
+  font-weight: 600;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+}
+
+.profileDetail {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileDefaultBadge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-tertiary, var(--bg-secondary));
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.profileActiveBadge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.profileActions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.profileActionBtn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  transition: all var(--transition-fast) ease;
+}
+
+.profileActionBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary, var(--bg-secondary));
+  border-color: var(--border);
+}
+
+.profileActionBtnDanger:hover {
+  color: var(--error, #f44);
+  background: var(--error-bg, rgba(244, 68, 68, 0.1));
+  border-color: var(--error, #f44);
+}
+
+.profileForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.profileCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.profileFormActions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: 2px;
+}
+
+.profileSaveBtn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 5px 14px;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--transition-fast) ease;
+}
+
+.profileSaveBtn:hover {
+  opacity: 0.85;
+}
+
+.profileCancelBtn {
+  background: none;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 14px;
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+}
+
+.profileCancelBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.profileAddBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: none;
+  color: var(--accent);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+  transition: all var(--transition-fast) ease;
+}
+
+.profileAddBtn:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: var(--accent);
+}

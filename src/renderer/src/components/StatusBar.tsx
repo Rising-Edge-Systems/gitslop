@@ -10,7 +10,8 @@ import {
   Check,
   XCircle,
   AlertTriangle,
-  Info
+  Info,
+  UserCircle
 } from 'lucide-react'
 import type { Notification } from '../hooks/useNotifications'
 import styles from './StatusBar.module.css'
@@ -69,6 +70,7 @@ export function StatusBar({
   const [lastOp, setLastOp] = useState<LastOperation | null>(null)
   const [, setTick] = useState(0)
   const lastOpRef = useRef<LastOperation | null>(null)
+  const [activeProfileName, setActiveProfileName] = useState<string | null>(null)
 
   // Fetch branch info
   const fetchBranchInfo = useCallback(async () => {
@@ -104,6 +106,25 @@ export function StatusBar({
   useEffect(() => {
     fetchBranchInfo()
   }, [fetchBranchInfo])
+
+  // Load active profile
+  useEffect(() => {
+    const loadProfile = async (): Promise<void> => {
+      try {
+        const activeId = await window.electronAPI.profiles.getActive()
+        if (activeId) {
+          const profiles = await window.electronAPI.profiles.list()
+          const active = profiles.find((p: { id: string }) => p.id === activeId)
+          setActiveProfileName(active ? active.name : null)
+        } else {
+          setActiveProfileName(null)
+        }
+      } catch {
+        setActiveProfileName(null)
+      }
+    }
+    loadProfile()
+  }, [currentRepo])
 
   // Listen for repo file changes to refresh (debounced)
   useEffect(() => {
@@ -247,6 +268,12 @@ export function StatusBar({
 
       {/* Right section: refresh + indicators + notification bell */}
       <div className={styles.right}>
+        {activeProfileName && (
+          <span className={styles.profileIndicator} title={`Active profile: ${activeProfileName}`}>
+            <UserCircle size={12} />
+            {activeProfileName}
+          </span>
+        )}
         {currentRepo && (
           <>
             <span className={styles.indicator} title="File encoding">UTF-8</span>

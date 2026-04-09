@@ -6,6 +6,14 @@ export interface RecentRepo {
   lastOpened: string
 }
 
+export interface ProfileData {
+  id: string
+  name: string
+  authorName: string
+  authorEmail: string
+  isDefault: boolean
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface GitServiceResult {
   success: boolean
@@ -335,6 +343,20 @@ const electronAPI = {
       ipcRenderer.invoke('repos:addRecent', repoPath, repoName),
     removeRecent: (repoPath: string): Promise<RecentRepo[]> =>
       ipcRenderer.invoke('repos:removeRecent', repoPath)
+  },
+  profiles: {
+    list: (): Promise<ProfileData[]> => ipcRenderer.invoke('profiles:list'),
+    getActive: (): Promise<string> => ipcRenderer.invoke('profiles:getActive'),
+    create: (profile: Omit<ProfileData, 'id'>): Promise<ProfileData> =>
+      ipcRenderer.invoke('profiles:create', profile),
+    update: (id: string, updates: Partial<Omit<ProfileData, 'id'>>): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('profiles:update', id, updates),
+    delete: (id: string): Promise<ProfileData[]> =>
+      ipcRenderer.invoke('profiles:delete', id),
+    setActive: (id: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('profiles:setActive', id),
+    apply: (id: string, repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('profiles:apply', id, repoPath)
   },
   terminal: {
     create: (opts: { cwd?: string; id?: string }): Promise<{ success: boolean; data?: { id: string }; error?: string }> =>

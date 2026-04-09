@@ -175,6 +175,24 @@
 
 /* ─── Right section elements ─────────────────────────────────────────── */
 
+.profileIndicator {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--font-xs);
+  color: var(--accent);
+  padding: 0 var(--space-sm);
+  opacity: 0.8;
+  transition: opacity var(--transition-fast);
+  cursor: default;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.statusBar:hover .profileIndicator {
+  opacity: 1;
+}
+
 .indicator {
   font-size: var(--font-xs);
   color: var(--text-muted);
