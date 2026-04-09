@@ -4,7 +4,7 @@ import styles from './DiffViewer.module.css'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type DiffViewMode = 'inline' | 'side-by-side'
+export type DiffViewMode = 'inline' | 'side-by-side' | 'full' | 'file'
 
 interface DiffHunk {
   header: string
@@ -910,6 +910,10 @@ interface FullDiffViewProps {
   diffContent: string
   filePath: string
   className?: string
+  /** File change status: M, A, D, R, C */
+  fileStatus?: string
+  /** Original path for renamed files */
+  oldPath?: string
 }
 
 /**
@@ -934,16 +938,21 @@ function buildChangedLinesSets(hunks: DiffHunk[]): { oldChanged: Set<number>; ne
   return { oldChanged, newChanged }
 }
 
+const LARGE_FILE_THRESHOLD = 5000
+
 export function FullDiffView({
   oldContent,
   newContent,
   diffContent,
   filePath,
-  className = ''
+  className = '',
+  fileStatus,
+  oldPath
 }: FullDiffViewProps): React.JSX.Element {
   const leftPaneRef = useRef<HTMLDivElement>(null)
   const rightPaneRef = useRef<HTMLDivElement>(null)
   const syncingRef = useRef(false)
+  const [loadLargeFile, setLoadLargeFile] = useState(false)
 
   const language = useMemo(() => detectLanguage(filePath), [filePath])
   const parsed = useMemo(() => parseDiff(diffContent), [diffContent])
@@ -955,6 +964,18 @@ export function FullDiffView({
   // Remove trailing empty line from split (files typically end with newline)
   const oldDisplay = oldLines.length > 0 && oldLines[oldLines.length - 1] === '' ? oldLines.slice(0, -1) : oldLines
   const newDisplay = newLines.length > 0 && newLines[newLines.length - 1] === '' ? newLines.slice(0, -1) : newLines
+
+  const isNewFile = fileStatus === 'A' || (oldContent === '' && newContent !== '')
+  const isDeletedFile = fileStatus === 'D' || (newContent === '' && oldContent !== '')
+  const isRenamed = fileStatus?.startsWith('R')
+  const isBinaryOld = oldContent.includes('\0')
+  const isBinaryNew = newContent.includes('\0')
+  const isBinary = isBinaryOld || isBinaryNew
+  const isLargeFile = !loadLargeFile && (oldDisplay.length > LARGE_FILE_THRESHOLD || newDisplay.length > LARGE_FILE_THRESHOLD)
+
+  // Derive pane header paths
+  const leftPath = isRenamed && oldPath ? oldPath : filePath
+  const rightPath = filePath
 
   const handleScrollSync = useCallback((source: 'left' | 'right') => {
     if (syncingRef.current) return
@@ -972,8 +993,66 @@ export function FullDiffView({
     })
   }, [])
 
+  // Binary file — show placeholder in both panes
+  if (isBinary) {
+    return (
+      <div className={`${styles.diffViewer} ${className}`}>
+        <div className={styles.sbsView}>
+          <div className={`${styles.sbsPane} ${styles.sbsLeft}`}>
+            <div className={styles.sbsPaneInner}>
+              <div className={styles.sbsPaneHeader}>{leftPath}</div>
+              <div className={styles.fullDiffPlaceholder}>Binary file — cannot display</div>
+            </div>
+          </div>
+          <div className={styles.sbsPane}>
+            <div className={styles.sbsPaneInner}>
+              <div className={styles.sbsPaneHeader}>{rightPath}</div>
+              <div className={styles.fullDiffPlaceholder}>Binary file — cannot display</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Large file — show placeholder with click-to-load
+  if (isLargeFile) {
+    return (
+      <div className={`${styles.diffViewer} ${className}`}>
+        <div className={styles.sbsView}>
+          <div className={`${styles.sbsPane} ${styles.sbsLeft}`}>
+            <div className={styles.sbsPaneInner}>
+              <div className={styles.sbsPaneHeader}>{leftPath} · {oldDisplay.length} lines</div>
+              <div className={styles.fullDiffPlaceholder}>
+                <button className={styles.fullDiffLoadBtn} onClick={() => setLoadLargeFile(true)}>
+                  Large file — click to load
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className={styles.sbsPane}>
+            <div className={styles.sbsPaneInner}>
+              <div className={styles.sbsPaneHeader}>{rightPath} · {newDisplay.length} lines</div>
+              <div className={styles.fullDiffPlaceholder}>
+                <button className={styles.fullDiffLoadBtn} onClick={() => setLoadLargeFile(true)}>
+                  Large file — click to load
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`${styles.diffViewer} ${className}`}>
+      {/* Renamed file header */}
+      {isRenamed && oldPath && (
+        <div className={styles.fullDiffRenameHeader}>
+          {oldPath} → {filePath}
+        </div>
+      )}
       <div className={styles.sbsView}>
         {/* Left pane (old file) */}
         <div
@@ -983,14 +1062,14 @@ export function FullDiffView({
         >
           <div className={styles.sbsPaneInner}>
             <div className={styles.sbsPaneHeader}>
-              Old · {oldDisplay.length} lines
+              {leftPath} · {isNewFile ? 0 : oldDisplay.length} lines
             </div>
-            {oldDisplay.length === 0 ? (
+            {isNewFile ? (
               <div className={styles.fullDiffPlaceholder}>New file</div>
             ) : (
               oldDisplay.map((line, idx) => {
                 const lineNum = idx + 1
-                const isChanged = oldChanged.has(lineNum)
+                const isChanged = isDeletedFile || oldChanged.has(lineNum)
                 return (
                   <div
                     key={idx}
@@ -1015,14 +1094,14 @@ export function FullDiffView({
         >
           <div className={styles.sbsPaneInner}>
             <div className={styles.sbsPaneHeader}>
-              New · {newDisplay.length} lines
+              {rightPath} · {isDeletedFile ? 0 : newDisplay.length} lines
             </div>
-            {newDisplay.length === 0 ? (
+            {isDeletedFile ? (
               <div className={styles.fullDiffPlaceholder}>File deleted</div>
             ) : (
               newDisplay.map((line, idx) => {
                 const lineNum = idx + 1
-                const isChanged = newChanged.has(lineNum)
+                const isChanged = isNewFile || newChanged.has(lineNum)
                 return (
                   <div
                     key={idx}

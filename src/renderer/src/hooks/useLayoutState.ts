@@ -207,7 +207,7 @@ declare global {
   }
 }
 
-export type DiffViewMode = 'inline' | 'side-by-side'
+export type DiffViewMode = 'inline' | 'side-by-side' | 'full' | 'file'
 export type FileListView = 'path' | 'tree'
 export type RightPanelPosition = 'right' | 'bottom'
 

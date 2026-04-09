@@ -56,7 +56,23 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
   const [diffError, setDiffError] = useState<string | null>(null)
 
   // ─── Full File View ─────────────────────────────────────────────────────
-  const [centerViewMode, setCenterViewMode] = useState<'diff' | 'full' | 'file'>('diff')
+  // Derive centerViewMode from persisted diffViewMode
+  const centerViewMode: 'diff' | 'full' | 'file' = diffViewMode === 'full' ? 'full' : diffViewMode === 'file' ? 'file' : 'diff'
+  // Track last-used diff sub-mode (inline/side-by-side) so we can restore it when switching back to diff
+  const lastDiffSubMode = useRef<'inline' | 'side-by-side'>((diffViewMode === 'inline' || diffViewMode === 'side-by-side') ? diffViewMode : 'inline')
+  // Keep lastDiffSubMode up to date
+  if (diffViewMode === 'inline' || diffViewMode === 'side-by-side') {
+    lastDiffSubMode.current = diffViewMode
+  }
+  const setCenterViewMode = useCallback((mode: 'diff' | 'full' | 'file') => {
+    if (mode === 'diff') {
+      onDiffViewModeChange?.(lastDiffSubMode.current)
+    } else if (mode === 'full') {
+      onDiffViewModeChange?.('full')
+    } else {
+      onDiffViewModeChange?.('file')
+    }
+  }, [onDiffViewModeChange])
   const [fileContent, setFileContent] = useState<string | null>(null)
   const [fileLoading, setFileLoading] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
@@ -96,9 +112,8 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
     return () => { cancelled = true }
   }, [viewingDiff, diffFile, diffCommitHash, repoPath])
 
-  // Reset to diff view when file changes
+  // Reset file content caches when file changes (but keep the persisted view mode)
   useEffect(() => {
-    setCenterViewMode('diff')
     setFileContent(null)
     setFileError(null)
     setFullOldContent(null)
@@ -428,15 +443,20 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
                       <AlertTriangle size={14} /> {fullError}
                     </div>
                   )}
-                  {!fullLoading && !fullError && fullOldContent !== null && fullNewContent !== null && diffContent !== null && (
-                    <FullDiffView
-                      oldContent={fullOldContent}
-                      newContent={fullNewContent}
-                      diffContent={diffContent}
-                      filePath={diffFile}
-                      className={styles.centerDiffViewer}
-                    />
-                  )}
+                  {!fullLoading && !fullError && fullOldContent !== null && fullNewContent !== null && diffContent !== null && (() => {
+                    const fileDetail = selectedCommit?.fileDetails.find(f => f.path === diffFile)
+                    return (
+                      <FullDiffView
+                        oldContent={fullOldContent}
+                        newContent={fullNewContent}
+                        diffContent={diffContent}
+                        filePath={diffFile}
+                        className={styles.centerDiffViewer}
+                        fileStatus={fileDetail?.status}
+                        oldPath={fileDetail?.oldPath}
+                      />
+                    )
+                  })()}
                 </div>
               )}
 

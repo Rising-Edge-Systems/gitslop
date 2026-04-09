@@ -518,6 +518,33 @@
   font-style: italic;
 }
 
+.fullDiffRenameHeader {
+  padding: 6px var(--space-md);
+  font-size: var(--font-sm);
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: rgba(137, 180, 250, 0.06);
+  border-bottom: 1px solid var(--border);
+}
+
+.fullDiffLoadBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: var(--font-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.fullDiffLoadBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+  background: rgba(137, 180, 250, 0.08);
+}
+
 /* ─── Truncation / Show More ────────────────────────────────────────────── */
 
 .truncated {
