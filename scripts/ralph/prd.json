@@ -1,99 +1,70 @@
 {
   "project": "GitSlop",
   "branchName": "feature/commit-graph-visual-feedback",
-  "description": "Upgrade commit graph visual feedback: remote/local HEAD indicators, branch labels in commit details, clearer branch attribution per commit.",
+  "description": "Add full-file diff view mode — shows complete old and new files side by side with changes highlighted.",
   "userStories": [
     {
-      "id": "US-CG-001",
-      "title": "Remote vs Local Branch Indicators in Commit Graph",
-      "description": "As a user, I want to see where remote branches (origin/main) and local branches (main) are in the commit graph so I know what's pushed and what's local-only.",
+      "id": "US-FD-001",
+      "title": "IPC: Fetch Old File Content at Parent Commit",
+      "description": "As a developer, I need to fetch the old version of a file (from the parent commit) so we can display it alongside the new version.",
       "acceptanceCriteria": [
-        "The commit graph already shows branch labels as pill badges via parseRefs in laneAssignment.ts",
-        "Remote branches (e.g., origin/main) are shown as a separate pill badge with a different color/style than local branches",
-        "Local branch pills use the current accent/branch color",
-        "Remote branch pills use a distinct muted/dimmed style (e.g., var(--text-muted) background with 'origin/' prefix visible)",
-        "If a local branch and its remote tracking branch point to the same commit, both pills are shown side by side",
-        "If they differ (local is ahead), only the local pill appears on the local commit and only the remote pill on the remote commit — making the divergence visible",
-        "HEAD indicator (the glow ring on the HEAD commit) remains unchanged",
+        "Add showFileAtParent(repoPath, commitHash, filePath) method to git-service.ts",
+        "It runs: git show PARENT_HASH:PATH where PARENT_HASH is the first parent of commitHash",
+        "To get the parent hash: git rev-parse COMMIT_HASH^1",
+        "If the file is new (added), return empty string for old content",
+        "If the file is deleted, the new content (from showFileAtCommit) will be empty",
+        "Register IPC handler in git-ipc.ts: 'git:showFileAtParent'",
+        "Expose in preload/index.ts: electronAPI.git.showFileAtParent(repoPath, hash, filePath)",
+        "Add type declaration in useLayoutState.ts Window.electronAPI",
+        "Binary file detection: if content contains null bytes, return { binary: true }",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "The refs are already parsed in laneAssignment.ts parseRefs(). Remote refs have type 'remote' and name like 'origin/main'. The CommitGraph.tsx renders these as pill badges in the commit row. The change is mainly CSS — give remote ref pills a different style class."
+      "notes": "Follow the exact same pattern as the existing showFileAtCommit: git-service.ts method -> git-ipc.ts handler -> preload expose -> type declaration. The parent hash comes from git rev-parse HASH^1. For merge commits with multiple parents, use the first parent."
     },
     {
-      "id": "US-CG-002",
-      "title": "Branch Labels in Commit Detail Panel",
-      "description": "As a user, when I click a commit, I want the detail panel to show which branches contain that commit.",
+      "id": "US-FD-002",
+      "title": "Full Diff View Mode — Side-by-Side Complete Files with Highlights",
+      "description": "As a user, I want a 'Full Diff' view that shows the complete old and new files side by side with changes highlighted in red/green.",
       "acceptanceCriteria": [
-        "The commit detail panel (DetailPanel.tsx) shows a 'Branches' section below the refs/badges area",
-        "This section lists all branches (local and remote) that contain the selected commit",
-        "Use git branch --contains HASH and git branch -r --contains HASH to get the lists",
-        "Add a new IPC handler getBranchesContaining(repoPath, hash) in git-service.ts that runs both commands",
-        "Register in git-ipc.ts, expose in preload, add type declaration",
-        "Local branches shown with GitBranch icon, remote branches shown with Globe icon",
-        "The section is collapsible (like the files section) and starts expanded",
-        "If no branches contain the commit (orphaned), show 'No branches' message",
-        "Loading state while fetching (the git commands can be slow on large repos)",
+        "Add a third view mode toggle button in the center diff header bar: 'Diff' | 'Full' | 'File'",
+        "Diff = existing hunk-based diff view (unchanged)",
+        "File = existing raw file view (unchanged)",
+        "Full = new view: two panes side by side showing complete old file (left) and new file (right)",
+        "In Full mode: fetch old content via showFileAtParent and new content via showFileAtCommit",
+        "Lines that are additions (only in new file) are highlighted with green background",
+        "Lines that are deletions (only in old file) are highlighted with red background",
+        "Lines that are unchanged appear in both panes with no highlight",
+        "Use the existing diff hunks data to determine which line ranges are changed — map hunk line numbers to the full file lines",
+        "Both panes scroll in sync (reuse the existing scroll sync from side-by-side diff view)",
+        "Both panes show line numbers",
+        "Syntax highlighting on all lines (not just changed ones)",
+        "Loading state while fetching both file versions",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "git branch --contains HASH returns local branches. git branch -r --contains HASH returns remote branches. Run both, parse output (branch names, one per line, strip whitespace and * prefix for current branch). This is a new IPC endpoint following the existing pattern: git-service.ts -> git-ipc.ts -> preload -> type declaration."
+      "notes": "The key challenge is mapping diff hunks to full file lines. Parse the diff to find which line numbers in old/new files are changed. Then when rendering the full files, highlight those lines. Can reuse the SideBySideDiffView component as a base — it already has two-pane scroll sync. The difference is it renders ALL lines, not just diff lines. Use the existing DiffHunk data: each hunk has oldStart/oldCount and newStart/newCount plus line-by-line +/- markers."
     },
     {
-      "id": "US-CG-003",
-      "title": "Ahead/Behind Indicator for Current Branch",
-      "description": "As a user, I want to see how many commits my local branch is ahead of or behind its remote tracking branch.",
+      "id": "US-FD-003",
+      "title": "Full Diff View — Polish and Edge Cases",
+      "description": "As a developer, I want the full diff view to handle edge cases and look polished.",
       "acceptanceCriteria": [
-        "In the commit graph header area or the status bar, show 'N ahead, M behind' for the current branch relative to its upstream",
-        "Use the existing git status or git rev-list --left-right --count to get ahead/behind counts",
-        "If ahead > 0: show a green up arrow with count (e.g., '↑3')",
-        "If behind > 0: show a red down arrow with count (e.g., '↓2')",
-        "If both: show both (e.g., '↑3 ↓2')",
-        "If up to date: show a green checkmark or 'Up to date'",
-        "If no upstream configured: show nothing or 'No upstream'",
-        "The indicator updates after fetch/pull/push operations",
+        "New files (added): left pane shows 'New file' placeholder, right pane shows full content all highlighted green",
+        "Deleted files: left pane shows full content all highlighted red, right pane shows 'File deleted' placeholder",
+        "Renamed files: header shows 'old/path → new/path', both files displayed normally",
+        "Binary files: show 'Binary file — cannot display' in both panes",
+        "Large files (>5000 lines): show 'Large file — click to load' placeholder, load on click",
+        "The OLD/NEW pane headers are sticky at the top (position: sticky, top: 0)",
+        "Pane headers show the file path and line count",
+        "The view mode preference (Diff/Full/File) persists — update the existing diffViewMode in LayoutState to support 'inline' | 'side-by-side' | 'full' | 'file'",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "The StatusBar already shows ahead/behind counts from the git status data. This story may already be partially implemented — check StatusBar.tsx. If it's already there, this story is about making it more prominent or adding it to the commit graph header. Use git rev-list --left-right --count HEAD...@{upstream} for accurate counts."
-    },
-    {
-      "id": "US-CG-004",
-      "title": "Visual Distinction Between Branches in Graph Lanes",
-      "description": "As a user, I want each branch in the commit graph to have a clearly distinct color so I can follow branch history visually.",
-      "acceptanceCriteria": [
-        "The lane assignment algorithm already assigns colors per lane from LANE_COLORS in laneAssignment.ts",
-        "Verify that branch colors are sufficiently distinct — no two adjacent lanes should have similar colors",
-        "The current branch (HEAD) lane should always use var(--accent) color",
-        "Merge lines (bezier curves connecting branches) should use the color of the source branch",
-        "Branch pill badge colors should match their lane color (currently they may use a fixed color)",
-        "Add a subtle vertical lane background stripe (very low opacity, 2-3%) so users can follow a lane even when there are gaps between commits",
-        "Typecheck passes"
-      ],
-      "priority": 4,
-      "passes": true,
-      "notes": "laneAssignment.ts LANE_COLORS is a 10-color Catppuccin palette. The colors are assigned per lane and passed to the SVG renderer in CommitGraph.tsx via node.color. Pill badges currently use fixed CSS classes (refHead, refBranch, etc.) — they should use the lane color instead."
-    },
-    {
-      "id": "US-CG-005",
-      "title": "Commit Graph Row — Show Branch Name Per Commit",
-      "description": "As a user, I want to quickly see which branch a commit belongs to without having to trace the lane lines.",
-      "acceptanceCriteria": [
-        "Each commit row in the graph optionally shows a small branch indicator — the branch name that the commit is most directly associated with",
-        "This is NOT the full ref badges (those only appear on branch tips) — this is a subtle muted label showing the branch context",
-        "For commits on the current branch: no extra label needed (the lane color + HEAD indicator is enough)",
-        "For commits on other branches: show a small muted branch name label after the commit message (e.g., 'feature/foo' in var(--text-muted))",
-        "This information comes from the lane assignment — each commit is assigned to a lane which corresponds to a branch",
-        "The label should be truncated with ellipsis if too long (max 120px)",
-        "Can be toggled on/off via a setting or View menu option",
-        "Typecheck passes"
-      ],
-      "priority": 5,
-      "passes": true,
-      "notes": "The lane assignment gives each commit a lane index and color, but doesn't directly track which branch name the lane represents. May need to enhance laneAssignment.ts to track the branch name per lane (the branch that opened the lane). Then pass it through to the commit row renderer."
+      "passes": false,
+      "notes": "Update DiffViewMode type in useLayoutState.ts to include 'full' and 'file'. The mode toggle buttons in DiffViewer need to show 4 options now. The RepoView center diff area already handles 'file' mode separately — add 'full' mode alongside it. Edge cases: for new files, git show PARENT^1:path will fail — catch the error and treat as empty content."
     }
   ]
 }
