@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react'
-import { TitleBar } from './components/TitleBar'
+import { MenuBar } from './components/MenuBar'
 import { TabBar } from './components/TabBar'
 import { AppLayout } from './components/AppLayout'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -175,11 +175,10 @@ function App(): React.JSX.Element {
 
   return (
     <div className="app">
-      <TitleBar
+      <MenuBar
         repoPath={activeRepoPath}
         theme={settings.theme}
         onToggleTheme={toggleTheme}
-        hasTabs={tabs.length > 0}
       />
       <TabBar
         tabs={tabs}

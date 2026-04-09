@@ -306,8 +306,12 @@ app.whenReady().then(async () => {
     }
   ]
 
+  // Keep the menu for keyboard accelerators but hide it (frameless window has in-app menu)
   const menu = Menu.buildFromTemplate(menuTemplate)
   Menu.setApplicationMenu(menu)
+  if (mainWindow) {
+    mainWindow.setMenuBarVisibility(false)
+  }
 
   // ─── CLI: --open-repo <path> support (for GUI testing) ────────────────────
   const openRepoArg = process.argv.find((_, i) => process.argv[i - 1] === '--open-repo')

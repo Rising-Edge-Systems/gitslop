@@ -565,9 +565,15 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         <PanelBottom size={14} />
                       </button>
                     </div>
+                    {/* Detail panel — takes all space when staging collapsed, shrinks when detail collapsed */}
                     <div style={{
-                      height: `calc(${layout.detailStagingSplit}% - 2px)`,
-                      minHeight: 100,
+                      height: layout.detailPanelCollapsed
+                        ? 'auto'
+                        : layout.stagingCollapsed
+                          ? '100%'
+                          : `calc(${layout.detailStagingSplit}% - 2px)`,
+                      minHeight: layout.detailPanelCollapsed ? undefined : 100,
+                      flex: layout.detailPanelCollapsed ? '0 0 auto' : (layout.stagingCollapsed ? '1 1 auto' : undefined),
                       overflow: 'hidden',
                       transition: isDraggingDetailSplit ? 'none' : undefined
                     }}>
@@ -580,25 +586,36 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         onFileListViewChange={setFileListView}
                         detailInternalSplit={layout.detailInternalSplit}
                         onDetailInternalSplitChange={setDetailInternalSplit}
+                        collapsed={layout.detailPanelCollapsed}
+                        onToggleCollapse={toggleDetailPanelCollapse}
                       />
                     </div>
-                    <div
-                      style={{
-                        height: 5,
-                        flexShrink: 0,
-                        cursor: 'row-resize',
-                        background: isDraggingDetailSplit ? 'var(--border)' : 'transparent',
-                        borderTop: '1px solid var(--border)',
-                        transition: 'background 0.15s ease'
-                      }}
-                      onMouseDown={handleDetailSplitDragStart}
-                      onDoubleClick={handleDetailSplitDoubleClick}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
-                      onMouseLeave={(e) => { if (!isDraggingDetailSplit) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
-                    />
+                    {/* Drag handle — only show when both panels are expanded */}
+                    {!layout.stagingCollapsed && !layout.detailPanelCollapsed && (
+                      <div
+                        style={{
+                          height: 5,
+                          flexShrink: 0,
+                          cursor: 'row-resize',
+                          background: isDraggingDetailSplit ? 'var(--border)' : 'transparent',
+                          borderTop: '1px solid var(--border)',
+                          transition: 'background 0.15s ease'
+                        }}
+                        onMouseDown={handleDetailSplitDragStart}
+                        onDoubleClick={handleDetailSplitDoubleClick}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
+                        onMouseLeave={(e) => { if (!isDraggingDetailSplit) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                      />
+                    )}
+                    {/* Staging panel — takes all space when detail collapsed, shrinks when staging collapsed */}
                     <div style={{
-                      height: `calc(${100 - layout.detailStagingSplit}% - 3px)`,
-                      minHeight: 100,
+                      height: layout.stagingCollapsed
+                        ? 'auto'
+                        : layout.detailPanelCollapsed
+                          ? '100%'
+                          : `calc(${100 - layout.detailStagingSplit}% - 3px)`,
+                      minHeight: layout.stagingCollapsed ? undefined : 100,
+                      flex: layout.stagingCollapsed ? '0 0 auto' : (layout.detailPanelCollapsed ? '1 1 auto' : undefined),
                       overflow: 'hidden',
                       transition: isDraggingDetailSplit ? 'none' : undefined
                     }}>

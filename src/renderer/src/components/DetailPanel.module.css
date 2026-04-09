@@ -3,7 +3,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   overflow: hidden;
   animation: detailFadeIn 200ms ease-out;
 }
@@ -37,18 +37,43 @@
   font-size: var(--font-sm);
 }
 
-/* ===== Header ===== */
+/* ===== Header — matches StatusPanel panelHeader style ===== */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
   flex-shrink: 0;
+  cursor: pointer;
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  transition: background-color var(--transition-fast);
+}
+
+.header:hover {
+  background: var(--bg-hover);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.headerChevron {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
 }
 
 .headerTitle {
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;

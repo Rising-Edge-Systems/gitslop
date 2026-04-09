@@ -163,6 +163,10 @@ interface DetailPanelProps {
   detailInternalSplit?: number
   /** Callback to change internal split */
   onDetailInternalSplitChange?: (split: number) => void
+  /** Whether the detail panel is collapsed to just its header */
+  collapsed?: boolean
+  /** Callback to toggle collapse */
+  onToggleCollapse?: () => void
 }
 
 function formatRelativeDate(dateStr: string): string {
@@ -215,7 +219,7 @@ function splitPath(filePath: string): { dir: string; name: string } {
   return { dir: filePath.substring(0, lastSlash + 1), name: filePath.substring(lastSlash + 1) }
 }
 
-export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, fileListView = 'path', onFileListViewChange, detailInternalSplit = 40, onDetailInternalSplitChange }: DetailPanelProps): React.JSX.Element {
+export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, fileListView = 'path', onFileListViewChange, detailInternalSplit = 40, onDetailInternalSplitChange, collapsed = false, onToggleCollapse }: DetailPanelProps): React.JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null)
   const splitContainerRef = useRef<HTMLDivElement>(null)
   const isDraggingInternalSplitRef = useRef(false)
@@ -301,13 +305,20 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
   if (!detail || !commit) {
     return (
       <div ref={panelRef} className={styles.detailPanel}>
-        <div className={styles.header}>
-          <span className={styles.headerTitle}>Commit Details</span>
-        </div>
-        <div className={styles.emptyState}>
-          <GitCommit size={48} className={styles.emptyStateIcon} />
-          <span className={styles.emptyStateText}>Select a commit to view details</span>
-        </div>
+        <button className={styles.header} onClick={onToggleCollapse}>
+          <span className={styles.headerLeft}>
+            <span className={styles.headerChevron}>
+              {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+            </span>
+            <span className={styles.headerTitle}>Commit Details</span>
+          </span>
+        </button>
+        {!collapsed && (
+          <div className={styles.emptyState}>
+            <GitCommit size={48} className={styles.emptyStateIcon} />
+            <span className={styles.emptyStateText}>Select a commit to view details</span>
+          </div>
+        )}
       </div>
     )
   }
@@ -317,11 +328,14 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
       ref={panelRef}
       className={styles.detailPanel}
     >
-      <div className={styles.header}>
-        <span className={styles.headerTitle}>Commit Details</span>
-      </div>
+      <button className={styles.header} onClick={onToggleCollapse} style={{ cursor: onToggleCollapse ? 'pointer' : 'default', width: '100%', border: 'none', textAlign: 'left' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+          {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+          <span className={styles.headerTitle}>Commit Details</span>
+        </span>
+      </button>
 
-      <div ref={splitContainerRef} style={{
+      {collapsed ? null : <div ref={splitContainerRef} style={{
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
@@ -504,7 +518,7 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
             </div>
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }
