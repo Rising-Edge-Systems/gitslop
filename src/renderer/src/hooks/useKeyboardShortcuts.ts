@@ -29,18 +29,25 @@ const shortcutRegistry = new Map<string, ShortcutDefinition>()
 // Listeners notified on registry changes
 const registryListeners = new Set<() => void>()
 
+// Cached snapshot for useSyncExternalStore — must return same reference
+// unless the registry actually changed
+let cachedSnapshot: ShortcutDefinition[] = []
+
 function notifyRegistryListeners(): void {
+  // Rebuild cached snapshot when registry changes
+  cachedSnapshot = Array.from(shortcutRegistry.values()).sort((a, b) => {
+    if (a.category !== b.category) return a.category.localeCompare(b.category)
+    return a.label.localeCompare(b.label)
+  })
   registryListeners.forEach((fn) => fn())
 }
 
 /**
  * Returns a snapshot of all currently registered shortcuts, sorted by category then label.
+ * Returns a stable reference (same array) until the registry changes.
  */
 export function getRegisteredShortcuts(): ShortcutDefinition[] {
-  return Array.from(shortcutRegistry.values()).sort((a, b) => {
-    if (a.category !== b.category) return a.category.localeCompare(b.category)
-    return a.label.localeCompare(b.label)
-  })
+  return cachedSnapshot
 }
 
 /**
