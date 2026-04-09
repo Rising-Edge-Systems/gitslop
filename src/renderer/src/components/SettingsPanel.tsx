@@ -1261,7 +1261,9 @@ function GitHubSection(): React.JSX.Element {
     }
   }, [pat, label, loadAccounts])
 
-  const handleRemoveAccount = useCallback(async (accountId: string) => {
+  const handleRemoveAccount = useCallback(async (accountId: string, accountLabel: string) => {
+    const confirmed = window.confirm(`Remove GitHub account "${accountLabel}"?\n\nThis will delete the stored token. You can re-add it later.`)
+    if (!confirmed) return
     try {
       await window.electronAPI.github.removeAccount(accountId)
       loadAccounts()
@@ -1292,19 +1294,34 @@ function GitHubSection(): React.JSX.Element {
           {accounts.map((acct) => (
             <div key={acct.id} className={styles.ghUserCard}>
               <div className={styles.ghUserInfo}>
-                {acct.avatarUrl && (
+                {acct.avatarUrl ? (
                   <img src={acct.avatarUrl} alt={acct.username} className={styles.ghAvatar}
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                ) : (
+                  <div className={styles.ghAvatar} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-tertiary)' }}>
+                    <Github size={18} />
+                  </div>
                 )}
                 <div className={styles.ghUserDetails}>
-                  <span className={styles.ghUserName}>{acct.label || acct.name}</span>
-                  <span className={styles.ghUserLogin}>@{acct.username}</span>
+                  <span className={styles.ghUserName}>{acct.name || acct.label || acct.username || 'GitHub Account'}</span>
+                  {acct.username && <span className={styles.ghUserLogin}>@{acct.username}</span>}
+                  {acct.label && acct.label !== acct.username && <span className={styles.ghUserLogin} style={{ opacity: 0.6 }}>{acct.label}</span>}
+                  {acct.email && <span className={styles.ghUserEmail}>{acct.email}</span>}
                   {acct.error && <span className={styles.ghError} style={{ marginTop: 2 }}>{acct.error}</span>}
                 </div>
               </div>
-              <button className={styles.ghLogoutBtn} onClick={() => handleRemoveAccount(acct.id)} title="Remove account">
-                <Trash2 size={14} />
-              </button>
+              <div style={{ display: 'flex', gap: 'var(--space-xs)', alignItems: 'center' }}>
+                {acct.username && (
+                  <a href={`https://github.com/${acct.username}`} className={styles.ghProfileLink}
+                    onClick={(e) => { e.preventDefault(); window.open(`https://github.com/${acct.username}`, '_blank') }}
+                    title="View profile">
+                    <ExternalLink size={14} />
+                  </a>
+                )}
+                <button className={styles.ghLogoutBtn} onClick={() => handleRemoveAccount(acct.id, acct.label || acct.username || 'this account')} title="Remove account">
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
