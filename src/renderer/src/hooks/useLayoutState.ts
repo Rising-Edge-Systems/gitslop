@@ -207,6 +207,9 @@ declare global {
         getAccounts: () => Promise<GitServiceResult>
         removeAccount: (accountId: string) => Promise<GitServiceResult>
         isLoggedIn: () => Promise<GitServiceResult>
+        startDeviceFlow: () => Promise<GitServiceResult>
+        pollDeviceFlow: (deviceCode: string, interval: number) => Promise<GitServiceResult>
+        cancelDeviceFlow: () => Promise<GitServiceResult>
         parseRemote: (repoPath: string) => Promise<GitServiceResult>
         listPullRequests: (owner: string, repo: string, state?: string) => Promise<GitServiceResult>
         getPullRequest: (owner: string, repo: string, prNumber: number) => Promise<GitServiceResult>

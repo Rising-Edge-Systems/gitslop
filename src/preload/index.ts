@@ -405,6 +405,12 @@ const electronAPI = {
       ipcRenderer.invoke('github:removeAccount', accountId),
     isLoggedIn: (): Promise<GitServiceResult> =>
       ipcRenderer.invoke('github:isLoggedIn'),
+    startDeviceFlow: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:startDeviceFlow'),
+    pollDeviceFlow: (deviceCode: string, interval: number): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:pollDeviceFlow', deviceCode, interval),
+    cancelDeviceFlow: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:cancelDeviceFlow'),
     parseRemote: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('github:parseRemote', repoPath),
     listPullRequests: (owner: string, repo: string, state?: string): Promise<GitServiceResult> =>

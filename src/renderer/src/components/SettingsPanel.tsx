@@ -1235,6 +1235,13 @@ function GitHubSection(): React.JSX.Element {
   const [showPat, setShowPat] = useState(false)
   const [error, setError] = useState('')
 
+  // Device flow state
+  const [deviceFlowActive, setDeviceFlowActive] = useState(false)
+  const [deviceFlowUserCode, setDeviceFlowUserCode] = useState('')
+  const [deviceFlowVerificationUri, setDeviceFlowVerificationUri] = useState('')
+  const [deviceFlowError, setDeviceFlowError] = useState('')
+  const [deviceFlowCopied, setDeviceFlowCopied] = useState(false)
+
   const loadAccounts = useCallback(async () => {
     try {
       const result = await window.electronAPI.github.getAccounts()
@@ -1285,6 +1292,65 @@ function GitHubSection(): React.JSX.Element {
       // Ignore
     }
   }, [loadAccounts])
+
+  const handleStartDeviceFlow = useCallback(async () => {
+    setDeviceFlowError('')
+    setDeviceFlowCopied(false)
+    try {
+      const result = await window.electronAPI.github.startDeviceFlow()
+      if (!result.success) {
+        setDeviceFlowError(result.error || 'Failed to start login flow')
+        return
+      }
+      const { deviceCode, userCode, verificationUri, interval } = result.data as {
+        deviceCode: string; userCode: string; verificationUri: string; expiresIn: number; interval: number
+      }
+      setDeviceFlowUserCode(userCode)
+      setDeviceFlowVerificationUri(verificationUri)
+      setDeviceFlowActive(true)
+
+      // Start polling in background
+      const pollResult = await window.electronAPI.github.pollDeviceFlow(deviceCode, interval)
+      if (pollResult.success) {
+        const data = pollResult.data as { status: string }
+        if (data.status === 'complete') {
+          setDeviceFlowActive(false)
+          setDeviceFlowUserCode('')
+          setDeviceFlowVerificationUri('')
+          setShowAddForm(false)
+          loadAccounts()
+        }
+      } else {
+        if (pollResult.error !== 'Cancelled') {
+          setDeviceFlowError(pollResult.error || 'Login failed')
+        }
+        setDeviceFlowActive(false)
+      }
+    } catch (err) {
+      setDeviceFlowError(err instanceof Error ? err.message : 'Login failed')
+      setDeviceFlowActive(false)
+    }
+  }, [loadAccounts])
+
+  const handleCancelDeviceFlow = useCallback(async () => {
+    try {
+      await window.electronAPI.github.cancelDeviceFlow()
+    } catch {
+      // Ignore
+    }
+    setDeviceFlowActive(false)
+    setDeviceFlowUserCode('')
+    setDeviceFlowVerificationUri('')
+    setDeviceFlowError('')
+  }, [])
+
+  const handleCopyUserCode = useCallback(() => {
+    if (deviceFlowUserCode) {
+      navigator.clipboard.writeText(deviceFlowUserCode)
+      setDeviceFlowCopied(true)
+      setTimeout(() => setDeviceFlowCopied(false), 2000)
+    }
+  }, [deviceFlowUserCode])
 
   if (loading) {
     return (
@@ -1345,9 +1411,57 @@ function GitHubSection(): React.JSX.Element {
         <p className={styles.ghLoginDesc}>No GitHub accounts connected.</p>
       )}
 
+      {/* Device flow dialog */}
+      {deviceFlowActive && (
+        <div className={styles.ghLoginSection} style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginTop: 'var(--space-sm)', background: 'var(--bg-secondary)' }}>
+          <p className={styles.ghLoginDesc} style={{ fontWeight: 500, marginBottom: 'var(--space-sm)' }}>
+            Sign in with GitHub
+          </p>
+          <p className={styles.ghLoginDesc}>
+            Enter this code at{' '}
+            <a href={deviceFlowVerificationUri} className={styles.ghLink}
+              onClick={(e) => { e.preventDefault(); window.open(deviceFlowVerificationUri, '_blank') }}>
+              {deviceFlowVerificationUri}
+            </a>
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', margin: 'var(--space-md) 0' }}>
+            <code style={{ fontSize: '1.4em', fontWeight: 700, letterSpacing: '0.1em', padding: 'var(--space-xs) var(--space-sm)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+              {deviceFlowUserCode}
+            </code>
+            <button className={styles.ghLoginBtn} onClick={handleCopyUserCode} title="Copy code" style={{ padding: '4px 8px' }}>
+              {deviceFlowCopied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+            <Loader2 size={14} className={styles.sshSpinner} />
+            <span className={styles.ghLoginDesc} style={{ margin: 0 }}>Waiting for authorization…</span>
+          </div>
+          <div style={{ marginTop: 'var(--space-sm)', display: 'flex', gap: 'var(--space-sm)' }}>
+            <button className={styles.ghLoginBtn} onClick={() => window.open(deviceFlowVerificationUri, '_blank')}>
+              <ExternalLink size={14} /> Open GitHub
+            </button>
+            <button className={styles.ghLogoutBtn} onClick={handleCancelDeviceFlow}>
+              Cancel
+            </button>
+          </div>
+          {deviceFlowError && <div className={styles.ghError} style={{ marginTop: 'var(--space-sm)' }}>{deviceFlowError}</div>}
+        </div>
+      )}
+
       {/* Add account form */}
-      {showAddForm ? (
+      {showAddForm && !deviceFlowActive ? (
         <div className={styles.ghLoginSection}>
+          {/* Login with GitHub button (OAuth Device Flow) */}
+          <button className={styles.ghLoginBtn} onClick={handleStartDeviceFlow} style={{ width: '100%', justifyContent: 'center', marginBottom: 'var(--space-md)', padding: '8px 12px' }}>
+            <Github size={16} /> Login with GitHub
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', margin: 'var(--space-sm) 0', opacity: 0.5 }}>
+            <div style={{ flex: 1, height: 1, background: 'var(--border-color)' }} />
+            <span style={{ fontSize: '0.8em', textTransform: 'uppercase' as const }}>or use a token</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--border-color)' }} />
+          </div>
+
           <p className={styles.ghLoginDesc}>
             Add a GitHub account using a Personal Access Token.
             Create one at{' '}
@@ -1383,7 +1497,7 @@ function GitHubSection(): React.JSX.Element {
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 6 }}>
               <button className={styles.ghLoginBtn} onClick={handleAddAccount} disabled={adding || !pat.trim()}>
-                {adding ? <><Loader2 size={14} className={styles.sshSpinner} /> Verifying…</> : <><Github size={14} /> Add Account</>}
+                {adding ? <><Loader2 size={14} className={styles.sshSpinner} /> Verifying…</> : <>Add with Token</>}
               </button>
               <button className={styles.ghLogoutBtn} onClick={() => { setShowAddForm(false); setPat(''); setLabel(''); setError('') }}>
                 Cancel
@@ -1395,11 +1509,13 @@ function GitHubSection(): React.JSX.Element {
             <ShieldCheck size={13} /> Tokens are encrypted and stored securely on this device.
           </p>
         </div>
-      ) : (
+      ) : !deviceFlowActive ? (
         <button className={styles.ghLoginBtn} onClick={() => setShowAddForm(true)} style={{ marginTop: 'var(--space-sm)' }}>
           <Plus size={14} /> Add Account
         </button>
-      )}
+      ) : null}
+
+      {deviceFlowError && !deviceFlowActive && <div className={styles.ghError} style={{ marginTop: 'var(--space-sm)' }}>{deviceFlowError}</div>}
     </div>
   )
 }

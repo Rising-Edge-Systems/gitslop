@@ -602,6 +602,154 @@ ipcMain.handle('github:isLoggedIn', () => {
   return { success: true, data: !!token }
 })
 
+// ─── GitHub OAuth Device Flow ────────────────────────────────────────────
+
+const GITHUB_OAUTH_CLIENT_ID = 'Ov23liAVjXNTZR7qBroD'
+
+// Track active device flow polling so we can cancel it
+let deviceFlowAbortController: { cancelled: boolean } | null = null
+
+function githubFormPost(
+  path: string,
+  body: string
+): Promise<{ statusCode: number; data: string }> {
+  return new Promise((resolve, reject) => {
+    const options: https.RequestOptions = {
+      hostname: 'github.com',
+      path,
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body),
+        'User-Agent': 'GitSlop'
+      }
+    }
+    const req = https.request(options, (res) => {
+      let data = ''
+      res.on('data', (chunk: string) => { data += chunk })
+      res.on('end', () => resolve({ statusCode: res.statusCode || 0, data }))
+    })
+    req.on('error', (err) => reject(err))
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error('Request timed out')) })
+    req.write(body)
+    req.end()
+  })
+}
+
+ipcMain.handle('github:startDeviceFlow', async () => {
+  try {
+    const body = `client_id=${GITHUB_OAUTH_CLIENT_ID}&scope=repo,read:user,read:org`
+    const { statusCode, data } = await githubFormPost('/login/device/code', body)
+    if (statusCode !== 200) {
+      return { success: false, error: `GitHub returned status ${statusCode}` }
+    }
+    const parsed = JSON.parse(data)
+    if (parsed.error) {
+      return { success: false, error: parsed.error_description || parsed.error }
+    }
+    // Reset abort controller for new flow
+    deviceFlowAbortController = { cancelled: false }
+    return {
+      success: true,
+      data: {
+        deviceCode: parsed.device_code,
+        userCode: parsed.user_code,
+        verificationUri: parsed.verification_uri,
+        expiresIn: parsed.expires_in,
+        interval: parsed.interval || 5
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to start device flow' }
+  }
+})
+
+ipcMain.handle('github:pollDeviceFlow', async (_event, deviceCode: string, interval: number) => {
+  // Reset abort controller
+  const controller = deviceFlowAbortController || { cancelled: false }
+  deviceFlowAbortController = controller
+
+  const pollOnce = async (): Promise<{ success: boolean; data?: unknown; error?: string }> => {
+    const body = `client_id=${GITHUB_OAUTH_CLIENT_ID}&device_code=${deviceCode}&grant_type=urn:ietf:params:oauth:grant-type:device_code`
+    const { data } = await githubFormPost('/login/oauth/access_token', body)
+    const parsed = JSON.parse(data)
+
+    if (parsed.access_token) {
+      // Success! Validate token and add account
+      const { statusCode, data: userData } = await githubApiRequest('GET', '/user', parsed.access_token)
+      if (statusCode !== 200) {
+        return { success: false, error: 'Got token but failed to fetch user info' }
+      }
+      const user = JSON.parse(userData)
+      const account: IntegrationAccount = {
+        id: `gh-${Date.now()}`,
+        label: user.login,
+        username: user.login,
+        token: encryptToken(parsed.access_token)
+      }
+      const accounts = store.get('githubAccounts', [])
+      accounts.push(account)
+      store.set('githubAccounts', accounts)
+      return {
+        success: true,
+        data: {
+          status: 'complete',
+          account: { id: account.id, label: account.label, username: user.login, name: user.name || user.login, avatarUrl: user.avatar_url, email: user.email }
+        }
+      }
+    }
+
+    if (parsed.error === 'authorization_pending') {
+      return { success: true, data: { status: 'pending' } }
+    }
+    if (parsed.error === 'slow_down') {
+      return { success: true, data: { status: 'slow_down', interval: parsed.interval || interval + 5 } }
+    }
+    if (parsed.error === 'expired_token') {
+      return { success: false, error: 'Device code expired. Please try again.' }
+    }
+    if (parsed.error === 'access_denied') {
+      return { success: false, error: 'Access denied. The user cancelled the authorization.' }
+    }
+    return { success: false, error: parsed.error_description || parsed.error || 'Unknown error' }
+  }
+
+  // Poll in a loop until success, error, or cancellation
+  let currentInterval = interval
+  const maxAttempts = 360 // 30 minutes at 5s intervals max
+  for (let i = 0; i < maxAttempts; i++) {
+    if (controller.cancelled) {
+      return { success: false, error: 'Cancelled' }
+    }
+    await new Promise(resolve => setTimeout(resolve, currentInterval * 1000))
+    if (controller.cancelled) {
+      return { success: false, error: 'Cancelled' }
+    }
+    try {
+      const result = await pollOnce()
+      if (!result.success) return result
+      const status = (result.data as { status: string; interval?: number }).status
+      if (status === 'complete') return result
+      if (status === 'slow_down') {
+        currentInterval = (result.data as { status: string; interval: number }).interval
+      }
+      // 'pending' — continue polling
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Polling failed' }
+    }
+  }
+  return { success: false, error: 'Polling timed out' }
+})
+
+ipcMain.handle('github:cancelDeviceFlow', () => {
+  if (deviceFlowAbortController) {
+    deviceFlowAbortController.cancelled = true
+    deviceFlowAbortController = null
+  }
+  return { success: true }
+})
+
 // Parse GitHub owner/repo from a remote URL
 function parseGitHubRemote(url: string): { owner: string; repo: string } | null {
   // SSH: git@github.com:owner/repo.git
