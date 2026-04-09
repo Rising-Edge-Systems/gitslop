@@ -213,15 +213,17 @@
 }
 
 .refBranch {
-  background-color: rgba(166, 227, 161, 0.15);
-  color: var(--success);
-  border: 1px solid rgba(166, 227, 161, 0.3);
+  background-color: rgba(137, 180, 250, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(137, 180, 250, 0.25);
 }
 
 .refRemote {
-  background-color: rgba(203, 166, 247, 0.15);
-  color: var(--purple);
-  border: 1px solid rgba(203, 166, 247, 0.3);
+  background-color: rgba(128, 128, 128, 0.1);
+  color: var(--text-muted);
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  font-weight: 500;
+  opacity: 0.85;
 }
 
 .refTag {
