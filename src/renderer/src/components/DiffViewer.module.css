@@ -271,6 +271,8 @@
   position: sticky;
   top: 0;
   z-index: 1;
+  min-width: 100%;
+  width: fit-content;
 }
 
 .hunkHeaderText {
@@ -289,6 +291,8 @@
   line-height: 20px;
   min-height: 20px;
   white-space: pre;
+  min-width: 100%;
+  width: fit-content;
 }
 
 .line:hover {
@@ -413,6 +417,8 @@
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border);
   font-family: var(--font-family);
+  min-width: 100%;
+  width: fit-content;
 }
 
 .sbsHunkHeader {
