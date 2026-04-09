@@ -63,7 +63,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Update DiffViewMode type in useLayoutState.ts to include 'full' and 'file'. The mode toggle buttons in DiffViewer need to show 4 options now. The RepoView center diff area already handles 'file' mode separately — add 'full' mode alongside it. Edge cases: for new files, git show PARENT^1:path will fail — catch the error and treat as empty content."
     }
   ]

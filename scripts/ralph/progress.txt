@@ -18,6 +18,8 @@ Started: Wed Apr 9 2026
 - Build: npx electron-vite build && npx electron --no-sandbox .
 - Center view mode in RepoView.tsx: 'diff' | 'full' | 'file' — separate from DiffViewer's inline/split toggle
 - FullDiffView component is co-located in DiffViewer.tsx to share parseDiff, detectLanguage, SyntaxHighlightedContent
+- DiffViewMode: 'inline' | 'side-by-side' | 'full' | 'file' — persisted in LayoutState, used by RepoView to derive centerViewMode
+- CommitFileDetail: has oldPath for renames, status codes M/A/D/R/C
 ---
 
 ## 2026-04-09 - US-FD-001
@@ -45,4 +47,23 @@ Started: Wed Apr 9 2026
   - parseDiff and detectLanguage are private to DiffViewer.tsx — FullDiffView is co-located to access them
   - Columns icon from lucide-react works well for the "Full" button
   - Build validates after typecheck — run both to be safe
+---
+
+## 2026-04-09 - US-FD-003
+- Implemented Full Diff View polish and edge cases
+- Files changed: DiffViewer.tsx, DiffViewer.module.css, RepoView.tsx, useLayoutState.ts
+- Updated DiffViewMode type to 'inline' | 'side-by-side' | 'full' | 'file' in both DiffViewer.tsx and useLayoutState.ts
+- View mode now persists via LayoutState instead of local state; lastDiffSubMode ref preserves inline/sbs preference
+- New files: left pane shows "New file" placeholder, right pane all green
+- Deleted files: left pane all red, right pane shows "File deleted" placeholder
+- Renamed files: header shows "old/path → new/path"
+- Binary files: both panes show "Binary file — cannot display"
+- Large files (>5000 lines): shows click-to-load placeholder
+- Pane headers sticky (already was) and now show file path + line count
+- **Learnings for future iterations:**
+  - DiffViewMode is now a 4-value union; 'inline'/'side-by-side' = diff view, 'full' = full diff, 'file' = raw file
+  - centerViewMode in RepoView is now derived from the persisted diffViewMode, not local state
+  - lastDiffSubMode ref pattern: preserves the inline/sbs preference when switching to full/file and back
+  - CommitFileDetail has oldPath for renamed files and status codes: M, A, D, R, C
+  - For large file gating, use a state flag (loadLargeFile) toggled by click, re-checked in render
 ---
