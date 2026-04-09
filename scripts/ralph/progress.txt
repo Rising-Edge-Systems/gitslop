@@ -41,3 +41,15 @@ Started: Wed Apr 9 2026
   - FullDiffView already had markers from US-SM-001; only SideBySideDiffView needed them for this story
   - The `hunkHeaderSet` variable in SideBySideDiffView is unused but predates our changes
 ---
+
+## 2026-04-09 - US-SM-003
+- Added viewport indicator to ScrollbarMarkers component: a semi-transparent rectangle showing the currently visible portion of the file
+- Uses useState + useEffect with requestAnimationFrame-throttled scroll handler for smooth real-time updates
+- Also observes container resize via ResizeObserver to stay accurate when content changes
+- Viewport div has z-index: -1 (behind markers), 1px border using var(--border), rgba(255,255,255,0.05) background
+- Files changed: DiffViewer.tsx, DiffViewer.module.css
+- **Learnings for future iterations:**
+  - The viewport indicator is rendered inside the scrollbarMarkerColumn div, so z-index: -1 puts it behind sibling marker divs
+  - Using requestAnimationFrame to throttle scroll updates prevents jank
+  - ResizeObserver on the scroll container catches content height changes that affect viewport proportions
+---

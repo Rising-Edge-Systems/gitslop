@@ -52,7 +52,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Listen to the scroll event on the diff container. Calculate viewport rect: top = (scrollTop / scrollHeight) * markerColumnHeight, height = (clientHeight / scrollHeight) * markerColumnHeight. Render as an absolute-positioned div. Update via onScroll handler with requestAnimationFrame for smooth updates."
     }
   ]
