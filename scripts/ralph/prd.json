@@ -1,110 +1,99 @@
 {
   "project": "GitSlop",
-  "branchName": "ralph/ux-overhaul",
-  "description": "Internal panel resizing, dark-themed scrollbars, application menu bar (File/Edit/View/Help), and panel position toggle.",
+  "branchName": "feature/commit-graph-visual-feedback",
+  "description": "Upgrade commit graph visual feedback: remote/local HEAD indicators, branch labels in commit details, clearer branch attribution per commit.",
   "userStories": [
     {
-      "id": "US-PM-001",
-      "title": "Resizable Staging Area Internal Split",
-      "description": "As a user, I want to drag the divider between file lists and commit form in the staging area.",
+      "id": "US-CG-001",
+      "title": "Remote vs Local Branch Indicators in Commit Graph",
+      "description": "As a user, I want to see where remote branches (origin/main) and local branches (main) are in the commit graph so I know what's pushed and what's local-only.",
       "acceptanceCriteria": [
-        "The gray line between file lists (unstaged/staged) and commit form is a 5px draggable handle",
-        "Cursor: row-resize on hover, subtle highlight",
-        "Dragging adjusts the vertical split between file lists (top) and commit form (bottom)",
-        "Min heights: file lists 80px, commit form 120px",
-        "Add stagingInternalSplit: number (percent for file list share, default 65) to LayoutState",
-        "Split persists across restarts via existing debounced localStorage save",
-        "Uses mousedown/mousemove/mouseup drag pattern (same as sidebar/right panel handles)",
+        "The commit graph already shows branch labels as pill badges via parseRefs in laneAssignment.ts",
+        "Remote branches (e.g., origin/main) are shown as a separate pill badge with a different color/style than local branches",
+        "Local branch pills use the current accent/branch color",
+        "Remote branch pills use a distinct muted/dimmed style (e.g., var(--text-muted) background with 'origin/' prefix visible)",
+        "If a local branch and its remote tracking branch point to the same commit, both pills are shown side by side",
+        "If they differ (local is ahead), only the local pill appears on the local commit and only the remote pill on the remote commit — making the divergence visible",
+        "HEAD indicator (the glow ring on the HEAD commit) remains unchanged",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "StatusPanel.tsx renders the file lists and commit form. The commit form is in styles.commitForm div. The divider is the borderTop on the commit form section. Replace with a drag handle div."
+      "notes": "The refs are already parsed in laneAssignment.ts parseRefs(). Remote refs have type 'remote' and name like 'origin/main'. The CommitGraph.tsx renders these as pill badges in the commit row. The change is mainly CSS — give remote ref pills a different style class."
     },
     {
-      "id": "US-PM-002",
-      "title": "Resizable Commit Details Internal Split",
-      "description": "As a user, I want to drag the divider between commit metadata and the changed files list.",
+      "id": "US-CG-002",
+      "title": "Branch Labels in Commit Detail Panel",
+      "description": "As a user, when I click a commit, I want the detail panel to show which branches contain that commit.",
       "acceptanceCriteria": [
-        "The gray line between commit metadata (subject, author, date, body) and files section is a 5px draggable handle",
-        "Cursor: row-resize on hover, subtle highlight",
-        "Dragging adjusts the split: metadata above, files below",
-        "Min heights: metadata 100px, files 80px",
-        "Add detailInternalSplit: number (percent for metadata share, default 40) to LayoutState",
-        "Split persists across restarts",
+        "The commit detail panel (DetailPanel.tsx) shows a 'Branches' section below the refs/badges area",
+        "This section lists all branches (local and remote) that contain the selected commit",
+        "Use git branch --contains HASH and git branch -r --contains HASH to get the lists",
+        "Add a new IPC handler getBranchesContaining(repoPath, hash) in git-service.ts that runs both commands",
+        "Register in git-ipc.ts, expose in preload, add type declaration",
+        "Local branches shown with GitBranch icon, remote branches shown with Globe icon",
+        "The section is collapsible (like the files section) and starts expanded",
+        "If no branches contain the commit (orphaned), show 'No branches' message",
+        "Loading state while fetching (the git commands can be slow on large repos)",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "DetailPanel.tsx renders metadata in styles.content div, then files in styles.filesSection div."
+      "notes": "git branch --contains HASH returns local branches. git branch -r --contains HASH returns remote branches. Run both, parse output (branch names, one per line, strip whitespace and * prefix for current branch). This is a new IPC endpoint following the existing pattern: git-service.ts -> git-ipc.ts -> preload -> type declaration."
     },
     {
-      "id": "US-PM-003",
-      "title": "Dark-Themed Scrollbars",
-      "description": "As a user, I want scrollbars to match the dark theme instead of being bright white.",
+      "id": "US-CG-003",
+      "title": "Ahead/Behind Indicator for Current Branch",
+      "description": "As a user, I want to see how many commits my local branch is ahead of or behind its remote tracking branch.",
       "acceptanceCriteria": [
-        "Add ::-webkit-scrollbar CSS to global.css: width 8px, border-radius 4px",
-        "Scrollbar track: transparent or var(--bg-primary)",
-        "Scrollbar thumb: var(--border) color with border-radius 4px",
-        "Scrollbar thumb:hover: slightly brighter (var(--text-muted) or similar)",
-        "Light theme [data-theme='light'] gets appropriate light-themed scrollbar colors",
-        "Applied globally so all scrollable areas get themed scrollbars",
+        "In the commit graph header area or the status bar, show 'N ahead, M behind' for the current branch relative to its upstream",
+        "Use the existing git status or git rev-list --left-right --count to get ahead/behind counts",
+        "If ahead > 0: show a green up arrow with count (e.g., '↑3')",
+        "If behind > 0: show a red down arrow with count (e.g., '↓2')",
+        "If both: show both (e.g., '↑3 ↓2')",
+        "If up to date: show a green checkmark or 'Up to date'",
+        "If no upstream configured: show nothing or 'No upstream'",
+        "The indicator updates after fetch/pull/push operations",
         "Typecheck passes"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Add to global.css. Use ::-webkit-scrollbar, ::-webkit-scrollbar-track, ::-webkit-scrollbar-thumb. Electron uses Chromium so webkit prefix works."
+      "notes": "The StatusBar already shows ahead/behind counts from the git status data. This story may already be partially implemented — check StatusBar.tsx. If it's already there, this story is about making it more prominent or adding it to the commit graph header. Use git rev-list --left-right --count HEAD...@{upstream} for accurate counts."
     },
     {
-      "id": "US-PM-004",
-      "title": "Application Menu Bar — File Menu",
-      "description": "As a user, I want a File menu with repository operations.",
+      "id": "US-CG-004",
+      "title": "Visual Distinction Between Branches in Graph Lanes",
+      "description": "As a user, I want each branch in the commit graph to have a clearly distinct color so I can follow branch history visually.",
       "acceptanceCriteria": [
-        "Native Electron menu in src/main/index.ts using Menu.buildFromTemplate() and Menu.setApplicationMenu()",
-        "File menu: New Window, Open Repository (Ctrl+O), Clone Repository (Ctrl+Shift+C), Init Repository, separator, Close Tab (Ctrl+W), separator, Settings (Ctrl+comma), separator, Quit (Ctrl+Q)",
-        "Open Repository triggers dialog.showOpenDialog and sends path to renderer via IPC",
-        "Clone/Close Tab/Settings send IPC events to renderer",
-        "Renderer listens for menu IPC events in App.tsx and triggers appropriate actions",
-        "Add IPC listeners in preload exposed via electronAPI",
+        "The lane assignment algorithm already assigns colors per lane from LANE_COLORS in laneAssignment.ts",
+        "Verify that branch colors are sufficiently distinct — no two adjacent lanes should have similar colors",
+        "The current branch (HEAD) lane should always use var(--accent) color",
+        "Merge lines (bezier curves connecting branches) should use the color of the source branch",
+        "Branch pill badge colors should match their lane color (currently they may use a fixed color)",
+        "Add a subtle vertical lane background stripe (very low opacity, 2-3%) so users can follow a lane even when there are gaps between commits",
         "Typecheck passes"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Import Menu from electron in main/index.ts. Build template in app.whenReady(). IPC: mainWindow.webContents.send('menu:X'). Preload: ipcRenderer.on('menu:X', callback)."
+      "notes": "laneAssignment.ts LANE_COLORS is a 10-color Catppuccin palette. The colors are assigned per lane and passed to the SVG renderer in CommitGraph.tsx via node.color. Pill badges currently use fixed CSS classes (refHead, refBranch, etc.) — they should use the lane color instead."
     },
     {
-      "id": "US-PM-005",
-      "title": "Application Menu Bar — Edit, View, Help Menus",
-      "description": "As a user, I want Edit, View, and Help menus.",
+      "id": "US-CG-005",
+      "title": "Commit Graph Row — Show Branch Name Per Commit",
+      "description": "As a user, I want to quickly see which branch a commit belongs to without having to trace the lane lines.",
       "acceptanceCriteria": [
-        "Edit menu: Undo, Redo, Cut, Copy, Paste, Select All — all role-based Electron menu items",
-        "View menu: Toggle Sidebar (IPC), Toggle Terminal (IPC), separator, Zoom In/Out/Reset (role-based), separator, Toggle Full Screen (role), separator, Dev Tools (role)",
-        "Help menu: Keyboard Shortcuts (IPC), separator, About GitSlop (dialog with app name, version, Electron version)",
-        "About uses dialog.showMessageBox() in main process",
-        "Renderer handles menu IPC events for sidebar/terminal toggles and keyboard shortcuts panel",
+        "Each commit row in the graph optionally shows a small branch indicator — the branch name that the commit is most directly associated with",
+        "This is NOT the full ref badges (those only appear on branch tips) — this is a subtle muted label showing the branch context",
+        "For commits on the current branch: no extra label needed (the lane color + HEAD indicator is enough)",
+        "For commits on other branches: show a small muted branch name label after the commit message (e.g., 'feature/foo' in var(--text-muted))",
+        "This information comes from the lane assignment — each commit is assigned to a lane which corresponds to a branch",
+        "The label should be truncated with ellipsis if too long (max 120px)",
+        "Can be toggled on/off via a setting or View menu option",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Add to same Menu.buildFromTemplate() from US-PM-004. Edit is entirely role-based. View mixes roles with IPC. Help uses dialog.showMessageBox for About."
-    },
-    {
-      "id": "US-PM-006",
-      "title": "Movable Right Panel Position (Right or Bottom)",
-      "description": "As a user, I want to move the right panel to the bottom of the screen.",
-      "acceptanceCriteria": [
-        "Add rightPanelPosition: 'right' | 'bottom' to LayoutState with default 'right'",
-        "When 'right': current layout — detail+staging as a column on the right",
-        "When 'bottom': detail+staging renders below center as a horizontal strip, full width",
-        "In bottom position: detail and staging are side-by-side (flex-direction: row)",
-        "A toggle button in the right panel header switches position",
-        "Position persists across restarts",
-        "Terminal panel always stays at the very bottom below everything",
-        "Typecheck passes"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": "In AppLayout: if rightPanelPosition is 'bottom', render detail+staging below center. Use a toggle button instead of drag-and-drop."
+      "passes": false,
+      "notes": "The lane assignment gives each commit a lane index and color, but doesn't directly track which branch name the lane represents. May need to enhance laneAssignment.ts to track the branch name per lane (the branch that opened the lane). Then pass it through to the commit row renderer."
     }
   ]
 }

@@ -5,7 +5,7 @@ import { DiffViewer } from './DiffViewer'
 import { ResetDialog } from './ResetDialog'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { CommitGraphSkeleton } from './Skeleton'
-import { assignLanes, type ParsedRef, type ParentConnection } from './laneAssignment'
+import { assignLanes, LANE_COLORS, type ParsedRef, type ParentConnection } from './laneAssignment'
 import styles from './CommitGraph.module.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -219,12 +219,44 @@ const GraphSVG = React.memo(function GraphSVG({
 
   const hashIndex = useMemo(() => buildHashIndex(nodes), [nodes])
 
+  // Build lane→color map for merge line coloring (source branch color)
+  const laneColorMap = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const n of nodes) {
+      if (!map.has(n.lane)) map.set(n.lane, n.color)
+    }
+    return map
+  }, [nodes])
+
+  // Collect all active lane indices for background stripes
+  const activeLanes = useMemo(() => {
+    const lanes = new Set<number>()
+    for (const n of nodes) lanes.add(n.lane)
+    return lanes
+  }, [nodes])
+
   // Render a buffer around visible range — generous buffer prevents gaps during fast scrolling
   const renderStart = Math.max(0, visibleStartIndex - 15)
   const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 15)
 
+  const stripes: React.JSX.Element[] = []
   const lines: React.JSX.Element[] = []
   const circles: React.JSX.Element[] = []
+
+  // Draw subtle vertical lane background stripes (2-3% opacity)
+  activeLanes.forEach((lane) => {
+    const lx = GRAPH_LEFT_PAD + lane * GRAPH_COL_WIDTH
+    const color = laneColorMap.get(lane) || LANE_COLORS[0]
+    stripes.push(
+      <line
+        key={`stripe-${lane}`}
+        x1={lx} y1={0} x2={lx} y2={height}
+        stroke={color}
+        strokeWidth={GRAPH_COL_WIDTH - 2}
+        opacity={0.03}
+      />
+    )
+  })
 
   for (let i = renderStart; i <= renderStop; i++) {
     const node = nodes[i]
@@ -238,7 +270,8 @@ const GraphSVG = React.memo(function GraphSVG({
       const fromX = GRAPH_LEFT_PAD + conn.fromLane * GRAPH_COL_WIDTH
       const toX = GRAPH_LEFT_PAD + conn.toLane * GRAPH_COL_WIDTH
       const parentIdx = hashIndex.get(conn.parentHash)
-      const lineColor = node.color
+      // For merge connections (p > 0), use the source branch color (parent's lane color)
+      const lineColor = p > 0 ? (laneColorMap.get(conn.toLane) || node.color) : node.color
 
       if (parentIdx === undefined) {
         // Parent not in data — draw line going down off screen
@@ -333,7 +366,9 @@ const GraphSVG = React.memo(function GraphSVG({
       className={styles.svgGraph}
       style={{ width, height, position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
     >
-      {/* Lines rendered first (below nodes) */}
+      {/* Lane background stripes (lowest layer) */}
+      {stripes}
+      {/* Lines rendered above stripes */}
       {lines}
       {/* Nodes rendered on top */}
       {circles}
@@ -378,6 +413,24 @@ const GraphCanvas = React.memo(function GraphCanvas({
   const renderStart = Math.max(0, visibleStartIndex - 15)
   const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 15)
 
+  // Build lane→color map for merge line coloring (source branch color)
+  // Resolve CSS variables (e.g., var(--accent)) to actual colors for Canvas rendering
+  const laneColorMap = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const n of nodes) {
+      if (!map.has(n.lane)) {
+        let color = n.color
+        if (color.startsWith('var(')) {
+          const varName = color.replace(/^var\(/, '').replace(/\)$/, '')
+          const resolved = getComputedStyle(document.documentElement).getPropertyValue(varName).trim()
+          if (resolved) color = resolved
+        }
+        map.set(n.lane, color)
+      }
+    }
+    return map
+  }, [nodes])
+
   // Draw on canvas whenever visible range or data changes
   useEffect(() => {
     const canvas = canvasRef.current
@@ -392,6 +445,22 @@ const GraphCanvas = React.memo(function GraphCanvas({
     ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, width, height)
 
+    // Draw subtle lane background stripes (2-3% opacity)
+    ctx.globalAlpha = 0.03
+    const activeLanesSet = new Set<number>()
+    for (const n of nodes) activeLanesSet.add(n.lane)
+    activeLanesSet.forEach((lane) => {
+      const lx = GRAPH_LEFT_PAD + lane * GRAPH_COL_WIDTH
+      const color = laneColorMap.get(lane) || LANE_COLORS[0]
+      ctx.strokeStyle = color
+      ctx.lineWidth = GRAPH_COL_WIDTH - 2
+      ctx.beginPath()
+      ctx.moveTo(lx, 0)
+      ctx.lineTo(lx, height)
+      ctx.stroke()
+    })
+    ctx.globalAlpha = 1.0
+
     // Draw lines first (below nodes)
     for (let i = renderStart; i <= renderStop; i++) {
       const node = nodes[i]
@@ -403,7 +472,8 @@ const GraphCanvas = React.memo(function GraphCanvas({
         const fromX = GRAPH_LEFT_PAD + conn.fromLane * GRAPH_COL_WIDTH
         const toX = GRAPH_LEFT_PAD + conn.toLane * GRAPH_COL_WIDTH
         const parentIdx = hashIndex.get(conn.parentHash)
-        const lineColor = node.color
+        // For merge connections (p > 0), use the source branch color
+        const lineColor = p > 0 ? (laneColorMap.get(conn.toLane) || node.color) : node.color
 
         ctx.strokeStyle = lineColor
         ctx.lineWidth = 2
@@ -447,12 +517,14 @@ const GraphCanvas = React.memo(function GraphCanvas({
       const y = i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
       const x = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
       const hasHead = node.refs.some((r) => r.type === 'head')
+      // Resolve CSS variables for Canvas (which can't use var())
+      const nodeColor = laneColorMap.get(node.lane) || node.color
 
       if (hasHead) {
         // HEAD: glow ring
         ctx.beginPath()
         ctx.arc(x, y, HEAD_RING_RADIUS, 0, Math.PI * 2)
-        ctx.strokeStyle = node.color
+        ctx.strokeStyle = nodeColor
         ctx.lineWidth = 2
         ctx.globalAlpha = 0.35
         ctx.stroke()
@@ -461,7 +533,7 @@ const GraphCanvas = React.memo(function GraphCanvas({
         // HEAD: filled node with border
         ctx.beginPath()
         ctx.arc(x, y, HEAD_NODE_RADIUS, 0, Math.PI * 2)
-        ctx.fillStyle = node.color
+        ctx.fillStyle = nodeColor
         ctx.fill()
         ctx.strokeStyle = '#cdd6f4'
         ctx.lineWidth = 2
@@ -473,18 +545,18 @@ const GraphCanvas = React.memo(function GraphCanvas({
         // Use a CSS-like fallback for bg-primary
         ctx.fillStyle = '#1e1e2e'
         ctx.fill()
-        ctx.strokeStyle = node.color
+        ctx.strokeStyle = nodeColor
         ctx.lineWidth = 2
         ctx.stroke()
       } else {
         // Normal node: filled
         ctx.beginPath()
         ctx.arc(x, y, NODE_RADIUS, 0, Math.PI * 2)
-        ctx.fillStyle = node.color
+        ctx.fillStyle = nodeColor
         ctx.fill()
       }
     }
-  }, [nodes, hashIndex, width, height, scrollOffset, renderStart, renderStop])
+  }, [nodes, hashIndex, laneColorMap, width, height, scrollOffset, renderStart, renderStop])
 
   // Hit-testing: map canvas coordinates to commit node indices
   const hitTest = useCallback((clientX: number, clientY: number): number | null => {
@@ -642,17 +714,27 @@ function CommitRowComponent(props: {
 
         {refs.length > 0 && (
           <span className={styles.refs}>
-            {refs.map((ref, idx) => (
-              <span
-                key={idx}
-                className={`${styles.ref} ${refTypeClass[ref.type] || ''}`}
-                title={ref.name}
-                onContextMenu={(e) => handleRefContextMenu(ref, e)}
-              >
-                {ref.type === 'head' && <span className={styles.refHeadIcon}><CircleDot size={12} /> </span>}
-                {ref.name}
-              </span>
-            ))}
+            {refs.map((ref, idx) => {
+              // Branch and head refs use lane color to match their graph lane
+              const useLaneColor = ref.type === 'head' || ref.type === 'branch'
+              const laneColorStyle = useLaneColor ? {
+                backgroundColor: `color-mix(in srgb, ${node.color} 18%, transparent)`,
+                borderColor: `color-mix(in srgb, ${node.color} 30%, transparent)`,
+                color: node.color
+              } : undefined
+              return (
+                <span
+                  key={idx}
+                  className={`${styles.ref} ${refTypeClass[ref.type] || ''}`}
+                  style={laneColorStyle}
+                  title={ref.name}
+                  onContextMenu={(e) => handleRefContextMenu(ref, e)}
+                >
+                  {ref.type === 'head' && <span className={styles.refHeadIcon}><CircleDot size={12} /> </span>}
+                  {ref.name}
+                </span>
+              )
+            })}
           </span>
         )}
 

@@ -111,8 +111,16 @@ export function assignLanes(commits: LaneCommit[]): LaneAssignmentResult[] {
 
   function getColorForLane(lane: number): string {
     if (!laneColorMap.has(lane)) {
-      laneColorMap.set(lane, LANE_COLORS[nextColorIndex % LANE_COLORS.length])
-      nextColorIndex++
+      if (lane === 0 && headCommitIndex >= 0) {
+        // HEAD lane always uses CSS accent color for theme consistency
+        laneColorMap.set(lane, 'var(--accent)')
+        // Still advance color index so other lanes don't get the first palette color
+        // (which is visually similar to --accent)
+        nextColorIndex++
+      } else {
+        laneColorMap.set(lane, LANE_COLORS[nextColorIndex % LANE_COLORS.length])
+        nextColorIndex++
+      }
     }
     return laneColorMap.get(lane)!
   }

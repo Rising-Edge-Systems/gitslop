@@ -218,3 +218,63 @@ Started: Mon Apr 8 2026
   - The bottom strip uses flex-direction:row with a 1px border divider between detail and staging panels
   - No browser testing tools available — manual verification needed
 ---
+
+## 2026-04-09 - US-CG-001
+- Updated CSS styling for commit graph ref pill badges to distinguish remote vs local branches
+- Local branch pills (.refBranch) changed from green/success to blue/accent color to match HEAD styling
+- Remote branch pills (.refRemote) changed from purple to muted/dimmed style using var(--text-muted) color, lower opacity (0.85), and lighter font-weight (500)
+- Files changed: CommitGraph.module.css
+- **Learnings for future iterations:**
+  - parseRefs in laneAssignment.ts categorizes refs: 'head' (HEAD ->), 'branch' (no slash), 'remote' (has slash), 'tag' (tag: prefix)
+  - Ref pill badges rendered in CommitGraph.tsx using refTypeClass map → CSS module classes (refHead, refBranch, refRemote, refTag)
+  - CSS variables for ref colors: --accent (blue), --success (green), --warning (yellow), --purple, --text-muted (gray)
+  - The ref rendering already handles both local+remote pills side by side on same commit — parseRefs returns all refs
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-09 - US-CG-002
+- Added "Branches" section to commit detail panel showing local and remote branches containing the selected commit
+- Backend: added getBranchesContaining(repoPath, hash) in git-service.ts running `git branch --contains` and `git branch -r --contains` in parallel
+- Registered IPC handler in git-ipc.ts, exposed in preload/index.ts, added type declaration in useLayoutState.ts
+- Frontend: collapsible "Branches" section in DetailPanel metadata area with loading spinner, empty state, local (GitBranch icon) and remote (Globe icon) branch items
+- CSS: branchesSection with header, spinner animation, list items with mono font and ellipsis truncation
+- Files changed: git-service.ts, git-ipc.ts, preload/index.ts, useLayoutState.ts, DetailPanel.tsx, DetailPanel.module.css
+- **Learnings for future iterations:**
+  - `git branch --contains HASH` output: lines prefixed with `* ` for current branch, `  ` for others — strip with regex `/^\*?\s+/`
+  - getBranchesContaining runs both local and remote commands via Promise.all for speed
+  - The useEffect for fetching branches uses a `cancelled` flag pattern for cleanup — important since git commands can be slow on large repos
+  - Branches section placed in the metadata scroll area (top section of the internal split), after the body
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-09 - US-CG-003
+- Added ahead/behind indicator to CommitGraph header showing sync status with remote
+- Fetches data via existing getBranches() API, displays green up arrow (↑N ahead) and yellow down arrow (↓N behind)
+- Shows green checkmark "Up to date" when synced, "No upstream" when no tracking branch configured
+- Refreshes on repo change events, manual refresh, and initial load
+- Files changed: CommitGraph.tsx, CommitGraph.module.css
+- **Learnings for future iterations:**
+  - getBranches() returns { isCurrent, current, ahead, behind, upstream } — use `b.isCurrent || b.current` to find current branch
+  - The CommitGraph header uses flex with space-between — use margin-left:auto on middle items to cluster them with the right side
+  - onRepoChanged listener in CommitGraph already triggers loadCommits — add fetchAheadBehind alongside for sync
+  - CSS classes: syncIndicator (container), aheadBadge (green), behindBadge (yellow/warning), upToDate (green muted), noUpstream (italic muted)
+  - No browser testing tools available — manual verification needed
+---
+
+## 2026-04-09 - US-CG-004
+- Enhanced visual distinction between branches in graph lanes
+- HEAD lane (lane 0) now uses var(--accent) CSS variable for theme consistency instead of hardcoded hex
+- Merge lines use source branch color (parent's lane color) instead of child's color
+- Branch/head ref pill badges now use lane color via inline styles with color-mix() for bg/border
+- Added subtle vertical lane background stripes at 3% opacity in both SVG and Canvas renderers
+- Canvas renderer resolves CSS variables via getComputedStyle for compatibility
+- Files changed: laneAssignment.ts, CommitGraph.tsx
+- **Learnings for future iterations:**
+  - Canvas 2D context cannot use CSS variables (var(--foo)) — must resolve via getComputedStyle(document.documentElement).getPropertyValue()
+  - SVG rendered in HTML DOM can use CSS variables in stroke/fill attributes
+  - color-mix(in srgb, color 18%, transparent) works in Chromium/Electron for semi-transparent backgrounds without rgba
+  - Lane 0 is always the HEAD lane due to the pre-reservation in assignLanes()
+  - The Canvas and SVG renderers must be kept in sync — any visual change needs to be applied to both
+  - laneColorMap (lane→color) built from first node per lane is useful for both merge line coloring and pill badge coloring
+  - No browser testing tools available — manual verification needed
+---
