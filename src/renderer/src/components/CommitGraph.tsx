@@ -683,6 +683,7 @@ function CommitRowComponent(props: {
   const isHeadLane = node.lane === 0
   const showLaneBranch = showBranchLabels && !isHeadLane && laneBranch && refs.length === 0
   const isSelected = commit.hash === selectedHash || selectedHashes.has(commit.hash)
+  const isHeadCommit = refs.some((r) => r.type === 'head')
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     onRowClick(index, e)
@@ -704,7 +705,7 @@ function CommitRowComponent(props: {
 
   return (
     <div
-      className={`${styles.row}${isSelected ? ` ${styles.rowSelected}` : ''}`}
+      className={`${styles.row}${isSelected ? ` ${styles.rowSelected}` : ''}${isHeadCommit ? ` ${styles.rowHead}` : ''}`}
       style={style}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
@@ -1053,6 +1054,15 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
   const maxColumns = useMemo(() => {
     if (nodes.length === 0) return 1
     return Math.max(1, ...nodes.map((n) => n.lane + 1))
+  }, [nodes])
+
+  // Find HEAD commit index and branch name for floating indicator
+  const headInfo = useMemo(() => {
+    for (let i = 0; i < nodes.length; i++) {
+      const headRef = nodes[i].refs.find((r) => r.type === 'head')
+      if (headRef) return { index: i, branchName: headRef.name }
+    }
+    return null
   }, [nodes])
 
   const graphWidth = Math.max(GRAPH_MIN_WIDTH, GRAPH_LEFT_PAD + maxColumns * GRAPH_COL_WIDTH + GRAPH_LEFT_PAD)
@@ -1632,6 +1642,17 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
             style={{ height: viewportHeight }}
           />
         </div>
+
+        {/* Floating HEAD indicator when HEAD row is scrolled off-screen */}
+        {headInfo && (visibleRange.start > headInfo.index || visibleRange.stop < headInfo.index) && (
+          <button
+            className={styles.floatingHead}
+            onClick={() => listRef?.scrollToRow({ index: headInfo.index, align: 'center' })}
+            title="Jump to HEAD commit"
+          >
+            <CircleDot size={12} /> HEAD: {headInfo.branchName}
+          </button>
+        )}
 
         {/* Context menu */}
         {contextMenu && (
