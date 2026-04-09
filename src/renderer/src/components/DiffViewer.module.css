@@ -275,9 +275,6 @@
   font-size: var(--font-xs);
   font-family: var(--font-mono);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 1;
 }
 
 .hunkHeaderText {
@@ -435,9 +432,6 @@
   font-family: var(--font-mono);
   opacity: 0.8;
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 24px;
-  z-index: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
