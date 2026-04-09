@@ -1,59 +1,211 @@
 {
   "project": "GitSlop",
-  "branchName": "feature/commit-graph-visual-feedback",
-  "description": "Add scrollbar change markers to diff viewer — colored indicators on the scrollbar showing where additions and deletions are in the file.",
+  "branchName": "feature/mega-polish",
+  "description": "Mega PRD: fix graph bugs, improve merge UI, add missing context menu actions, graph refresh after operations, current branch indicator, profiles, SSH keys, commit signing, GitHub/GitLab integration.",
   "userStories": [
     {
-      "id": "US-SM-001",
-      "title": "Scrollbar Change Markers for Inline Diff View",
-      "description": "As a user, I want colored markers on the scrollbar showing where changes are in the diff so I can quickly navigate to them.",
+      "id": "US-MP-001",
+      "title": "Current Branch Visual Indicator in Commit Graph",
+      "description": "As a user, I want to clearly see which branch I am currently on in the commit graph.",
       "acceptanceCriteria": [
-        "A thin overlay column (8-10px wide) is rendered on the right edge of the inline diff view, overlaying or beside the scrollbar",
-        "The column spans the full height of the scrollable area",
-        "For each changed line in the diff, a small colored marker is rendered at the proportional vertical position: green for additions, red for deletions",
-        "Marker height is proportional — a single changed line is 2-3px, a hunk of 10 changed lines is ~15-20px",
-        "Markers are semi-transparent so overlapping ones blend (opacity 0.6-0.7)",
-        "Clicking a marker scrolls the diff to that position",
-        "The marker column has position: sticky or absolute so it stays visible while scrolling horizontally",
-        "Works for both inline diff view and the full diff view",
+        "The current branch's pill badge in the commit graph has a distinct visual treatment: bold border, brighter color, or a checkmark/dot icon prefix",
+        "The HEAD commit row has a stronger left accent border (3px var(--accent)) to distinguish it from selected commits",
+        "If the current branch label is off-screen (scrolled away), show a small floating indicator at the top of the graph: 'HEAD: branchname'",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "Implementation: render a thin absolute-positioned div on the right edge of the scroll container (.inlineView or .fullDiffPane). Calculate each changed line's position as (lineIndex / totalLines) * containerHeight. Render small colored divs at those positions. For click-to-scroll: onClick calculates the target scrollTop from the click position ratio and scrolls the container. The diff data (hunks with line types) already exists — just need to extract line positions."
+      "passes": false,
+      "notes": "CommitGraph.tsx renders ref badges. The HEAD ref already has a CircleDot icon. Enhancement: make it more prominent. The current branch is available from git status data."
     },
     {
-      "id": "US-SM-002",
-      "title": "Scrollbar Change Markers for Side-by-Side Diff View",
-      "description": "As a user, I want change markers on both panes of the side-by-side diff view.",
+      "id": "US-MP-002",
+      "title": "Graph Refresh After Git Operations",
+      "description": "As a user, I want the commit graph to automatically refresh after merge, rebase, checkout, commit, push, pull, and other git operations.",
       "acceptanceCriteria": [
-        "Each pane (left/old and right/new) in the side-by-side view gets its own marker column",
-        "Left pane markers: red for deleted lines at their proportional positions",
-        "Right pane markers: green for added lines at their proportional positions",
-        "Context lines (unchanged) have no markers",
-        "Clicking a marker scrolls that pane to the position (and the other pane syncs via existing scroll sync)",
-        "Markers work in both the regular side-by-side diff view and the full diff view",
+        "After a successful merge (MergeDialog), the commit graph reloads",
+        "After a successful commit (StatusPanel), the graph reloads",
+        "After checkout, push, pull, fetch, rebase, cherry-pick, revert — graph reloads",
+        "The reload preserves scroll position where possible",
+        "Use the existing onRepoChanged file watcher — verify it fires after all operations",
+        "If watcher doesn't fire for some operations, trigger manual refresh via a callback or event",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Same approach as US-SM-001 but applied to each .sbsPane. The SideBySideDiffView already has scroll sync — clicking a marker on one pane should trigger the scroll handler which syncs the other pane. Each pane's marker column is independently positioned."
+      "passes": false,
+      "notes": "The app has an onRepoChanged file watcher. Check if MergeDialog calls onRefresh after completion. CommitGraph listens to onRepoChanged — verify the listener works. MergeDialog should dispatch a refresh event or call a callback prop after merge completes."
     },
     {
-      "id": "US-SM-003",
-      "title": "Viewport Indicator on Scrollbar Markers",
-      "description": "As a user, I want to see where my current viewport is relative to the change markers.",
+      "id": "US-MP-003",
+      "title": "Add Merge to Commit Right-Click Context Menu",
+      "description": "As a user, I want to merge a branch by right-clicking a commit in the graph.",
       "acceptanceCriteria": [
-        "A semi-transparent rectangle overlay on the marker column shows the currently visible portion of the file",
-        "The rectangle's position and height are proportional to scrollTop and clientHeight relative to scrollHeight",
-        "The rectangle updates in real time as the user scrolls",
-        "The rectangle has a subtle border (1px var(--border)) and very light background (rgba white 5%)",
-        "The viewport indicator is behind the change markers (lower z-index) so markers are always visible",
+        "Right-clicking a commit that has branch refs shows 'Merge [branchname] into [current branch]'",
+        "Clicking opens MergeDialog pre-filled with the selected branch",
+        "If commit has no branch refs or is on current branch, merge option not shown",
+        "After merge completes, graph refreshes",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Listen to the scroll event on the diff container. Calculate viewport rect: top = (scrollTop / scrollHeight) * markerColumnHeight, height = (clientHeight / scrollHeight) * markerColumnHeight. Render as an absolute-positioned div. Update via onScroll handler with requestAnimationFrame for smooth updates."
+      "passes": false,
+      "notes": "Commit context menu in CommitGraph.tsx. Branch ref context menus already have merge. Add merge to the COMMIT context menu when refs are present."
+    },
+    {
+      "id": "US-MP-004",
+      "title": "Redesign MergeDialog — Clean, Polished UI",
+      "description": "As a user, I want the merge dialog to look polished and not crammed.",
+      "acceptanceCriteria": [
+        "Proper modal overlay (centered, max-width 480px, proper padding var(--space-lg))",
+        "Title: 'Merge into [current branch]'",
+        "Branch selector: searchable dropdown showing branches to merge from",
+        "Preview: ahead/behind counts, number of commits to merge",
+        "Options: --no-ff checkbox, --squash checkbox",
+        "Merge button: deep blue (#3b82f6), white text, font-weight 600",
+        "Cancel button: subtle secondary style",
+        "Loading state with spinner during merge",
+        "Error state with clear message",
+        "Success: brief confirmation then auto-close",
+        "Uses MergeDialog.module.css with design tokens, not global branch-dialog classes",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "MergeDialog.tsx (360 lines) needs visual redesign. Currently uses branch-dialog global CSS. Rewrite CSS module. The merge IPC (mergePreview, merge) already exists."
+    },
+    {
+      "id": "US-MP-005",
+      "title": "Enhanced Commit Context Menu",
+      "description": "As a user, I want the commit right-click menu to have all GitKraken-like actions.",
+      "acceptanceCriteria": [
+        "Full menu: Checkout, Cherry-pick, Revert, Reset Soft, Reset Mixed, Reset Hard (with warning), Create branch, Create tag, Copy SHA, Copy commit message",
+        "If commit has branch refs: Merge [branch] into current, Rebase current onto [branch]",
+        "Separators between action groups",
+        "Dangerous actions (Reset Hard) styled in red",
+        "All repo-modifying actions trigger graph refresh",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Existing menu has most items. Add: copy commit message, split reset into soft/mixed/hard, add merge/rebase when branch refs present. Group with separators."
+    },
+    {
+      "id": "US-MP-006",
+      "title": "Profiles — Create, Edit, Switch",
+      "description": "As a user, I want named profiles with author name and email to switch between identities.",
+      "acceptanceCriteria": [
+        "Settings panel has a 'Profiles' section",
+        "Create profile: name, author name (user.name), author email (user.email)",
+        "Edit and delete profiles",
+        "Default profile selection",
+        "Profiles stored in electron-store config.json",
+        "Switching profiles runs git config user.name and user.email on current repo",
+        "Profile indicator in status bar shows active profile",
+        "Quick profile selector in toolbar or status bar",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Store in electron-store: { profiles: [{ id, name, authorName, authorEmail, isDefault }] }. Add IPC for CRUD. Apply via git config commands. SettingsPanel.tsx already has sections — add Profiles."
+    },
+    {
+      "id": "US-MP-007",
+      "title": "SSH Key Management",
+      "description": "As a user, I want to manage SSH keys from within the app.",
+      "acceptanceCriteria": [
+        "Settings has SSH Keys section",
+        "List existing keys from ~/.ssh/",
+        "Generate new key: Ed25519 or RSA, name, optional passphrase",
+        "Uses ssh-keygen via child_process",
+        "Copy public key to clipboard button",
+        "Test connection: ssh -T git@github.com with result display",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Filesystem operations on ~/.ssh/. Use child_process.exec for ssh-keygen. Read directory for key listing. All in main process via IPC."
+    },
+    {
+      "id": "US-MP-008",
+      "title": "Commit Signing Configuration",
+      "description": "As a user, I want to configure GPG or SSH commit signing per profile.",
+      "acceptanceCriteria": [
+        "Profile editor has Signing section: None, GPG, SSH",
+        "GPG: dropdown of available keys (gpg --list-keys), selected stored in profile",
+        "SSH: dropdown of SSH keys, selected stored in profile",
+        "Applying profile sets git config commit.gpgsign, user.signingkey, gpg.format",
+        "Existing signature display in commit details works correctly",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "GPG listing via existing getAvailableGpgKeys IPC. SSH signing: gpg.format=ssh, user.signingkey=path/to/key.pub. Apply via git config on profile switch."
+    },
+    {
+      "id": "US-MP-009",
+      "title": "GitHub Integration — OAuth Login",
+      "description": "As a user, I want to log in to GitHub from GitSlop.",
+      "acceptanceCriteria": [
+        "Settings has GitHub section",
+        "Login uses GitHub OAuth device flow or Personal Access Token input",
+        "Token stored securely (electron safeStorage or encrypted in electron-store)",
+        "Shows logged-in user: avatar, username",
+        "Logout clears token",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "GitHub device flow: POST /login/device/code, show code to user, poll /login/oauth/access_token. Or simpler: let user paste a PAT. Store with safeStorage. GET /user for user info."
+    },
+    {
+      "id": "US-MP-010",
+      "title": "GitHub — View and Create Pull Requests",
+      "description": "As a user, I want to view and create GitHub PRs from within GitSlop.",
+      "acceptanceCriteria": [
+        "When GitHub remote detected, show Pull Requests section in sidebar",
+        "List open PRs: title, number, author, status, CI checks",
+        "Click PR to see details: description, comments, review status, files changed",
+        "Create PR button: dialog with title, description, base branch, head branch",
+        "After creating, show PR URL with link to open in browser",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Parse owner/repo from remote URL. GitHub API: GET /repos/OWNER/REPO/pulls, POST /repos/OWNER/REPO/pulls. New PullRequests component for sidebar."
+    },
+    {
+      "id": "US-MP-011",
+      "title": "GitLab Integration — Login and Merge Requests",
+      "description": "As a user, I want to log in to GitLab and view/create merge requests.",
+      "acceptanceCriteria": [
+        "Settings has GitLab section with instance URL field (gitlab.com default, supports self-hosted)",
+        "Login via Personal Access Token (user pastes token)",
+        "Token stored securely",
+        "Shows logged-in user info",
+        "List open MRs when GitLab remote detected",
+        "Create MR dialog: title, description, source/target branch",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "GitLab API: /api/v4. PAT simpler than OAuth for self-hosted. Parse project from remote URL. Reuse PR list UI components."
+    },
+    {
+      "id": "US-MP-012",
+      "title": "Interactive Rebase UI",
+      "description": "As a user, I want to interactively rebase commits with a visual UI for reordering, squashing, and editing.",
+      "acceptanceCriteria": [
+        "Right-click a branch or commit > 'Interactive rebase' opens the rebase UI",
+        "Shows list of commits to be rebased with drag-to-reorder",
+        "Each commit has a dropdown: pick, squash, fixup, edit, drop, reword",
+        "Preview of the result before executing",
+        "Execute button runs git rebase --interactive with the specified actions",
+        "Progress indicator during rebase",
+        "Conflict resolution integration (existing ConflictResolver)",
+        "Abort button if rebase goes wrong",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "The rebaseInteractive IPC handler already exists. The UI needs: commit list with drag-reorder, action dropdowns, and progress tracking. RebaseDialog.tsx exists but may need enhancement."
     }
   ]
 }

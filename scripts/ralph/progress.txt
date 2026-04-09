@@ -3,53 +3,24 @@ Started: Wed Apr 9 2026
 ---
 
 ## Codebase Patterns
-- DiffViewer.tsx: InlineDiffView and SideBySideDiffView are internal components
-- InlineDiffView: renders inside div.inlineView (overflow: auto), contains div.inlineViewInner (inline-block)
-- SideBySideDiffView: renders inside div.sbsView with two div.sbsPane children, each has div.sbsPaneInner
-- FullFileDiffView: similar to SideBySideDiffView but shows complete files, inside its own container
-- DiffHunk type: { header, headerSuffix, lines[] } where line has { type, content, oldLineNum?, newLineNum? }
-- Line types: 'added' | 'removed' | 'context' | 'meta'
-- Scroll sync in SBS: leftPaneRef/rightPaneRef with onScroll handlers that sync scrollTop
-- CSS modules: styles from './DiffViewer.module.css'
-- The scroll container for inline view is .inlineView, for SBS is each .sbsPane
+- CommitGraph.tsx: ~2000 lines, renders virtualized commit rows with SVG nodes and ref badges
+- Context menus: built with ContextMenu component, items are arrays of { key, label, icon, onClick, danger? }
+- Commit context menu: buildCommitContextMenuItems() function returns ContextMenuEntry[]
+- Branch ref context menu: handleRefContextMenu() builds items for branch/tag/remote refs
+- MergeDialog.tsx: 360 lines, uses global branch-dialog CSS classes (needs CSS module migration)
+- Git operations IPC: git-service.ts -> git-ipc.ts -> preload -> type declarations
+- File watcher: onRepoChanged fires when files change in repo, debounced listeners in components
+- electron-store: used for recent repos, can store profiles/tokens via store.get/set in main process
+- electron safeStorage: for encrypting sensitive data (tokens, keys) before storing
+- Settings: useSettings() hook, SettingsPanel.tsx with tabs
+- StatusBar.tsx: shows branch, ahead/behind, fetch status — can add profile indicator
+- GitHub API: https://api.github.com, needs Authorization: token TOKEN header
+- GitLab API: https://INSTANCE/api/v4, needs PRIVATE-TOKEN header
+- SSH keys: ~/.ssh/ directory, ssh-keygen for generation, ssh -T for testing
+- GPG keys: existing getAvailableGpgKeys IPC handler, git config commit.gpgsign/user.signingkey
 - Typecheck: npm run typecheck
 - Build: npx electron-vite build && npx electron --no-sandbox .
----
-
-## 2026-04-09 - US-SM-001
-- Implemented ScrollbarMarkers component: renders colored markers on a thin absolute-positioned column on the right edge of diff scroll containers
-- Added `computeMarkers()` utility that merges consecutive changed lines into single marker entries with proportional position/height
-- Integrated markers into InlineDiffView (wraps .inlineView in .scrollableWithMarkers) and FullDiffView (wraps each .sbsPane)
-- Click-to-scroll: clicking anywhere on the marker column scrolls the container to that proportional position
-- Files changed: DiffViewer.tsx, DiffViewer.module.css
-- **Learnings for future iterations:**
-  - The `scrollableWithMarkers` wrapper must have `position: relative; flex: 1; overflow: hidden` to work correctly in both flex column (inline) and flex row (SBS) layouts
-  - When wrapping `.sbsPane` in FullDiffView, the wrapper takes on the flex child role so it needs `flex: 1; min-width: 0`
-  - The markers use `clamp(minPx, %, maxPx)` for height to ensure visibility for single lines while capping large hunks
-  - `computeMarkers` merges consecutive same-type lines into single markers for efficiency
----
-
-## 2026-04-09 - US-SM-002
-- Added scrollbar change markers to SideBySideDiffView (the regular side-by-side diff, not FullDiffView which already had them)
-- Left pane gets red markers for removed lines, right pane gets green markers for added lines at proportional positions
-- Wrapped each .sbsPane in scrollableWithMarkers div and added ScrollbarMarkers component
-- Clicking a marker scrolls that pane, and existing scroll sync propagates to the other pane
-- Files changed: DiffViewer.tsx
-- **Learnings for future iterations:**
-  - SideBySideDiffView uses `pairs` array where each pair has `.left` and `.right` — build lineTypes from these for markers
-  - The `scrollableWithMarkers` CSS class already existed from US-SM-001 — just need to wrap panes
-  - FullDiffView already had markers from US-SM-001; only SideBySideDiffView needed them for this story
-  - The `hunkHeaderSet` variable in SideBySideDiffView is unused but predates our changes
----
-
-## 2026-04-09 - US-SM-003
-- Added viewport indicator to ScrollbarMarkers component: a semi-transparent rectangle showing the currently visible portion of the file
-- Uses useState + useEffect with requestAnimationFrame-throttled scroll handler for smooth real-time updates
-- Also observes container resize via ResizeObserver to stay accurate when content changes
-- Viewport div has z-index: -1 (behind markers), 1px border using var(--border), rgba(255,255,255,0.05) background
-- Files changed: DiffViewer.tsx, DiffViewer.module.css
-- **Learnings for future iterations:**
-  - The viewport indicator is rendered inside the scrollbarMarkerColumn div, so z-index: -1 puts it behind sibling marker divs
-  - Using requestAnimationFrame to throttle scroll updates prevents jank
-  - ResizeObserver on the scroll container catches content height changes that affect viewport proportions
+- CSS modules: import styles from './Component.module.css'
+- Design tokens: --accent (#89b4fa), --border, --bg-secondary, --bg-tertiary, --text-muted
+- Commit button color: #3b82f6 (deep blue) for primary actions
 ---
