@@ -9,6 +9,8 @@ Started: Thu Apr  9 04:07:00 PM EDT 2026
 - Git operations in Toolbar.tsx: push (handlePush, handleForcePush, handleSetUpstream), pull (handlePull, handlePullConfirm), fetch (handleFetch) — all use `window.electronAPI.git.*`
 - File watcher: `window.electronAPI.onRepoChanged` fires on file changes; `withWatcherSuppression` in git-ipc.ts wraps operations and calls `sendRepoChangedForced()` after
 - CommitGraph.tsx loadCommits() has an optimization that skips re-render if first+last hash+refs match — force refresh bypasses this
+- Window.electronAPI global type declaration is in `src/renderer/src/hooks/useLayoutState.ts` — must update there when adding new IPC methods
+- IPC method flow: git-service.ts (impl) → git-ipc.ts (handler) → preload/index.ts (bridge) → useLayoutState.ts (type decl)
 
 ## 2026-04-09 16:11 - US-GR-001
 - Implemented `graph:force-refresh` custom event dispatched after successful push/fetch/pull in Toolbar.tsx
@@ -21,4 +23,21 @@ Started: Thu Apr  9 04:07:00 PM EDT 2026
   - All 7 push/fetch/pull code paths in Toolbar.tsx need the event dispatch (push, force push, set upstream push, pull, pull with options, fetch)
   - Sidebar has sub-components (RemotesSection, TagsSection) defined in the same file
   - The main Sidebar component with branch loading is at line ~2677
+---
+
+## 2026-04-09 16:20 - US-GR-002
+- Implemented commit pagination: default 500 commits loaded initially via `maxCount` option
+- Added `skip` option to git-service.ts log() method and IPC bridge for offset-based pagination
+- Added `commitCount()` method to git-service.ts using `git rev-list --count --all` for total count
+- Added "Load more commits (N remaining)" button below the graph viewport
+- Updated graph header to show "Showing N of Total" when there are more commits available
+- Filters (author, date, grep, path) are passed alongside pagination params
+- Added `maxCommits` prop to CommitGraph for future configurability (US-GR-004)
+- Files changed: git-service.ts, git-ipc.ts, preload/index.ts, CommitGraph.tsx, CommitGraph.module.css, useLayoutState.ts
+- **Learnings for future iterations:**
+  - The global Window type declaration for electronAPI is in `useLayoutState.ts` (not a .d.ts file) — must update there when adding new IPC methods
+  - git-service.ts already had `maxCount` support, just needed `skip` added
+  - `git rev-list --count --all` is fast even on large repos — good for total count
+  - CommitGraph accepts a `maxCommits` prop now (defaults to 500 via DEFAULT_PAGE_SIZE constant)
+  - The `loadMoreCommits` function appends to existing commits array via `setCommits(prev => [...prev, ...more])`
 ---

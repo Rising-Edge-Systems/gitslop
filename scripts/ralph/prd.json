@@ -36,7 +36,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Currently git log is called with { all: true } and no maxCount. Add maxCount: 500 to the options. For 'load more', track the skip offset and append to existing commits. The git-service.ts log method already supports maxCount option. The graph header currently shows 'N COMMITS' \u2014 update to show 'Showing N of total'."
     },
     {
