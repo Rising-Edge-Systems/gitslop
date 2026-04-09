@@ -52,7 +52,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "The lane assignment in laneAssignment.ts assigns a new lane for each branch divergence. With many branches, this creates dozens of lanes making the graph very wide and unreadable. GitKraken solves this by only showing active lanes and collapsing merged branches. The key change is in assignLanes() \u2014 track which lanes have visible commits and skip/merge inactive ones."
     },
     {

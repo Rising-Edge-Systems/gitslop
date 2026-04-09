@@ -41,3 +41,19 @@ Started: Thu Apr  9 04:07:00 PM EDT 2026
   - CommitGraph accepts a `maxCommits` prop now (defaults to 500 via DEFAULT_PAGE_SIZE constant)
   - The `loadMoreCommits` function appends to existing commits array via `setCommits(prev => [...prev, ...more])`
 ---
+
+## 2026-04-09 16:35 - US-GR-003
+- Implemented lane compaction via `compactLanes()` in laneAssignment.ts that remaps lanes to be contiguous and caps at MAX_VISIBLE_LANES (18)
+- Lanes beyond the cap are folded into the last visible lane; collapsed branch names are collected
+- Updated `computeGraphLayout()` in CommitGraph.tsx to return a `GraphLayoutResult` with compaction metadata
+- Added `lanesExpanded` state + "+N branches" toggle button in graph header with GitBranch icon
+- Clicking the button expands all lanes (passes Infinity to compactLanes) or collapses back to default
+- Added CSS for `.collapsedLanesButton` in CommitGraph.module.css
+- Added 7 new tests for compactLanes covering: empty input, no-op, capping, parent connection remapping, branch name collection, Infinity bypass
+- Files changed: laneAssignment.ts, CommitGraph.tsx, CommitGraph.module.css, laneAssignment.test.ts
+- **Learnings for future iterations:**
+  - `compactLanes()` is a post-processor on `assignLanes()` output — it remaps lane indices and parent connections
+  - The `computeGraphLayout()` function now returns `GraphLayoutResult` (nodes + collapsedCount/collapsedBranches/totalLanes) instead of just `GraphNode[]`
+  - Lane compaction reassigns colors after remapping to keep them consistent
+  - When testing octopus merges, the number of unique lanes may be less than parent count due to lane reuse by root commits
+---
