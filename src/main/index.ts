@@ -964,12 +964,93 @@ function gitlabApiRequest(
   })
 }
 
-function getGitLabConfig(): { token: string; instanceUrl: string } {
-  const encrypted = store.get('gitlabToken', '')
-  const token = decryptToken(encrypted)
-  const instanceUrl = store.get('gitlabInstanceUrl', 'https://gitlab.com')
-  return { token, instanceUrl }
+// Migrate legacy single GitLab token to multi-account on first access
+function migrateGitLabLegacy(): void {
+  const legacy = store.get('gitlabToken' as keyof StoreSchema, '') as string
+  if (legacy && legacy !== '') {
+    const token = decryptToken(legacy)
+    if (token) {
+      const accounts = store.get('gitlabAccounts', [])
+      if (accounts.length === 0) {
+        const instanceUrl = store.get('gitlabInstanceUrl' as keyof StoreSchema, 'https://gitlab.com') as string
+        accounts.push({ id: `gl-${Date.now()}`, label: 'Default', username: '', token: encryptToken(token), instanceUrl })
+        store.set('gitlabAccounts', accounts)
+      }
+    }
+    store.delete('gitlabToken' as keyof StoreSchema)
+    store.delete('gitlabInstanceUrl' as keyof StoreSchema)
+  }
 }
+
+function getGitLabConfig(): { token: string; instanceUrl: string } {
+  // Try multi-account first (use first account as default)
+  migrateGitLabLegacy()
+  const accounts = store.get('gitlabAccounts', [])
+  if (accounts.length > 0) {
+    const token = decryptToken(accounts[0].token)
+    const instanceUrl = accounts[0].instanceUrl || 'https://gitlab.com'
+    return { token, instanceUrl }
+  }
+  return { token: '', instanceUrl: 'https://gitlab.com' }
+}
+
+ipcMain.handle('gitlab:addAccount', async (_event, pat: string, label: string, instanceUrl?: string) => {
+  try {
+    const baseUrl = instanceUrl || 'https://gitlab.com'
+    const { statusCode, data } = await gitlabApiRequest('GET', '/api/v4/user', pat, baseUrl)
+    if (statusCode !== 200) {
+      let msg = 'Authentication failed'
+      try { msg = JSON.parse(data).message || msg } catch { /* */ }
+      return { success: false, error: msg }
+    }
+    const user = JSON.parse(data)
+    const account: IntegrationAccount = {
+      id: `gl-${Date.now()}`,
+      label: label || user.username,
+      username: user.username,
+      token: encryptToken(pat),
+      instanceUrl: baseUrl
+    }
+    const accounts = store.get('gitlabAccounts', [])
+    accounts.push(account)
+    store.set('gitlabAccounts', accounts)
+    return {
+      success: true,
+      data: { id: account.id, label: account.label, username: user.username, name: user.name || user.username, avatarUrl: user.avatar_url, email: user.email, instanceUrl: baseUrl, webUrl: user.web_url }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Login failed' }
+  }
+})
+
+ipcMain.handle('gitlab:getAccounts', async () => {
+  migrateGitLabLegacy()
+  const accounts = store.get('gitlabAccounts', [])
+  const results = []
+  for (const acct of accounts) {
+    const token = decryptToken(acct.token)
+    if (!token) continue
+    const baseUrl = acct.instanceUrl || 'https://gitlab.com'
+    try {
+      const { statusCode, data } = await gitlabApiRequest('GET', '/api/v4/user', token, baseUrl)
+      if (statusCode === 200) {
+        const user = JSON.parse(data)
+        results.push({ id: acct.id, label: acct.label, username: user.username, name: user.name || user.username, avatarUrl: user.avatar_url, email: user.email, instanceUrl: baseUrl, webUrl: user.web_url })
+      } else {
+        results.push({ id: acct.id, label: acct.label, username: acct.username, name: acct.username, avatarUrl: '', email: '', instanceUrl: baseUrl, webUrl: '', error: 'Token expired' })
+      }
+    } catch {
+      results.push({ id: acct.id, label: acct.label, username: acct.username, name: acct.username, avatarUrl: '', email: '', instanceUrl: baseUrl, webUrl: '', error: 'Connection failed' })
+    }
+  }
+  return { success: true, data: results }
+})
+
+ipcMain.handle('gitlab:removeAccount', (_event, accountId: string) => {
+  const accounts = store.get('gitlabAccounts', [])
+  store.set('gitlabAccounts', accounts.filter((a: IntegrationAccount) => a.id !== accountId))
+  return { success: true }
+})
 
 // Parse GitLab project path from a remote URL
 function parseGitLabRemote(url: string, instanceUrl: string): { projectPath: string; webUrl: string } | null {
@@ -996,12 +1077,10 @@ function parseGitLabRemote(url: string, instanceUrl: string): { projectPath: str
   return null
 }
 
+// Legacy compatibility — login adds as account, getUser returns first account
 ipcMain.handle('gitlab:login', async (_event, pat: string, instanceUrl?: string) => {
   try {
     const baseUrl = instanceUrl || 'https://gitlab.com'
-    // Store instance URL
-    store.set('gitlabInstanceUrl', baseUrl)
-    // Validate PAT by fetching user info
     const { statusCode, data } = await gitlabApiRequest('GET', '/api/v4/user', pat, baseUrl)
     if (statusCode !== 200) {
       let msg = 'Authentication failed'
@@ -1009,9 +1088,17 @@ ipcMain.handle('gitlab:login', async (_event, pat: string, instanceUrl?: string)
       return { success: false, error: msg }
     }
     const user = JSON.parse(data)
-    // Store encrypted token
-    const encrypted = encryptToken(pat)
-    store.set('gitlabToken', encrypted)
+    // Add as multi-account
+    const account: IntegrationAccount = {
+      id: `gl-${Date.now()}`,
+      label: user.username,
+      username: user.username,
+      token: encryptToken(pat),
+      instanceUrl: baseUrl
+    }
+    const accounts = store.get('gitlabAccounts', [])
+    accounts.push(account)
+    store.set('gitlabAccounts', accounts)
     return {
       success: true,
       data: {
@@ -1052,7 +1139,8 @@ ipcMain.handle('gitlab:getUser', async () => {
 })
 
 ipcMain.handle('gitlab:logout', () => {
-  store.set('gitlabToken', '')
+  // Legacy compat: remove all accounts
+  store.set('gitlabAccounts', [])
   return { success: true }
 })
 
@@ -1062,8 +1150,8 @@ ipcMain.handle('gitlab:isLoggedIn', () => {
 })
 
 ipcMain.handle('gitlab:getInstanceUrl', () => {
-  const instanceUrl = store.get('gitlabInstanceUrl', 'https://gitlab.com')
-  return { success: true, data: instanceUrl }
+  const { token, instanceUrl } = getGitLabConfig()
+  return { success: true, data: token ? instanceUrl : 'https://gitlab.com' }
 })
 
 ipcMain.handle('gitlab:parseRemote', async (_event, repoPath: string) => {

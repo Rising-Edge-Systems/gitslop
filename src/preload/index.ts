@@ -427,6 +427,12 @@ const electronAPI = {
       ipcRenderer.invoke('gitlab:getUser'),
     logout: (): Promise<GitServiceResult> =>
       ipcRenderer.invoke('gitlab:logout'),
+    addAccount: (pat: string, label: string, instanceUrl?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:addAccount', pat, label, instanceUrl),
+    getAccounts: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:getAccounts'),
+    removeAccount: (accountId: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:removeAccount', accountId),
     isLoggedIn: (): Promise<GitServiceResult> =>
       ipcRenderer.invoke('gitlab:isLoggedIn'),
     getInstanceUrl: (): Promise<GitServiceResult> =>
