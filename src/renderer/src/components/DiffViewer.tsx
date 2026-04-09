@@ -996,7 +996,7 @@ function SideBySideDiffView({
   return (
     <div className={styles.sbsView}>
       {/* Left pane (old) */}
-      <div className={styles.scrollableWithMarkers}>
+      <div className={styles.diffWithMarkers}>
       <div
         className={`${styles.sbsPane} ${styles.sbsLeft}`}
         ref={leftPaneRef}
@@ -1040,7 +1040,7 @@ function SideBySideDiffView({
       </div>
 
       {/* Right pane (new) */}
-      <div className={styles.scrollableWithMarkers}>
+      <div className={styles.diffWithMarkers}>
       <div
         className={`${styles.sbsPane}`}
         ref={rightPaneRef}
@@ -1263,7 +1263,7 @@ export function FullDiffView({
       )}
       <div className={styles.sbsView}>
         {/* Left pane (old file) */}
-        <div className={styles.scrollableWithMarkers}>
+        <div className={styles.diffWithMarkers}>
         <div
           className={`${styles.sbsPane} ${styles.sbsLeft}`}
           ref={leftPaneRef}
@@ -1298,7 +1298,7 @@ export function FullDiffView({
         </div>
 
         {/* Right pane (new file) */}
-        <div className={styles.scrollableWithMarkers}>
+        <div className={styles.diffWithMarkers}>
         <div
           className={`${styles.sbsPane}`}
           ref={rightPaneRef}
