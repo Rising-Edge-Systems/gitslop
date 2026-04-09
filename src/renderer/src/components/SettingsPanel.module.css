@@ -795,3 +795,96 @@
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   border-color: var(--accent);
 }
+
+/* ─── Profile Signing Badge ─────────────────────────────────────────────── */
+
+.profileSigningBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #22c55e 15%, transparent);
+  color: #4ade80;
+  border: 1px solid color-mix(in srgb, #22c55e 30%, transparent);
+}
+
+/* ─── Signing Section in Profile Form ───────────────────────────────────── */
+
+.signingSection {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border);
+}
+
+.signingSectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.signingMethodSelector {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  padding: 2px;
+  margin-bottom: var(--space-xs);
+}
+
+.signingMethodBtn {
+  flex: 1;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.signingMethodBtn:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+}
+
+.signingMethodBtnActive {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.signingMethodBtnActive:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.signingKeySelect {
+  margin-top: var(--space-xs);
+}
+
+.signingLoading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 6px 0;
+}
+
+.signingNoKeys {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  padding: 6px 0;
+  font-style: italic;
+}

@@ -33,6 +33,9 @@ export interface Profile {
   authorName: string
   authorEmail: string
   isDefault: boolean
+  signingMethod: 'none' | 'gpg' | 'ssh'
+  gpgKeyId?: string
+  sshKeyPath?: string
 }
 
 interface StoreSchema {
@@ -233,6 +236,24 @@ ipcMain.handle('profiles:apply', async (_event, id: string, repoPath: string) =>
   try {
     await gitService.exec(['config', 'user.name', profile.authorName], repoPath)
     await gitService.exec(['config', 'user.email', profile.authorEmail], repoPath)
+
+    // Configure commit signing based on profile settings
+    const signingMethod = profile.signingMethod || 'none'
+    if (signingMethod === 'gpg' && profile.gpgKeyId) {
+      await gitService.exec(['config', 'commit.gpgsign', 'true'], repoPath)
+      await gitService.exec(['config', 'gpg.format', 'openpgp'], repoPath)
+      await gitService.exec(['config', 'user.signingkey', profile.gpgKeyId], repoPath)
+    } else if (signingMethod === 'ssh' && profile.sshKeyPath) {
+      await gitService.exec(['config', 'commit.gpgsign', 'true'], repoPath)
+      await gitService.exec(['config', 'gpg.format', 'ssh'], repoPath)
+      await gitService.exec(['config', 'user.signingkey', profile.sshKeyPath], repoPath)
+    } else {
+      // No signing — disable and unset keys
+      await gitService.exec(['config', 'commit.gpgsign', 'false'], repoPath)
+      try { await gitService.exec(['config', '--unset', 'gpg.format'], repoPath) } catch { /* may not exist */ }
+      try { await gitService.exec(['config', '--unset', 'user.signingkey'], repoPath) } catch { /* may not exist */ }
+    }
+
     store.set('activeProfileId', id)
     return { success: true, data: profile }
   } catch (err) {

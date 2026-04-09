@@ -12,6 +12,9 @@ export interface ProfileData {
   authorName: string
   authorEmail: string
   isDefault: boolean
+  signingMethod: 'none' | 'gpg' | 'ssh'
+  gpgKeyId?: string
+  sshKeyPath?: string
 }
 
 export interface SSHKeyInfo {

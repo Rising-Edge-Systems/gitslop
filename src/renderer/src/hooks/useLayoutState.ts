@@ -183,11 +183,11 @@ declare global {
         removeRecent: (repoPath: string) => Promise<RecentRepo[]>
       }
       profiles: {
-        list: () => Promise<{ id: string; name: string; authorName: string; authorEmail: string; isDefault: boolean }[]>
+        list: () => Promise<{ id: string; name: string; authorName: string; authorEmail: string; isDefault: boolean; signingMethod: 'none' | 'gpg' | 'ssh'; gpgKeyId?: string; sshKeyPath?: string }[]>
         getActive: () => Promise<string>
-        create: (profile: { name: string; authorName: string; authorEmail: string; isDefault: boolean }) => Promise<{ id: string; name: string; authorName: string; authorEmail: string; isDefault: boolean }>
-        update: (id: string, updates: Partial<{ name: string; authorName: string; authorEmail: string; isDefault: boolean }>) => Promise<GitServiceResult>
-        delete: (id: string) => Promise<{ id: string; name: string; authorName: string; authorEmail: string; isDefault: boolean }[]>
+        create: (profile: { name: string; authorName: string; authorEmail: string; isDefault: boolean; signingMethod?: 'none' | 'gpg' | 'ssh'; gpgKeyId?: string; sshKeyPath?: string }) => Promise<{ id: string; name: string; authorName: string; authorEmail: string; isDefault: boolean; signingMethod: 'none' | 'gpg' | 'ssh'; gpgKeyId?: string; sshKeyPath?: string }>
+        update: (id: string, updates: Partial<{ name: string; authorName: string; authorEmail: string; isDefault: boolean; signingMethod: 'none' | 'gpg' | 'ssh'; gpgKeyId?: string; sshKeyPath?: string }>) => Promise<GitServiceResult>
+        delete: (id: string) => Promise<{ id: string; name: string; authorName: string; authorEmail: string; isDefault: boolean; signingMethod: 'none' | 'gpg' | 'ssh'; gpgKeyId?: string; sshKeyPath?: string }[]>
         setActive: (id: string) => Promise<GitServiceResult>
         apply: (id: string, repoPath: string) => Promise<GitServiceResult>
       }

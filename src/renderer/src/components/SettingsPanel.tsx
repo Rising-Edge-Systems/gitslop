@@ -1,8 +1,22 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon, KeyRound, Copy, Loader2, Wifi, WifiOff, Eye, EyeOff } from 'lucide-react'
+import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon, KeyRound, Copy, Loader2, Wifi, WifiOff, Eye, EyeOff, ShieldCheck } from 'lucide-react'
 import type { AppSettings } from '../hooks/useSettings'
 import { DEFAULT_SETTINGS } from '../hooks/useSettings'
 import styles from './SettingsPanel.module.css'
+
+interface GpgKeyInfo {
+  keyId: string
+  uid: string
+  fingerprint: string
+}
+
+interface SSHKeyInfo {
+  name: string
+  path: string
+  pubKeyPath: string
+  type: string
+  fingerprint: string
+}
 
 interface ProfileData {
   id: string
@@ -10,6 +24,9 @@ interface ProfileData {
   authorName: string
   authorEmail: string
   isDefault: boolean
+  signingMethod: 'none' | 'gpg' | 'ssh'
+  gpgKeyId?: string
+  sshKeyPath?: string
 }
 
 type SettingsSection = 'general' | 'appearance' | 'git' | 'editor' | 'keybindings' | 'profiles' | 'sshkeys'
@@ -746,6 +763,12 @@ function ProfilesSection({ currentRepo }: { currentRepo: string | null }): React
   const [formAuthorName, setFormAuthorName] = useState('')
   const [formAuthorEmail, setFormAuthorEmail] = useState('')
   const [formIsDefault, setFormIsDefault] = useState(false)
+  const [formSigningMethod, setFormSigningMethod] = useState<'none' | 'gpg' | 'ssh'>('none')
+  const [formGpgKeyId, setFormGpgKeyId] = useState('')
+  const [formSshKeyPath, setFormSshKeyPath] = useState('')
+  const [gpgKeys, setGpgKeys] = useState<GpgKeyInfo[]>([])
+  const [sshKeys, setSshKeys] = useState<SSHKeyInfo[]>([])
+  const [loadingKeys, setLoadingKeys] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const loadProfiles = useCallback(async () => {
@@ -759,6 +782,23 @@ function ProfilesSection({ currentRepo }: { currentRepo: string | null }): React
     }
   }, [])
 
+  const loadSigningKeys = useCallback(async () => {
+    setLoadingKeys(true)
+    try {
+      const gpgResult = await window.electronAPI.git.getAvailableGpgKeys()
+      if (gpgResult.success && Array.isArray(gpgResult.data)) {
+        setGpgKeys(gpgResult.data)
+      }
+    } catch { /* GPG may not be available */ }
+    try {
+      const sshResult = await window.electronAPI.sshkeys.list()
+      if (sshResult.success && Array.isArray(sshResult.data)) {
+        setSshKeys(sshResult.data)
+      }
+    } catch { /* SSH keys may not exist */ }
+    setLoadingKeys(false)
+  }, [])
+
   useEffect(() => {
     loadProfiles()
   }, [loadProfiles])
@@ -769,7 +809,11 @@ function ProfilesSection({ currentRepo }: { currentRepo: string | null }): React
     setFormAuthorName('')
     setFormAuthorEmail('')
     setFormIsDefault(profiles.length === 0)
+    setFormSigningMethod('none')
+    setFormGpgKeyId('')
+    setFormSshKeyPath('')
     setError(null)
+    loadSigningKeys()
   }
 
   const startEdit = (profile: ProfileData): void => {
@@ -778,7 +822,11 @@ function ProfilesSection({ currentRepo }: { currentRepo: string | null }): React
     setFormAuthorName(profile.authorName)
     setFormAuthorEmail(profile.authorEmail)
     setFormIsDefault(profile.isDefault)
+    setFormSigningMethod(profile.signingMethod || 'none')
+    setFormGpgKeyId(profile.gpgKeyId || '')
+    setFormSshKeyPath(profile.sshKeyPath || '')
     setError(null)
+    loadSigningKeys()
   }
 
   const cancelEdit = (): void => {
@@ -793,19 +841,26 @@ function ProfilesSection({ currentRepo }: { currentRepo: string | null }): React
     }
 
     try {
+      const signingFields = {
+        signingMethod: formSigningMethod,
+        gpgKeyId: formSigningMethod === 'gpg' ? formGpgKeyId : undefined,
+        sshKeyPath: formSigningMethod === 'ssh' ? formSshKeyPath : undefined
+      }
       if (editing === 'new') {
         await window.electronAPI.profiles.create({
           name: formName.trim(),
           authorName: formAuthorName.trim(),
           authorEmail: formAuthorEmail.trim(),
-          isDefault: formIsDefault
+          isDefault: formIsDefault,
+          ...signingFields
         })
       } else if (editing) {
         await window.electronAPI.profiles.update(editing, {
           name: formName.trim(),
           authorName: formAuthorName.trim(),
           authorEmail: formAuthorEmail.trim(),
-          isDefault: formIsDefault
+          isDefault: formIsDefault,
+          ...signingFields
         })
       }
       setEditing(null)
@@ -844,11 +899,78 @@ function ProfilesSection({ currentRepo }: { currentRepo: string | null }): React
     }
   }
 
+  const renderSigningForm = (): React.JSX.Element => (
+    <div className={styles.signingSection}>
+      <div className={styles.signingSectionLabel}>
+        <ShieldCheck size={14} />
+        <span>Commit Signing</span>
+      </div>
+      <div className={styles.signingMethodSelector}>
+        {(['none', 'gpg', 'ssh'] as const).map((method) => (
+          <button
+            key={method}
+            className={`${styles.signingMethodBtn} ${formSigningMethod === method ? styles.signingMethodBtnActive : ''}`}
+            onClick={() => setFormSigningMethod(method)}
+            type="button"
+          >
+            {method === 'none' ? 'None' : method.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      {formSigningMethod === 'gpg' && (
+        <div className={styles.signingKeySelect}>
+          {loadingKeys ? (
+            <div className={styles.signingLoading}><Loader2 size={14} className={styles.sshSpinner} /> Loading GPG keys…</div>
+          ) : gpgKeys.length === 0 ? (
+            <div className={styles.signingNoKeys}>No GPG keys found. Install GPG and generate keys first.</div>
+          ) : (
+            <select
+              className={styles.select}
+              value={formGpgKeyId}
+              onChange={(e) => setFormGpgKeyId(e.target.value)}
+            >
+              <option value="">Select a GPG key…</option>
+              {gpgKeys.map((key) => (
+                <option key={key.keyId} value={key.keyId}>
+                  {key.uid} ({key.keyId.slice(-8)})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+
+      {formSigningMethod === 'ssh' && (
+        <div className={styles.signingKeySelect}>
+          {loadingKeys ? (
+            <div className={styles.signingLoading}><Loader2 size={14} className={styles.sshSpinner} /> Loading SSH keys…</div>
+          ) : sshKeys.length === 0 ? (
+            <div className={styles.signingNoKeys}>No SSH keys found. Generate one in the SSH Keys section.</div>
+          ) : (
+            <select
+              className={styles.select}
+              value={formSshKeyPath}
+              onChange={(e) => setFormSshKeyPath(e.target.value)}
+            >
+              <option value="">Select an SSH key…</option>
+              {sshKeys.map((key) => (
+                <option key={key.pubKeyPath} value={key.pubKeyPath}>
+                  {key.name} ({key.type})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className={styles.section}>
       <h3 className={styles.sectionTitle}>Profiles</h3>
       <p className={styles.sectionDesc}>
-        Manage author identities. Switch profiles to set git user.name and user.email per repository.
+        Manage author identities. Switch profiles to set git user.name, user.email, and commit signing per repository.
       </p>
 
       {error && (
@@ -894,6 +1016,7 @@ function ProfilesSection({ currentRepo }: { currentRepo: string | null }): React
                   />
                   Default profile
                 </label>
+                {renderSigningForm()}
                 <div className={styles.profileFormActions}>
                   <button className={styles.profileSaveBtn} onClick={saveProfile}>Save</button>
                   <button className={styles.profileCancelBtn} onClick={cancelEdit}>Cancel</button>
@@ -906,6 +1029,11 @@ function ProfilesSection({ currentRepo }: { currentRepo: string | null }): React
                     <span className={styles.profileName}>{profile.name}</span>
                     {profile.isDefault && <span className={styles.profileDefaultBadge}>Default</span>}
                     {activeProfileId === profile.id && <span className={styles.profileActiveBadge}>Active</span>}
+                    {(profile.signingMethod === 'gpg' || profile.signingMethod === 'ssh') && (
+                      <span className={styles.profileSigningBadge}>
+                        <ShieldCheck size={10} /> {profile.signingMethod.toUpperCase()}
+                      </span>
+                    )}
                   </div>
                   <span className={styles.profileDetail}>{profile.authorName} &lt;{profile.authorEmail}&gt;</span>
                 </div>
@@ -972,6 +1100,7 @@ function ProfilesSection({ currentRepo }: { currentRepo: string | null }): React
               />
               Default profile
             </label>
+            {renderSigningForm()}
             <div className={styles.profileFormActions}>
               <button className={styles.profileSaveBtn} onClick={saveProfile}>Create</button>
               <button className={styles.profileCancelBtn} onClick={cancelEdit}>Cancel</button>
