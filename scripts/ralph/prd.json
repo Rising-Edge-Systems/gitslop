@@ -168,7 +168,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Parse owner/repo from remote URL. GitHub API: GET /repos/OWNER/REPO/pulls, POST /repos/OWNER/REPO/pulls. New PullRequests component for sidebar."
     },
     {

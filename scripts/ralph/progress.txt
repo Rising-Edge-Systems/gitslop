@@ -192,3 +192,33 @@ Started: Thu Apr  9 03:30:47 AM EDT 2026
   - `Github` icon is available from lucide-react (capital G)
   - StoreSchema was extended with gitlabToken and gitlabInstanceUrl proactively for US-MP-011
 ---
+
+## 2026-04-09 - US-MP-010
+- Implemented GitHub Pull Requests feature: view and create PRs from sidebar
+- Files changed: index.ts, preload/index.ts, useLayoutState.ts, Sidebar.tsx, Sidebar.module.css
+- **What was done:**
+  - Added `parseGitHubRemote()` helper to extract owner/repo from remote URLs (SSH + HTTPS)
+  - Added 4 IPC handlers: `github:parseRemote`, `github:listPullRequests`, `github:getPullRequest`, `github:createPullRequest`
+  - `listPullRequests` fetches open/closed PRs with title, number, author, labels, draft status, branch info
+  - `getPullRequest` fetches full details including comments, reviews, and files changed in parallel
+  - `createPullRequest` creates new PR with title, body, head/base branches, draft option
+  - Exposed all new IPC methods in preload and Window.electronAPI types
+  - Created `PullRequestsSection` component in Sidebar with:
+    - Auto-detection of GitHub remotes (only shows section when GitHub remote detected)
+    - Login check (shows hint if not logged in)
+    - Open/Closed filter toggle with refresh button
+    - PR list with number, title, author, time ago, draft badge, labels, branch info
+    - Click-to-expand PR detail overlay with: description, reviews (with approval/changes_requested states), comments, files changed (with A/D/M/R status indicators), stats (+/-/files)
+    - "Open in Browser" button for each PR
+    - Create PR dialog: title, description, head/base branch selectors, draft checkbox
+    - Success state after creation with link to open in browser
+  - Added 'pullrequests' to RailSection type and RAIL_SECTIONS array
+  - Full CSS module styles following existing design token patterns
+- **Learnings for future iterations:**
+  - `SkeletonList` does not accept a `height` prop — only `count`, `showIcon`, `varyWidths`, `className`
+  - `parseGitHubRemote` uses regex: `/github\.com[:/]([^/]+)\/(.+?)(?:\.git)?$/` — works for both SSH and HTTPS
+  - GitHub API GET /repos/OWNER/REPO/pulls returns PR list; GET /pulls/:number for details
+  - PR reviews are at /pulls/:number/reviews, PR comments at /issues/:number/comments, files at /pulls/:number/files
+  - `window.open(url, '_blank')` works in Electron renderer for opening external links
+  - RailSection type must be updated when adding new sidebar sections (union type + RAIL_SECTIONS array)
+---
