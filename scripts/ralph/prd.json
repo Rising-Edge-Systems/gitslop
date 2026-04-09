@@ -84,7 +84,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "StatusBar.tsx and Sidebar.tsx both listen to onRepoChanged for refresh. After push/fetch/pull, if onRepoChanged doesn't fire, these components won't update either. The graph:force-refresh event should be listened to by all components that show git state."
     },
     {
