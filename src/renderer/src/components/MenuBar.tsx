@@ -123,7 +123,7 @@ export function MenuBar({ repoPath, theme, onToggleTheme, onCloseTab, onOpenSett
         { label: 'Keyboard Shortcuts', accelerator: 'Ctrl+?', onClick: () => window.dispatchEvent(new CustomEvent('menu:keyboard-shortcuts')) },
         { separator: true, label: '' },
         { label: 'About GitSlop', onClick: () => {
-          alert(`GitSlop\n\nA powerful, open-source Git client.`)
+          window.electronAPI.window.about?.()
         }}
       ]
     }
