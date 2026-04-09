@@ -42,6 +42,9 @@ Started: Thu Apr  9 03:30:47 AM EDT 2026
   - The watcher suppression pattern: suppresses during ops + 1s after → file change events are dropped → need explicit event after completion
   - `sendRepoChanged()` is private and checks suppression; `sendRepoChangedForced()` is exported and bypasses it
   - CommitGraph already listens to `repo:changed` via `onRepoChanged` and calls `loadCommits()` — no renderer changes needed
+- Window.electronAPI type declarations are in `src/renderer/src/hooks/useLayoutState.ts` (declare global)
+- electron-store StoreSchema is in `src/main/index.ts` — add new fields there
+- SettingsPanel sections: add id to `SettingsSection` type union, add entry to sections array, add conditional rendering
 ---
 
 ## 2026-04-09 - US-MP-003
@@ -100,4 +103,26 @@ Started: Thu Apr  9 03:30:47 AM EDT 2026
   - `git.rebase(repoPath, ontoBranch)` IPC already available in preload — no backend changes needed for basic rebase
   - `commit.body` contains the full commit message body (separate from `commit.subject`)
   - ResetDialog uses type confirmation ("HARD") for hard resets — safe UX pattern
+---
+
+## 2026-04-09 - US-MP-006
+- Implemented Profiles feature: create, edit, delete, switch author identities
+- Files changed: index.ts, preload/index.ts, App.tsx, SettingsPanel.tsx, SettingsPanel.module.css, StatusBar.tsx, StatusBar.module.css, useLayoutState.ts
+- **What was done:**
+  - Added Profile interface and electron-store schema (profiles array + activeProfileId) in index.ts
+  - Created 7 IPC handlers: profiles:list, profiles:getActive, profiles:create, profiles:update, profiles:delete, profiles:setActive, profiles:apply
+  - profiles:apply sets git config user.name and user.email on the specified repo
+  - Exposed profiles IPC namespace in preload/index.ts with full type definitions
+  - Added ProfileData type to Window.electronAPI in useLayoutState.ts
+  - Added "Profiles" section to SettingsPanel with full CRUD UI: profile cards, edit form, create form
+  - Default profile selection, active profile badge, inline editing
+  - Profile indicator in StatusBar right section showing active profile name with UserCircle icon
+  - Styled with CSS module: profile cards, active/default badges, form controls, action buttons
+  - Passed currentRepo prop through SettingsPanel for apply-to-repo functionality
+- **Learnings for future iterations:**
+  - Window.electronAPI type declarations live in useLayoutState.ts `declare global { interface Window { ... } }`
+  - electron-store schema is in src/main/index.ts StoreSchema interface
+  - SettingsPanel sections defined as array of {id, label, icon} objects — add new id to SettingsSection type union
+  - Profile IPC doesn't use withWatcherSuppression since git config changes don't affect file watcher
+  - SettingsPanel accepts optional currentRepo prop for features that need repo context
 ---

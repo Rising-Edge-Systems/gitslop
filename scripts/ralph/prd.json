@@ -103,7 +103,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Store in electron-store: { profiles: [{ id, name, authorName, authorEmail, isDefault }] }. Add IPC for CRUD. Apply via git config commands. SettingsPanel.tsx already has sections — add Profiles."
     },
     {
