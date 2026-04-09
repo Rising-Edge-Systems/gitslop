@@ -1,26 +1,103 @@
 # Ralph Progress Log
-Started: Wed Apr 9 2026
+Started: Thu Apr  9 03:30:47 AM EDT 2026
 ---
 
 ## Codebase Patterns
-- CommitGraph.tsx: ~2000 lines, renders virtualized commit rows with SVG nodes and ref badges
-- Context menus: built with ContextMenu component, items are arrays of { key, label, icon, onClick, danger? }
-- Commit context menu: buildCommitContextMenuItems() function returns ContextMenuEntry[]
-- Branch ref context menu: handleRefContextMenu() builds items for branch/tag/remote refs
-- MergeDialog.tsx: 360 lines, uses global branch-dialog CSS classes (needs CSS module migration)
-- Git operations IPC: git-service.ts -> git-ipc.ts -> preload -> type declarations
-- File watcher: onRepoChanged fires when files change in repo, debounced listeners in components
-- electron-store: used for recent repos, can store profiles/tokens via store.get/set in main process
-- electron safeStorage: for encrypting sensitive data (tokens, keys) before storing
-- Settings: useSettings() hook, SettingsPanel.tsx with tabs
-- StatusBar.tsx: shows branch, ahead/behind, fetch status — can add profile indicator
-- GitHub API: https://api.github.com, needs Authorization: token TOKEN header
-- GitLab API: https://INSTANCE/api/v4, needs PRIVATE-TOKEN header
-- SSH keys: ~/.ssh/ directory, ssh-keygen for generation, ssh -T for testing
-- GPG keys: existing getAvailableGpgKeys IPC handler, git config commit.gpgsign/user.signingkey
-- Typecheck: npm run typecheck
-- Build: npx electron-vite build && npx electron --no-sandbox .
-- CSS modules: import styles from './Component.module.css'
-- Design tokens: --accent (#89b4fa), --border, --bg-secondary, --bg-tertiary, --text-muted
-- Commit button color: #3b82f6 (deep blue) for primary actions
+- Typecheck: `npm run typecheck` (runs typecheck:node + typecheck:web)
+- CommitGraph.tsx uses react-window v2 with `useListCallbackRef` for list virtualization
+- CSS modules pattern: `styles.className` with `CommitGraph.module.css`
+- HEAD commit identified by `refs.some(r => r.type === 'head')` — type 'head' means the current branch ref
+- Lane 0 is always HEAD lane; lane colors via `color-mix()` CSS function
+- Floating overlays: position absolute within `.container`, z-index 1200+ range
+- `listRef.scrollToRow({ index, align })` for programmatic scrolling
+- Graph nodes computed via `computeGraphLayout(commits)` → `useMemo`
+- All repo-modifying git ops go through `withWatcherSuppression()` in git-ipc.ts — it handles watcher suppression + forced refresh
+- `sendRepoChangedForced()` in index.ts bypasses watcher suppression for explicit repo:changed events
+
+## 2026-04-09 - US-MP-001
+- Implemented current branch visual indicator in commit graph
+- Files changed: CommitGraph.tsx, CommitGraph.module.css
+- **What was done:**
+  - Enhanced HEAD ref badge: bolder border (2px), brighter background, font-weight 700, subtle glow shadow
+  - Added `.rowHead` class: 3px left accent border on HEAD commit row with faint blue background
+  - Added floating HEAD indicator that appears when HEAD is scrolled off-screen, showing "HEAD: branchname" with click-to-scroll functionality
+  - Computed `headInfo` (index + branchName) via useMemo for efficient HEAD tracking
+- **Learnings for future iterations:**
+  - The project uses split tsconfigs: tsconfig.node.json and tsconfig.web.json — use `npm run typecheck` not bare `tsc`
+  - react-window v2 `scrollToRow` takes `{ index, align }` object
+  - `visibleRange` (start/stop) tracks what rows are rendered — use for off-screen detection
+  - Pre-existing TS6305 errors from dist/ folder are noise; only real errors matter
+---
+
+## 2026-04-09 - US-MP-002
+- Implemented automatic graph refresh after all git operations
+- Files changed: src/main/index.ts, src/main/git-ipc.ts
+- **What was done:**
+  - Added `sendRepoChangedForced()` in index.ts: sends `repo:changed` IPC event bypassing watcher suppression (150ms delay for disk writes)
+  - Modified `withWatcherSuppression()` in git-ipc.ts to call `sendRepoChangedForced()` after every successful git operation
+  - All operations using `withWatcherSuppression` (merge, commit, checkout, push, pull, fetch, rebase, cherry-pick, revert, reset, stash, tag, branch ops) now trigger immediate graph refresh
+  - Scroll position preserved naturally: `loadCommits` only updates data array, react-window maintains position
+- **Learnings for future iterations:**
+  - `withWatcherSuppression` is the central wrapper for ALL repo-modifying git ops in git-ipc.ts — modifying it affects everything
+  - The watcher suppression pattern: suppresses during ops + 1s after → file change events are dropped → need explicit event after completion
+  - `sendRepoChanged()` is private and checks suppression; `sendRepoChangedForced()` is exported and bypasses it
+  - CommitGraph already listens to `repo:changed` via `onRepoChanged` and calls `loadCommits()` — no renderer changes needed
+---
+
+## 2026-04-09 - US-MP-003
+- Added merge option to commit right-click context menu
+- Files changed: CommitGraph.tsx
+- **What was done:**
+  - Modified `buildCommitContextMenuItems` to accept `refs` and `currentBranch` parameters
+  - Filters branch/remote refs excluding current branch to build merge menu items
+  - Each mergeable branch shows "Merge [branchname] into [current branch]" with GitMerge icon
+  - Added `mergeBranch` state to CommitGraph; clicking merge opens MergeDialog pre-filled with selected branch
+  - After merge completes, graph refreshes via `loadCommits()`
+  - Updated `handleContextAction` to accept optional `extra` string param for branch name
+- **Learnings for future iterations:**
+  - `buildCommitContextMenuItems` now has 5 params (commit, multiSelectCount, onAction, refs, currentBranch)
+  - `handleContextAction` signature now includes optional `extra?: string` for passing branch names
+  - MergeDialog accepts `preselectedBranch` prop and renders its own overlay — safe to mount anywhere
+  - `headInfo?.branchName` gives current branch name from the graph data
+---
+
+## 2026-04-09 - US-MP-004
+- Redesigned MergeDialog with clean, polished UI — fully self-contained CSS module
+- Files changed: MergeDialog.tsx, MergeDialog.module.css, git-service.ts, git-ipc.ts, preload/index.ts
+- **What was done:**
+  - Replaced all global `branch-dialog-*` classes with self-contained CSS module styles
+  - Proper modal overlay (centered, 480px max-width, var(--space-lg) padding, slide-up animation)
+  - Title: "Merge into [current branch]" with GitMerge icon and accent-colored branch name
+  - Searchable branch dropdown with filtering, selected badge with clear button
+  - Preview section: commit count, fast-forward status with spinner loading
+  - Options: --no-ff and --squash checkboxes (mutually exclusive) instead of radio buttons
+  - Merge button: deep blue (#3b82f6), white text, font-weight 600 with spinner during merge
+  - Cancel button: subtle secondary style
+  - Success state: CheckCircle2 icon with pop-in animation, auto-close after 1.2s
+  - Error state with AlertTriangle icon
+  - Conflict state with file list, abort button, hints
+  - Added --squash support to git-service.ts, git-ipc.ts, and preload/index.ts
+- **Learnings for future iterations:**
+  - MergeDialog now uses ONLY CSS module classes — no global branch-dialog dependencies
+  - The `squash` option was added to the merge IPC: `opts.squash` in git-ipc.ts and git-service.ts
+  - MergeDialog uses searchable dropdown pattern (searchQuery + filteredBranches + dropdownOpen state) — reusable for other dialogs
+  - noFf and squash are mutually exclusive — toggling one off the other
+---
+
+## 2026-04-09 - US-MP-005
+- Enhanced commit right-click context menu with full GitKraken-like actions
+- Files changed: CommitGraph.tsx, ResetDialog.tsx
+- **What was done:**
+  - Split single "Reset" into 3 items: Reset Soft, Reset Mixed, Reset Hard — each opens ResetDialog pre-selected to that mode
+  - Reset Hard marked as `danger: true` — renders in red via existing `.itemDanger` CSS
+  - Added "Copy commit message" action (copies subject + body)
+  - Added "Rebase current onto [branch]" for commits with branch refs (uses existing `git.rebase` IPC)
+  - Added proper separators between action groups: checkout | cherry-pick/revert | resets | merge/rebase | create branch/tag | copy actions
+  - ResetDialog now accepts optional `defaultMode` prop to pre-select the reset mode
+  - Imported `MessageSquare` and `GitPullRequestArrow` icons from lucide-react
+- **Learnings for future iterations:**
+  - `ContextMenu` component auto-inserts separators before `danger: true` items if none exists
+  - `git.rebase(repoPath, ontoBranch)` IPC already available in preload — no backend changes needed for basic rebase
+  - `commit.body` contains the full commit message body (separate from `commit.subject`)
+  - ResetDialog uses type confirmation ("HARD") for hard resets — safe UX pattern
 ---

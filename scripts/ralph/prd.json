@@ -14,7 +14,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "CommitGraph.tsx renders ref badges. The HEAD ref already has a CircleDot icon. Enhancement: make it more prominent. The current branch is available from git status data."
     },
     {
@@ -31,7 +31,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "The app has an onRepoChanged file watcher. Check if MergeDialog calls onRefresh after completion. CommitGraph listens to onRepoChanged — verify the listener works. MergeDialog should dispatch a refresh event or call a callback prop after merge completes."
     },
     {
@@ -46,7 +46,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Commit context menu in CommitGraph.tsx. Branch ref context menus already have merge. Add merge to the COMMIT context menu when refs are present."
     },
     {
@@ -68,7 +68,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "MergeDialog.tsx (360 lines) needs visual redesign. Currently uses branch-dialog global CSS. Rewrite CSS module. The merge IPC (mergePreview, merge) already exists."
     },
     {
@@ -84,7 +84,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Existing menu has most items. Add: copy commit message, split reset into soft/mixed/hard, add merge/rebase when branch refs present. Group with separators."
     },
     {
