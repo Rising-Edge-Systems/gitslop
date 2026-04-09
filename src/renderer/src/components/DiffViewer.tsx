@@ -920,9 +920,34 @@ function SideBySideDiffView({
     return map
   }, [hunkHeaders])
 
+  // Compute scrollbar markers for each pane from paired lines
+  const sbsMarkers = useMemo(() => {
+    const leftTypes: Array<'added' | 'removed' | 'context' | null> = []
+    const rightTypes: Array<'added' | 'removed' | 'context' | null> = []
+    for (const pair of pairs) {
+      // Left pane: only show removed markers (context lines are neutral)
+      if (pair.left) {
+        leftTypes.push(pair.left.type === 'removed' ? 'removed' : 'context')
+      } else {
+        leftTypes.push(null)
+      }
+      // Right pane: only show added markers
+      if (pair.right) {
+        rightTypes.push(pair.right.type === 'added' ? 'added' : 'context')
+      } else {
+        rightTypes.push(null)
+      }
+    }
+    return {
+      left: computeMarkers(leftTypes, pairs.length),
+      right: computeMarkers(rightTypes, pairs.length)
+    }
+  }, [pairs])
+
   return (
     <div className={styles.sbsView}>
       {/* Left pane (old) */}
+      <div className={styles.scrollableWithMarkers}>
       <div
         className={`${styles.sbsPane} ${styles.sbsLeft}`}
         ref={leftPaneRef}
@@ -962,8 +987,11 @@ function SideBySideDiffView({
         })}
         </div>
       </div>
+      <ScrollbarMarkers markers={sbsMarkers.left} containerRef={leftPaneRef} />
+      </div>
 
       {/* Right pane (new) */}
+      <div className={styles.scrollableWithMarkers}>
       <div
         className={`${styles.sbsPane}`}
         ref={rightPaneRef}
@@ -1002,6 +1030,8 @@ function SideBySideDiffView({
           )
         })}
         </div>
+      </div>
+      <ScrollbarMarkers markers={sbsMarkers.right} containerRef={rightPaneRef} />
       </div>
     </div>
   )
