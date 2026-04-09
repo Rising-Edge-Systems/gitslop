@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
-import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine, ArrowUp, ArrowDown, CheckCircle2, MessageSquare, GitPullRequestArrow } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine, ArrowUp, ArrowDown, CheckCircle2, MessageSquare, GitPullRequestArrow, RotateCcw } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { MergeDialog } from './MergeDialog'
+import { RebaseDialog } from './RebaseDialog'
 import { ResetDialog } from './ResetDialog'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { CommitGraphSkeleton } from './Skeleton'
@@ -829,6 +830,14 @@ function buildCommitContextMenuItems(
         onClick: () => onAction('rebase', commit, branch.name)
       })
     }
+    for (const branch of mergeableBranches) {
+      items.push({
+        key: `irebase-${branch.name}`,
+        label: `Interactive rebase onto ${branch.name}`,
+        icon: <RotateCcw size={14} />,
+        onClick: () => onAction('interactive-rebase', commit, branch.name)
+      })
+    }
   }
 
   items.push({ key: 'sep2', separator: true as const })
@@ -971,6 +980,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [branchContextMenu, setBranchContextMenu] = useState<BranchContextMenuState | null>(null)
   const [mergeBranch, setMergeBranch] = useState<string | null>(null)
+  const [rebaseBranch, setRebaseBranch] = useState<string | null>(null)
+  const [rebaseInteractive, setRebaseInteractive] = useState(false)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -1477,15 +1488,14 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
         break
       case 'rebase':
         if (extra) {
-          try {
-            const result = await window.electronAPI.git.rebase(repoPath, extra)
-            if (!result.success) {
-              console.error('Rebase failed:', result.error || 'Unknown error')
-            }
-            loadCommits()
-          } catch (err) {
-            console.error('Rebase failed:', err)
-          }
+          setRebaseInteractive(false)
+          setRebaseBranch(extra)
+        }
+        break
+      case 'interactive-rebase':
+        if (extra) {
+          setRebaseInteractive(true)
+          setRebaseBranch(extra)
         }
         break
       case 'copy-message':
@@ -1752,6 +1762,24 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, filters, show
             onClose={() => setMergeBranch(null)}
             onMergeComplete={() => {
               setMergeBranch(null)
+              loadCommits()
+            }}
+          />
+        )}
+
+        {/* Rebase dialog opened from commit context menu */}
+        {rebaseBranch && (
+          <RebaseDialog
+            currentRepo={repoPath}
+            preselectedBranch={rebaseBranch}
+            startInteractive={rebaseInteractive}
+            onClose={() => {
+              setRebaseBranch(null)
+              setRebaseInteractive(false)
+            }}
+            onRebaseComplete={() => {
+              setRebaseBranch(null)
+              setRebaseInteractive(false)
               loadCommits()
             }}
           />
