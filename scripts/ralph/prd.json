@@ -204,7 +204,7 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "The rebaseInteractive IPC handler already exists. The UI needs: commit list with drag-reorder, action dropdowns, and progress tracking. RebaseDialog.tsx exists but may need enhancement."
     }
   ]

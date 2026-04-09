@@ -244,3 +244,28 @@ Started: Thu Apr  9 03:30:47 AM EDT 2026
   - `gitlabApiRequest` needs to handle both http and https for self-hosted instances
   - GitLab changes endpoint returns diff data but not per-file line counts like GitHub
 ---
+
+## 2026-04-09 - US-MP-012
+- Implemented Interactive Rebase UI with drag-to-reorder, polished modal, and full lifecycle support
+- Files changed: CommitGraph.tsx, RebaseDialog.tsx, RebaseDialog.module.css
+- **What was done:**
+  - Completely redesigned RebaseDialog with self-contained CSS module (no global branch-dialog classes)
+  - Added drag-to-reorder for interactive rebase commits using HTML5 drag-and-drop
+  - Searchable branch dropdown (same pattern as MergeDialog) replacing plain <select>
+  - Each commit row shows action dropdown (pick/reword/squash/fixup/edit/drop) with color-coded borders
+  - Grip handle icon (GripVertical) for drag affordance, drag-over indicator with accent border
+  - Dropped commits visually struck through with reduced opacity
+  - Progress bar during in-progress rebase (fills based on current/total steps)
+  - Success state with CheckCircle2 animation and auto-close after 1.2s
+  - Full conflict resolution UI with progress badge, file list, continue/skip/abort buttons
+  - Published commits warning for rebasing pushed history
+  - Added "Interactive rebase onto [branch]" to CommitGraph commit context menu (RotateCcw icon)
+  - Changed "Rebase current onto [branch]" context menu to open RebaseDialog instead of direct git rebase
+  - Added `startInteractive` prop to open dialog directly in interactive mode
+- **Learnings for future iterations:**
+  - HTML5 drag-and-drop with `draggable`, `onDragStart/Over/End` works well for commit reordering
+  - `GripVertical` from lucide-react is the standard drag handle icon
+  - `git rebase -i` with `GIT_SEQUENCE_EDITOR` env var is how interactive rebase is automated
+  - RebaseDialog now uses same modal pattern as MergeDialog (overlay/dialog/header/body/footer)
+  - The `rebaseInteractive` IPC sends actions as `{hash, action}[]` — order matters for reordering
+---
