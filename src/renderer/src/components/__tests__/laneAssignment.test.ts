@@ -272,13 +272,25 @@ describe('assignLanes', () => {
   // ─── Color Assignment ──────────────────────────────────────────────
 
   describe('color assignment', () => {
-    it('assigns colors from the palette', () => {
+    it('assigns accent color to the HEAD lane', () => {
       const commits = [
         makeCommit('aaa', ['bbb'], 'HEAD -> main'),
         makeCommit('bbb', []),
       ]
       const results = assignLanes(commits)
-      expect(LANE_COLORS).toContain(results[0].color)
+      expect(results[0].color).toBe('var(--accent)')
+    })
+
+    it('assigns palette colors to non-HEAD lanes', () => {
+      const commits = [
+        makeCommit('aaa', ['bbb', 'ccc']),
+        makeCommit('ccc', ['ddd']),
+        makeCommit('bbb', ['ddd']),
+        makeCommit('ddd', []),
+      ]
+      const results = assignLanes(commits)
+      // Non-HEAD commits should get palette colors
+      expect(LANE_COLORS).toContain(results[1].color)
     })
 
     it('same lane gets same color', () => {
