@@ -143,7 +143,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     const handleToggleSidebarMenu = (): void => { toggleSidebar() }
     const handleToggleTerminalMenu = (): void => { toggleBottomPanel() }
     const handleKeyboardShortcutsMenu = (): void => {
-      setShortcutsOpen(true)
+      setTimeout(() => setShortcutsOpen(true), 0)
     }
 
     window.addEventListener('menu:toggle-sidebar', handleToggleSidebarMenu)
