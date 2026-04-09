@@ -643,9 +643,98 @@ export function DiffViewer({
   )
 }
 
+// ─── Scrollbar Change Markers ───────────────────────────────────────────────
+
+interface MarkerEntry {
+  /** Proportional position (0..1) within the total line count */
+  position: number
+  /** Height as a proportion of total line count */
+  height: number
+  type: 'added' | 'removed'
+}
+
+/**
+ * Compute marker entries from a flat list of line types.
+ * Consecutive lines of the same type are merged into a single marker.
+ */
+function computeMarkers(lineTypes: Array<'added' | 'removed' | 'context' | null>, totalLines: number): MarkerEntry[] {
+  if (totalLines === 0) return []
+  const markers: MarkerEntry[] = []
+  let i = 0
+  while (i < lineTypes.length) {
+    const t = lineTypes[i]
+    if (t === 'added' || t === 'removed') {
+      const start = i
+      while (i < lineTypes.length && lineTypes[i] === t) i++
+      const count = i - start
+      markers.push({
+        position: start / totalLines,
+        height: count / totalLines,
+        type: t
+      })
+    } else {
+      i++
+    }
+  }
+  return markers
+}
+
+function ScrollbarMarkers({
+  markers,
+  containerRef,
+  minMarkerHeight = 2,
+  maxMarkerHeight = 20
+}: {
+  markers: MarkerEntry[]
+  containerRef: React.RefObject<HTMLElement | null>
+  minMarkerHeight?: number
+  maxMarkerHeight?: number
+}): React.JSX.Element {
+  const columnRef = useRef<HTMLDivElement>(null)
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const col = columnRef.current
+      const container = containerRef.current
+      if (!col || !container) return
+      const rect = col.getBoundingClientRect()
+      const ratio = (e.clientY - rect.top) / rect.height
+      const target = ratio * (container.scrollHeight - container.clientHeight)
+      container.scrollTo({ top: target, behavior: 'smooth' })
+    },
+    [containerRef]
+  )
+
+  return (
+    <div
+      ref={columnRef}
+      className={styles.scrollbarMarkerColumn}
+      onClick={handleClick}
+    >
+      {markers.map((m, i) => {
+        const top = `${m.position * 100}%`
+        // Clamp pixel height between min and max
+        const heightPercent = m.height * 100
+        const cls = m.type === 'added' ? styles.scrollbarMarkerAdded : styles.scrollbarMarkerRemoved
+        return (
+          <div
+            key={i}
+            className={`${styles.scrollbarMarker} ${cls}`}
+            style={{
+              top,
+              height: `clamp(${minMarkerHeight}px, ${heightPercent}%, ${maxMarkerHeight}px)`
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Inline Diff View ───────────────────────────────────────────────────────
 
 function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: string | null }): React.JSX.Element {
+  const scrollRef = useRef<HTMLDivElement>(null)
   // Build word-level diff cache for adjacent removed/added pairs
   const wordDiffCache = useMemo(() => {
     const cache = new Map<string, { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] }>()
@@ -673,8 +762,22 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
     return cache
   }, [hunks])
 
+  // Compute scrollbar change markers
+  const inlineMarkers = useMemo(() => {
+    const lineTypes: Array<'added' | 'removed' | 'context' | null> = []
+    for (const hunk of hunks) {
+      // Account for hunk header line
+      lineTypes.push(null)
+      for (const line of hunk.lines) {
+        lineTypes.push(line.type === 'added' || line.type === 'removed' ? line.type : 'context')
+      }
+    }
+    return computeMarkers(lineTypes, lineTypes.length)
+  }, [hunks])
+
   return (
-    <div className={styles.inlineView}>
+    <div className={styles.scrollableWithMarkers}>
+    <div className={styles.inlineView} ref={scrollRef}>
       <div className={styles.inlineViewInner}>
       {hunks.map((hunk, hunkIdx) => (
         <div key={hunkIdx} className={styles.hunk}>
@@ -735,6 +838,8 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
         </div>
       ))}
       </div>
+    </div>
+    <ScrollbarMarkers markers={inlineMarkers} containerRef={scrollRef} />
     </div>
   )
 }
@@ -973,6 +1078,30 @@ export function FullDiffView({
   const isBinary = isBinaryOld || isBinaryNew
   const isLargeFile = !loadLargeFile && (oldDisplay.length > LARGE_FILE_THRESHOLD || newDisplay.length > LARGE_FILE_THRESHOLD)
 
+  // Compute scrollbar markers for full diff view
+  const fullDiffMarkers = useMemo(() => {
+    // Left pane: show removed markers at old line positions
+    const leftTypes: Array<'added' | 'removed' | 'context' | null> = []
+    if (!isNewFile) {
+      for (let i = 0; i < oldDisplay.length; i++) {
+        const lineNum = i + 1
+        leftTypes.push(isDeletedFile || oldChanged.has(lineNum) ? 'removed' : 'context')
+      }
+    }
+    // Right pane: show added markers at new line positions
+    const rightTypes: Array<'added' | 'removed' | 'context' | null> = []
+    if (!isDeletedFile) {
+      for (let i = 0; i < newDisplay.length; i++) {
+        const lineNum = i + 1
+        rightTypes.push(isNewFile || newChanged.has(lineNum) ? 'added' : 'context')
+      }
+    }
+    return {
+      left: computeMarkers(leftTypes, leftTypes.length),
+      right: computeMarkers(rightTypes, rightTypes.length)
+    }
+  }, [oldDisplay, newDisplay, oldChanged, newChanged, isNewFile, isDeletedFile])
+
   // Derive pane header paths
   const leftPath = isRenamed && oldPath ? oldPath : filePath
   const rightPath = filePath
@@ -1055,6 +1184,7 @@ export function FullDiffView({
       )}
       <div className={styles.sbsView}>
         {/* Left pane (old file) */}
+        <div className={styles.scrollableWithMarkers}>
         <div
           className={`${styles.sbsPane} ${styles.sbsLeft}`}
           ref={leftPaneRef}
@@ -1085,8 +1215,11 @@ export function FullDiffView({
             )}
           </div>
         </div>
+        <ScrollbarMarkers markers={fullDiffMarkers.left} containerRef={leftPaneRef} />
+        </div>
 
         {/* Right pane (new file) */}
+        <div className={styles.scrollableWithMarkers}>
         <div
           className={`${styles.sbsPane}`}
           ref={rightPaneRef}
@@ -1116,6 +1249,8 @@ export function FullDiffView({
               })
             )}
           </div>
+        </div>
+        <ScrollbarMarkers markers={fullDiffMarkers.right} containerRef={rightPaneRef} />
         </div>
       </div>
     </div>
