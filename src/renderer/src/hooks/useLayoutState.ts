@@ -191,6 +191,13 @@ declare global {
         setActive: (id: string) => Promise<GitServiceResult>
         apply: (id: string, repoPath: string) => Promise<GitServiceResult>
       }
+      sshkeys: {
+        list: () => Promise<GitServiceResult>
+        readPublicKey: (pubKeyPath: string) => Promise<{ success: boolean; data?: string; error?: string }>
+        copyToClipboard: (text: string) => Promise<{ success: boolean }>
+        generate: (opts: { name: string; type: 'ed25519' | 'rsa'; passphrase?: string; comment?: string }) => Promise<GitServiceResult>
+        testConnection: (host: string) => Promise<GitServiceResult>
+      }
       terminal: {
         create: (opts: { cwd?: string; id?: string }) => Promise<{ success: boolean; data?: { id: string }; error?: string }>
         write: (opts: { id: string; data: string }) => Promise<{ success: boolean; error?: string }>

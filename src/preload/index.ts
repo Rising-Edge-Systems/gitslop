@@ -14,6 +14,14 @@ export interface ProfileData {
   isDefault: boolean
 }
 
+export interface SSHKeyInfo {
+  name: string
+  path: string
+  pubKeyPath: string
+  type: string
+  fingerprint: string
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface GitServiceResult {
   success: boolean
@@ -357,6 +365,23 @@ const electronAPI = {
       ipcRenderer.invoke('profiles:setActive', id),
     apply: (id: string, repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('profiles:apply', id, repoPath)
+  },
+  sshkeys: {
+    list: (): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('sshkeys:list'),
+    readPublicKey: (pubKeyPath: string): Promise<{ success: boolean; data?: string; error?: string }> =>
+      ipcRenderer.invoke('sshkeys:readPublicKey', pubKeyPath),
+    copyToClipboard: (text: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('sshkeys:copyToClipboard', text),
+    generate: (opts: {
+      name: string
+      type: 'ed25519' | 'rsa'
+      passphrase?: string
+      comment?: string
+    }): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('sshkeys:generate', opts),
+    testConnection: (host: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('sshkeys:testConnection', host)
   },
   terminal: {
     create: (opts: { cwd?: string; id?: string }): Promise<{ success: boolean; data?: { id: string }; error?: string }> =>

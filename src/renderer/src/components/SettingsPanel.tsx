@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon } from 'lucide-react'
+import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon, KeyRound, Copy, Loader2, Wifi, WifiOff, Eye, EyeOff } from 'lucide-react'
 import type { AppSettings } from '../hooks/useSettings'
 import { DEFAULT_SETTINGS } from '../hooks/useSettings'
 import styles from './SettingsPanel.module.css'
@@ -12,7 +12,7 @@ interface ProfileData {
   isDefault: boolean
 }
 
-type SettingsSection = 'general' | 'appearance' | 'git' | 'editor' | 'keybindings' | 'profiles'
+type SettingsSection = 'general' | 'appearance' | 'git' | 'editor' | 'keybindings' | 'profiles' | 'sshkeys'
 
 interface SettingsPanelProps {
   settings: AppSettings
@@ -49,6 +49,7 @@ export function SettingsPanel({
     { id: 'appearance', label: 'Appearance', icon: <Palette size={16} /> },
     { id: 'git', label: 'Git', icon: <GitBranch size={16} /> },
     { id: 'profiles', label: 'Profiles', icon: <UserCircle size={16} /> },
+    { id: 'sshkeys', label: 'SSH Keys', icon: <KeyRound size={16} /> },
     { id: 'editor', label: 'Editor', icon: <Pencil size={16} /> },
     { id: 'keybindings', label: 'Keybindings', icon: <Keyboard size={16} /> }
   ]
@@ -106,6 +107,9 @@ export function SettingsPanel({
             )}
             {activeSection === 'profiles' && (
               <ProfilesSection currentRepo={currentRepo ?? null} />
+            )}
+            {activeSection === 'sshkeys' && (
+              <SSHKeysSection />
             )}
             {activeSection === 'editor' && (
               <EditorSection settings={settings} onUpdate={onUpdate} />
@@ -446,6 +450,288 @@ function KeybindingsSection(): React.JSX.Element {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+/* ─── SSH Keys Section ──────────────────────────────────────────────────── */
+
+interface SSHKeyData {
+  name: string
+  path: string
+  pubKeyPath: string
+  type: string
+  fingerprint: string
+}
+
+function SSHKeysSection(): React.JSX.Element {
+  const [keys, setKeys] = useState<SSHKeyData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Generate form state
+  const [showGenerate, setShowGenerate] = useState(false)
+  const [genName, setGenName] = useState('')
+  const [genType, setGenType] = useState<'ed25519' | 'rsa'>('ed25519')
+  const [genPassphrase, setGenPassphrase] = useState('')
+  const [genComment, setGenComment] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [showPassphrase, setShowPassphrase] = useState(false)
+
+  // Test connection state
+  const [testHost, setTestHost] = useState('git@github.com')
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ authenticated: boolean; message: string } | null>(null)
+
+  // Copied state
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+
+  const loadKeys = useCallback(async () => {
+    setLoading(true)
+    try {
+      const result = await window.electronAPI.sshkeys.list()
+      if (result.success && Array.isArray(result.data)) {
+        setKeys(result.data as SSHKeyData[])
+      } else {
+        setKeys([])
+      }
+      setError(null)
+    } catch {
+      setKeys([])
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    loadKeys()
+  }, [loadKeys])
+
+  const copyPublicKey = async (key: SSHKeyData): Promise<void> => {
+    try {
+      const result = await window.electronAPI.sshkeys.readPublicKey(key.pubKeyPath)
+      if (result.success && result.data) {
+        await window.electronAPI.sshkeys.copyToClipboard(result.data)
+        setCopiedKey(key.name)
+        setTimeout(() => setCopiedKey(null), 2000)
+      } else {
+        setError(result.error || 'Failed to read public key')
+      }
+    } catch {
+      setError('Failed to copy public key')
+    }
+  }
+
+  const generateKey = async (): Promise<void> => {
+    if (!genName.trim()) {
+      setError('Key name is required')
+      return
+    }
+    // Validate name (no spaces, simple filename)
+    if (!/^[a-zA-Z0-9_-]+$/.test(genName.trim())) {
+      setError('Key name must contain only letters, numbers, hyphens, and underscores')
+      return
+    }
+
+    setGenerating(true)
+    setError(null)
+    try {
+      const result = await window.electronAPI.sshkeys.generate({
+        name: genName.trim(),
+        type: genType,
+        passphrase: genPassphrase || undefined,
+        comment: genComment || undefined
+      })
+      if (result.success) {
+        setShowGenerate(false)
+        setGenName('')
+        setGenPassphrase('')
+        setGenComment('')
+        await loadKeys()
+      } else {
+        setError(result.error || 'Failed to generate key')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate key')
+    }
+    setGenerating(false)
+  }
+
+  const testConnection = async (): Promise<void> => {
+    if (!testHost.trim()) return
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const result = await window.electronAPI.sshkeys.testConnection(testHost.trim())
+      if (result.success && result.data) {
+        setTestResult(result.data as { authenticated: boolean; message: string })
+      } else {
+        setTestResult({ authenticated: false, message: result.error || 'Connection failed' })
+      }
+    } catch (err) {
+      setTestResult({ authenticated: false, message: err instanceof Error ? err.message : 'Connection failed' })
+    }
+    setTesting(false)
+  }
+
+  return (
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>SSH Keys</h3>
+      <p className={styles.sectionDesc}>
+        Manage SSH keys for authenticating with remote repositories.
+      </p>
+
+      {error && (
+        <div className={styles.sshError}>{error}</div>
+      )}
+
+      {/* Key list */}
+      {loading ? (
+        <div className={styles.sshLoading}>
+          <Loader2 size={16} className={styles.sshSpinner} /> Loading SSH keys...
+        </div>
+      ) : (
+        <div className={styles.sshKeyList}>
+          {keys.length === 0 && (
+            <div className={styles.sshEmpty}>
+              No SSH keys found in ~/.ssh/. Generate one below.
+            </div>
+          )}
+          {keys.map((key) => (
+            <div key={key.name} className={styles.sshKeyCard}>
+              <div className={styles.sshKeyInfo}>
+                <div className={styles.sshKeyNameRow}>
+                  <span className={styles.sshKeyName}>{key.name}</span>
+                  {key.type && <span className={styles.sshKeyTypeBadge}>{key.type}</span>}
+                </div>
+                {key.fingerprint && (
+                  <span className={styles.sshKeyFingerprint}>{key.fingerprint}</span>
+                )}
+                <span className={styles.sshKeyPath}>{key.path}</span>
+              </div>
+              <div className={styles.sshKeyActions}>
+                <button
+                  className={styles.sshKeyActionBtn}
+                  onClick={() => copyPublicKey(key)}
+                  title="Copy public key to clipboard"
+                >
+                  {copiedKey === key.name ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Generate new key */}
+      {showGenerate ? (
+        <div className={`${styles.sshKeyCard} ${styles.sshKeyCardNew}`}>
+          <div className={styles.sshForm}>
+            <div className={styles.sshFormRow}>
+              <label className={styles.sshFormLabel}>Key Name</label>
+              <input
+                className={styles.input}
+                type="text"
+                placeholder="e.g. id_ed25519_work"
+                value={genName}
+                onChange={(e) => setGenName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className={styles.sshFormRow}>
+              <label className={styles.sshFormLabel}>Key Type</label>
+              <select
+                className={styles.select}
+                value={genType}
+                onChange={(e) => setGenType(e.target.value as 'ed25519' | 'rsa')}
+              >
+                <option value="ed25519">Ed25519 (recommended)</option>
+                <option value="rsa">RSA (4096 bit)</option>
+              </select>
+            </div>
+            <div className={styles.sshFormRow}>
+              <label className={styles.sshFormLabel}>Passphrase (optional)</label>
+              <div className={styles.inputWithBtn}>
+                <input
+                  className={styles.input}
+                  type={showPassphrase ? 'text' : 'password'}
+                  placeholder="Leave empty for no passphrase"
+                  value={genPassphrase}
+                  onChange={(e) => setGenPassphrase(e.target.value)}
+                />
+                <button
+                  className={styles.sshKeyActionBtn}
+                  onClick={() => setShowPassphrase(!showPassphrase)}
+                  title={showPassphrase ? 'Hide' : 'Show'}
+                  type="button"
+                >
+                  {showPassphrase ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+            <div className={styles.sshFormRow}>
+              <label className={styles.sshFormLabel}>Comment (optional)</label>
+              <input
+                className={styles.input}
+                type="text"
+                placeholder="e.g. you@example.com"
+                value={genComment}
+                onChange={(e) => setGenComment(e.target.value)}
+              />
+            </div>
+            <div className={styles.profileFormActions}>
+              <button
+                className={styles.profileSaveBtn}
+                onClick={generateKey}
+                disabled={generating}
+              >
+                {generating ? (
+                  <><Loader2 size={14} className={styles.sshSpinner} /> Generating...</>
+                ) : (
+                  'Generate'
+                )}
+              </button>
+              <button className={styles.profileCancelBtn} onClick={() => setShowGenerate(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <button className={styles.profileAddBtn} onClick={() => setShowGenerate(true)}>
+          <Plus size={14} /> Generate New Key
+        </button>
+      )}
+
+      {/* Test SSH connection */}
+      <div className={styles.sshTestSection}>
+        <h4 className={styles.sshTestTitle}>Test SSH Connection</h4>
+        <div className={styles.sshTestRow}>
+          <input
+            className={styles.input}
+            type="text"
+            value={testHost}
+            onChange={(e) => setTestHost(e.target.value)}
+            placeholder="git@github.com"
+          />
+          <button
+            className={styles.sshTestBtn}
+            onClick={testConnection}
+            disabled={testing}
+          >
+            {testing ? (
+              <><Loader2 size={14} className={styles.sshSpinner} /> Testing...</>
+            ) : (
+              <><Wifi size={14} /> Test</>
+            )}
+          </button>
+        </div>
+        {testResult && (
+          <div className={`${styles.sshTestResult} ${testResult.authenticated ? styles.sshTestSuccess : styles.sshTestFailure}`}>
+            {testResult.authenticated ? <Wifi size={14} /> : <WifiOff size={14} />}
+            <span>{testResult.message || (testResult.authenticated ? 'Authentication successful!' : 'Authentication failed')}</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,6 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron'
 import { join } from 'path'
-import { readFile, writeFile } from 'fs'
+import { readFile, writeFile, readdir, stat } from 'fs'
+import { exec } from 'child_process'
+import { promisify } from 'util'
+import { homedir } from 'os'
 import { watch as chokidarWatch, type FSWatcher } from 'chokidar'
 import Store from 'electron-store'
 import { autoUpdater } from 'electron-updater'
@@ -234,6 +237,159 @@ ipcMain.handle('profiles:apply', async (_event, id: string, repoPath: string) =>
     return { success: true, data: profile }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Failed to apply profile' }
+  }
+})
+
+// ─── SSH Key Management IPC handlers ──────────────────────────────────────
+
+const execAsync = promisify(exec)
+
+interface SSHKeyInfo {
+  name: string
+  path: string
+  pubKeyPath: string
+  type: string
+  fingerprint: string
+}
+
+ipcMain.handle('sshkeys:list', async () => {
+  const sshDir = join(homedir(), '.ssh')
+  try {
+    const files = await new Promise<string[]>((resolve, reject) => {
+      readdir(sshDir, (err, items) => {
+        if (err) reject(err)
+        else resolve(items)
+      })
+    })
+
+    // Find .pub files and their corresponding private keys
+    const pubFiles = files.filter((f) => f.endsWith('.pub'))
+    const keys: SSHKeyInfo[] = []
+
+    for (const pubFile of pubFiles) {
+      const baseName = pubFile.replace(/\.pub$/, '')
+      const privKeyPath = join(sshDir, baseName)
+      const pubKeyPath = join(sshDir, pubFile)
+
+      // Check if private key exists
+      const privExists = await new Promise<boolean>((resolve) => {
+        stat(privKeyPath, (err, stats) => {
+          resolve(!err && stats.isFile())
+        })
+      })
+
+      if (!privExists) continue
+
+      // Try to get fingerprint
+      let fingerprint = ''
+      let keyType = ''
+      try {
+        const { stdout } = await execAsync(`ssh-keygen -l -f "${pubKeyPath}"`)
+        const parts = stdout.trim().split(/\s+/)
+        fingerprint = parts[1] || ''
+        // Type is typically in parens at end, e.g. "(ED25519)"
+        const typeMatch = stdout.match(/\((\w+)\)/)
+        keyType = typeMatch ? typeMatch[1] : ''
+      } catch {
+        // If ssh-keygen fails, still list the key
+      }
+
+      keys.push({
+        name: baseName,
+        path: privKeyPath,
+        pubKeyPath,
+        type: keyType,
+        fingerprint
+      })
+    }
+
+    return { success: true, data: keys }
+  } catch (err) {
+    return { success: true, data: [] } // Empty if ~/.ssh doesn't exist
+  }
+})
+
+ipcMain.handle('sshkeys:readPublicKey', async (_event, pubKeyPath: string) => {
+  return new Promise<{ success: boolean; data?: string; error?: string }>((resolve) => {
+    readFile(pubKeyPath, 'utf-8', (err, data) => {
+      if (err) {
+        resolve({ success: false, error: err.message })
+      } else {
+        resolve({ success: true, data: data.trim() })
+      }
+    })
+  })
+})
+
+ipcMain.handle('sshkeys:copyToClipboard', (_event, text: string) => {
+  clipboard.writeText(text)
+  return { success: true }
+})
+
+ipcMain.handle(
+  'sshkeys:generate',
+  async (
+    _event,
+    opts: {
+      name: string
+      type: 'ed25519' | 'rsa'
+      passphrase?: string
+      comment?: string
+    }
+  ) => {
+    const sshDir = join(homedir(), '.ssh')
+    const keyPath = join(sshDir, opts.name)
+
+    // Check if key already exists
+    const exists = await new Promise<boolean>((resolve) => {
+      stat(keyPath, (err) => resolve(!err))
+    })
+    if (exists) {
+      return { success: false, error: `Key "${opts.name}" already exists` }
+    }
+
+    const passphrase = opts.passphrase || ''
+    const comment = opts.comment || `${opts.name}@gitslop`
+    const typeFlag = opts.type === 'rsa' ? '-t rsa -b 4096' : '-t ed25519'
+    const cmd = `ssh-keygen ${typeFlag} -C "${comment}" -f "${keyPath}" -N "${passphrase}"`
+
+    try {
+      await execAsync(cmd)
+      return { success: true, data: { path: keyPath, pubKeyPath: `${keyPath}.pub` } }
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Failed to generate key'
+      }
+    }
+  }
+)
+
+ipcMain.handle('sshkeys:testConnection', async (_event, host: string) => {
+  try {
+    const { stdout, stderr } = await execAsync(`ssh -T -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 ${host} 2>&1`, {
+      timeout: 15000
+    }).catch((err) => {
+      // ssh -T to github returns exit code 1 even on success
+      return { stdout: err.stdout || '', stderr: err.stderr || '' }
+    })
+    const output = (stdout || '') + (stderr || '')
+    const isSuccess =
+      output.includes('successfully authenticated') ||
+      output.includes('You\'ve successfully') ||
+      output.includes('Welcome to GitLab')
+    return {
+      success: true,
+      data: {
+        authenticated: isSuccess,
+        message: output.trim()
+      }
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Connection test failed'
+    }
   }
 })
 
