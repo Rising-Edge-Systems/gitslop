@@ -209,7 +209,7 @@ export type RightPanelPosition = 'right' | 'bottom'
 
 export interface LayoutState {
   sidebarSize: number
-  bottomPanelSize: number
+  bottomPanelSize: number  // now stored as pixels (terminal height), default 200
   bottomPanelVisible: boolean
   sidebarVisible: boolean
   sidebarCollapsed: boolean
@@ -228,7 +228,7 @@ const STORAGE_KEY = 'gitslop-layout-state'
 
 const DEFAULT_LAYOUT: LayoutState = {
   sidebarSize: 260,
-  bottomPanelSize: 25,
+  bottomPanelSize: 200,
   bottomPanelVisible: false,
   sidebarVisible: true,
   sidebarCollapsed: false,
@@ -278,6 +278,11 @@ function loadLayout(): LayoutState {
       // Clamp detailInternalSplit to valid range
       if (layout.detailInternalSplit == null || layout.detailInternalSplit < 15) layout.detailInternalSplit = DEFAULT_LAYOUT.detailInternalSplit
       if (layout.detailInternalSplit > 85) layout.detailInternalSplit = 85
+      // Migrate old percentage-based bottomPanelSize to pixels
+      if (layout.bottomPanelSize < 100) layout.bottomPanelSize = DEFAULT_LAYOUT.bottomPanelSize
+      // Clamp terminal height
+      if (layout.bottomPanelSize < 100) layout.bottomPanelSize = 100
+      if (layout.bottomPanelSize > 500) layout.bottomPanelSize = 500
       // Validate rightPanelPosition
       if (layout.rightPanelPosition !== 'right' && layout.rightPanelPosition !== 'bottom') {
         layout.rightPanelPosition = DEFAULT_LAYOUT.rightPanelPosition
