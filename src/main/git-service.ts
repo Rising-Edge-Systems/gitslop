@@ -1355,11 +1355,14 @@ export class GitService {
       signal?: AbortSignal
       noFastForward?: boolean
       fastForwardOnly?: boolean
+      squash?: boolean
     }
   ): Promise<{ success: boolean; message: string; conflicts?: string[] }> {
     const args = ['merge', branchName]
 
-    if (options?.noFastForward) {
+    if (options?.squash) {
+      args.push('--squash')
+    } else if (options?.noFastForward) {
       args.push('--no-ff')
     } else if (options?.fastForwardOnly) {
       args.push('--ff-only')

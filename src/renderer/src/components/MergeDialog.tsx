@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { AlertTriangle, Search, X, CheckCircle2, GitMerge } from 'lucide-react'
 import styles from './MergeDialog.module.css'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -21,18 +21,17 @@ interface MergeDialogProps {
   onMergeComplete: () => void
 }
 
-type MergeStrategy = 'auto' | 'no-ff' | 'ff-only'
-
 interface MergeState {
   selectedBranch: string
-  strategy: MergeStrategy
+  noFf: boolean
+  squash: boolean
   loading: boolean
   error: string | null
   preview: { commitCount: number; fastForward: boolean } | null
   loadingPreview: boolean
-  // Conflict state
   conflicts: string[] | null
   merging: boolean
+  success: boolean
 }
 
 // ─── MergeDialog ─────────────────────────────────────────────────────────────
@@ -45,15 +44,22 @@ export function MergeDialog({
 }: MergeDialogProps): React.JSX.Element {
   const [branches, setBranches] = useState<GitBranch[]>([])
   const [currentBranch, setCurrentBranch] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
   const [state, setState] = useState<MergeState>({
     selectedBranch: preselectedBranch || '',
-    strategy: 'auto',
+    noFf: false,
+    squash: false,
     loading: false,
     error: null,
     preview: null,
     loadingPreview: false,
     conflicts: null,
-    merging: false
+    merging: false,
+    success: false
   })
 
   // Load branches on mount
@@ -108,15 +114,29 @@ export function MergeDialog({
     }
   }, [currentRepo, state.selectedBranch, state.merging])
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent): void => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
   // Handle merge
   const handleMerge = useCallback(async () => {
     if (!state.selectedBranch) return
 
     setState((prev) => ({ ...prev, loading: true, error: null }))
 
-    const opts: { noFastForward?: boolean; fastForwardOnly?: boolean } = {}
-    if (state.strategy === 'no-ff') opts.noFastForward = true
-    if (state.strategy === 'ff-only') opts.fastForwardOnly = true
+    const opts: { noFastForward?: boolean; fastForwardOnly?: boolean; squash?: boolean } = {}
+    if (state.squash) {
+      opts.squash = true
+    } else if (state.noFf) {
+      opts.noFastForward = true
+    }
 
     const result = await window.electronAPI.git.merge(
       currentRepo,
@@ -127,9 +147,12 @@ export function MergeDialog({
     if (result.success) {
       const mergeData = result.data as { success: boolean; message: string; conflicts?: string[] }
       if (mergeData.success) {
-        // Clean merge
-        onMergeComplete()
-        onClose()
+        // Show success state briefly
+        setState((prev) => ({ ...prev, loading: false, success: true }))
+        setTimeout(() => {
+          onMergeComplete()
+          onClose()
+        }, 1200)
       } else {
         // Conflicts
         setState((prev) => ({
@@ -141,7 +164,6 @@ export function MergeDialog({
         }))
       }
     } else {
-      // Check if it's a conflict error from the IPC layer
       const errorMsg = result.error || 'Merge failed'
       if (errorMsg.includes('CONFLICT') || errorMsg.includes('conflict')) {
         const conflictResult = await window.electronAPI.git.getConflictedFiles(currentRepo)
@@ -160,7 +182,7 @@ export function MergeDialog({
         }))
       }
     }
-  }, [currentRepo, state.selectedBranch, state.strategy, onClose, onMergeComplete])
+  }, [currentRepo, state.selectedBranch, state.noFf, state.squash, onClose, onMergeComplete])
 
   // Handle merge abort
   const handleAbort = useCallback(async () => {
@@ -178,23 +200,75 @@ export function MergeDialog({
     }
   }, [currentRepo, onClose, onMergeComplete])
 
-  const availableBranches = branches.filter((b) => !b.current)
+  const availableBranches = useMemo(
+    () => branches.filter((b) => !b.current),
+    [branches]
+  )
 
-  return (
-    <div className="branch-dialog-overlay" onClick={onClose}>
-      <div className={`branch-dialog ${styles.mergeDialog}`} onClick={(e) => e.stopPropagation()}>
-        <div className="branch-dialog-title">
-          {state.merging ? <><AlertTriangle size={16} /> Merge in Progress</> : 'Merge Branch'}
+  const filteredBranches = useMemo(
+    () =>
+      searchQuery
+        ? availableBranches.filter((b) =>
+            b.name.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        : availableBranches,
+    [availableBranches, searchQuery]
+  )
+
+  const selectBranch = useCallback((name: string) => {
+    setState((prev) => ({ ...prev, selectedBranch: name, error: null }))
+    setSearchQuery('')
+    setDropdownOpen(false)
+  }, [])
+
+  const clearBranch = useCallback(() => {
+    setState((prev) => ({ ...prev, selectedBranch: '', preview: null, error: null }))
+    setSearchQuery('')
+  }, [])
+
+  // ── Success State ──────────────────────────────────────────────────────────
+
+  if (state.success) {
+    return (
+      <div className={styles.overlay} onClick={onClose}>
+        <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.success}>
+            <CheckCircle2 size={48} className={styles.successIcon} />
+            <div className={styles.successText}>Merge Complete</div>
+            <div className={styles.successSub}>
+              Merged <strong>{state.selectedBranch}</strong> into <strong>{currentBranch}</strong>
+            </div>
+          </div>
         </div>
+      </div>
+    )
+  }
 
-        {/* In-progress merge state */}
-        {state.merging && (
+  // ── Conflict State ─────────────────────────────────────────────────────────
+
+  if (state.merging) {
+    return (
+      <div className={styles.overlay} onClick={onClose}>
+        <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.header}>
+            <h2 className={styles.title}>
+              <AlertTriangle size={18} />
+              Merge in Progress
+            </h2>
+            <button className={styles.closeBtn} onClick={onClose}>
+              <X size={16} />
+            </button>
+          </div>
+
           <div className={styles.conflictSection}>
             <p className={styles.conflictInfo}>
               A merge is in progress on <strong>{currentBranch}</strong>.
               {state.conflicts && state.conflicts.length > 0 && (
-                <> There {state.conflicts.length === 1 ? 'is' : 'are'}{' '}
-                  <strong>{state.conflicts.length}</strong> conflicted file{state.conflicts.length !== 1 ? 's' : ''}.</>
+                <>
+                  {' '}There {state.conflicts.length === 1 ? 'is' : 'are'}{' '}
+                  <strong>{state.conflicts.length}</strong> conflicted
+                  file{state.conflicts.length !== 1 ? 's' : ''}.
+                </>
               )}
             </p>
 
@@ -213,147 +287,199 @@ export function MergeDialog({
             )}
 
             {state.error && (
-              <div className="branch-dialog-error">{state.error}</div>
+              <div className={styles.error}>
+                <AlertTriangle size={14} className={styles.errorIcon} />
+                {state.error}
+              </div>
             )}
 
             <p className={styles.conflictHint}>
               Resolve conflicts in each file, stage the resolved files, then commit to complete the merge.
             </p>
-
-            <div className="branch-dialog-actions">
-              <button
-                className="branch-dialog-btn branch-dialog-btn-danger"
-                onClick={handleAbort}
-                disabled={state.loading}
-              >
-                {state.loading ? 'Aborting...' : 'Abort Merge'}
-              </button>
-              <button
-                className="branch-dialog-btn branch-dialog-btn-secondary"
-                onClick={onClose}
-              >
-                Close
-              </button>
-            </div>
           </div>
-        )}
 
-        {/* Normal merge dialog */}
-        {!state.merging && (
-          <>
-            <p className={styles.desc}>
-              Merge into <strong>{currentBranch}</strong>
-            </p>
+          <div className={styles.footer}>
+            <button
+              className={styles.btnDanger}
+              onClick={handleAbort}
+              disabled={state.loading}
+            >
+              {state.loading ? (
+                <>
+                  <span className={`${styles.spinner}`} /> Aborting...
+                </>
+              ) : (
+                'Abort Merge'
+              )}
+            </button>
+            <button className={styles.btnSecondary} onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
-            {state.error && (
-              <div className="branch-dialog-error">{state.error}</div>
-            )}
+  // ── Normal Merge Dialog ────────────────────────────────────────────────────
 
-            <label className="branch-dialog-label">
-              Branch to merge
-              <select
-                className="branch-dialog-input"
-                value={state.selectedBranch}
-                onChange={(e) =>
-                  setState((prev) => ({
-                    ...prev,
-                    selectedBranch: e.target.value,
-                    error: null
-                  }))
-                }
+  const mergeDisabled =
+    state.loading ||
+    !state.selectedBranch ||
+    (state.preview?.commitCount === 0 && !state.loadingPreview)
+
+  return (
+    <div className={styles.overlay} onClick={onClose}>
+      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className={styles.header}>
+          <h2 className={styles.title}>
+            <GitMerge size={18} />
+            Merge into <span className={styles.titleBranch}>{currentBranch || '...'}</span>
+          </h2>
+          <button className={styles.closeBtn} onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className={styles.body}>
+          {/* Error */}
+          {state.error && (
+            <div className={styles.error}>
+              <AlertTriangle size={14} className={styles.errorIcon} />
+              {state.error}
+            </div>
+          )}
+
+          {/* Branch selector */}
+          <div>
+            <div className={styles.fieldLabel}>Branch to merge</div>
+            <div className={styles.searchWrapper} ref={dropdownRef}>
+              <Search size={14} className={styles.searchIcon} />
+              <input
+                ref={searchRef}
+                className={styles.searchInput}
+                type="text"
+                placeholder="Search branches..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setDropdownOpen(true)
+                }}
+                onFocus={() => setDropdownOpen(true)}
                 autoFocus={!preselectedBranch}
-              >
-                <option value="">Select a branch...</option>
-                {availableBranches.map((b) => (
-                  <option key={b.name} value={b.name}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+              {dropdownOpen && (
+                <div className={styles.branchDropdown}>
+                  {filteredBranches.length === 0 ? (
+                    <div className={styles.noBranches}>No matching branches</div>
+                  ) : (
+                    filteredBranches.map((b) => (
+                      <div
+                        key={b.name}
+                        className={`${styles.branchItem} ${
+                          b.name === state.selectedBranch ? styles.branchItemActive : ''
+                        }`}
+                        onClick={() => selectBranch(b.name)}
+                      >
+                        {b.name}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
 
-            {/* Merge preview */}
             {state.selectedBranch && (
-              <div className={styles.preview}>
-                {state.loadingPreview ? (
-                  <span className={styles.previewLoading}>Analyzing merge...</span>
-                ) : state.preview ? (
-                  <div className={styles.previewInfo}>
-                    <span className={styles.previewCount}>
-                      {state.preview.commitCount === 0
-                        ? 'Already up to date — nothing to merge'
-                        : `${state.preview.commitCount} commit${state.preview.commitCount !== 1 ? 's' : ''} will be merged`}
-                    </span>
-                    {state.preview.fastForward && state.preview.commitCount > 0 && (
-                      <span className={styles.previewFf}>Fast-forward possible</span>
-                    )}
-                  </div>
-                ) : null}
+              <div className={styles.selectedBranch}>
+                {state.selectedBranch}
+                <button className={styles.selectedBranchClear} onClick={clearBranch}>
+                  <X size={12} />
+                </button>
               </div>
             )}
+          </div>
 
-            {/* Merge strategy */}
-            <div className={styles.strategyOptions}>
-              <div className={styles.strategyTitle}>Strategy:</div>
-              <label className={styles.strategyOption}>
-                <input
-                  type="radio"
-                  name="mergeStrategy"
-                  checked={state.strategy === 'auto'}
-                  onChange={() => setState((prev) => ({ ...prev, strategy: 'auto' }))}
-                />
-                <div>
-                  <strong>Auto</strong>
-                  <span className={styles.strategyDesc}>Fast-forward if possible, otherwise create a merge commit</span>
+          {/* Merge preview */}
+          {state.selectedBranch && (
+            <div className={styles.preview}>
+              {state.loadingPreview ? (
+                <span className={styles.previewLoading}>
+                  <span className={`${styles.spinner} ${styles.spinnerSmall}`} />
+                  Analyzing merge...
+                </span>
+              ) : state.preview ? (
+                <div className={styles.previewInfo}>
+                  <span className={styles.previewCount}>
+                    {state.preview.commitCount === 0
+                      ? 'Already up to date — nothing to merge'
+                      : `${state.preview.commitCount} commit${state.preview.commitCount !== 1 ? 's' : ''} will be merged`}
+                  </span>
+                  {state.preview.fastForward && state.preview.commitCount > 0 && (
+                    <span className={styles.previewFf}>Fast-forward possible</span>
+                  )}
                 </div>
-              </label>
-              <label className={styles.strategyOption}>
-                <input
-                  type="radio"
-                  name="mergeStrategy"
-                  checked={state.strategy === 'no-ff'}
-                  onChange={() => setState((prev) => ({ ...prev, strategy: 'no-ff' }))}
-                />
-                <div>
-                  <strong>No fast-forward</strong>
-                  <span className={styles.strategyDesc}>Always create a merge commit</span>
-                </div>
-              </label>
-              <label className={styles.strategyOption}>
-                <input
-                  type="radio"
-                  name="mergeStrategy"
-                  checked={state.strategy === 'ff-only'}
-                  onChange={() => setState((prev) => ({ ...prev, strategy: 'ff-only' }))}
-                />
-                <div>
-                  <strong>Fast-forward only</strong>
-                  <span className={styles.strategyDesc}>Fail if fast-forward is not possible</span>
-                </div>
-              </label>
+              ) : null}
             </div>
+          )}
 
-            <div className="branch-dialog-actions">
-              <button
-                className="branch-dialog-btn branch-dialog-btn-secondary"
-                onClick={onClose}
-              >
-                Cancel
-              </button>
-              <button
-                className="branch-dialog-btn branch-dialog-btn-primary"
-                onClick={handleMerge}
-                disabled={
-                  state.loading ||
-                  !state.selectedBranch ||
-                  (state.preview?.commitCount === 0 && !state.loadingPreview)
+          {/* Options */}
+          <div className={styles.optionsSection}>
+            <div className={styles.optionsTitle}>Options</div>
+            <label className={styles.optionRow}>
+              <input
+                type="checkbox"
+                checked={state.noFf}
+                onChange={() =>
+                  setState((prev) => ({
+                    ...prev,
+                    noFf: !prev.noFf,
+                    squash: !prev.noFf ? false : prev.squash
+                  }))
                 }
-              >
-                {state.loading ? 'Merging...' : 'Merge'}
-              </button>
-            </div>
-          </>
-        )}
+              />
+              <span className={styles.optionLabel}>--no-ff</span>
+              <span className={styles.optionDesc}>Always create a merge commit</span>
+            </label>
+            <label className={styles.optionRow}>
+              <input
+                type="checkbox"
+                checked={state.squash}
+                onChange={() =>
+                  setState((prev) => ({
+                    ...prev,
+                    squash: !prev.squash,
+                    noFf: !prev.squash ? false : prev.noFf
+                  }))
+                }
+              />
+              <span className={styles.optionLabel}>--squash</span>
+              <span className={styles.optionDesc}>Squash all commits into one</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className={styles.footer}>
+          <button className={styles.btnSecondary} onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className={styles.btnMerge}
+            onClick={handleMerge}
+            disabled={mergeDisabled}
+          >
+            {state.loading ? (
+              <>
+                <span className={styles.spinner} />
+                Merging...
+              </>
+            ) : (
+              'Merge'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )

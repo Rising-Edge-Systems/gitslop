@@ -803,12 +803,13 @@ export function registerGitIpcHandlers(): void {
       _event,
       repoPath: string,
       branchName: string,
-      opts?: { noFastForward?: boolean; fastForwardOnly?: boolean }
+      opts?: { noFastForward?: boolean; fastForwardOnly?: boolean; squash?: boolean }
     ) => {
       try {
         const result = await withWatcherSuppression(() => gitService.merge(repoPath, branchName, {
           noFastForward: opts?.noFastForward,
-          fastForwardOnly: opts?.fastForwardOnly
+          fastForwardOnly: opts?.fastForwardOnly,
+          squash: opts?.squash
         }))
         return { success: result.success, data: result }
       } catch (err) {

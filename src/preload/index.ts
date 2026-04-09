@@ -199,7 +199,7 @@ const electronAPI = {
     merge: (
       repoPath: string,
       branchName: string,
-      opts?: { noFastForward?: boolean; fastForwardOnly?: boolean }
+      opts?: { noFastForward?: boolean; fastForwardOnly?: boolean; squash?: boolean }
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:merge', repoPath, branchName, opts),
     mergeAbort: (repoPath: string): Promise<GitServiceResult> =>
