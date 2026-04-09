@@ -505,6 +505,19 @@
   color: transparent;
 }
 
+/* ─── Full Diff View Placeholder ───────────────────────────────────────── */
+
+.fullDiffPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: var(--font-md);
+  font-style: italic;
+}
+
 /* ─── Truncation / Show More ────────────────────────────────────────────── */
 
 .truncated {

@@ -9,7 +9,8 @@ import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from 
 import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
 // StatusPanel moved to right panel in AppLayout
-import { DiffViewer, type DiffViewMode } from './DiffViewer'
+import { DiffViewer, FullDiffView, type DiffViewMode } from './DiffViewer'
+import { Columns } from 'lucide-react'
 
 interface RepoViewProps {
   repoPath: string
@@ -55,10 +56,16 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
   const [diffError, setDiffError] = useState<string | null>(null)
 
   // ─── Full File View ─────────────────────────────────────────────────────
-  const [centerViewMode, setCenterViewMode] = useState<'diff' | 'file'>('diff')
+  const [centerViewMode, setCenterViewMode] = useState<'diff' | 'full' | 'file'>('diff')
   const [fileContent, setFileContent] = useState<string | null>(null)
   const [fileLoading, setFileLoading] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
+
+  // ─── Full Diff View (old + new file content) ───────────────────────────
+  const [fullOldContent, setFullOldContent] = useState<string | null>(null)
+  const [fullNewContent, setFullNewContent] = useState<string | null>(null)
+  const [fullLoading, setFullLoading] = useState(false)
+  const [fullError, setFullError] = useState<string | null>(null)
 
   // Load diff content when viewingDiff / diffFile / diffCommitHash changes
   useEffect(() => {
@@ -94,6 +101,9 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
     setCenterViewMode('diff')
     setFileContent(null)
     setFileError(null)
+    setFullOldContent(null)
+    setFullNewContent(null)
+    setFullError(null)
   }, [diffFile, diffCommitHash])
 
   // Load full file content when switching to file view
@@ -124,6 +134,54 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
       })
       .finally(() => {
         if (!cancelled) setFileLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [centerViewMode, diffFile, diffCommitHash, repoPath])
+
+  // Load old + new file content when switching to full diff view
+  useEffect(() => {
+    if (centerViewMode !== 'full' || !diffFile || !diffCommitHash) {
+      return
+    }
+    let cancelled = false
+    setFullLoading(true)
+    setFullError(null)
+    setFullOldContent(null)
+    setFullNewContent(null)
+
+    Promise.all([
+      window.electronAPI.git.showFileAtParent(repoPath, diffCommitHash, diffFile),
+      window.electronAPI.git.showFileAtCommit(repoPath, diffCommitHash, diffFile)
+    ])
+      .then(([oldResult, newResult]) => {
+        if (cancelled) return
+        // Old content: may fail for new files — treat as empty
+        if (oldResult.success && typeof oldResult.data === 'string') {
+          if (oldResult.data.includes('\0')) {
+            setFullError('Binary file — cannot display')
+            return
+          }
+          setFullOldContent(oldResult.data)
+        } else {
+          setFullOldContent('') // New file — no old content
+        }
+        // New content: may be empty for deleted files
+        if (newResult.success && typeof newResult.data === 'string') {
+          if (newResult.data.includes('\0')) {
+            setFullError('Binary file — cannot display')
+            return
+          }
+          setFullNewContent(newResult.data)
+        } else {
+          setFullNewContent('') // Deleted file — no new content
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setFullError(err instanceof Error ? err.message : 'Failed to load file content')
+      })
+      .finally(() => {
+        if (!cancelled) setFullLoading(false)
       })
     return () => { cancelled = true }
   }, [centerViewMode, diffFile, diffCommitHash, repoPath])
@@ -307,6 +365,14 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
                     Diff
                   </button>
                   <button
+                    className={`${styles.viewModeBtn} ${centerViewMode === 'full' ? styles.viewModeBtnActive : ''}`}
+                    onClick={() => setCenterViewMode('full')}
+                    title="View full files side-by-side with diff highlights"
+                  >
+                    <Columns size={13} />
+                    Full
+                  </button>
+                  <button
                     className={`${styles.viewModeBtn} ${centerViewMode === 'file' ? styles.viewModeBtnActive : ''}`}
                     onClick={() => setCenterViewMode('file')}
                     title="View full file"
@@ -347,6 +413,29 @@ export function RepoView({ repoPath, onCommitSelect, viewingDiff, diffFile, diff
                   })()}
                   {!diffLoading && !diffError && diffContent === null && (
                     <div className={styles.diffLoadingState}>No diff content available</div>
+                  )}
+                </div>
+              )}
+
+              {/* Full diff view (side-by-side complete files with highlights) */}
+              {centerViewMode === 'full' && (
+                <div className={styles.centerDiffContainer}>
+                  {fullLoading && (
+                    <div className={styles.diffLoadingState}>Loading full file comparison…</div>
+                  )}
+                  {fullError && (
+                    <div className={styles.diffErrorState}>
+                      <AlertTriangle size={14} /> {fullError}
+                    </div>
+                  )}
+                  {!fullLoading && !fullError && fullOldContent !== null && fullNewContent !== null && diffContent !== null && (
+                    <FullDiffView
+                      oldContent={fullOldContent}
+                      newContent={fullNewContent}
+                      diffContent={diffContent}
+                      filePath={diffFile}
+                      className={styles.centerDiffViewer}
+                    />
                   )}
                 </div>
               )}

@@ -902,6 +902,147 @@ function SideBySideDiffView({
   )
 }
 
+// ─── Full Diff View (complete files side-by-side with highlights) ───────────
+
+interface FullDiffViewProps {
+  oldContent: string
+  newContent: string
+  diffContent: string
+  filePath: string
+  className?: string
+}
+
+/**
+ * Build sets of changed line numbers from parsed diff hunks.
+ * Returns which old-file lines are removed and which new-file lines are added.
+ */
+function buildChangedLinesSets(hunks: DiffHunk[]): { oldChanged: Set<number>; newChanged: Set<number> } {
+  const oldChanged = new Set<number>()
+  const newChanged = new Set<number>()
+
+  for (const hunk of hunks) {
+    for (const line of hunk.lines) {
+      if (line.type === 'removed' && line.oldLineNum !== null) {
+        oldChanged.add(line.oldLineNum)
+      }
+      if (line.type === 'added' && line.newLineNum !== null) {
+        newChanged.add(line.newLineNum)
+      }
+    }
+  }
+
+  return { oldChanged, newChanged }
+}
+
+export function FullDiffView({
+  oldContent,
+  newContent,
+  diffContent,
+  filePath,
+  className = ''
+}: FullDiffViewProps): React.JSX.Element {
+  const leftPaneRef = useRef<HTMLDivElement>(null)
+  const rightPaneRef = useRef<HTMLDivElement>(null)
+  const syncingRef = useRef(false)
+
+  const language = useMemo(() => detectLanguage(filePath), [filePath])
+  const parsed = useMemo(() => parseDiff(diffContent), [diffContent])
+  const { oldChanged, newChanged } = useMemo(() => buildChangedLinesSets(parsed.hunks), [parsed.hunks])
+
+  const oldLines = useMemo(() => oldContent.split('\n'), [oldContent])
+  const newLines = useMemo(() => newContent.split('\n'), [newContent])
+
+  // Remove trailing empty line from split (files typically end with newline)
+  const oldDisplay = oldLines.length > 0 && oldLines[oldLines.length - 1] === '' ? oldLines.slice(0, -1) : oldLines
+  const newDisplay = newLines.length > 0 && newLines[newLines.length - 1] === '' ? newLines.slice(0, -1) : newLines
+
+  const handleScrollSync = useCallback((source: 'left' | 'right') => {
+    if (syncingRef.current) return
+    syncingRef.current = true
+
+    const sourceEl = source === 'left' ? leftPaneRef.current : rightPaneRef.current
+    const targetEl = source === 'left' ? rightPaneRef.current : leftPaneRef.current
+
+    if (sourceEl && targetEl) {
+      targetEl.scrollTop = sourceEl.scrollTop
+    }
+
+    requestAnimationFrame(() => {
+      syncingRef.current = false
+    })
+  }, [])
+
+  return (
+    <div className={`${styles.diffViewer} ${className}`}>
+      <div className={styles.sbsView}>
+        {/* Left pane (old file) */}
+        <div
+          className={`${styles.sbsPane} ${styles.sbsLeft}`}
+          ref={leftPaneRef}
+          onScroll={() => handleScrollSync('left')}
+        >
+          <div className={styles.sbsPaneInner}>
+            <div className={styles.sbsPaneHeader}>
+              Old · {oldDisplay.length} lines
+            </div>
+            {oldDisplay.length === 0 ? (
+              <div className={styles.fullDiffPlaceholder}>New file</div>
+            ) : (
+              oldDisplay.map((line, idx) => {
+                const lineNum = idx + 1
+                const isChanged = oldChanged.has(lineNum)
+                return (
+                  <div
+                    key={idx}
+                    className={`${styles.sbsLine} ${isChanged ? styles.sbsLineRemoved : styles.sbsLineContext}`}
+                  >
+                    <span className={styles.sbsLineNum}>{lineNum}</span>
+                    <span className={styles.sbsLineContent}>
+                      <SyntaxHighlightedContent text={line} language={language} />
+                    </span>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Right pane (new file) */}
+        <div
+          className={`${styles.sbsPane}`}
+          ref={rightPaneRef}
+          onScroll={() => handleScrollSync('right')}
+        >
+          <div className={styles.sbsPaneInner}>
+            <div className={styles.sbsPaneHeader}>
+              New · {newDisplay.length} lines
+            </div>
+            {newDisplay.length === 0 ? (
+              <div className={styles.fullDiffPlaceholder}>File deleted</div>
+            ) : (
+              newDisplay.map((line, idx) => {
+                const lineNum = idx + 1
+                const isChanged = newChanged.has(lineNum)
+                return (
+                  <div
+                    key={idx}
+                    className={`${styles.sbsLine} ${isChanged ? styles.sbsLineAdded : styles.sbsLineContext}`}
+                  >
+                    <span className={styles.sbsLineNum}>{lineNum}</span>
+                    <span className={styles.sbsLineContent}>
+                      <SyntaxHighlightedContent text={line} language={language} />
+                    </span>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
 function WordDiffContent({ segments, lineType }: { segments: WordDiffSegment[]; lineType: string }): React.JSX.Element {
