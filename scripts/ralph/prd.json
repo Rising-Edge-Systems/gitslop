@@ -136,7 +136,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "GPG listing via existing getAvailableGpgKeys IPC. SSH signing: gpg.format=ssh, user.signingkey=path/to/key.pub. Apply via git config on profile switch."
     },
     {

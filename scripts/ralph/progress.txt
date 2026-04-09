@@ -146,3 +146,25 @@ Started: Thu Apr  9 03:30:47 AM EDT 2026
   - child_process.exec needs promisify for async/await usage in main process
   - SSHKeyInfo interface: { name, path, pubKeyPath, type, fingerprint }
 ---
+
+## 2026-04-09 - US-MP-008
+- Implemented commit signing configuration per profile
+- Files changed: index.ts, preload/index.ts, useLayoutState.ts, SettingsPanel.tsx, SettingsPanel.module.css
+- **What was done:**
+  - Added `signingMethod`, `gpgKeyId`, `sshKeyPath` fields to Profile interface and ProfileData
+  - Updated `profiles:apply` IPC to set `commit.gpgsign`, `gpg.format`, `user.signingkey` git config based on profile signing method
+  - GPG signing: sets format to `openpgp` with selected GPG key ID
+  - SSH signing: sets format to `ssh` with selected SSH public key path
+  - None: disables signing and unsets format/signingkey
+  - Profile edit form now shows a Signing section with None/GPG/SSH toggle buttons
+  - GPG mode: loads available GPG keys via existing `getAvailableGpgKeys` IPC and shows dropdown
+  - SSH mode: loads SSH keys via existing `sshkeys:list` IPC and shows dropdown
+  - Profile cards show a green signing badge (GPG/SSH) when signing is configured
+  - Updated Window.electronAPI types in useLayoutState.ts for new profile fields
+  - Added CSS styles: signingSection, signingMethodSelector, signingMethodBtn, signingKeySelect, profileSigningBadge
+- **Learnings for future iterations:**
+  - `git config --unset` throws an error if the config key doesn't exist — wrap in try/catch
+  - GPG signing uses `gpg.format = openpgp`, SSH signing uses `gpg.format = ssh` (yes, the config key is still `gpg.format` even for SSH)
+  - SSH signing key path should point to the `.pub` file
+  - Reused `sshSpinner` CSS class from SSH keys section for loading states
+---
