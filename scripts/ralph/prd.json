@@ -68,7 +68,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Add commitHistoryDepth to the settings interface in useSettings.ts. Pass it through to CommitGraph via RepoView. CommitGraph uses it as the maxCount for git log."
     },
     {

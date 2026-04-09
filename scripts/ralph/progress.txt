@@ -57,3 +57,18 @@ Started: Thu Apr  9 04:07:00 PM EDT 2026
   - Lane compaction reassigns colors after remapping to keep them consistent
   - When testing octopus merges, the number of unique lanes may be less than parent count due to lane reuse by root commits
 ---
+
+## 2026-04-09 16:42 - US-GR-004
+- Added `commitHistoryDepth` setting to AppSettings interface (number, 0 = all)
+- Default value: 500, options: 500, 1000, 2500, 5000, All
+- Added dropdown in GitSection of SettingsPanel.tsx
+- Threaded the setting through AppLayout → MainContent → RepoView → CommitGraph via props
+- CommitGraph uses `maxCommits` prop (which was already defined but not connected)
+- When depth is 0 (All), `pageSize` is 0, so `maxCount` is not set in git log opts — loads everything
+- Guard added to `loadMoreCommits` to skip when `pageSize === 0` (no pagination needed when loading all)
+- Files changed: useSettings.ts, SettingsPanel.tsx, AppLayout.tsx, MainContent.tsx, RepoView.tsx, CommitGraph.tsx
+- **Learnings for future iterations:**
+  - Settings prop chain: App.tsx passes full `settings` to AppLayout, but AppLayout types it narrowly — must add new fields to the type
+  - CommitGraph already had `maxCommits` prop from US-GR-002 — this story just connected it to settings
+  - When `pageSize === 0`, the "Load more" button correctly hides because `totalCommitCount === commits.length`
+---
