@@ -115,6 +115,18 @@
   color: var(--bg-primary);
 }
 
+.navGroupHeader {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.navItemIndented {
+  padding-left: calc(var(--space-md) + 16px);
+}
+
 .navIcon {
   font-size: 14px;
   width: 18px;

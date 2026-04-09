@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon, KeyRound, Copy, Loader2, Wifi, WifiOff, Eye, EyeOff, ShieldCheck, Github, Gitlab, LogOut, ExternalLink } from 'lucide-react'
+import { Settings, Palette, GitBranch, Pencil, Keyboard, X, UserCircle, Plus, Trash2, Check, Pencil as PencilIcon, KeyRound, Copy, Loader2, Wifi, WifiOff, Eye, EyeOff, ShieldCheck, Github, Gitlab, LogOut, ExternalLink, ChevronDown, ChevronRight } from 'lucide-react'
 import type { AppSettings } from '../hooks/useSettings'
 import { DEFAULT_SETTINGS } from '../hooks/useSettings'
 import styles from './SettingsPanel.module.css'
@@ -61,14 +61,18 @@ export function SettingsPanel({
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  const sections: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
+  const [integrationsOpen, setIntegrationsOpen] = useState(
+    activeSection === 'github' || activeSection === 'gitlab'
+  )
+
+  const sections: { id: SettingsSection; label: string; icon: React.ReactNode; indent?: boolean; group?: string }[] = [
     { id: 'general', label: 'General', icon: <Settings size={16} /> },
     { id: 'appearance', label: 'Appearance', icon: <Palette size={16} /> },
     { id: 'git', label: 'Git', icon: <GitBranch size={16} /> },
     { id: 'profiles', label: 'Profiles', icon: <UserCircle size={16} /> },
     { id: 'sshkeys', label: 'SSH Keys', icon: <KeyRound size={16} /> },
-    { id: 'github', label: 'GitHub', icon: <Github size={16} /> },
-    { id: 'gitlab', label: 'GitLab', icon: <Gitlab size={16} /> },
+    { id: 'github', label: 'GitHub', icon: <Github size={16} />, indent: true, group: 'integrations' },
+    { id: 'gitlab', label: 'GitLab', icon: <Gitlab size={16} />, indent: true, group: 'integrations' },
     { id: 'editor', label: 'Editor', icon: <Pencil size={16} /> },
     { id: 'keybindings', label: 'Keybindings', icon: <Keyboard size={16} /> }
   ]
@@ -97,16 +101,39 @@ export function SettingsPanel({
         <div className={styles.body}>
           {/* Sidebar nav */}
           <nav className={styles.nav}>
-            {sections.map((s) => (
-              <button
-                key={s.id}
-                className={`${styles.navItem} ${activeSection === s.id ? styles.navItemActive : ''}`}
-                onClick={() => setActiveSection(s.id)}
-              >
-                <span className={styles.navIcon}>{s.icon}</span>
-                {s.label}
-              </button>
-            ))}
+            {sections.map((s, idx) => {
+              // Render "Integrations" group header before first integration item
+              const isFirstIntegration = s.group === 'integrations' && (idx === 0 || sections[idx - 1].group !== 'integrations')
+              const isIntegration = s.group === 'integrations'
+
+              return (
+                <React.Fragment key={s.id}>
+                  {isFirstIntegration && (
+                    <button
+                      className={`${styles.navItem} ${styles.navGroupHeader}`}
+                      onClick={() => setIntegrationsOpen(!integrationsOpen)}
+                    >
+                      <span className={styles.navIcon}>
+                        {integrationsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                      </span>
+                      Integrations
+                    </button>
+                  )}
+                  {(!isIntegration || integrationsOpen) && (
+                    <button
+                      className={`${styles.navItem} ${activeSection === s.id ? styles.navItemActive : ''} ${s.indent ? styles.navItemIndented : ''}`}
+                      onClick={() => {
+                        setActiveSection(s.id)
+                        if (isIntegration && !integrationsOpen) setIntegrationsOpen(true)
+                      }}
+                    >
+                      <span className={styles.navIcon}>{s.icon}</span>
+                      {s.label}
+                    </button>
+                  )}
+                </React.Fragment>
+              )
+            })}
           </nav>
 
           {/* Content */}
