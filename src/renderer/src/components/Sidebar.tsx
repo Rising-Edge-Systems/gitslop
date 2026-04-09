@@ -475,6 +475,15 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
     }
   }, [currentRepo, loadRemotes])
 
+  // Refresh remotes on graph:force-refresh (after push/fetch/pull)
+  useEffect(() => {
+    const handler = (): void => {
+      loadRemotes()
+    }
+    window.addEventListener('graph:force-refresh', handler)
+    return () => window.removeEventListener('graph:force-refresh', handler)
+  }, [loadRemotes])
+
   const toggleRemote = useCallback((name: string) => {
     setExpandedRemotes((prev) => {
       const next = new Set(prev)
@@ -924,6 +933,15 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
       cleanup?.()
       if (timer) clearTimeout(timer)
     }
+  }, [loadTags])
+
+  // Refresh tags on graph:force-refresh (after push/fetch/pull)
+  useEffect(() => {
+    const handler = (): void => {
+      loadTags()
+    }
+    window.addEventListener('graph:force-refresh', handler)
+    return () => window.removeEventListener('graph:force-refresh', handler)
   }, [loadTags])
 
   const filteredTags = filter

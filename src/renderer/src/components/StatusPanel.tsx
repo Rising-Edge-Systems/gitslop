@@ -187,6 +187,15 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
     }
   }, [loadStatus])
 
+  // Refresh status on graph:force-refresh (after push/fetch/pull)
+  useEffect(() => {
+    const handler = (): void => {
+      loadStatus()
+    }
+    window.addEventListener('graph:force-refresh', handler)
+    return () => window.removeEventListener('graph:force-refresh', handler)
+  }, [loadStatus])
+
   // Pre-fill message when amend is checked
   useEffect(() => {
     if (amend) {
