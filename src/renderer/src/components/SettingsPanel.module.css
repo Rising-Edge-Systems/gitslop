@@ -1045,6 +1045,7 @@
 
 .ghTokenInput {
   display: flex;
+  flex-direction: column;
   gap: var(--space-xs);
   align-items: stretch;
 }
