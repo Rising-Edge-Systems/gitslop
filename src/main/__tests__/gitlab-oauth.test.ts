@@ -4,7 +4,11 @@ import {
   generatePkcePair,
   generateState,
   startLoopbackServer,
-  LOOPBACK_PORT
+  LOOPBACK_PORT,
+  ensureFreshGitLabToken,
+  refreshGitLabToken,
+  configureGitLabAccountStore,
+  type StoredGitLabAccount
 } from '../gitlab-oauth'
 
 // ─── PKCE ─────────────────────────────────────────────────────────────────────
@@ -108,4 +112,96 @@ describe('startLoopbackServer', () => {
     expect(resp.status).toBe(400)
     await expect(serverPromise).rejects.toThrow(/User denied|access_denied/)
   }, 10_000)
+})
+
+// ─── Refresh / ensureFreshGitLabToken ─────────────────────────────────────
+
+// These tests deliberately use the `plain:` token prefix so decryptToken
+// can short-circuit without touching Electron's safeStorage (which is not
+// available in the vitest runtime).
+
+describe('ensureFreshGitLabToken', () => {
+  it('returns the decrypted PAT for legacy PAT accounts unchanged', async () => {
+    const pat: StoredGitLabAccount = {
+      id: 'gl-1',
+      label: 'test',
+      username: 'alice',
+      token: 'plain:pat-token-abc'
+      // authType/expiresAt absent → legacy PAT
+    }
+    const tok = await ensureFreshGitLabToken(pat)
+    expect(tok).toBe('pat-token-abc')
+  })
+
+  it('returns the decrypted access token when an OAuth token is still fresh', async () => {
+    const account: StoredGitLabAccount = {
+      id: 'gl-2',
+      label: 'oauth',
+      username: 'bob',
+      token: 'plain:access-token-xyz',
+      authType: 'oauth',
+      refreshToken: 'plain:refresh-abc',
+      expiresAt: Date.now() + 10 * 60 * 1000, // 10 min in the future
+      clientId: 'client-1'
+    }
+    const tok = await ensureFreshGitLabToken(account)
+    expect(tok).toBe('access-token-xyz')
+  })
+
+  it('returns null when refresh fails for an OAuth account with no refresh token', async () => {
+    // Near-expiry OAuth account missing a refreshToken — refreshGitLabToken
+    // returns null and ensureFreshGitLabToken surfaces that as null.
+    const account: StoredGitLabAccount = {
+      id: 'gl-3',
+      label: 'broken',
+      username: 'eve',
+      token: 'plain:old-access',
+      authType: 'oauth',
+      expiresAt: Date.now() - 1000,
+      clientId: 'client-1'
+      // no refreshToken
+    }
+    const tok = await ensureFreshGitLabToken(account)
+    expect(tok).toBeNull()
+  })
+})
+
+describe('refreshGitLabToken', () => {
+  it('returns null for non-OAuth accounts', async () => {
+    const pat: StoredGitLabAccount = {
+      id: 'gl-4',
+      label: 'pat',
+      username: 'x',
+      token: 'plain:pat'
+    }
+    expect(await refreshGitLabToken(pat)).toBeNull()
+  })
+
+  it('returns null when clientId is missing', async () => {
+    const oauth: StoredGitLabAccount = {
+      id: 'gl-5',
+      label: 'oauth',
+      username: 'x',
+      token: 'plain:a',
+      authType: 'oauth',
+      refreshToken: 'plain:r',
+      expiresAt: Date.now() - 1
+    }
+    expect(await refreshGitLabToken(oauth)).toBeNull()
+  })
+})
+
+describe('configureGitLabAccountStore', () => {
+  it('is a registration function that accepts read/write callbacks', () => {
+    // Smoke test: registering a dummy accessor should not throw.
+    const fake: StoredGitLabAccount[] = []
+    expect(() =>
+      configureGitLabAccountStore({
+        read: () => fake,
+        write: (a) => {
+          fake.splice(0, fake.length, ...a)
+        }
+      })
+    ).not.toThrow()
+  })
 })

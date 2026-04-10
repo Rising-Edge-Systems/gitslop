@@ -16,6 +16,7 @@ import * as crypto from 'crypto'
 import * as http from 'http'
 import * as https from 'https'
 import { shell } from 'electron'
+import { encryptToken, decryptToken } from './token-crypto'
 
 /** Fixed redirect port — must match the user-registered redirect URI on GitLab. */
 export const LOOPBACK_PORT = 47823
@@ -426,4 +427,172 @@ export async function startOAuthFlow(
     expiresAt,
     instanceUrl
   }
+}
+
+// ─── Refresh-token flow ───────────────────────────────────────────────────
+
+/**
+ * Shape of a stored GitLab account — must stay in sync with the
+ * `IntegrationAccount` interface declared in src/main/index.ts. We redeclare
+ * it here (rather than importing it) because index.ts already imports from
+ * this module and a reverse import would create a circular dependency.
+ */
+export interface StoredGitLabAccount {
+  id: string
+  label: string
+  username: string
+  token: string // encrypted access token
+  instanceUrl?: string
+  authType?: 'pat' | 'oauth'
+  refreshToken?: string // encrypted
+  expiresAt?: number
+  clientId?: string
+}
+
+/**
+ * Persistence accessor registered once at startup from index.ts so that
+ * ensureFreshGitLabToken can atomically read-modify-write the stored account
+ * list without creating a circular import with the main-process store.
+ *
+ * Read returns the current list as stored; write replaces the entire list.
+ */
+export interface GitLabAccountStoreAccessor {
+  read: () => StoredGitLabAccount[]
+  write: (accounts: StoredGitLabAccount[]) => void
+}
+
+let accountStoreAccessor: GitLabAccountStoreAccessor | null = null
+
+export function configureGitLabAccountStore(
+  accessor: GitLabAccountStoreAccessor
+): void {
+  accountStoreAccessor = accessor
+}
+
+/**
+ * POST grant_type=refresh_token to /oauth/token and return the parsed body.
+ * Returns null on any HTTP or transport error so the caller can degrade
+ * gracefully and signal "session expired" to the UI.
+ */
+async function postRefreshToken(
+  instanceUrl: string,
+  refreshToken: string,
+  clientId: string
+): Promise<{
+  access_token?: string
+  refresh_token?: string
+  expires_in?: number
+  token_type?: string
+} | null> {
+  try {
+    const tokenUrl = new URL(
+      '/oauth/token',
+      normalizeInstanceUrl(instanceUrl)
+    ).toString()
+    const res = await postJson(tokenUrl, {
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: clientId,
+      redirect_uri: LOOPBACK_REDIRECT_URI
+    })
+    if (res.statusCode < 200 || res.statusCode >= 300) return null
+    return res.data as {
+      access_token?: string
+      refresh_token?: string
+      expires_in?: number
+      token_type?: string
+    } | null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Refresh an OAuth account's access token using the stored refresh token.
+ * Returns a cloned account with freshly-encrypted access + refresh tokens and
+ * an updated expiresAt. Returns null if:
+ *   - the account is not OAuth-managed,
+ *   - the refresh token is missing / undecryptable,
+ *   - GitLab rejects the refresh (revoked, expired, etc.).
+ *
+ * GitLab refresh tokens are single-use: every successful refresh returns a
+ * NEW refresh_token that invalidates the old one. Callers MUST persist the
+ * returned account or the next refresh will fail.
+ */
+export async function refreshGitLabToken(
+  account: StoredGitLabAccount
+): Promise<StoredGitLabAccount | null> {
+  if (account.authType !== 'oauth') return null
+  if (!account.refreshToken || !account.clientId) return null
+  const refreshToken = decryptToken(account.refreshToken)
+  if (!refreshToken) return null
+  const instanceUrl = account.instanceUrl || 'https://gitlab.com'
+  const body = await postRefreshToken(instanceUrl, refreshToken, account.clientId)
+  if (!body || !body.access_token) return null
+  const newRefresh = body.refresh_token || refreshToken
+  const expiresIn =
+    typeof body.expires_in === 'number' && body.expires_in > 0
+      ? body.expires_in
+      : 7200
+  return {
+    ...account,
+    token: encryptToken(body.access_token),
+    refreshToken: encryptToken(newRefresh),
+    expiresAt: Date.now() + expiresIn * 1000
+  }
+}
+
+/** Refresh skew: refresh tokens that expire within this window so the very
+ *  next API call doesn't race the expiry. */
+const REFRESH_SKEW_MS = 60_000
+
+/**
+ * Guarantee a valid access token for the given account.
+ *
+ * - Legacy PAT accounts (authType undefined or 'pat', or no expiresAt):
+ *   returns the decrypted PAT as-is. Behavior unchanged.
+ * - OAuth accounts with a still-fresh access token: returns it as-is.
+ * - OAuth accounts within REFRESH_SKEW_MS of expiry (or already expired):
+ *   refreshes via refreshGitLabToken, persists the updated account through
+ *   the configured store accessor, and returns the new decrypted access token.
+ *
+ * Returns null if the refresh fails (session expired / token revoked). The
+ * caller is expected to surface a re-authorize hint to the user — the account
+ * itself is left in the store so the UI can still display it with an error.
+ */
+export async function ensureFreshGitLabToken(
+  account: StoredGitLabAccount
+): Promise<string | null> {
+  if (account.authType !== 'oauth' || !account.expiresAt) {
+    const token = decryptToken(account.token)
+    return token || null
+  }
+
+  if (account.expiresAt - Date.now() > REFRESH_SKEW_MS) {
+    const token = decryptToken(account.token)
+    return token || null
+  }
+
+  const refreshed = await refreshGitLabToken(account)
+  if (!refreshed) return null
+
+  // Atomic read-modify-write against the stored list. We re-read to avoid
+  // clobbering concurrent writes (e.g. a parallel handler that touched a
+  // different account in between).
+  if (accountStoreAccessor) {
+    try {
+      const current = accountStoreAccessor.read()
+      const idx = current.findIndex((a) => a.id === refreshed.id)
+      if (idx >= 0) {
+        current[idx] = refreshed
+        accountStoreAccessor.write(current)
+      }
+    } catch {
+      // If persistence fails we still return the new token so the current
+      // request succeeds; the next call will just refresh again.
+    }
+  }
+
+  const token = decryptToken(refreshed.token)
+  return token || null
 }

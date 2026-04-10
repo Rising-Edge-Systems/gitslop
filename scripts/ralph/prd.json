@@ -53,7 +53,7 @@
         "Typecheck passes, existing tests still pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Be careful with the atomic read-modify-write of the account list in electron-store. After refreshGitLabToken returns the updated account, re-read gitlabAccounts from the store, replace the matching id, and write it back. Do NOT serialize the in-memory account back to the store since other operations may have written to it concurrently. GitLab refresh tokens are single-use — each refresh returns a NEW refresh_token that replaces the old one. If you don't persist the new refresh token, the next refresh will fail."
     },
     {
