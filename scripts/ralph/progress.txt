@@ -1,125 +1,25 @@
 # Ralph Progress Log
-Started: Thu Apr  9 04:07:00 PM EDT 2026
+Started: Fri Apr 10 04:03:27 PM EDT 2026
 ---
 
 ## Codebase Patterns
-- Typecheck: use `npm run typecheck` (not bare `tsc --noEmit`), it runs both `typecheck:node` and `typecheck:web` with correct tsconfigs
-- Tests: `npm test` runs vitest (103 tests currently)
-- Custom events pattern: use `window.dispatchEvent(new CustomEvent('event-name'))` and `window.addEventListener('event-name', handler)` for cross-component communication in renderer
-- Git operations in Toolbar.tsx: push (handlePush, handleForcePush, handleSetUpstream), pull (handlePull, handlePullConfirm), fetch (handleFetch) — all use `window.electronAPI.git.*`
-- File watcher: `window.electronAPI.onRepoChanged` fires on file changes; `withWatcherSuppression` in git-ipc.ts wraps operations and calls `sendRepoChangedForced()` after
-- CommitGraph.tsx loadCommits() has an optimization that skips re-render if first+last hash+refs match — force refresh bypasses this
-- Window.electronAPI global type declaration is in `src/renderer/src/hooks/useLayoutState.ts` — must update there when adding new IPC methods
-- IPC method flow: git-service.ts (impl) → git-ipc.ts (handler) → preload/index.ts (bridge) → useLayoutState.ts (type decl)
+- Tests live in `src/main/__tests__/*.test.ts` using vitest; run with `npm test` or `npx vitest run <file>`.
+- Quality gates: `npm run typecheck` (node + web) and `npm test`. Both must be green before committing.
+- Main-process code uses Node built-ins freely (crypto, http) — avoid new deps.
+- Main process entry: `src/main/index.ts`. New main-process modules should be siblings of index.ts.
+- Fixed loopback OAuth redirect: `http://localhost:47823/callback` (see `src/main/gitlab-oauth.ts` `LOOPBACK_PORT`). Do not change — it is baked into user-registered GitLab OAuth apps.
 
-## 2026-04-09 16:11 - US-GR-001
-- Implemented `graph:force-refresh` custom event dispatched after successful push/fetch/pull in Toolbar.tsx
-- CommitGraph.tsx listens for the event and calls `loadCommits(true)` which bypasses the skip-if-unchanged check
-- Enhanced skip-if-unchanged check to also compare `refs` field on first and last commits
-- StatusBar.tsx and Sidebar.tsx also listen for `graph:force-refresh` to update ahead/behind counts and branch list
-- Files changed: CommitGraph.tsx, Toolbar.tsx, StatusBar.tsx, Sidebar.tsx
-- **Learnings for future iterations:**
-  - The skip check in loadCommits() compares first+last commit hash+length — after push, hashes don't change but refs do
-  - All 7 push/fetch/pull code paths in Toolbar.tsx need the event dispatch (push, force push, set upstream push, pull, pull with options, fetch)
-  - Sidebar has sub-components (RemotesSection, TagsSection) defined in the same file
-  - The main Sidebar component with branch loading is at line ~2677
 ---
 
-## 2026-04-09 16:20 - US-GR-002
-- Implemented commit pagination: default 500 commits loaded initially via `maxCount` option
-- Added `skip` option to git-service.ts log() method and IPC bridge for offset-based pagination
-- Added `commitCount()` method to git-service.ts using `git rev-list --count --all` for total count
-- Added "Load more commits (N remaining)" button below the graph viewport
-- Updated graph header to show "Showing N of Total" when there are more commits available
-- Filters (author, date, grep, path) are passed alongside pagination params
-- Added `maxCommits` prop to CommitGraph for future configurability (US-GR-004)
-- Files changed: git-service.ts, git-ipc.ts, preload/index.ts, CommitGraph.tsx, CommitGraph.module.css, useLayoutState.ts
+## 2026-04-10 - US-GL-001
+- Implemented PKCE helpers and loopback callback server for GitLab OAuth.
+- Files created:
+  - `src/main/gitlab-oauth.ts` — exports `generatePkcePair()`, `generateState()`, `startLoopbackServer()`, `LOOPBACK_PORT` (47823), `LOOPBACK_REDIRECT_URI`.
+  - `src/main/__tests__/gitlab-oauth.test.ts` — 10 unit tests covering PKCE correctness, URL-safety, loopback happy path, EADDRINUSE, and ?error= handling.
+- Quality: typecheck clean, all 121 tests pass (6 files).
 - **Learnings for future iterations:**
-  - The global Window type declaration for electronAPI is in `useLayoutState.ts` (not a .d.ts file) — must update there when adding new IPC methods
-  - git-service.ts already had `maxCount` support, just needed `skip` added
-  - `git rev-list --count --all` is fast even on large repos — good for total count
-  - CommitGraph accepts a `maxCommits` prop now (defaults to 500 via DEFAULT_PAGE_SIZE constant)
-  - The `loadMoreCommits` function appends to existing commits array via `setCommits(prev => [...prev, ...more])`
----
-
-## 2026-04-09 16:35 - US-GR-003
-- Implemented lane compaction via `compactLanes()` in laneAssignment.ts that remaps lanes to be contiguous and caps at MAX_VISIBLE_LANES (18)
-- Lanes beyond the cap are folded into the last visible lane; collapsed branch names are collected
-- Updated `computeGraphLayout()` in CommitGraph.tsx to return a `GraphLayoutResult` with compaction metadata
-- Added `lanesExpanded` state + "+N branches" toggle button in graph header with GitBranch icon
-- Clicking the button expands all lanes (passes Infinity to compactLanes) or collapses back to default
-- Added CSS for `.collapsedLanesButton` in CommitGraph.module.css
-- Added 7 new tests for compactLanes covering: empty input, no-op, capping, parent connection remapping, branch name collection, Infinity bypass
-- Files changed: laneAssignment.ts, CommitGraph.tsx, CommitGraph.module.css, laneAssignment.test.ts
-- **Learnings for future iterations:**
-  - `compactLanes()` is a post-processor on `assignLanes()` output — it remaps lane indices and parent connections
-  - The `computeGraphLayout()` function now returns `GraphLayoutResult` (nodes + collapsedCount/collapsedBranches/totalLanes) instead of just `GraphNode[]`
-  - Lane compaction reassigns colors after remapping to keep them consistent
-  - When testing octopus merges, the number of unique lanes may be less than parent count due to lane reuse by root commits
----
-
-## 2026-04-09 16:42 - US-GR-004
-- Added `commitHistoryDepth` setting to AppSettings interface (number, 0 = all)
-- Default value: 500, options: 500, 1000, 2500, 5000, All
-- Added dropdown in GitSection of SettingsPanel.tsx
-- Threaded the setting through AppLayout → MainContent → RepoView → CommitGraph via props
-- CommitGraph uses `maxCommits` prop (which was already defined but not connected)
-- When depth is 0 (All), `pageSize` is 0, so `maxCount` is not set in git log opts — loads everything
-- Guard added to `loadMoreCommits` to skip when `pageSize === 0` (no pagination needed when loading all)
-- Files changed: useSettings.ts, SettingsPanel.tsx, AppLayout.tsx, MainContent.tsx, RepoView.tsx, CommitGraph.tsx
-- **Learnings for future iterations:**
-  - Settings prop chain: App.tsx passes full `settings` to AppLayout, but AppLayout types it narrowly — must add new fields to the type
-  - CommitGraph already had `maxCommits` prop from US-GR-002 — this story just connected it to settings
-  - When `pageSize === 0`, the "Load more" button correctly hides because `totalCommitCount === commits.length`
----
-
-## 2026-04-09 16:48 - US-GR-005
-- Added `graph:force-refresh` event listeners to RemotesSection (loadRemotes), TagsSection (loadTags), and StatusPanel (loadStatus)
-- These sub-components only had `onRepoChanged` listeners which don't fire after push/fetch (no working tree changes)
-- StatusBar and main Sidebar branch list already had listeners from US-GR-001
-- Files changed: Sidebar.tsx, StatusPanel.tsx
-- **Learnings for future iterations:**
-  - Sidebar.tsx has multiple sub-components (RemotesSection, TagsSection, StashesSection, SubmodulesSection) that each manage their own data loading and refresh listeners independently
-  - When adding cross-component events, check ALL sub-components that have `onRepoChanged` to see if they also need the new event
-  - StashesSection and SubmodulesSection don't need `graph:force-refresh` since stashes/submodules don't change after push/fetch
----
-
-## 2026-04-09 16:49 - US-GR-006
-- Implemented GitHub OAuth Device Flow login alongside existing PAT method
-- Added `githubFormPost()` helper in main/index.ts for POST requests to github.com (non-API, form-encoded)
-- Added 3 IPC handlers: `github:startDeviceFlow`, `github:pollDeviceFlow`, `github:cancelDeviceFlow`
-- `startDeviceFlow` POSTs to `/login/device/code` with client_id and scopes, returns user_code + verification_uri
-- `pollDeviceFlow` polls `/login/oauth/access_token` in a loop with backoff, handles authorization_pending/slow_down/expired_token/access_denied
-- On success, fetches user info with the token and stores encrypted account (same as PAT flow)
-- `cancelDeviceFlow` sets a cancelled flag on the abort controller to stop polling
-- UI: "Login with GitHub" button shown above PAT input with "or use a token" divider
-- Device flow dialog shows user code with copy button, "Open GitHub" link, and cancel button
-- Spinner + "Waiting for authorization…" while polling
-- Added bridge methods in preload/index.ts and type declarations in useLayoutState.ts
-- Files changed: src/main/index.ts, src/preload/index.ts, src/renderer/src/components/SettingsPanel.tsx, src/renderer/src/hooks/useLayoutState.ts
-- **Learnings for future iterations:**
-  - GitHub Device Flow uses github.com (not api.github.com) for auth endpoints with form-encoded POST
-  - The polling endpoint returns `error=authorization_pending` while waiting — this is normal, not an error
-  - `slow_down` response means increase interval — must handle dynamically
-  - Polling runs in main process (IPC handler) with a cancellation flag pattern since you can't abort from renderer
-  - The existing `githubApiRequest()` uses api.github.com hostname — device flow needs github.com hostname
----
-
-## 2026-04-09 16:55 - US-GR-007
-- Implemented GitLab multi-account support following exact same pattern as GitHub multi-account
-- Added `migrateGitLabLegacy()` to migrate single gitlabToken + gitlabInstanceUrl to gitlabAccounts array
-- Added IPC handlers: `gitlab:addAccount`, `gitlab:getAccounts`, `gitlab:removeAccount`
-- Updated `getGitLabConfig()` to read from multi-account array (first account used as default for existing MR/parse handlers)
-- Updated legacy `gitlab:login` to add as account, `gitlab:logout` to clear all accounts
-- Converted GitLabSection UI from single-user login/logout to multi-account list with add/remove
-- Each account card shows avatar, name, username, instance URL (if self-hosted), email, profile link, and remove button
-- Add Account form includes instance URL field (defaults to gitlab.com), label, and PAT input
-- Added bridge methods in preload/index.ts and type declarations in useLayoutState.ts
-- Files changed: src/main/index.ts, src/preload/index.ts, src/renderer/src/components/SettingsPanel.tsx, src/renderer/src/hooks/useLayoutState.ts
-- **Learnings for future iterations:**
-  - The IntegrationAccount interface already had instanceUrl field — designed for GitLab from the start
-  - GitLab multi-account uses the same electron-store `gitlabAccounts` array that was already in StoreSchema defaults
-  - Legacy migration must delete both `gitlabToken` AND `gitlabInstanceUrl` from store after migrating
-  - `getGitLabConfig()` still works as the default token provider for MR/parse handlers by reading first account
-  - The GitLab PAT settings link pattern is `{instanceUrl}/-/user_settings/personal_access_tokens`
+  - `base64url` digest encoding works on modern Node but we normalize manually in `toBase64Url()` for safety.
+  - Loopback server must give the browser ~500ms after responding before closing, otherwise the user sees a "connection reset" page.
+  - For EADDRINUSE tests, clean up the first server by firing a real callback to it — do not leak listeners.
+  - GitLab OAuth redirect URI must be pre-registered, so `LOOPBACK_PORT` is a hard-coded constant that must match the Settings UI instructions (US-GL-004).
 ---

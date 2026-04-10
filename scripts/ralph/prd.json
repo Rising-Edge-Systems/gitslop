@@ -19,7 +19,7 @@
         "Typecheck and existing tests still pass"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "crypto is built into Node, no new deps. Use 'http' module for the loopback server — don't reach for express. Port 47823 is arbitrary but must match what the user registers as their OAuth app's Redirect URI. Document this constant clearly so future maintainers understand why it can't change casually. GitLab's OAuth docs: https://docs.gitlab.com/ee/api/oauth2.html"
     },
     {
