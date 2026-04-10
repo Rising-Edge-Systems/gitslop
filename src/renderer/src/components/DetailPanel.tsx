@@ -225,7 +225,7 @@ interface DetailPanelProps {
   detail: CommitDetail | null
   repoPath: string | null
   /** Callback when a file is clicked in the changed files list */
-  onFileClick?: (file: CommitFileDetail, commitHash: string, opts?: { forceFileView?: boolean }) => void
+  onFileClick?: (file: CommitFileDetail, commitHash: string) => void
   /** Path of the currently selected file (whose diff is open in center panel) */
   selectedFilePath?: string | null
   /** Current file list view mode */
@@ -515,12 +515,12 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
   }, [commit?.hash])
 
   // Handle file click — delegate to parent via onFileClick callback.
-  // Unchanged files (from "All files" mode) have no diff, so force the
-  // center pane into File view when one is clicked.
+  // RepoView derives the effective view mode based on file status (see
+  // `noDiffForCurrentFile`) so the user's persisted Diff/Full/File
+  // preference is preserved across file navigation.
   const handleFileClick = useCallback((file: CommitFileDetail) => {
     if (!commit) return
-    const forceFileView = file.status === 'unchanged'
-    onFileClick?.(file, commit.hash, forceFileView ? { forceFileView: true } : undefined)
+    onFileClick?.(file, commit.hash)
   }, [onFileClick, commit?.hash])
 
   const fileCount = fileDetails.length

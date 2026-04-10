@@ -61,8 +61,22 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
   const [diffError, setDiffError] = useState<string | null>(null)
 
   // ─── Full File View ─────────────────────────────────────────────────────
-  // Derive centerViewMode from persisted diffViewMode
-  const centerViewMode: 'diff' | 'full' | 'file' = diffViewMode === 'full' ? 'full' : diffViewMode === 'file' ? 'file' : 'diff'
+  // Derive centerViewMode from persisted diffViewMode, but force File view
+  // for files that have no diff to show:
+  //   - status 'A' (newly added) — there's no parent version to diff against
+  //     so the Diff and Full views would render blank. The actual content
+  //     only exists in File view.
+  //   - working-tree untracked files — same reason.
+  // This override is DERIVED, not persisted — the user's saved view-mode
+  // preference is untouched, so the next click on a modified file returns
+  // to whatever mode they last selected.
+  const currentFileDetail = selectedCommit?.fileDetails?.find((f) => f.path === diffFile)
+  const noDiffForCurrentFile =
+    currentFileDetail?.status === 'A' ||
+    (workingTreeFile?.isUntracked ?? false)
+  const persistedCenterView: 'diff' | 'full' | 'file' =
+    diffViewMode === 'full' ? 'full' : diffViewMode === 'file' ? 'file' : 'diff'
+  const centerViewMode: 'diff' | 'full' | 'file' = noDiffForCurrentFile ? 'file' : persistedCenterView
   // Track last-used diff sub-mode (inline/side-by-side) so we can restore it when switching back to diff
   const lastDiffSubMode = useRef<'inline' | 'side-by-side'>((diffViewMode === 'inline' || diffViewMode === 'side-by-side') ? diffViewMode : 'inline')
   // Keep lastDiffSubMode up to date
@@ -547,7 +561,8 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
                   <button
                     className={`${styles.viewModeBtn} ${centerViewMode === 'diff' ? styles.viewModeBtnActive : ''}`}
                     onClick={() => setCenterViewMode('diff')}
-                    title="View diff"
+                    disabled={noDiffForCurrentFile}
+                    title={noDiffForCurrentFile ? 'No diff available for this file' : 'View diff'}
                   >
                     <GitCompare size={13} />
                     Diff
@@ -555,7 +570,8 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
                   <button
                     className={`${styles.viewModeBtn} ${centerViewMode === 'full' ? styles.viewModeBtnActive : ''}`}
                     onClick={() => setCenterViewMode('full')}
-                    title="View full files side-by-side with diff highlights"
+                    disabled={noDiffForCurrentFile}
+                    title={noDiffForCurrentFile ? 'No diff available for this file' : 'View full files side-by-side with diff highlights'}
                   >
                     <Columns size={13} />
                     Full
@@ -682,7 +698,8 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
                   <button
                     className={`${styles.viewModeBtn} ${centerViewMode === 'diff' ? styles.viewModeBtnActive : ''}`}
                     onClick={() => setCenterViewMode('diff')}
-                    title="View diff"
+                    disabled={noDiffForCurrentFile}
+                    title={noDiffForCurrentFile ? 'No diff available for this file' : 'View diff'}
                   >
                     <GitCompare size={13} />
                     Diff
@@ -690,7 +707,8 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
                   <button
                     className={`${styles.viewModeBtn} ${centerViewMode === 'full' ? styles.viewModeBtnActive : ''}`}
                     onClick={() => setCenterViewMode('full')}
-                    title="View full files side-by-side with diff highlights"
+                    disabled={noDiffForCurrentFile}
+                    title={noDiffForCurrentFile ? 'No diff available for this file' : 'View full files side-by-side with diff highlights'}
                   >
                     <Columns size={13} />
                     Full

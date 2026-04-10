@@ -206,20 +206,20 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
   // ─── Center-Stage Diff Handlers ────────────────────────────────────────────
   const handleFileClick = useCallback(
-    (file: CommitFileDetail, commitHash: string, opts?: { forceFileView?: boolean }) => {
+    (file: CommitFileDetail, commitHash: string) => {
       // Clicking a commit file clears any working-tree selection — the two views
       // are mutually exclusive in the center pane.
+      //
+      // Files with no diff (newly added / unchanged-in-"All files"-mode) are
+      // rendered as File view by RepoView via a derived override — we do NOT
+      // touch diffViewMode here, so the user's saved Diff/Full/File preference
+      // is preserved across file navigation.
       setWorkingTreeFile(null)
       setDiffFile(file.path)
       setDiffCommitHash(commitHash)
       setViewingDiff(true)
-      // Unchanged files (from "All files" mode) have no diff — force the
-      // center pane into File view so the user sees the full file content.
-      if (opts?.forceFileView) {
-        setDiffViewMode('file')
-      }
     },
-    [setDiffViewMode]
+    []
   )
 
   const handleWorkingTreeFileSelect = useCallback(
