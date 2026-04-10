@@ -1539,11 +1539,20 @@ function GitLabSection(): React.JSX.Element {
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [authMethod, setAuthMethod] = useState<'pat' | 'oauth'>('pat')
+  // PAT tab state
   const [pat, setPat] = useState('')
   const [label, setLabel] = useState('')
   const [showPat, setShowPat] = useState(false)
   const [instanceUrl, setInstanceUrl] = useState('https://gitlab.com')
   const [error, setError] = useState('')
+  // OAuth tab state (kept independent so switching tabs preserves values)
+  const [oauthInstanceUrl, setOauthInstanceUrl] = useState('https://gitlab.com')
+  const [oauthLabel, setOauthLabel] = useState('')
+  const [oauthClientId, setOauthClientId] = useState('')
+  const [oauthStatus, setOauthStatus] = useState('')
+  const [oauthError, setOauthError] = useState('')
+  const [oauthInProgress, setOauthInProgress] = useState(false)
 
   const loadAccounts = useCallback(async () => {
     try {
@@ -1585,6 +1594,41 @@ function GitLabSection(): React.JSX.Element {
       setAdding(false)
     }
   }, [pat, label, instanceUrl, loadAccounts])
+
+  const handleStartOAuthFlow = useCallback(async () => {
+    const clientId = oauthClientId.trim()
+    const instance = (oauthInstanceUrl.trim() || 'https://gitlab.com').replace(/\/$/, '')
+    if (!clientId) {
+      setOauthError('Please paste your GitLab Application ID (Client ID).')
+      return
+    }
+    setOauthError('')
+    setOauthInProgress(true)
+    setOauthStatus('Opening browser, waiting for authorization…')
+    try {
+      const result = await window.electronAPI.gitlab.startOAuthFlow({
+        instanceUrl: instance,
+        clientId,
+        label: oauthLabel.trim() || undefined,
+      })
+      if (result.success) {
+        setOauthClientId('')
+        setOauthLabel('')
+        setOauthInstanceUrl('https://gitlab.com')
+        setOauthStatus('')
+        setShowAddForm(false)
+        loadAccounts()
+      } else {
+        setOauthError(result.error || 'OAuth login failed')
+        setOauthStatus('')
+      }
+    } catch (err) {
+      setOauthError(err instanceof Error ? err.message : 'OAuth login failed')
+      setOauthStatus('')
+    } finally {
+      setOauthInProgress(false)
+    }
+  }, [oauthClientId, oauthInstanceUrl, oauthLabel, loadAccounts])
 
   const handleRemoveAccount = useCallback(async (accountId: string, accountLabel: string) => {
     const confirmed = window.confirm(`Remove GitLab account "${accountLabel}"?\n\nThis will delete the stored token. You can re-add it later.`)
@@ -1662,69 +1706,189 @@ function GitLabSection(): React.JSX.Element {
       {/* Add account form */}
       {showAddForm ? (
         <div className={styles.ghLoginSection}>
-          <p className={styles.ghLoginDesc}>
-            Add a GitLab account using a Personal Access Token.
+          <p className={styles.ghMethodIntro}>
+            OAuth requires registering an application on your GitLab instance. PAT works on any instance without setup.
           </p>
-          <div className={styles.ghTokenInput} style={{ marginBottom: 'var(--space-sm)' }}>
-            <div className={styles.ghTokenField} style={{ flex: 1 }}>
-              <input
-                type="text"
-                value={instanceUrl}
-                onChange={(e) => setInstanceUrl(e.target.value)}
-                placeholder="https://gitlab.com"
-                className={styles.ghInput}
-              />
-            </div>
-          </div>
-          <p className={styles.ghScopeHint}>
-            Instance URL (gitlab.com or self-hosted). Create a PAT at{' '}
-            <a
-              href={`${instanceUrl}/-/user_settings/personal_access_tokens`}
-              className={styles.ghLink}
-              onClick={(e) => {
-                e.preventDefault()
-                window.open(`${instanceUrl}/-/user_settings/personal_access_tokens`, '_blank')
-              }}
+          <div className={styles.ghMethodTabs} role="tablist" aria-label="GitLab login method">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={authMethod === 'oauth'}
+              className={`${styles.ghMethodTab} ${authMethod === 'oauth' ? styles.ghMethodTabActive : ''}`}
+              onClick={() => setAuthMethod('oauth')}
             >
-              Personal Access Tokens
-            </a>
-            {' '}with scopes: <code>api</code>, <code>read_user</code>
-          </p>
-          <div className={styles.ghTokenInput}>
-            <input
-              type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="Account label (e.g., Work, Personal)"
-              className={styles.ghInput}
-              style={{ marginBottom: 6 }}
-            />
-            <div className={styles.ghTokenField}>
-              <input
-                type={showPat ? 'text' : 'password'}
-                value={pat}
-                onChange={(e) => { setPat(e.target.value); setError('') }}
-                placeholder="glpat-xxxxxxxxxxxxxxxxxxxx"
-                className={styles.ghInput}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAddAccount() }}
-              />
-              <button className={styles.ghToggleVisibility} onClick={() => setShowPat(!showPat)} title={showPat ? 'Hide' : 'Show'} type="button">
-                {showPat ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 6 }}>
-              <button className={styles.ghLoginBtn} onClick={handleAddAccount} disabled={adding || !pat.trim()} style={{ backgroundColor: '#fc6d26' }}>
-                {adding ? <><Loader2 size={14} className={styles.sshSpinner} /> Verifying…</> : <><Gitlab size={14} /> Add Account</>}
-              </button>
-              <button className={styles.ghLogoutBtn} onClick={() => { setShowAddForm(false); setPat(''); setLabel(''); setInstanceUrl('https://gitlab.com'); setError('') }}>
-                Cancel
-              </button>
-            </div>
+              OAuth
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={authMethod === 'pat'}
+              className={`${styles.ghMethodTab} ${authMethod === 'pat' ? styles.ghMethodTabActive : ''}`}
+              onClick={() => setAuthMethod('pat')}
+            >
+              Personal Access Token
+            </button>
           </div>
-          {error && <div className={styles.ghError}>{error}</div>}
-          <p className={styles.ghSecurityNote}>
-            <ShieldCheck size={13} /> Tokens are encrypted and stored securely on this device.
-          </p>
+
+          {authMethod === 'oauth' ? (
+            <>
+              <div className={styles.ghTokenInput} style={{ marginBottom: 'var(--space-sm)' }}>
+                <div className={styles.ghTokenField} style={{ flex: 1 }}>
+                  <input
+                    type="text"
+                    value={oauthInstanceUrl}
+                    onChange={(e) => setOauthInstanceUrl(e.target.value)}
+                    placeholder="https://gitlab.com"
+                    className={styles.ghInput}
+                    disabled={oauthInProgress}
+                  />
+                </div>
+              </div>
+              <div className={styles.ghTokenInput}>
+                <input
+                  type="text"
+                  value={oauthLabel}
+                  onChange={(e) => setOauthLabel(e.target.value)}
+                  placeholder="Account label (e.g., Work, Personal)"
+                  className={styles.ghInput}
+                  disabled={oauthInProgress}
+                  style={{ marginBottom: 6 }}
+                />
+                <input
+                  type="text"
+                  value={oauthClientId}
+                  onChange={(e) => { setOauthClientId(e.target.value); setOauthError('') }}
+                  placeholder="Application ID (Client ID)"
+                  className={styles.ghInput}
+                  disabled={oauthInProgress}
+                />
+                <p className={styles.ghScopeHint} style={{ marginTop: 4 }}>
+                  Paste the Application ID from your GitLab OAuth app.
+                </p>
+              </div>
+              <details className={styles.ghOAuthInstructions}>
+                <summary><ChevronRight size={12} /> How to register an OAuth app</summary>
+                <ol>
+                  <li>On your GitLab instance, go to User Settings → Applications → Add new application.</li>
+                  <li>Name: <code>GitSlop</code></li>
+                  <li>Redirect URI: <code>http://localhost:47823/callback</code> (exactly this, including the port)</li>
+                  <li>Confidential: <strong>UNCHECKED</strong></li>
+                  <li>Scopes: <code>api</code>, <code>read_user</code></li>
+                  <li>Save and paste the Application ID above.</li>
+                </ol>
+                <p style={{ margin: '6px 0 0 0' }}>
+                  <a
+                    href={`${(oauthInstanceUrl.trim() || 'https://gitlab.com').replace(/\/$/, '')}/-/user_settings/applications`}
+                    className={styles.ghLink}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      const base = (oauthInstanceUrl.trim() || 'https://gitlab.com').replace(/\/$/, '')
+                      window.open(`${base}/-/user_settings/applications`, '_blank')
+                    }}
+                  >
+                    <ExternalLink size={12} style={{ verticalAlign: 'middle' }} /> Open applications page
+                  </a>
+                </p>
+              </details>
+              <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 6 }}>
+                <button
+                  className={styles.ghLoginBtn}
+                  onClick={handleStartOAuthFlow}
+                  disabled={oauthInProgress || !oauthClientId.trim()}
+                  style={{ backgroundColor: '#fc6d26' }}
+                >
+                  {oauthInProgress
+                    ? <><Loader2 size={14} className={styles.sshSpinner} /> Waiting…</>
+                    : <><Gitlab size={14} /> Login with GitLab</>}
+                </button>
+                <button
+                  className={styles.ghLogoutBtn}
+                  onClick={() => {
+                    setShowAddForm(false)
+                    setOauthClientId('')
+                    setOauthLabel('')
+                    setOauthInstanceUrl('https://gitlab.com')
+                    setOauthError('')
+                    setOauthStatus('')
+                  }}
+                  disabled={oauthInProgress}
+                >
+                  Cancel
+                </button>
+              </div>
+              {oauthStatus && <p className={styles.ghLoginDesc}>{oauthStatus}</p>}
+              {oauthError && <div className={styles.ghError}>{oauthError}</div>}
+              <p className={styles.ghSecurityNote}>
+                <ShieldCheck size={13} /> Tokens are encrypted and stored securely on this device.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className={styles.ghLoginDesc}>
+                Add a GitLab account using a Personal Access Token.
+              </p>
+              <div className={styles.ghTokenInput} style={{ marginBottom: 'var(--space-sm)' }}>
+                <div className={styles.ghTokenField} style={{ flex: 1 }}>
+                  <input
+                    type="text"
+                    value={instanceUrl}
+                    onChange={(e) => setInstanceUrl(e.target.value)}
+                    placeholder="https://gitlab.com"
+                    className={styles.ghInput}
+                  />
+                </div>
+              </div>
+              <p className={styles.ghScopeHint}>
+                Instance URL (gitlab.com or self-hosted). Create a PAT at{' '}
+                <a
+                  href={`${instanceUrl}/-/user_settings/personal_access_tokens`}
+                  className={styles.ghLink}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    window.open(`${instanceUrl}/-/user_settings/personal_access_tokens`, '_blank')
+                  }}
+                >
+                  Personal Access Tokens
+                </a>
+                {' '}with scopes: <code>api</code>, <code>read_user</code>
+              </p>
+              <div className={styles.ghTokenInput}>
+                <input
+                  type="text"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="Account label (e.g., Work, Personal)"
+                  className={styles.ghInput}
+                  style={{ marginBottom: 6 }}
+                />
+                <div className={styles.ghTokenField}>
+                  <input
+                    type={showPat ? 'text' : 'password'}
+                    value={pat}
+                    onChange={(e) => { setPat(e.target.value); setError('') }}
+                    placeholder="glpat-xxxxxxxxxxxxxxxxxxxx"
+                    className={styles.ghInput}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddAccount() }}
+                  />
+                  <button className={styles.ghToggleVisibility} onClick={() => setShowPat(!showPat)} title={showPat ? 'Hide' : 'Show'} type="button">
+                    {showPat ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 6 }}>
+                  <button className={styles.ghLoginBtn} onClick={handleAddAccount} disabled={adding || !pat.trim()} style={{ backgroundColor: '#fc6d26' }}>
+                    {adding ? <><Loader2 size={14} className={styles.sshSpinner} /> Verifying…</> : <><Gitlab size={14} /> Add Account</>}
+                  </button>
+                  <button className={styles.ghLogoutBtn} onClick={() => { setShowAddForm(false); setPat(''); setLabel(''); setInstanceUrl('https://gitlab.com'); setError('') }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+              {error && <div className={styles.ghError}>{error}</div>}
+              <p className={styles.ghSecurityNote}>
+                <ShieldCheck size={13} /> Tokens are encrypted and stored securely on this device.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <button className={styles.ghLoginBtn} onClick={() => setShowAddForm(true)} style={{ marginTop: 'var(--space-sm)', backgroundColor: '#fc6d26' }}>

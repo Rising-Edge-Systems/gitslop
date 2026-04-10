@@ -1144,3 +1144,88 @@
   color: #22c55e;
   flex-shrink: 0;
 }
+
+.ghMethodTabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  margin-bottom: var(--space-sm);
+}
+
+.ghMethodTab {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ghMethodTab:hover:not(.ghMethodTabActive) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.ghMethodTabActive {
+  background: var(--accent);
+  color: #fff;
+}
+
+.ghMethodIntro {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  margin: 0 0 var(--space-xs) 0;
+  line-height: 1.4;
+}
+
+.ghOAuthInstructions {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.ghOAuthInstructions summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-primary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ghOAuthInstructions summary::-webkit-details-marker {
+  display: none;
+}
+
+.ghOAuthInstructions[open] summary {
+  margin-bottom: 6px;
+}
+
+.ghOAuthInstructions ol {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.ghOAuthInstructions li {
+  margin: 2px 0;
+}
+
+.ghOAuthInstructions code {
+  background: var(--bg-primary);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  color: var(--accent);
+}

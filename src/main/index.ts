@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, shell } from 'electron'
 import { join } from 'path'
 import { readFile, writeFile, readdir, stat } from 'fs'
 import * as https from 'https'
@@ -11,6 +11,12 @@ import { autoUpdater } from 'electron-updater'
 import { registerGitIpcHandlers } from './git-ipc'
 import { gitService } from './git-service'
 import { registerTerminalIpcHandlers, killAllTerminals } from './terminal-manager'
+import {
+  startOAuthFlow as startGitLabOAuthFlow,
+  ensureFreshGitLabToken,
+  configureGitLabAccountStore
+} from './gitlab-oauth'
+import { encryptToken, decryptToken } from './token-crypto'
 import {
   createWatcherState,
   suppressWatcher as _suppressWatcher,
@@ -43,8 +49,13 @@ interface IntegrationAccount {
   id: string
   label: string      // user-chosen name like "Work" or "Personal"
   username: string    // fetched from API after login
-  token: string       // encrypted via safeStorage
+  token: string       // encrypted via safeStorage (access token for OAuth)
   instanceUrl?: string // for self-hosted GitLab
+  // GitLab OAuth fields (absent/undefined = legacy PAT account)
+  authType?: 'pat' | 'oauth'
+  refreshToken?: string // encrypted via safeStorage
+  expiresAt?: number    // ms since epoch
+  clientId?: string     // OAuth Application ID, needed for refresh
 }
 
 interface StoreSchema {
@@ -486,28 +497,8 @@ function githubApiRequest(
   })
 }
 
-function encryptToken(token: string): string {
-  if (safeStorage.isEncryptionAvailable()) {
-    return safeStorage.encryptString(token).toString('base64')
-  }
-  // Fallback: store as-is (not ideal but functional)
-  return `plain:${token}`
-}
-
-function decryptToken(stored: string): string {
-  if (!stored) return ''
-  if (stored.startsWith('plain:')) {
-    return stored.slice(6)
-  }
-  try {
-    if (safeStorage.isEncryptionAvailable()) {
-      return safeStorage.decryptString(Buffer.from(stored, 'base64'))
-    }
-  } catch {
-    // If decryption fails, token is invalid
-  }
-  return ''
-}
+// Token encryption lives in ./token-crypto so it can be shared with
+// gitlab-oauth.ts (refresh flow). Re-imported below.
 
 // Migrate legacy single-token to multi-account on first access
 function migrateGitHubLegacy(): void {
@@ -957,19 +948,26 @@ function gitlabApiRequest(
   path: string,
   token: string,
   instanceUrl: string,
-  body?: string
+  body?: string,
+  authType: 'pat' | 'oauth' = 'pat'
 ): Promise<{ statusCode: number; data: string }> {
   return new Promise((resolve, reject) => {
     const url = new URL(path, instanceUrl)
     const isHttps = url.protocol === 'https:'
     const httpModule = isHttps ? https : require('http')
+    // PAT accounts use GitLab's proprietary PRIVATE-TOKEN header; OAuth
+    // access tokens must be sent as Authorization: Bearer per RFC 6750.
+    const authHeader: Record<string, string> =
+      authType === 'oauth'
+        ? { Authorization: `Bearer ${token}` }
+        : { 'PRIVATE-TOKEN': token }
     const options: https.RequestOptions = {
       hostname: url.hostname,
       port: url.port || (isHttps ? 443 : 80),
       path: url.pathname + url.search,
       method,
       headers: {
-        'PRIVATE-TOKEN': token,
+        ...authHeader,
         'User-Agent': 'GitSlop',
         'Accept': 'application/json',
         ...(body ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } : {})
@@ -1005,17 +1003,38 @@ function migrateGitLabLegacy(): void {
   }
 }
 
-function getGitLabConfig(): { token: string; instanceUrl: string } {
-  // Try multi-account first (use first account as default)
+/**
+ * Resolve the active (first-account) GitLab credentials for legacy single-
+ * account IPC handlers. For OAuth accounts this will transparently refresh
+ * the access token if it's near expiry.
+ *
+ * Returns `{ token: '', ... }` when there is no account, and `{ token: '',
+ * expired: true, ... }` when an OAuth refresh fails so callers can surface
+ * the 'please re-authorize' error distinctly from 'not logged in'.
+ */
+async function getGitLabConfig(): Promise<{
+  token: string
+  instanceUrl: string
+  authType: 'pat' | 'oauth'
+  expired?: boolean
+}> {
   migrateGitLabLegacy()
   const accounts = store.get('gitlabAccounts', [])
-  if (accounts.length > 0) {
-    const token = decryptToken(accounts[0].token)
-    const instanceUrl = accounts[0].instanceUrl || 'https://gitlab.com'
-    return { token, instanceUrl }
+  if (accounts.length === 0) {
+    return { token: '', instanceUrl: 'https://gitlab.com', authType: 'pat' }
   }
-  return { token: '', instanceUrl: 'https://gitlab.com' }
+  const account = accounts[0]
+  const instanceUrl = account.instanceUrl || 'https://gitlab.com'
+  const authType: 'pat' | 'oauth' = account.authType === 'oauth' ? 'oauth' : 'pat'
+  const token = await ensureFreshGitLabToken(account)
+  if (token === null) {
+    return { token: '', instanceUrl, authType, expired: true }
+  }
+  return { token, instanceUrl, authType }
 }
+
+const GITLAB_SESSION_EXPIRED_ERROR =
+  'GitLab session expired — please re-authorize'
 
 ipcMain.handle('gitlab:addAccount', async (_event, pat: string, label: string, instanceUrl?: string) => {
   try {
@@ -1046,24 +1065,109 @@ ipcMain.handle('gitlab:addAccount', async (_event, pat: string, label: string, i
   }
 })
 
+ipcMain.handle(
+  'gitlab:startOAuthFlow',
+  async (
+    _event,
+    opts: { instanceUrl?: string; clientId: string; label?: string }
+  ) => {
+    try {
+      const instanceUrl = opts.instanceUrl || 'https://gitlab.com'
+      const result = await startGitLabOAuthFlow({
+        instanceUrl,
+        clientId: opts.clientId
+      })
+      const account: IntegrationAccount = {
+        id: `gl-${Date.now()}`,
+        label: opts.label || result.user.username,
+        username: result.user.username,
+        token: encryptToken(result.accessToken),
+        instanceUrl: result.instanceUrl,
+        authType: 'oauth',
+        refreshToken: result.refreshToken
+          ? encryptToken(result.refreshToken)
+          : undefined,
+        expiresAt: result.expiresAt,
+        clientId: opts.clientId
+      }
+      const accounts = store.get('gitlabAccounts', [])
+      accounts.push(account)
+      store.set('gitlabAccounts', accounts)
+      return {
+        success: true,
+        data: {
+          id: account.id,
+          label: account.label,
+          username: result.user.username,
+          name: result.user.name || result.user.username,
+          avatarUrl: result.user.avatar_url,
+          email: result.user.email,
+          instanceUrl: result.instanceUrl,
+          webUrl: result.user.web_url
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // Map the loopback timeout message to the PRD-specified phrasing.
+      if (/timed out after 120 seconds/i.test(msg)) {
+        return {
+          success: false,
+          error: 'OAuth login timed out or was cancelled'
+        }
+      }
+      return { success: false, error: msg }
+    }
+  }
+)
+
 ipcMain.handle('gitlab:getAccounts', async () => {
   migrateGitLabLegacy()
   const accounts = store.get('gitlabAccounts', [])
-  const results = []
+  const results: Array<{
+    id: string
+    label: string
+    username: string
+    name: string
+    avatarUrl: string
+    email: string
+    instanceUrl: string
+    webUrl: string
+    authType?: 'pat' | 'oauth'
+    error?: string
+  }> = []
   for (const acct of accounts) {
-    const token = decryptToken(acct.token)
-    if (!token) continue
     const baseUrl = acct.instanceUrl || 'https://gitlab.com'
+    const authType: 'pat' | 'oauth' = acct.authType === 'oauth' ? 'oauth' : 'pat'
+    // ensureFreshGitLabToken transparently refreshes OAuth access tokens and
+    // persists the new tokens back to the store. For PAT accounts it just
+    // decrypts the stored token.
+    const token = await ensureFreshGitLabToken(acct)
+    if (token === null) {
+      // Refresh failed — surface a re-login hint in the UI but keep the row.
+      results.push({
+        id: acct.id,
+        label: acct.label,
+        username: acct.username,
+        name: acct.username,
+        avatarUrl: '',
+        email: '',
+        instanceUrl: baseUrl,
+        webUrl: '',
+        authType,
+        error: GITLAB_SESSION_EXPIRED_ERROR
+      })
+      continue
+    }
     try {
-      const { statusCode, data } = await gitlabApiRequest('GET', '/api/v4/user', token, baseUrl)
+      const { statusCode, data } = await gitlabApiRequest('GET', '/api/v4/user', token, baseUrl, undefined, authType)
       if (statusCode === 200) {
         const user = JSON.parse(data)
-        results.push({ id: acct.id, label: acct.label, username: user.username, name: user.name || user.username, avatarUrl: user.avatar_url, email: user.email, instanceUrl: baseUrl, webUrl: user.web_url })
+        results.push({ id: acct.id, label: acct.label, username: user.username, name: user.name || user.username, avatarUrl: user.avatar_url, email: user.email, instanceUrl: baseUrl, webUrl: user.web_url, authType })
       } else {
-        results.push({ id: acct.id, label: acct.label, username: acct.username, name: acct.username, avatarUrl: '', email: '', instanceUrl: baseUrl, webUrl: '', error: 'Token expired' })
+        results.push({ id: acct.id, label: acct.label, username: acct.username, name: acct.username, avatarUrl: '', email: '', instanceUrl: baseUrl, webUrl: '', authType, error: 'Token expired' })
       }
     } catch {
-      results.push({ id: acct.id, label: acct.label, username: acct.username, name: acct.username, avatarUrl: '', email: '', instanceUrl: baseUrl, webUrl: '', error: 'Connection failed' })
+      results.push({ id: acct.id, label: acct.label, username: acct.username, name: acct.username, avatarUrl: '', email: '', instanceUrl: baseUrl, webUrl: '', authType, error: 'Connection failed' })
     }
   }
   return { success: true, data: results }
@@ -1138,10 +1242,16 @@ ipcMain.handle('gitlab:login', async (_event, pat: string, instanceUrl?: string)
 })
 
 ipcMain.handle('gitlab:getUser', async () => {
-  const { token, instanceUrl } = getGitLabConfig()
-  if (!token) return { success: false, error: 'Not logged in' }
+  const cfg = await getGitLabConfig()
+  if (!cfg.token) {
+    return {
+      success: false,
+      error: cfg.expired ? GITLAB_SESSION_EXPIRED_ERROR : 'Not logged in'
+    }
+  }
+  const { token, instanceUrl, authType } = cfg
   try {
-    const { statusCode, data } = await gitlabApiRequest('GET', '/api/v4/user', token, instanceUrl)
+    const { statusCode, data } = await gitlabApiRequest('GET', '/api/v4/user', token, instanceUrl, undefined, authType)
     if (statusCode !== 200) {
       return { success: false, error: 'Token invalid or expired' }
     }
@@ -1168,18 +1278,32 @@ ipcMain.handle('gitlab:logout', () => {
 })
 
 ipcMain.handle('gitlab:isLoggedIn', () => {
-  const { token } = getGitLabConfig()
-  return { success: true, data: !!token }
+  // Synchronous check — we only care whether any account is stored, not
+  // whether its token is currently fresh. Refreshing on a mere "is logged
+  // in?" query would surprise the UI and hammer GitLab on every poll.
+  migrateGitLabLegacy()
+  const accounts = store.get('gitlabAccounts', [])
+  return { success: true, data: accounts.length > 0 }
 })
 
 ipcMain.handle('gitlab:getInstanceUrl', () => {
-  const { token, instanceUrl } = getGitLabConfig()
-  return { success: true, data: token ? instanceUrl : 'https://gitlab.com' }
+  migrateGitLabLegacy()
+  const accounts = store.get('gitlabAccounts', [])
+  const instanceUrl =
+    accounts.length > 0
+      ? accounts[0].instanceUrl || 'https://gitlab.com'
+      : 'https://gitlab.com'
+  return { success: true, data: instanceUrl }
 })
 
 ipcMain.handle('gitlab:parseRemote', async (_event, repoPath: string) => {
   try {
-    const { instanceUrl } = getGitLabConfig()
+    migrateGitLabLegacy()
+    const accounts = store.get('gitlabAccounts', [])
+    const instanceUrl =
+      accounts.length > 0
+        ? accounts[0].instanceUrl || 'https://gitlab.com'
+        : 'https://gitlab.com'
     const remotes = await gitService.getRemotes(repoPath)
     const origin = remotes.find((r: { name: string }) => r.name === 'origin') || remotes[0]
     if (!origin) return { success: false, error: 'No remotes found' }
@@ -1192,8 +1316,14 @@ ipcMain.handle('gitlab:parseRemote', async (_event, repoPath: string) => {
 })
 
 ipcMain.handle('gitlab:listMergeRequests', async (_event, projectPath: string, state?: string) => {
-  const { token, instanceUrl } = getGitLabConfig()
-  if (!token) return { success: false, error: 'Not logged in to GitLab' }
+  const cfg = await getGitLabConfig()
+  if (!cfg.token) {
+    return {
+      success: false,
+      error: cfg.expired ? GITLAB_SESSION_EXPIRED_ERROR : 'Not logged in to GitLab'
+    }
+  }
+  const { token, instanceUrl, authType } = cfg
   try {
     const queryState = state === 'closed' ? 'merged' : (state || 'opened')
     const encodedPath = encodeURIComponent(projectPath)
@@ -1201,7 +1331,9 @@ ipcMain.handle('gitlab:listMergeRequests', async (_event, projectPath: string, s
       'GET',
       `/api/v4/projects/${encodedPath}/merge_requests?state=${queryState}&per_page=50&order_by=updated_at&sort=desc`,
       token,
-      instanceUrl
+      instanceUrl,
+      undefined,
+      authType
     )
     if (statusCode !== 200) {
       let msg = 'Failed to fetch merge requests'
@@ -1235,15 +1367,21 @@ ipcMain.handle('gitlab:listMergeRequests', async (_event, projectPath: string, s
 })
 
 ipcMain.handle('gitlab:getMergeRequest', async (_event, projectPath: string, mrIid: number) => {
-  const { token, instanceUrl } = getGitLabConfig()
-  if (!token) return { success: false, error: 'Not logged in to GitLab' }
+  const cfg = await getGitLabConfig()
+  if (!cfg.token) {
+    return {
+      success: false,
+      error: cfg.expired ? GITLAB_SESSION_EXPIRED_ERROR : 'Not logged in to GitLab'
+    }
+  }
+  const { token, instanceUrl, authType } = cfg
   try {
     const encodedPath = encodeURIComponent(projectPath)
     // Fetch MR details, notes (comments), and changes (files) in parallel
     const [mrRes, notesRes, changesRes] = await Promise.all([
-      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/merge_requests/${mrIid}`, token, instanceUrl),
-      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/merge_requests/${mrIid}/notes?per_page=50&sort=asc`, token, instanceUrl),
-      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/merge_requests/${mrIid}/changes`, token, instanceUrl)
+      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/merge_requests/${mrIid}`, token, instanceUrl, undefined, authType),
+      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/merge_requests/${mrIid}/notes?per_page=50&sort=asc`, token, instanceUrl, undefined, authType),
+      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/merge_requests/${mrIid}/changes`, token, instanceUrl, undefined, authType)
     ])
 
     if (mrRes.statusCode !== 200) {
@@ -1304,8 +1442,14 @@ ipcMain.handle('gitlab:getMergeRequest', async (_event, projectPath: string, mrI
 })
 
 ipcMain.handle('gitlab:createMergeRequest', async (_event, projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }) => {
-  const { token, instanceUrl } = getGitLabConfig()
-  if (!token) return { success: false, error: 'Not logged in to GitLab' }
+  const cfg = await getGitLabConfig()
+  if (!cfg.token) {
+    return {
+      success: false,
+      error: cfg.expired ? GITLAB_SESSION_EXPIRED_ERROR : 'Not logged in to GitLab'
+    }
+  }
+  const { token, instanceUrl, authType } = cfg
   try {
     const encodedPath = encodeURIComponent(projectPath)
     const body = JSON.stringify({
@@ -1319,7 +1463,8 @@ ipcMain.handle('gitlab:createMergeRequest', async (_event, projectPath: string, 
       `/api/v4/projects/${encodedPath}/merge_requests`,
       token,
       instanceUrl,
-      body
+      body,
+      authType
     )
     if (statusCode !== 201) {
       let msg = 'Failed to create merge request'
@@ -1345,6 +1490,14 @@ ipcMain.handle('gitlab:createMergeRequest', async (_event, projectPath: string, 
 })
 
 app.whenReady().then(async () => {
+  // Wire the gitlab-oauth module to our electron-store so refresh-token
+  // flows can atomically persist new access/refresh tokens without a
+  // circular import.
+  configureGitLabAccountStore({
+    read: () => store.get('gitlabAccounts', []) as IntegrationAccount[],
+    write: (accounts) => store.set('gitlabAccounts', accounts)
+  })
+
   // Register git IPC handlers
   registerGitIpcHandlers()
 
