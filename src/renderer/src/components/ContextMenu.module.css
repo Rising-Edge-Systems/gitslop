@@ -8,7 +8,11 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   min-width: 200px;
-  max-width: 320px;
+  /* Wide enough to fit long branch names like "Merge feature/very-long-branch-name-here
+   * into main" without ellipsis on normal-width windows, with a viewport-based
+   * cap so the menu can't run off-screen on very narrow ones. */
+  max-width: min(640px, calc(100vw - 16px));
+  width: max-content;
   padding: var(--space-xs);
   overflow: hidden;
   animation: menuFadeIn 120ms ease-out;
@@ -27,7 +31,7 @@
 
 .item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-sm);
   width: 100%;
   padding: 7px 12px;
@@ -70,17 +74,25 @@
 .icon {
   font-size: 14px;
   width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  /* Align with the first line of a potentially-wrapped label */
+  margin-top: -1px;
 }
 
 .label {
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  /* Allow long labels (e.g. "Merge <long-branch-name> into main") to wrap to a
+   * second line instead of getting chopped with ellipsis. The native `title`
+   * tooltip on each button is still present as a belt-and-suspenders fallback
+   * for labels that somehow exceed the max menu width. */
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .shortcut {

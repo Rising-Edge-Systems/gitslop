@@ -1276,6 +1276,12 @@ export class GitService {
   /**
    * Push current branch to its tracking remote.
    * Supports force push, set-upstream, and progress reporting.
+   *
+   * By default also pushes annotated tags that are reachable from the commits
+   * being pushed (`--follow-tags`). This matches the behavior of most GUI
+   * clients (GitKraken, Sourcetree, Fork) and means a user tagging locally and
+   * hitting "Push" will publish the tag without a second manual step, while
+   * still not spamming every loose tag in the repo (unlike `--tags`).
    */
   async push(
     repoPath: string,
@@ -1283,10 +1289,13 @@ export class GitService {
       signal?: AbortSignal
       force?: boolean
       setUpstream?: { remote: string; branch: string }
+      followTags?: boolean
       onProgress?: (progress: GitOperationProgress) => void
     }
   ): Promise<void> {
     const args = ['push', '--progress']
+    // Default to true — explicit `false` opt-out is supported for scripting.
+    if (options?.followTags !== false) args.push('--follow-tags')
     if (options?.force) args.push('--force')
     if (options?.setUpstream) {
       args.push('-u', options.setUpstream.remote, options.setUpstream.branch)

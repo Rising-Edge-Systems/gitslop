@@ -151,6 +151,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps): React.J
           <button
             key={item.key}
             className={classNames}
+            title={item.label}
             onClick={() => {
               if (!item.disabled) {
                 item.onClick()
