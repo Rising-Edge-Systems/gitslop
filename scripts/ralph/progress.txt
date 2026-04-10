@@ -61,3 +61,17 @@ Started: Fri Apr 10 04:03:27 PM EDT 2026
   - `gitlab:isLoggedIn` intentionally does NOT call ensureFreshGitLabToken — that would hammer GitLab on every UI poll. It only checks whether any account is stored.
   - The `StoredGitLabAccount` interface in gitlab-oauth.ts is a structural alias for `IntegrationAccount` in index.ts; kept separate to avoid a circular import. If you add fields to one, update the other.
 ---
+
+## 2026-04-10 - US-GL-004
+- Added OAuth/PAT method tabs to the Add GitLab Account form in SettingsPanel.
+- Files changed:
+  - `src/renderer/src/components/SettingsPanel.tsx` — GitLabSection now maintains independent state for OAuth (`oauthInstanceUrl`, `oauthLabel`, `oauthClientId`, `oauthStatus`, `oauthError`, `oauthInProgress`) vs PAT. Added `handleStartOAuthFlow` that calls `window.electronAPI.gitlab.startOAuthFlow(...)`. New OAuth tab shows instance URL, label, Application ID input, a `<details>` collapsible with step-by-step registration instructions, and an "Open applications page" link that hits `{instanceUrl}/-/user_settings/applications`. Intro note above tabs explains OAuth vs PAT trade-off. PAT tab markup unchanged.
+  - `src/renderer/src/components/SettingsPanel.module.css` — new `.ghMethodTabs`, `.ghMethodTab`, `.ghMethodTabActive`, `.ghMethodIntro`, `.ghOAuthInstructions` classes.
+- Quality: typecheck clean, all 127 tests pass.
+- **Learnings for future iterations:**
+  - The GitLabSection add-account form uses PAT as the default tab (discoverability — users without a registered OAuth app shouldn't land on a form that needs a Client ID).
+  - Keep OAuth tab state independent from PAT state so switching tabs doesn't wipe user input (matches PRD requirement).
+  - Use a plain `<details>`/`<summary>` element for the "How to register" collapsible — simpler than a React useState toggle and the CSS already hides the default marker.
+  - The `{instanceUrl}/-/user_settings/applications` path is the GitLab OAuth applications page for both gitlab.com and self-hosted instances (same as the PAT page pattern).
+  - Manual browser verification of the Settings panel was not run in this iteration — recommend `npm run dev` smoke test before release.
+---

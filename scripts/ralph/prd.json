@@ -71,7 +71,7 @@
         "Typecheck passes. Manually verify in browser via `npm run dev` that both tabs render, tabs can be switched, OAuth instructions expand/collapse, and the 'Open applications page' link opens the correct URL"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Reuse the existing .ghInput, .ghLoginBtn, .ghLoginSection CSS classes. Add a new .ghMethodTabs class for the tab row if needed. The collapsible instructions can be a simple <details>/<summary> or a React useState toggle — either works. The OAuth flow is opt-in so keep PAT as the default tab for discoverability (users who haven't registered an app shouldn't land on a form that needs a Client ID they don't have)."
     }
   ]
