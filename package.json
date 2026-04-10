@@ -43,6 +43,9 @@
       "package.json",
       "resources/icon.png"
     ],
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ],
     "extraMetadata": {
       "main": "./out/main/index.js"
     },
