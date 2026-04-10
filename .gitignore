@@ -9,6 +9,10 @@ out/
 # Electron
 release/
 
+# Raw asset sources — the derived resources/icon.png is committed; the large
+# source image stays local for re-cropping if needed
+resources/icon-source.png
+
 # Environment
 .env
 .env.local

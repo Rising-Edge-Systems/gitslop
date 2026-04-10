@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, safeStorage, shell } from 'electron'
 import { join } from 'path'
 import { readFile, writeFile, readdir, stat } from 'fs'
 import * as https from 'https'
@@ -72,6 +72,21 @@ const store = new Store<StoreSchema>({
 let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
+  // Resolve the icon path. In dev, __dirname = <project>/out/main so the
+  // relative climbs back up to the project root `resources/`. In production
+  // the same relative path resolves inside the asar (electron-builder packs
+  // resources/icon.png alongside out/ via the `files` glob).
+  //
+  // We use `nativeImage.createFromPath` + `.isEmpty()` to actually verify the
+  // PNG loaded — passing a bare string to BrowserWindow's `icon:` silently
+  // accepts unreadable paths and leaves `_NET_WM_ICON` empty on Linux, which
+  // is how this bug manifests in the taskbar.
+  const iconPath = join(__dirname, '../../resources/icon.png')
+  const appIcon = nativeImage.createFromPath(iconPath)
+  if (appIcon.isEmpty()) {
+    console.warn('[gitslop] Failed to load app icon from', iconPath)
+  }
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -79,6 +94,7 @@ function createWindow(): void {
     minHeight: 500,
     frame: false,
     titleBarStyle: 'hidden',
+    icon: appIcon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -88,6 +104,13 @@ function createWindow(): void {
     show: false,
     backgroundColor: '#1e1e2e'
   })
+
+  // Linux GNOME/Unity window managers occasionally ignore the BrowserWindow
+  // `icon:` option at construction time; calling setIcon() after creation
+  // forces the X11 _NET_WM_ICON hint to populate.
+  if (!appIcon.isEmpty()) {
+    mainWindow.setIcon(appIcon)
+  }
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()

@@ -25,7 +25,10 @@
     "react",
     "typescript"
   ],
-  "author": "",
+  "author": {
+    "name": "Adam Kidwell",
+    "email": "ben.kidwell@gmail.com"
+  },
   "license": "MIT",
   "build": {
     "appId": "com.gitslop.app",
@@ -37,7 +40,8 @@
     "files": [
       "out/**/*",
       "node_modules/**/*",
-      "package.json"
+      "package.json",
+      "resources/icon.png"
     ],
     "extraMetadata": {
       "main": "./out/main/index.js"
@@ -63,7 +67,7 @@
         }
       ],
       "category": "Development",
-      "icon": "resources/icon.svg",
+      "icon": "resources/icon.png",
       "synopsis": "A free, open-source, cross-platform GUI git client",
       "description": "GitSlop is a visual git client with branch graphs, inline diffs, built-in editor, and toggleable CLI terminal."
     },
@@ -78,7 +82,7 @@
         }
       ],
       "category": "public.app-category.developer-tools",
-      "icon": "resources/icon.svg",
+      "icon": "resources/icon.png",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
@@ -100,8 +104,7 @@
           ]
         }
       ],
-      "icon": "resources/icon.svg",
-      "publisherName": "GitSlop"
+      "icon": "resources/icon.png"
     },
     "nsis": {
       "oneClick": false,
