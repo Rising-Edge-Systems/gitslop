@@ -226,6 +226,13 @@ function highlightLine(text: string, lang: string | null): SyntaxToken[] {
       let j = i
       while (j < text.length && /[a-zA-Z0-9_$]/.test(text[j])) j++
       const word = text.slice(i, j)
+      // Starting char (e.g. '@' decorator) may not match the inner identifier
+      // regex, leaving word empty. Treat as a standalone symbol and advance.
+      if (word.length === 0) {
+        tokens.push({ text: text[i], className: '' })
+        i++
+        continue
+      }
       if (keywords.has(word)) {
         tokens.push({ text: word, className: 'syn-keyword' })
       } else if (j < text.length && text[j] === '(') {
@@ -321,13 +328,111 @@ function parseDiff(diffText: string): ParsedDiff {
   }
 }
 
+// ─── Patch builders (for hunk staging) ─────────────────────────────────────
+
+/**
+ * Build a minimal git patch containing a single hunk — suitable for
+ * `git apply --cached` / `git apply --reverse --cached` / `git apply --reverse`.
+ */
+function buildHunkPatch(fileHeader: FileHeader, hunk: DiffHunk): string {
+  // Rebuild the hunk lines verbatim from rawContent so trailing-newline markers
+  // ("\ No newline at end of file") are preserved.
+  const hunkBody = hunk.lines.map((l) => l.rawContent).join('\n')
+  const headerStr = fileHeader.lines.join('\n')
+  return headerStr + '\n' + hunk.header + '\n' + hunkBody + '\n'
+}
+
+/**
+ * Build a git patch containing only the selected lines within a hunk.
+ * Unselected added lines are omitted; unselected removed lines are converted
+ * to context lines. The hunk header counts are recomputed to match.
+ *
+ * Used for line-level staging / unstaging. Returns '' if no lines remain.
+ */
+function buildLinesPatch(
+  fileHeader: FileHeader,
+  hunk: DiffHunk,
+  selectedLineIndices: Set<number>
+): string {
+  const newHunkLines: string[] = []
+  let oldCount = 0
+  let newCount = 0
+
+  const headerMatch = hunk.header.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)/)
+  const oldStart = headerMatch ? parseInt(headerMatch[1], 10) : 1
+  const newStart = headerMatch ? parseInt(headerMatch[2], 10) : 1
+  const headerSuffix = headerMatch ? headerMatch[3] : ''
+
+  // Track whether the patch contains any actual +/- lines — an all-context
+  // patch is meaningless and would be rejected by git apply.
+  let hasChange = false
+
+  for (let i = 0; i < hunk.lines.length; i++) {
+    const line = hunk.lines[i]
+    const isSelected = selectedLineIndices.has(i)
+
+    // "\ No newline at end of file" marker — always preserve
+    if (line.content.startsWith('\\')) {
+      newHunkLines.push(line.rawContent)
+      continue
+    }
+
+    if (line.type === 'context') {
+      newHunkLines.push(line.rawContent)
+      oldCount++
+      newCount++
+    } else if (line.type === 'added') {
+      if (isSelected) {
+        newHunkLines.push(line.rawContent)
+        newCount++
+        hasChange = true
+      }
+      // Unselected added lines are dropped (they won't exist in the target)
+    } else if (line.type === 'removed') {
+      if (isSelected) {
+        newHunkLines.push(line.rawContent)
+        oldCount++
+        hasChange = true
+      } else {
+        // Convert to context — keep the line in both old and new
+        newHunkLines.push(' ' + line.content)
+        oldCount++
+        newCount++
+      }
+    }
+  }
+
+  if (!hasChange || newHunkLines.length === 0) return ''
+
+  const newHeader = `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@${headerSuffix}`
+  const headerStr = fileHeader.lines.join('\n')
+  return headerStr + '\n' + newHeader + '\n' + newHunkLines.join('\n') + '\n'
+}
+
 // ─── Side-by-side pairing ───────────────────────────────────────────────────
 
-function pairLinesForSideBySide(hunks: DiffHunk[]): { pairs: SideBySidePair[]; hunkHeaders: { index: number; header: string; suffix: string }[] } {
+/**
+ * Parallel metadata for SideBySidePair[] — tells which hunk each pair belongs
+ * to and (for line-level staging) which line index within that hunk each side
+ * of the pair corresponds to.
+ */
+interface SideBySidePairMeta {
+  hunkIdx: number
+  leftLineIdx: number | null
+  rightLineIdx: number | null
+}
+
+function pairLinesForSideBySide(hunks: DiffHunk[]): {
+  pairs: SideBySidePair[]
+  pairMeta: SideBySidePairMeta[]
+  hunkHeaders: { index: number; header: string; suffix: string }[]
+} {
   const pairs: SideBySidePair[] = []
+  const pairMeta: SideBySidePairMeta[] = []
   const hunkHeaders: { index: number; header: string; suffix: string }[] = []
 
-  for (const hunk of hunks) {
+  for (let hunkIdx = 0; hunkIdx < hunks.length; hunkIdx++) {
+    const hunk = hunks[hunkIdx]
     hunkHeaders.push({ index: pairs.length, header: hunk.header, suffix: hunk.headerSuffix })
 
     let i = 0
@@ -336,6 +441,7 @@ function pairLinesForSideBySide(hunks: DiffHunk[]): { pairs: SideBySidePair[]; h
 
       if (line.type === 'context') {
         pairs.push({ left: line, right: line })
+        pairMeta.push({ hunkIdx, leftLineIdx: i, rightLineIdx: i })
         i++
       } else if (line.type === 'removed') {
         // Collect consecutive removed lines, then pair with following added lines
@@ -353,9 +459,15 @@ function pairLinesForSideBySide(hunks: DiffHunk[]): { pairs: SideBySidePair[]; h
             left: k < removedLines.length ? removedLines[k] : null,
             right: k < addedLines.length ? addedLines[k] : null
           })
+          pairMeta.push({
+            hunkIdx,
+            leftLineIdx: k < removedLines.length ? removedStart + k : null,
+            rightLineIdx: k < addedLines.length ? addedStart + k : null
+          })
         }
       } else if (line.type === 'added') {
         pairs.push({ left: null, right: line })
+        pairMeta.push({ hunkIdx, leftLineIdx: null, rightLineIdx: i })
         i++
       } else {
         i++
@@ -363,7 +475,7 @@ function pairLinesForSideBySide(hunks: DiffHunk[]): { pairs: SideBySidePair[]; h
     }
   }
 
-  return { pairs, hunkHeaders }
+  return { pairs, pairMeta, hunkHeaders }
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -394,9 +506,22 @@ export interface DiffViewerProps {
   initialMode?: DiffViewMode
   /** Called when user toggles between inline and side-by-side mode */
   onModeChange?: (mode: DiffViewMode) => void
-  /** Callback for hunk staging (from StatusPanel integration) */
-  onStageHunk?: (hunkIdx: number) => void
-  onUnstageHunk?: (hunkIdx: number) => void
+  /**
+   * Hunk staging callbacks. Each receives a ready-to-apply git patch string
+   * built by DiffViewer itself (caller just forwards to `git.stageHunk` / etc).
+   * Presence of these callbacks is what drives the Stage/Unstage/Discard buttons
+   * to appear in each hunk header.
+   */
+  onStageHunk?: (patch: string) => void | Promise<void>
+  onUnstageHunk?: (patch: string) => void | Promise<void>
+  onDiscardHunk?: (patch: string) => void | Promise<void>
+  /**
+   * Which staging state this diff represents:
+   *  - 'unstaged' → show "Stage Hunk" + "Discard Hunk"
+   *  - 'staged'   → show "Unstage Hunk"
+   *  - 'untracked'/undefined → no hunk actions
+   */
+  stagingMode?: 'unstaged' | 'staged' | 'untracked'
   staged?: boolean
   isUntracked?: boolean
   className?: string
@@ -432,7 +557,11 @@ export function DiffViewer({
   fileStatus,
   fileIndex,
   fileCount,
-  onNavigateFile
+  onNavigateFile,
+  onStageHunk,
+  onUnstageHunk,
+  onDiscardHunk,
+  stagingMode
 }: DiffViewerProps): React.JSX.Element {
   const [mode, setMode] = useState<DiffViewMode>(initialMode)
   const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT)
@@ -602,13 +731,27 @@ export function DiffViewer({
     displayHunks = truncated
   }
 
+  // Hunk-level staging actions — only wired when caller supplies callbacks
+  // and stagingMode indicates a working-tree diff.
+  const hunkActions: HunkActionsConfig | null = useMemo(() => {
+    if (!stagingMode || stagingMode === 'untracked') return null
+    if (!onStageHunk && !onUnstageHunk && !onDiscardHunk) return null
+    return {
+      stagingMode,
+      fileHeader: parsed.fileHeader,
+      onStagePatch: onStageHunk,
+      onUnstagePatch: onUnstageHunk,
+      onDiscardPatch: onDiscardHunk
+    }
+  }, [stagingMode, onStageHunk, onUnstageHunk, onDiscardHunk, parsed.fileHeader])
+
   return (
     <div className={`${styles.diffViewer} ${className}`}>
       {toolbarContent}
 
       {/* Diff Content */}
       {mode === 'inline' ? (
-        <InlineDiffView hunks={displayHunks} language={language} />
+        <InlineDiffView hunks={displayHunks} language={language} hunkActions={hunkActions} />
       ) : (
         <SideBySideDiffView
           hunks={displayHunks}
@@ -616,6 +759,7 @@ export function DiffViewer({
           leftPaneRef={leftPaneRef}
           rightPaneRef={rightPaneRef}
           onScrollSync={handleScrollSync}
+          hunkActions={hunkActions}
         />
       )}
 
@@ -780,10 +924,198 @@ function ScrollbarMarkers({
   )
 }
 
+// ─── Shared line-selection hook (used by inline / split / full views) ─────
+
+interface LineSelectionApi {
+  selection: Map<number, Set<number>>
+  getHunkSelection: (hunkIdx: number) => Set<number> | undefined
+  toggle: (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void
+  clearHunk: (hunkIdx: number) => void
+  clearAll: () => void
+}
+
+function useLineSelection(resetKey: unknown, getHunk: (hunkIdx: number) => DiffHunk | undefined): LineSelectionApi {
+  const [selection, setSelection] = useState<Map<number, Set<number>>>(new Map())
+  const lastClickedRef = useRef<{ hunkIdx: number; lineIdx: number } | null>(null)
+
+  useEffect(() => {
+    setSelection(new Map())
+    lastClickedRef.current = null
+  }, [resetKey])
+
+  const toggle = useCallback(
+    (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => {
+      setSelection((prev) => {
+        const next = new Map(prev)
+        const current = new Set(next.get(hunkIdx) ?? [])
+
+        if (e.shiftKey && lastClickedRef.current && lastClickedRef.current.hunkIdx === hunkIdx) {
+          const start = Math.min(lastClickedRef.current.lineIdx, lineIdx)
+          const end = Math.max(lastClickedRef.current.lineIdx, lineIdx)
+          const hunk = getHunk(hunkIdx)
+          if (hunk) {
+            for (let i = start; i <= end; i++) {
+              const line = hunk.lines[i]
+              if (line && line.type !== 'context' && !line.content.startsWith('\\')) {
+                current.add(i)
+              }
+            }
+          }
+        } else {
+          if (current.has(lineIdx)) current.delete(lineIdx)
+          else current.add(lineIdx)
+        }
+
+        if (current.size === 0) next.delete(hunkIdx)
+        else next.set(hunkIdx, current)
+        lastClickedRef.current = { hunkIdx, lineIdx }
+        return next
+      })
+    },
+    [getHunk]
+  )
+
+  const clearHunk = useCallback((hunkIdx: number) => {
+    setSelection((prev) => {
+      if (!prev.has(hunkIdx)) return prev
+      const next = new Map(prev)
+      next.delete(hunkIdx)
+      return next
+    })
+  }, [])
+
+  const clearAll = useCallback(() => {
+    setSelection(new Map())
+    lastClickedRef.current = null
+  }, [])
+
+  const getHunkSelection = useCallback((hunkIdx: number) => selection.get(hunkIdx), [selection])
+
+  return { selection, getHunkSelection, toggle, clearHunk, clearAll }
+}
+
+// ─── Hunk Actions (stage / unstage / discard) ──────────────────────────────
+
+interface HunkActionsConfig {
+  stagingMode: 'unstaged' | 'staged' | 'untracked'
+  fileHeader: FileHeader
+  onStagePatch?: (patch: string) => void | Promise<void>
+  onUnstagePatch?: (patch: string) => void | Promise<void>
+  onDiscardPatch?: (patch: string) => void | Promise<void>
+}
+
+/**
+ * Renders the Stage/Unstage/Discard button group for a single hunk.
+ *
+ * `variant === 'floating'` wraps the buttons in a sticky bar so they hover
+ * over the top-right of the hunk block and remain visible during horizontal
+ * scroll — used in the inline view where each hunk has its own container.
+ *
+ * `variant === 'inline'` emits just the bare button group without the
+ * floating chrome — used in the split view where the buttons sit inside the
+ * sticky hunk header.
+ */
+function HunkActions({
+  hunk,
+  actions,
+  variant,
+  selectedLines,
+  onClearSelection
+}: {
+  hunk: DiffHunk
+  actions: HunkActionsConfig | null
+  variant: 'floating' | 'inline'
+  /** Set of line indices selected within this hunk (for line-level staging) */
+  selectedLines?: Set<number>
+  /** Called after a staging action completes so the parent can clear selection */
+  onClearSelection?: () => void
+}): React.JSX.Element | null {
+  if (!actions) return null
+  const { stagingMode, fileHeader, onStagePatch, onUnstagePatch, onDiscardPatch } = actions
+  if (stagingMode === 'untracked') return null
+
+  const selectionCount = selectedLines?.size ?? 0
+  const hasSelection = selectionCount > 0
+
+  const runAction = async (kind: 'stage' | 'unstage' | 'discard'): Promise<void> => {
+    const patch = hasSelection
+      ? buildLinesPatch(fileHeader, hunk, selectedLines!)
+      : buildHunkPatch(fileHeader, hunk)
+    if (!patch) return
+    if (kind === 'stage') await onStagePatch?.(patch)
+    else if (kind === 'unstage') await onUnstagePatch?.(patch)
+    else await onDiscardPatch?.(patch)
+    onClearSelection?.()
+  }
+
+  const buttons = (
+    <>
+      {stagingMode === 'unstaged' && onStagePatch && (
+        <button
+          className={`${styles.hunkActionBtn} ${styles.hunkActionStage}`}
+          onClick={(e) => { e.stopPropagation(); void runAction('stage') }}
+          title={hasSelection ? `Stage ${selectionCount} selected line(s)` : 'Stage this hunk'}
+        >
+          + {hasSelection ? `Stage ${selectionCount} Line${selectionCount > 1 ? 's' : ''}` : 'Stage Hunk'}
+        </button>
+      )}
+      {stagingMode === 'unstaged' && onDiscardPatch && (
+        <button
+          className={`${styles.hunkActionBtn} ${styles.hunkActionDiscard}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            const msg = hasSelection
+              ? `Discard ${selectionCount} selected line(s)?\n\nThis action is irreversible — the changes will be permanently lost.`
+              : 'Discard this hunk?\n\nThis action is irreversible — the changes will be permanently lost.'
+            if (window.confirm(msg)) {
+              void runAction('discard')
+            }
+          }}
+          title={hasSelection ? `Discard ${selectionCount} selected line(s)` : 'Discard this hunk (irreversible)'}
+        >
+          Discard
+        </button>
+      )}
+      {stagingMode === 'staged' && onUnstagePatch && (
+        <button
+          className={`${styles.hunkActionBtn} ${styles.hunkActionUnstage}`}
+          onClick={(e) => { e.stopPropagation(); void runAction('unstage') }}
+          title={hasSelection ? `Unstage ${selectionCount} selected line(s)` : 'Unstage this hunk'}
+        >
+          − {hasSelection ? `Unstage ${selectionCount} Line${selectionCount > 1 ? 's' : ''}` : 'Unstage Hunk'}
+        </button>
+      )}
+    </>
+  )
+
+  if (variant === 'floating') {
+    return (
+      <div className={`${styles.hunkFloatingBar} ${hasSelection ? styles.hunkFloatingBarPinned : ''}`}>
+        <div className={styles.hunkFloatingInner}>{buttons}</div>
+      </div>
+    )
+  }
+  return <div className={styles.hunkInlineActions}>{buttons}</div>
+}
+
 // ─── Inline Diff View ───────────────────────────────────────────────────────
 
-function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: string | null }): React.JSX.Element {
+function InlineDiffView({
+  hunks,
+  language,
+  hunkActions
+}: {
+  hunks: DiffHunk[]
+  language: string | null
+  hunkActions: HunkActionsConfig | null
+}): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Per-hunk line selection (Map<hunkIdx, Set<lineIdx>>) — used for
+  // line-level staging. Only populated when `hunkActions` is set.
+  const getHunk = useCallback((hunkIdx: number) => hunks[hunkIdx], [hunks])
+  const lineSel = useLineSelection(hunks, getHunk)
+  const { getHunkSelection, toggle: toggleLineSelection, clearHunk: clearHunkSelection } = lineSel
   // Build word-level diff cache for adjacent removed/added pairs
   const wordDiffCache = useMemo(() => {
     const cache = new Map<string, { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] }>()
@@ -828,8 +1160,17 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
     <div className={styles.diffWithMarkers}>
     <div className={styles.scrollableWithMarkers} ref={scrollRef}>
       <div className={styles.inlineViewInner}>
-      {hunks.map((hunk, hunkIdx) => (
+      {hunks.map((hunk, hunkIdx) => {
+        const hunkSelection = getHunkSelection(hunkIdx)
+        return (
         <div key={hunkIdx} className={styles.hunk}>
+          <HunkActions
+            hunk={hunk}
+            actions={hunkActions}
+            variant="floating"
+            selectedLines={hunkSelection}
+            onClearSelection={() => clearHunkSelection(hunkIdx)}
+          />
           <div className={styles.hunkHeader}>
             <span className={styles.hunkHeaderText}>{hunk.header}</span>
             {hunk.headerSuffix && (
@@ -840,6 +1181,7 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
             if (line.content.startsWith('\\')) {
               return (
                 <div key={lineIdx} className={`${styles.line} ${styles.lineMeta}`}>
+                  {hunkActions && <span className={styles.lineSelect} />}
                   <span className={styles.lineNum} />
                   <span className={styles.lineNum} />
                   <span className={styles.linePrefix} />
@@ -861,9 +1203,27 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
             }
 
             const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '
+            const isLineSelected = hunkSelection?.has(lineIdx) ?? false
+            const canSelectLine = line.type !== 'context' && !!hunkActions
 
             return (
-              <div key={lineIdx} className={`${styles.line} ${lineTypeClass[line.type] || ''}`}>
+              <div
+                key={lineIdx}
+                className={`${styles.line} ${lineTypeClass[line.type] || ''} ${isLineSelected ? styles.lineSelected : ''}`}
+              >
+                {hunkActions && (
+                  canSelectLine ? (
+                    <span
+                      className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+                      onClick={(e) => { e.stopPropagation(); toggleLineSelection(hunkIdx, lineIdx, e) }}
+                      title="Click to select line (shift-click for range)"
+                    >
+                      {isLineSelected ? '●' : '○'}
+                    </span>
+                  ) : (
+                    <span className={styles.lineSelect} />
+                  )
+                )}
                 <span className={styles.lineNum}>
                   {line.oldLineNum ?? ''}
                 </span>
@@ -885,7 +1245,8 @@ function InlineDiffView({ hunks, language }: { hunks: DiffHunk[]; language: stri
             )
           })}
         </div>
-      ))}
+        )
+      })}
       </div>
     </div>
     <ScrollbarMarkers markers={inlineMarkers} containerRef={scrollRef} />
@@ -939,15 +1300,21 @@ function SideBySideDiffView({
   language,
   leftPaneRef,
   rightPaneRef,
-  onScrollSync
+  onScrollSync,
+  hunkActions
 }: {
   hunks: DiffHunk[]
   language: string | null
   leftPaneRef: React.RefObject<HTMLDivElement | null>
   rightPaneRef: React.RefObject<HTMLDivElement | null>
   onScrollSync: (source: 'left' | 'right') => void
+  hunkActions: HunkActionsConfig | null
 }): React.JSX.Element {
-  const { pairs, hunkHeaders } = useMemo(() => pairLinesForSideBySide(hunks), [hunks])
+  const { pairs, pairMeta, hunkHeaders } = useMemo(() => pairLinesForSideBySide(hunks), [hunks])
+
+  // Shared line-selection hook (same UX as inline view)
+  const getHunk = useCallback((hunkIdx: number) => hunks[hunkIdx], [hunks])
+  const { getHunkSelection, toggle: toggleLineSelection, clearHunk: clearHunkSelection } = useLineSelection(hunks, getHunk)
 
   // Word diff cache for paired lines
   const wordDiffCache = useMemo(() => {
@@ -964,10 +1331,13 @@ function SideBySideDiffView({
   // Track hunk header positions for display
   const hunkHeaderSet = useMemo(() => new Set(hunkHeaders.map((h) => h.index)), [hunkHeaders])
   const hunkHeaderMap = useMemo(() => {
-    const map = new Map<number, { header: string; suffix: string }>()
-    for (const h of hunkHeaders) map.set(h.index, { header: h.header, suffix: h.suffix })
+    const map = new Map<number, { header: string; suffix: string; hunk: DiffHunk; hunkIdx: number }>()
+    for (let i = 0; i < hunkHeaders.length; i++) {
+      const h = hunkHeaders[i]
+      map.set(h.index, { header: h.header, suffix: h.suffix, hunk: hunks[i], hunkIdx: i })
+    }
     return map
-  }, [hunkHeaders])
+  }, [hunkHeaders, hunks])
 
   // Compute scrollbar markers for each pane from paired lines
   const sbsMarkers = useMemo(() => {
@@ -1006,18 +1376,45 @@ function SideBySideDiffView({
         <div className={styles.sbsPaneHeader}>Old</div>
         {pairs.map((pair, idx) => {
           const hh = hunkHeaderMap.get(idx)
+          const meta = pairMeta[idx]
           const wordDiff = pair.left && pair.right && pair.left.type === 'removed' && pair.right.type === 'added'
             ? wordDiffCache.get(`${pair.left.oldLineNum}:${pair.right.newLineNum}`)
             : undefined
+
+          // Line-selection state for the LEFT (removed) side
+          const leftSelectable =
+            !!hunkActions &&
+            pair.left !== null &&
+            meta.leftLineIdx !== null &&
+            pair.left.type !== 'context' &&
+            !pair.left.content.startsWith('\\')
+          const leftSelected = leftSelectable
+            ? (getHunkSelection(meta.hunkIdx)?.has(meta.leftLineIdx!) ?? false)
+            : false
 
           return (
             <React.Fragment key={idx}>
               {hh && (
                 <div className={styles.sbsHunkHeader}>
-                  <span>{hh.header}</span>
+                  <span className={styles.sbsHunkHeaderText}>{hh.header}</span>
                 </div>
               )}
-              <div className={`${styles.sbsLine} ${pair.left ? (sbsLineTypeClass[pair.left.type] || '') : styles.sbsLineEmpty}`}>
+              <div
+                className={`${styles.sbsLine} ${pair.left ? (sbsLineTypeClass[pair.left.type] || '') : styles.sbsLineEmpty} ${leftSelected ? styles.sbsLineSelected : ''}`}
+              >
+                {hunkActions && (
+                  leftSelectable ? (
+                    <span
+                      className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+                      onClick={(e) => { e.stopPropagation(); toggleLineSelection(meta.hunkIdx, meta.leftLineIdx!, e) }}
+                      title="Click to select line (shift-click for range)"
+                    >
+                      {leftSelected ? '●' : '○'}
+                    </span>
+                  ) : (
+                    <span className={styles.lineSelect} />
+                  )
+                )}
                 <span className={styles.sbsLineNum}>
                   {pair.left?.oldLineNum ?? pair.left?.newLineNum ?? ''}
                 </span>
@@ -1050,18 +1447,51 @@ function SideBySideDiffView({
         <div className={styles.sbsPaneHeader}>New</div>
         {pairs.map((pair, idx) => {
           const hh = hunkHeaderMap.get(idx)
+          const meta = pairMeta[idx]
           const wordDiff = pair.left && pair.right && pair.left.type === 'removed' && pair.right.type === 'added'
             ? wordDiffCache.get(`${pair.left.oldLineNum}:${pair.right.newLineNum}`)
             : undefined
+
+          const rightSelectable =
+            !!hunkActions &&
+            pair.right !== null &&
+            meta.rightLineIdx !== null &&
+            pair.right.type !== 'context' &&
+            !pair.right.content.startsWith('\\')
+          const rightSelected = rightSelectable
+            ? (getHunkSelection(meta.hunkIdx)?.has(meta.rightLineIdx!) ?? false)
+            : false
 
           return (
             <React.Fragment key={idx}>
               {hh && (
                 <div className={styles.sbsHunkHeader}>
-                  <span>{hh.header}</span>
+                  <span className={styles.sbsHunkHeaderText}>{hh.header}</span>
+                  <HunkActions
+                    hunk={hh.hunk}
+                    actions={hunkActions}
+                    variant="inline"
+                    selectedLines={getHunkSelection(hh.hunkIdx)}
+                    onClearSelection={() => clearHunkSelection(hh.hunkIdx)}
+                  />
                 </div>
               )}
-              <div className={`${styles.sbsLine} ${pair.right ? (sbsLineTypeClass[pair.right.type] || '') : styles.sbsLineEmpty}`}>
+              <div
+                className={`${styles.sbsLine} ${pair.right ? (sbsLineTypeClass[pair.right.type] || '') : styles.sbsLineEmpty} ${rightSelected ? styles.sbsLineSelected : ''}`}
+              >
+                {hunkActions && (
+                  rightSelectable ? (
+                    <span
+                      className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+                      onClick={(e) => { e.stopPropagation(); toggleLineSelection(meta.hunkIdx, meta.rightLineIdx!, e) }}
+                      title="Click to select line (shift-click for range)"
+                    >
+                      {rightSelected ? '●' : '○'}
+                    </span>
+                  ) : (
+                    <span className={styles.lineSelect} />
+                  )
+                )}
                 <span className={styles.sbsLineNum}>
                   {pair.right?.newLineNum ?? pair.right?.oldLineNum ?? ''}
                 </span>
@@ -1098,28 +1528,152 @@ interface FullDiffViewProps {
   fileStatus?: string
   /** Original path for renamed files */
   oldPath?: string
+  // Hunk staging — same semantics as DiffViewer
+  stagingMode?: 'unstaged' | 'staged' | 'untracked'
+  onStageHunk?: (patch: string) => void | Promise<void>
+  onUnstageHunk?: (patch: string) => void | Promise<void>
+  onDiscardHunk?: (patch: string) => void | Promise<void>
 }
 
 /**
- * Build sets of changed line numbers from parsed diff hunks.
- * Returns which old-file lines are removed and which new-file lines are added.
+ * Unified row used by FullDiffView so the left (old) and right (new) panes
+ * stay line-for-line aligned. Each row either represents a context line
+ * (present on both sides), a removal (left only), an addition (right only),
+ * or a paired modification (both sides).
  */
-function buildChangedLinesSets(hunks: DiffHunk[]): { oldChanged: Set<number>; newChanged: Set<number> } {
-  const oldChanged = new Set<number>()
-  const newChanged = new Set<number>()
+interface FullDiffRow {
+  left: { lineNum: number; content: string; type: 'context' | 'removed' } | null
+  right: { lineNum: number; content: string; type: 'context' | 'added' } | null
+  /** hunk index within parsed.hunks, or null for lines outside any hunk */
+  hunkIdx: number | null
+  /** Position within hunk.lines for line-level selection (null if context or outside hunk) */
+  leftLineIdx: number | null
+  rightLineIdx: number | null
+}
 
-  for (const hunk of hunks) {
-    for (const line of hunk.lines) {
-      if (line.type === 'removed' && line.oldLineNum !== null) {
-        oldChanged.add(line.oldLineNum)
-      }
-      if (line.type === 'added' && line.newLineNum !== null) {
-        newChanged.add(line.newLineNum)
+/**
+ * Walk the parsed hunks alongside the full old/new file contents to produce a
+ * single row list. Lines outside hunks (unchanged context between hunks) are
+ * emitted as 1:1 context pairs. Inside each hunk we interleave removed +
+ * added blocks using the same pairing strategy as SideBySideDiffView, so
+ * blank slots on either side preserve alignment between the two panes.
+ */
+function buildFullDiffRows(
+  oldLines: string[],
+  newLines: string[],
+  hunks: DiffHunk[]
+): FullDiffRow[] {
+  const rows: FullDiffRow[] = []
+  let oldIdx = 0 // 0-indexed position in oldLines
+  let newIdx = 0 // 0-indexed position in newLines
+
+  const pushContextOutsideHunk = (oldLine: number, newLine: number): void => {
+    rows.push({
+      left: { lineNum: oldLine + 1, content: oldLines[oldLine] ?? '', type: 'context' },
+      right: { lineNum: newLine + 1, content: newLines[newLine] ?? '', type: 'context' },
+      hunkIdx: null,
+      leftLineIdx: null,
+      rightLineIdx: null
+    })
+  }
+
+  for (let hunkIdx = 0; hunkIdx < hunks.length; hunkIdx++) {
+    const hunk = hunks[hunkIdx]
+    const m = hunk.header.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+    if (!m) continue
+    const hunkOldStart = parseInt(m[1], 10) - 1
+    const hunkNewStart = parseInt(m[2], 10) - 1
+
+    // Emit context between previous cursor and this hunk. Both files are
+    // identical in this gap, so the number of lines to walk is the same.
+    while (oldIdx < hunkOldStart && newIdx < hunkNewStart) {
+      pushContextOutsideHunk(oldIdx, newIdx)
+      oldIdx++
+      newIdx++
+    }
+    // Ensure both cursors landed at the hunk start. If the parser produced
+    // inconsistent counts, don't crash — just snap forward.
+    oldIdx = hunkOldStart
+    newIdx = hunkNewStart
+
+    // Walk the hunk, interleaving removed/added into paired rows
+    let i = 0
+    while (i < hunk.lines.length) {
+      const line = hunk.lines[i]
+
+      // Skip "\ No newline at end of file" meta — leave as-is on whichever
+      // side it belongs to, but don't advance a file cursor.
+      if (line.content.startsWith('\\')) { i++; continue }
+
+      if (line.type === 'context') {
+        rows.push({
+          left: { lineNum: oldIdx + 1, content: oldLines[oldIdx] ?? line.content, type: 'context' },
+          right: { lineNum: newIdx + 1, content: newLines[newIdx] ?? line.content, type: 'context' },
+          hunkIdx,
+          leftLineIdx: i,
+          rightLineIdx: i
+        })
+        oldIdx++
+        newIdx++
+        i++
+      } else {
+        // Collect a block of removed lines followed by a block of added lines
+        const removedStart = i
+        while (i < hunk.lines.length && hunk.lines[i].type === 'removed') i++
+        const addedStart = i
+        while (i < hunk.lines.length && hunk.lines[i].type === 'added') i++
+
+        const removed = hunk.lines.slice(removedStart, addedStart)
+        const added = hunk.lines.slice(addedStart, i)
+        const maxLen = Math.max(removed.length, added.length)
+
+        for (let k = 0; k < maxLen; k++) {
+          const leftLine = removed[k]
+          const rightLine = added[k]
+          rows.push({
+            left: leftLine
+              ? {
+                  lineNum: oldIdx + 1,
+                  content: oldLines[oldIdx] ?? leftLine.content,
+                  type: 'removed'
+                }
+              : null,
+            right: rightLine
+              ? {
+                  lineNum: newIdx + 1,
+                  content: newLines[newIdx] ?? rightLine.content,
+                  type: 'added'
+                }
+              : null,
+            hunkIdx,
+            leftLineIdx: leftLine ? removedStart + k : null,
+            rightLineIdx: rightLine ? addedStart + k : null
+          })
+          if (leftLine) oldIdx++
+          if (rightLine) newIdx++
+        }
       }
     }
   }
 
-  return { oldChanged, newChanged }
+  // Remaining context after the last hunk
+  while (oldIdx < oldLines.length || newIdx < newLines.length) {
+    rows.push({
+      left: oldIdx < oldLines.length
+        ? { lineNum: oldIdx + 1, content: oldLines[oldIdx], type: 'context' }
+        : null,
+      right: newIdx < newLines.length
+        ? { lineNum: newIdx + 1, content: newLines[newIdx], type: 'context' }
+        : null,
+      hunkIdx: null,
+      leftLineIdx: null,
+      rightLineIdx: null
+    })
+    oldIdx++
+    newIdx++
+  }
+
+  return rows
 }
 
 const LARGE_FILE_THRESHOLD = 5000
@@ -1131,7 +1685,11 @@ export function FullDiffView({
   filePath,
   className = '',
   fileStatus,
-  oldPath
+  oldPath,
+  stagingMode,
+  onStageHunk,
+  onUnstageHunk,
+  onDiscardHunk
 }: FullDiffViewProps): React.JSX.Element {
   const leftPaneRef = useRef<HTMLDivElement>(null)
   const rightPaneRef = useRef<HTMLDivElement>(null)
@@ -1140,7 +1698,28 @@ export function FullDiffView({
 
   const language = useMemo(() => detectLanguage(filePath), [filePath])
   const parsed = useMemo(() => parseDiff(diffContent), [diffContent])
-  const { oldChanged, newChanged } = useMemo(() => buildChangedLinesSets(parsed.hunks), [parsed.hunks])
+
+  // Shared line-selection hook (same UX as inline/split views)
+  const getHunk = useCallback((hunkIdx: number) => parsed.hunks[hunkIdx], [parsed.hunks])
+  const { getHunkSelection, toggle: toggleLineSelection, clearHunk: clearHunkSelection } =
+    useLineSelection(parsed.hunks, getHunk)
+
+  // Build a HunkActionsConfig so we can reuse the shared HunkActions bar
+  // instead of per-line gutter buttons. Same shape as inline/split views.
+  const hunkActionsConfig: HunkActionsConfig | null = useMemo(() => {
+    if (!stagingMode || stagingMode === 'untracked') return null
+    if (!onStageHunk && !onUnstageHunk && !onDiscardHunk) return null
+    return {
+      stagingMode,
+      fileHeader: parsed.fileHeader,
+      onStagePatch: onStageHunk,
+      onUnstagePatch: onUnstageHunk,
+      onDiscardPatch: onDiscardHunk
+    }
+  }, [stagingMode, onStageHunk, onUnstageHunk, onDiscardHunk, parsed.fileHeader])
+
+  // Whether the view should render line-selection checkboxes and hunk bars
+  const stagingActive = !!hunkActionsConfig
 
   const oldLines = useMemo(() => oldContent.split('\n'), [oldContent])
   const newLines = useMemo(() => newContent.split('\n'), [newContent])
@@ -1148,6 +1727,14 @@ export function FullDiffView({
   // Remove trailing empty line from split (files typically end with newline)
   const oldDisplay = oldLines.length > 0 && oldLines[oldLines.length - 1] === '' ? oldLines.slice(0, -1) : oldLines
   const newDisplay = newLines.length > 0 && newLines[newLines.length - 1] === '' ? newLines.slice(0, -1) : newLines
+
+  // Unified row list that keeps both panes line-for-line aligned. Each row has
+  // a left side, a right side, or both — blank slots preserve alignment after
+  // hunks where the two files have different line counts.
+  const fullRows = useMemo(
+    () => buildFullDiffRows(oldDisplay, newDisplay, parsed.hunks),
+    [oldDisplay, newDisplay, parsed.hunks]
+  )
 
   const isNewFile = fileStatus === 'A' || (oldContent === '' && newContent !== '')
   const isDeletedFile = fileStatus === 'D' || (newContent === '' && oldContent !== '')
@@ -1157,29 +1744,31 @@ export function FullDiffView({
   const isBinary = isBinaryOld || isBinaryNew
   const isLargeFile = !loadLargeFile && (oldDisplay.length > LARGE_FILE_THRESHOLD || newDisplay.length > LARGE_FILE_THRESHOLD)
 
-  // Compute scrollbar markers for full diff view
+  // Compute scrollbar markers for full diff view — aligned to the unified
+  // `fullRows` so marker positions match what's actually rendered in each
+  // pane (padded blank rows included).
   const fullDiffMarkers = useMemo(() => {
-    // Left pane: show removed markers at old line positions
     const leftTypes: Array<'added' | 'removed' | 'context' | null> = []
-    if (!isNewFile) {
-      for (let i = 0; i < oldDisplay.length; i++) {
-        const lineNum = i + 1
-        leftTypes.push(isDeletedFile || oldChanged.has(lineNum) ? 'removed' : 'context')
-      }
-    }
-    // Right pane: show added markers at new line positions
     const rightTypes: Array<'added' | 'removed' | 'context' | null> = []
-    if (!isDeletedFile) {
-      for (let i = 0; i < newDisplay.length; i++) {
-        const lineNum = i + 1
-        rightTypes.push(isNewFile || newChanged.has(lineNum) ? 'added' : 'context')
+    for (const row of fullRows) {
+      // Left pane markers: 'removed' on changed-left rows, else context/null
+      if (row.left) {
+        leftTypes.push(row.left.type === 'removed' ? 'removed' : 'context')
+      } else {
+        leftTypes.push(null)
+      }
+      // Right pane markers: 'added' on changed-right rows, else context/null
+      if (row.right) {
+        rightTypes.push(row.right.type === 'added' ? 'added' : 'context')
+      } else {
+        rightTypes.push(null)
       }
     }
     return {
       left: computeMarkers(leftTypes, leftTypes.length),
       right: computeMarkers(rightTypes, rightTypes.length)
     }
-  }, [oldDisplay, newDisplay, oldChanged, newChanged, isNewFile, isDeletedFile])
+  }, [fullRows])
 
   // Derive pane header paths
   const leftPath = isRenamed && oldPath ? oldPath : filePath
@@ -1276,19 +1865,55 @@ export function FullDiffView({
             {isNewFile ? (
               <div className={styles.fullDiffPlaceholder}>New file</div>
             ) : (
-              oldDisplay.map((line, idx) => {
-                const lineNum = idx + 1
-                const isChanged = isDeletedFile || oldChanged.has(lineNum)
+              fullRows.map((row, idx) => {
+                const prevRow = idx > 0 ? fullRows[idx - 1] : null
+                const isHunkStart =
+                  stagingActive && row.hunkIdx !== null && (prevRow === null || prevRow.hunkIdx !== row.hunkIdx)
+                const side = row.left
+                const isChanged = side?.type === 'removed'
+                const selectable = stagingActive && isChanged && row.hunkIdx !== null && row.leftLineIdx !== null
+                const sel = row.hunkIdx !== null ? getHunkSelection(row.hunkIdx) : undefined
+                const isSelected = selectable && sel ? sel.has(row.leftLineIdx!) : false
                 return (
-                  <div
-                    key={idx}
-                    className={`${styles.sbsLine} ${isChanged ? styles.sbsLineRemoved : styles.sbsLineContext}`}
-                  >
-                    <span className={styles.sbsLineNum}>{lineNum}</span>
-                    <span className={styles.sbsLineContent}>
-                      <SyntaxHighlightedContent text={line} language={language} />
-                    </span>
-                  </div>
+                  <React.Fragment key={idx}>
+                    {isHunkStart && hunkActionsConfig && (
+                      <div className={styles.fullHunkDivider}>
+                        <span>{parsed.hunks[row.hunkIdx!].header}</span>
+                        <HunkActions
+                          hunk={parsed.hunks[row.hunkIdx!]}
+                          actions={hunkActionsConfig}
+                          variant="inline"
+                          selectedLines={getHunkSelection(row.hunkIdx!)}
+                          onClearSelection={() => clearHunkSelection(row.hunkIdx!)}
+                        />
+                      </div>
+                    )}
+                    <div
+                      className={`${styles.sbsLine} ${
+                        side
+                          ? (isChanged ? styles.sbsLineRemoved : styles.sbsLineContext)
+                          : styles.sbsLineEmpty
+                      } ${isSelected ? styles.sbsLineSelected : ''}`}
+                    >
+                      {stagingActive && (
+                        selectable ? (
+                          <span
+                            className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+                            onClick={(e) => { e.stopPropagation(); toggleLineSelection(row.hunkIdx!, row.leftLineIdx!, e) }}
+                            title="Click to select line (shift-click for range)"
+                          >
+                            {isSelected ? '●' : '○'}
+                          </span>
+                        ) : (
+                          <span className={styles.lineSelect} />
+                        )
+                      )}
+                      <span className={styles.sbsLineNum}>{side?.lineNum ?? ''}</span>
+                      <span className={styles.sbsLineContent}>
+                        {side ? <SyntaxHighlightedContent text={side.content} language={language} /> : ''}
+                      </span>
+                    </div>
+                  </React.Fragment>
                 )
               })
             )}
@@ -1311,19 +1936,55 @@ export function FullDiffView({
             {isDeletedFile ? (
               <div className={styles.fullDiffPlaceholder}>File deleted</div>
             ) : (
-              newDisplay.map((line, idx) => {
-                const lineNum = idx + 1
-                const isChanged = isNewFile || newChanged.has(lineNum)
+              fullRows.map((row, idx) => {
+                const prevRow = idx > 0 ? fullRows[idx - 1] : null
+                const isHunkStart =
+                  stagingActive && row.hunkIdx !== null && (prevRow === null || prevRow.hunkIdx !== row.hunkIdx)
+                const side = row.right
+                const isChanged = side?.type === 'added'
+                const selectable = stagingActive && isChanged && row.hunkIdx !== null && row.rightLineIdx !== null
+                const sel = row.hunkIdx !== null ? getHunkSelection(row.hunkIdx) : undefined
+                const isSelected = selectable && sel ? sel.has(row.rightLineIdx!) : false
                 return (
-                  <div
-                    key={idx}
-                    className={`${styles.sbsLine} ${isChanged ? styles.sbsLineAdded : styles.sbsLineContext}`}
-                  >
-                    <span className={styles.sbsLineNum}>{lineNum}</span>
-                    <span className={styles.sbsLineContent}>
-                      <SyntaxHighlightedContent text={line} language={language} />
-                    </span>
-                  </div>
+                  <React.Fragment key={idx}>
+                    {isHunkStart && hunkActionsConfig && (
+                      <div className={styles.fullHunkDivider}>
+                        <span>{parsed.hunks[row.hunkIdx!].header}</span>
+                        <HunkActions
+                          hunk={parsed.hunks[row.hunkIdx!]}
+                          actions={hunkActionsConfig}
+                          variant="inline"
+                          selectedLines={getHunkSelection(row.hunkIdx!)}
+                          onClearSelection={() => clearHunkSelection(row.hunkIdx!)}
+                        />
+                      </div>
+                    )}
+                    <div
+                      className={`${styles.sbsLine} ${
+                        side
+                          ? (isChanged ? styles.sbsLineAdded : styles.sbsLineContext)
+                          : styles.sbsLineEmpty
+                      } ${isSelected ? styles.sbsLineSelected : ''}`}
+                    >
+                      {stagingActive && (
+                        selectable ? (
+                          <span
+                            className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+                            onClick={(e) => { e.stopPropagation(); toggleLineSelection(row.hunkIdx!, row.rightLineIdx!, e) }}
+                            title="Click to select line (shift-click for range)"
+                          >
+                            {isSelected ? '●' : '○'}
+                          </span>
+                        ) : (
+                          <span className={styles.lineSelect} />
+                        )
+                      )}
+                      <span className={styles.sbsLineNum}>{side?.lineNum ?? ''}</span>
+                      <span className={styles.sbsLineContent}>
+                        {side ? <SyntaxHighlightedContent text={side.content} language={language} /> : ''}
+                      </span>
+                    </div>
+                  </React.Fragment>
                 )
               })
             )}

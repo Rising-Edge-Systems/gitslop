@@ -46,6 +46,16 @@ describe('shouldIgnorePath', () => {
     expect(shouldIgnorePath('/repo/.gitignore')).toBe(false)
     expect(shouldIgnorePath('/repo/.gitattributes')).toBe(false)
   })
+
+  it('ignores .asar archives and their contents', () => {
+    // Electron .asar archives appear as directories to fs but crash readdirp
+    // when traversed — chokidar (via ReaddirpStream) throws "invalid package" errors.
+    expect(shouldIgnorePath('/repo/dist/app.asar')).toBe(true)
+    expect(shouldIgnorePath('/repo/dist/app.asar/package.json')).toBe(true)
+    expect(shouldIgnorePath('/repo/out/app.asar.unpacked')).toBe(true)
+    expect(shouldIgnorePath('/repo/out/app.asar.unpacked/native.node')).toBe(true)
+    expect(shouldIgnorePath('C:\\repo\\dist\\app.asar\\pkg')).toBe(true)
+  })
 })
 
 // ─── Suppression Logic ────────────────────────────────────────────────────────

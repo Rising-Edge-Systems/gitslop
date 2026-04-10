@@ -90,5 +90,17 @@ export function shouldIgnorePath(path: string): boolean {
   if (path.includes('/node_modules/') || path.includes('\\node_modules\\')) {
     return true
   }
+  // Electron .asar archives appear as directories to fs but crash readdirp
+  // when traversed. Ignore them and their unpacked siblings entirely.
+  if (
+    path.endsWith('.asar') ||
+    path.endsWith('.asar.unpacked') ||
+    path.includes('.asar/') ||
+    path.includes('.asar\\') ||
+    path.includes('.asar.unpacked/') ||
+    path.includes('.asar.unpacked\\')
+  ) {
+    return true
+  }
   return false
 }

@@ -259,6 +259,9 @@
 
 .hunk {
   border-bottom: 1px solid var(--border);
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .hunk:last-child {
@@ -284,6 +287,148 @@
 .hunkHeaderSuffix {
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* ─── Hunk Floating Action Bar (stage/unstage/discard) ───────────────────── */
+
+/*
+ * Outer wrapper: sticky in BOTH axes so the button group stays at the
+ * top-right of the hunk block during vertical scroll AND stays inside the
+ * visible viewport during horizontal scroll. `height: 0` + `margin-bottom`
+ * is absent — instead we use align-self: flex-end on a flex parent so it
+ * naturally sits at the right of the (min-content-sized) hunk, then sticky
+ * right pins it inside the viewport.
+ */
+.hunkFloatingBar {
+  position: sticky;
+  top: 4px;
+  right: var(--space-md);
+  z-index: 5;
+  align-self: flex-end;
+  margin-left: auto;
+  width: fit-content;
+  height: 0; /* zero out so the bar does not push lines down */
+  pointer-events: none;
+  order: -1; /* render above hunkHeader in flex-column */
+}
+
+.hunkFloatingInner {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+  padding: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  opacity: 0.7;
+  transition: opacity 0.12s ease;
+  white-space: nowrap;
+}
+
+.hunk:hover .hunkFloatingInner,
+.hunk:focus-within .hunkFloatingInner,
+.hunkFloatingBarPinned .hunkFloatingInner {
+  opacity: 1;
+}
+
+/* ─── Line selection checkbox (unified across inline/split/full views) ──────
+ * A small, always-visible checkbox at the very left of every line in a
+ * staging-mode diff. Empty circle = selectable but unselected; filled circle
+ * = selected; empty space (no glyph) = not selectable (context / meta line).
+ * This is the ONLY click target for line-level selection — hunk-level
+ * staging lives in the HunkActions bars, not on individual lines. */
+.lineSelect {
+  flex-shrink: 0;
+  display: inline-block;
+  width: 18px;
+  min-width: 18px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  line-height: 20px;
+  text-align: center;
+  user-select: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(137, 180, 250, 0.5);
+  cursor: default;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.lineSelectActive {
+  cursor: pointer;
+}
+
+.lineSelectActive:hover {
+  background: rgba(137, 180, 250, 0.2);
+  color: #89b4fa;
+}
+
+.lineSelected .lineSelect {
+  color: #89b4fa;
+  font-weight: 700;
+}
+
+/* Inline variant used by split-view hunk header — simple sticky-right bar */
+.hunkInlineActions {
+  position: sticky;
+  right: var(--space-sm);
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+  z-index: 3;
+}
+
+.hunkActionBtn {
+  font-family: var(--font-family);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.hunkActionBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.hunkActionStage {
+  color: #3fb950;
+  border-color: rgba(63, 185, 80, 0.35);
+}
+.hunkActionStage:hover {
+  background: rgba(63, 185, 80, 0.15);
+  border-color: rgba(63, 185, 80, 0.6);
+  color: #3fb950;
+}
+
+.hunkActionUnstage {
+  color: #d29922;
+  border-color: rgba(210, 153, 34, 0.35);
+}
+.hunkActionUnstage:hover {
+  background: rgba(210, 153, 34, 0.15);
+  border-color: rgba(210, 153, 34, 0.6);
+  color: #d29922;
+}
+
+.hunkActionDiscard {
+  color: #f85149;
+  border-color: rgba(248, 81, 73, 0.35);
+}
+.hunkActionDiscard:hover {
+  background: rgba(248, 81, 73, 0.15);
+  border-color: rgba(248, 81, 73, 0.6);
+  color: #f85149;
 }
 
 /* ─── Diff Line ─────────────────────────────────────────────────────────── */
@@ -321,6 +466,19 @@
   color: var(--text-muted);
   user-select: none;
   font-weight: 700;
+}
+
+/* Selected-line highlight — stronger tint over the red/green base */
+.lineSelected {
+  box-shadow: inset 2px 0 0 #89b4fa;
+}
+
+.lineAdded.lineSelected {
+  background: rgba(166, 227, 161, 0.22);
+}
+
+.lineRemoved.lineSelected {
+  background: rgba(243, 139, 168, 0.22);
 }
 
 .lineContent {
@@ -425,16 +583,25 @@
 }
 
 .sbsHunkHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   padding: 3px var(--space-md);
   background: rgba(137, 180, 250, 0.08);
   color: var(--accent);
   font-size: 10px;
   font-family: var(--font-mono);
-  opacity: 0.8;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  /* overflow: hidden would clip the sticky action bar — leave visible */
+}
+
+.sbsHunkHeaderText {
+  opacity: 0.7;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .sbsLine {
@@ -503,6 +670,39 @@
 
 .sbsLineEmpty .sbsLineContent {
   color: transparent;
+}
+
+/* ─── Line selection highlight in split / full views ────────────────────── */
+
+.sbsLineSelected {
+  box-shadow: inset 2px 0 0 #89b4fa;
+}
+
+.sbsLineAdded.sbsLineSelected {
+  background: rgba(166, 227, 161, 0.24);
+}
+
+.sbsLineRemoved.sbsLineSelected {
+  background: rgba(243, 139, 168, 0.24);
+}
+
+/* Dedicated hunk divider for FullDiffView — a sticky sticky row between
+ * hunks in each pane carrying the HunkActions bar. */
+.fullHunkDivider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 4px var(--space-md);
+  background: rgba(137, 180, 250, 0.1);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  position: sticky;
+  left: 0;
+  z-index: 2;
 }
 
 /* ─── Full Diff View Placeholder ───────────────────────────────────────── */

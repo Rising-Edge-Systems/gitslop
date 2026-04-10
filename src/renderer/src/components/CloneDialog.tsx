@@ -12,6 +12,8 @@ interface CloneProgress {
   percent: number | null
   current: number | null
   total: number | null
+  bytes?: string
+  rate?: string
 }
 
 export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): React.JSX.Element {
@@ -38,7 +40,9 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
           phase: prog.phase,
           percent: prog.percent,
           current: prog.current,
-          total: prog.total
+          total: prog.total,
+          bytes: (prog as CloneProgress).bytes,
+          rate: (prog as CloneProgress).rate
         })
       }
     })
@@ -223,14 +227,28 @@ export function CloneDialog({ onClose, onCloneComplete }: CloneDialogProps): Rea
                 {progress.percent !== null && ` ${progress.percent}%`}
                 {progress.current !== null && progress.total !== null && (
                   <span className={styles.progressCount}>
-                    {' '}({progress.current}/{progress.total})
+                    {' '}({progress.current.toLocaleString()}/{progress.total.toLocaleString()})
+                  </span>
+                )}
+                {progress.current !== null && progress.total === null && (
+                  <span className={styles.progressCount}>
+                    {' '}({progress.current.toLocaleString()})
                   </span>
                 )}
               </div>
-              <div className={styles.progressBar}>
+              {(progress.bytes || progress.rate) && (
+                <div className={styles.progressText}>
+                  {progress.bytes}
+                  {progress.bytes && progress.rate ? ' · ' : ''}
+                  {progress.rate}
+                </div>
+              )}
+              <div
+                className={`${styles.progressBar} ${progress.percent === null ? styles.progressBarIndeterminate : ''}`}
+              >
                 <div
                   className={styles.progressFill}
-                  style={{ width: `${progress.percent ?? 0}%` }}
+                  style={progress.percent !== null ? { width: `${progress.percent}%` } : undefined}
                 />
               </div>
             </div>

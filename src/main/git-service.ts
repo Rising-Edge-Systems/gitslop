@@ -119,7 +119,12 @@ export interface GitRepoStatus {
   untracked: GitFileStatus[]
 }
 
-export interface CloneProgress {
+export interface CloneProgressExtras {
+  bytes?: string
+  rate?: string
+}
+
+export interface CloneProgress extends CloneProgressExtras {
   phase: string
   percent: number | null
   current: number | null
@@ -2226,29 +2231,60 @@ export class GitService {
   }
 
   private parseCloneProgress(text: string, _fullOutput: string): CloneProgress {
-    // Match lines like "Receiving objects:  50% (21/42), 1.5 MiB | 500.00 KiB/s"
-    const progressMatch = text.match(/([\w\s]+):\s+(\d+)%\s+\((\d+)\/(\d+)\)/)
-    if (progressMatch) {
-      return {
-        phase: progressMatch[1].trim(),
-        percent: parseInt(progressMatch[2], 10),
-        current: parseInt(progressMatch[3], 10),
-        total: parseInt(progressMatch[4], 10)
+    // Git uses \r to overwrite a single progress line, so a chunk may contain
+    // many lines — only the last meaningful one represents current state.
+    const lines = text.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean)
+    // Walk from the end and pick the first line we can parse meaningfully.
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].replace(/^remote:\s*/i, '')
+
+      // Full progress line:
+      //   "Receiving objects:  50% (21/42), 1.52 MiB | 500.00 KiB/s"
+      //   "Compressing objects: 100% (7123/7123), done."
+      const fullMatch = line.match(
+        /^([A-Za-z][\w\s]*?):\s+(\d+)%\s+\((\d+)\/(\d+)\)(?:,\s*([\d.]+\s*[KMG]?i?B))?(?:\s*\|\s*([\d.]+\s*[KMG]?i?B\/s))?/
+      )
+      if (fullMatch) {
+        return {
+          phase: fullMatch[1].trim(),
+          percent: parseInt(fullMatch[2], 10),
+          current: parseInt(fullMatch[3], 10),
+          total: parseInt(fullMatch[4], 10),
+          bytes: fullMatch[5]?.trim(),
+          rate: fullMatch[6]?.trim()
+        }
+      }
+
+      // Countup without percent, e.g. "Enumerating objects: 15238, done."
+      const countMatch = line.match(/^([A-Za-z][\w\s]*?):\s+(\d+)(?:,|$)/)
+      if (countMatch) {
+        return {
+          phase: countMatch[1].trim(),
+          percent: null,
+          current: parseInt(countMatch[2], 10),
+          total: null
+        }
+      }
+
+      // Phase-only status lines
+      if (/^Cloning into/i.test(line)) {
+        return { phase: 'Cloning...', percent: null, current: null, total: null }
+      }
+      if (/^Updating files:/i.test(line)) {
+        // "Updating files:  42% (100/238)"
+        const m = line.match(/Updating files:\s+(\d+)%(?:\s+\((\d+)\/(\d+)\))?/)
+        if (m) {
+          return {
+            phase: 'Updating files',
+            percent: parseInt(m[1], 10),
+            current: m[2] ? parseInt(m[2], 10) : null,
+            total: m[3] ? parseInt(m[3], 10) : null
+          }
+        }
       }
     }
 
-    // Match phase-only lines like "Cloning into 'repo'..."
-    const phaseMatch = text.match(/(Cloning into|Counting objects|Compressing objects|remote:.*?)[\s.,:]/i)
-    if (phaseMatch) {
-      return {
-        phase: phaseMatch[1].trim(),
-        percent: null,
-        current: null,
-        total: null
-      }
-    }
-
-    return { phase: 'Cloning...', percent: null, current: null, total: null }
+    return { phase: 'Working...', percent: null, current: null, total: null }
   }
 
   private classifyError(error: Error & { code?: string | number | null; killed?: boolean }, stderr: string): GitError {

@@ -196,6 +196,27 @@
   min-width: 2%;
 }
 
+.progressBarIndeterminate {
+  position: relative;
+}
+
+.progressBarIndeterminate .progressFill {
+  width: 40%;
+  position: absolute;
+  left: 0;
+  animation: indeterminateSlide 1.4s ease-in-out infinite;
+  min-width: 0;
+}
+
+@keyframes indeterminateSlide {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
 .footer {
   display: flex;
   justify-content: flex-end;

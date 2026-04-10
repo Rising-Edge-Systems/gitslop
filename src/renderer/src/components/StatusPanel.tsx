@@ -31,6 +31,12 @@ interface RepoStatus {
   untracked: FileStatus[]
 }
 
+export interface WorkingTreeFileSelection {
+  path: string
+  staged: boolean
+  isUntracked: boolean
+}
+
 interface StatusPanelProps {
   repoPath: string
   onRefresh?: () => void
@@ -38,6 +44,18 @@ interface StatusPanelProps {
   onToggleCollapse: () => void
   stagingInternalSplit: number
   onStagingInternalSplitChange: (split: number) => void
+  /**
+   * When provided, StatusPanel delegates diff display to a parent component
+   * (the main center diff viewer) instead of rendering its own embedded diff.
+   * Called on single-click of a staged/unstaged/untracked file.
+   */
+  onFileSelect?: (selection: WorkingTreeFileSelection | null) => void
+  /**
+   * Externally-controlled selection used to highlight the active row when
+   * selection state lives in a parent. When set, takes precedence over the
+   * panel's internal selectedFile for row-highlight purposes.
+   */
+  externallySelectedFile?: WorkingTreeFileSelection | null
 }
 
 // ─── CSS Module Lookup Maps ──────────────────────────────────────────────────
@@ -97,7 +115,7 @@ function fileDir(filePath: string): string {
 
 const SUBJECT_WARN_LENGTH = 72
 
-export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, stagingInternalSplit, onStagingInternalSplitChange }: StatusPanelProps): React.JSX.Element {
+export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, stagingInternalSplit, onStagingInternalSplitChange, onFileSelect, externallySelectedFile }: StatusPanelProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -112,6 +130,13 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
     y: number
     file: FileStatus
   } | null>(null)
+
+  // Sync internal selection with parent when an external selection is provided
+  useEffect(() => {
+    if (externallySelectedFile !== undefined) {
+      setSelectedFile(externallySelectedFile)
+    }
+  }, [externallySelectedFile])
   // Commit form state
   const [commitSubject, setCommitSubject] = useState('')
   const [commitBody, setCommitBody] = useState('')
@@ -568,6 +593,14 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
       setSelectedFiles(new Set())
       const fileInfo = { path: file.path, staged: file.staged, isUntracked }
       setSelectedFile(fileInfo)
+
+      // If a parent handler is supplied, delegate diff display to the main
+      // center viewer rather than the embedded panel.
+      if (onFileSelect) {
+        onFileSelect(fileInfo)
+        return
+      }
+
       setDiffLoading(true)
       setDiffContent(null)
 
@@ -593,7 +626,7 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
         setDiffLoading(false)
       }
     },
-    [repoPath, selectedFile, status]
+    [repoPath, selectedFile, status, onFileSelect]
   )
 
   // ─── Drag & Drop ──────────────────────────────────────────────────────────
@@ -869,11 +902,12 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
                       const isUntracked = file.status === 'untracked'
                       const section = isUntracked ? 'untracked' : 'unstaged'
                       const fileKey = `${section}:${file.path}`
+                      const activeSelection = externallySelectedFile ?? selectedFile
                       const isSelected =
                         selectedFiles.has(fileKey) ||
                         (selectedFiles.size === 0 &&
-                          selectedFile?.path === file.path &&
-                          !selectedFile?.staged)
+                          activeSelection?.path === file.path &&
+                          !activeSelection?.staged)
                       return (
                         <div
                           key={`${section}-${file.path}`}
@@ -961,11 +995,12 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
                   ) : (
                     (status?.staged ?? []).map((file) => {
                       const fileKey = `staged:${file.path}`
+                      const activeSelection = externallySelectedFile ?? selectedFile
                       const isSelected =
                         selectedFiles.has(fileKey) ||
                         (selectedFiles.size === 0 &&
-                          selectedFile?.path === file.path &&
-                          selectedFile?.staged === true)
+                          activeSelection?.path === file.path &&
+                          activeSelection?.staged === true)
                       return (
                         <div
                           key={`staged-${file.path}`}
@@ -1012,8 +1047,8 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
             </div>
           )}
 
-          {/* Diff Viewer with Hunk/Line Staging */}
-          {selectedFile && (
+          {/* Diff Viewer with Hunk/Line Staging — hidden when parent handles diff display */}
+          {selectedFile && !onFileSelect && (
             <div className={styles.diffViewer}>
               <div className={styles.diffHeader}>
                 <span className={styles.diffFilename}>
@@ -1573,7 +1608,7 @@ function HunkDiffViewer({
 
 // ─── Diff Viewer with Staging Toggle ─────────────────────────────────────────
 
-interface DiffViewerWithStagingProps {
+export interface DiffViewerWithStagingProps {
   diffContent: string
   filePath: string
   staged: boolean
@@ -1584,7 +1619,7 @@ interface DiffViewerWithStagingProps {
   setOperationInProgress: (v: boolean) => void
 }
 
-function DiffViewerWithStaging(props: DiffViewerWithStagingProps): React.JSX.Element {
+export function DiffViewerWithStaging(props: DiffViewerWithStagingProps): React.JSX.Element {
   const [viewMode, setViewMode] = useState<'staging' | 'enhanced'>('staging')
 
   return (

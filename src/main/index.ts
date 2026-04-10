@@ -1681,6 +1681,11 @@ ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
     activeWatcher.on('unlink', () => sendRepoChanged())
     activeWatcher.on('addDir', () => sendRepoChanged())
     activeWatcher.on('unlinkDir', () => sendRepoChanged())
+    // Don't let transient readdirp errors (e.g. traversing into .asar archives,
+    // permission-denied dirs, broken symlinks) crash the main process.
+    activeWatcher.on('error', (err) => {
+      console.warn('[watcher] non-fatal error:', err instanceof Error ? err.message : err)
+    })
 
     // Watch .git/refs and .git/HEAD for external changes (CLI commits, other tools).
     // This watcher uses the suppression-aware sendRepoChanged() so it won't double-fire
@@ -1701,6 +1706,9 @@ ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
     gitRefWatcher.on('add', () => sendRepoChanged())
     gitRefWatcher.on('change', () => sendRepoChanged())
     gitRefWatcher.on('unlink', () => sendRepoChanged())
+    gitRefWatcher.on('error', (err) => {
+      console.warn('[git-ref watcher] non-fatal error:', err instanceof Error ? err.message : err)
+    })
 
     return { success: true }
   } catch (err) {

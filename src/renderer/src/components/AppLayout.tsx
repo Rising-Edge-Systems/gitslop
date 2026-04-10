@@ -75,6 +75,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const [viewingDiff, setViewingDiff] = useState(false)
   const [diffFile, setDiffFile] = useState<string | null>(null)
   const [diffCommitHash, setDiffCommitHash] = useState<string | null>(null)
+  // Working-tree file selected in StatusPanel — routes to the main center diff viewer
+  const [workingTreeFile, setWorkingTreeFile] = useState<{ path: string; staged: boolean; isUntracked: boolean } | null>(null)
 
   // ─── Per-Tab State Isolation ──────────────────────────────────────────────────
   // Track the previously active repo so we can save its state before switching.
@@ -107,6 +109,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       setViewingDiff(false)
       setDiffFile(null)
       setDiffCommitHash(null)
+      setWorkingTreeFile(null)
     }
 
     prevRepoRef.current = currentRepo
@@ -202,10 +205,26 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
   // ─── Center-Stage Diff Handlers ────────────────────────────────────────────
   const handleFileClick = useCallback((file: CommitFileDetail, commitHash: string) => {
+    // Clicking a commit file clears any working-tree selection — the two views
+    // are mutually exclusive in the center pane.
+    setWorkingTreeFile(null)
     setDiffFile(file.path)
     setDiffCommitHash(commitHash)
     setViewingDiff(true)
   }, [])
+
+  const handleWorkingTreeFileSelect = useCallback(
+    (sel: { path: string; staged: boolean; isUntracked: boolean } | null) => {
+      if (sel) {
+        // Route to the main center diff viewer — clear any commit-file diff state.
+        setViewingDiff(false)
+        setDiffFile(null)
+        setDiffCommitHash(null)
+      }
+      setWorkingTreeFile(sel)
+    },
+    []
+  )
 
   const handleBackToGraph = useCallback(() => {
     setViewingDiff(false)
@@ -529,6 +548,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     onDiffViewModeChange={setDiffViewMode}
                     showBranchLabels={layout.showBranchLabels}
                     commitHistoryDepth={appSettings.commitHistoryDepth}
+                    workingTreeFile={workingTreeFile}
+                    onCloseWorkingTreeFile={() => setWorkingTreeFile(null)}
                   />
                 </div>
                 {/* Right panel drag handle + commit details on top, staging area below.
@@ -645,6 +666,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         onToggleCollapse={toggleStagingCollapse}
                         stagingInternalSplit={layout.stagingInternalSplit}
                         onStagingInternalSplitChange={setStagingInternalSplit}
+                        onFileSelect={handleWorkingTreeFileSelect}
+                        externallySelectedFile={workingTreeFile}
                       />
                     </div>
                   </div>
@@ -734,6 +757,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         onToggleCollapse={toggleStagingCollapse}
                         stagingInternalSplit={layout.stagingInternalSplit}
                         onStagingInternalSplitChange={setStagingInternalSplit}
+                        onFileSelect={handleWorkingTreeFileSelect}
+                        externallySelectedFile={workingTreeFile}
                       />
                     </div>
                   </div>
