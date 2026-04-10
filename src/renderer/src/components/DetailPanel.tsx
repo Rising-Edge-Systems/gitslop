@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   GitCommit,
   GitBranch,
@@ -20,6 +20,8 @@ import {
   FolderTree,
   Folder,
   FolderOpen,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Loader2
 } from 'lucide-react'
 import styles from './DetailPanel.module.css'
@@ -33,6 +35,8 @@ interface FileTreeNode {
   isDir: boolean
   children: FileTreeNode[]
   file?: CommitFileDetail
+  /** True if this directory (or any descendant) contains at least one changed file */
+  containsChanges?: boolean
 }
 
 /** Build a directory tree from a flat list of file details */
@@ -81,7 +85,40 @@ function buildFileTree(files: CommitFileDetail[]): FileTreeNode[] {
   }
   sortTree(root.children)
 
+  // Propagate "contains a changed file" up the tree so directories containing
+  // any changed descendant can be visually highlighted (bold / accent color).
+  const markChanges = (nodes: FileTreeNode[]): boolean => {
+    let anyChanged = false
+    for (const node of nodes) {
+      if (node.isDir) {
+        const childHasChange = markChanges(node.children)
+        node.containsChanges = childHasChange
+        if (childHasChange) anyChanged = true
+      } else if (node.file && node.file.status !== 'unchanged') {
+        anyChanged = true
+      }
+    }
+    return anyChanged
+  }
+  markChanges(root.children)
+
   return root.children
+}
+
+/** Collect all directory paths in the tree — used to populate the
+ *  collapsedDirs set for the "Collapse all" button. */
+function collectAllDirPaths(nodes: FileTreeNode[]): string[] {
+  const out: string[] = []
+  const walk = (list: FileTreeNode[]): void => {
+    for (const n of list) {
+      if (n.isDir) {
+        out.push(n.fullPath)
+        walk(n.children)
+      }
+    }
+  }
+  walk(nodes)
+  return out
 }
 
 /** Recursive component to render a tree node */
@@ -89,26 +126,32 @@ function FileTreeNodeComponent({
   node,
   depth,
   onFileClick,
-  selectedFilePath
+  selectedFilePath,
+  collapsedDirs,
+  onToggleDir
 }: {
   node: FileTreeNode
   depth: number
   onFileClick: (file: CommitFileDetail) => void
   selectedFilePath?: string | null
+  collapsedDirs: Set<string>
+  onToggleDir: (fullPath: string) => void
 }): React.JSX.Element {
-  const [expanded, setExpanded] = useState(true)
-
   if (node.isDir) {
+    const expanded = !collapsedDirs.has(node.fullPath)
+    const hasChanges = !!node.containsChanges
     return (
       <li>
         <button
-          className={styles.treeDir}
+          className={`${styles.treeDir} ${hasChanges ? styles.treeDirChanged : ''}`}
           style={{ paddingLeft: depth * 16 + 8 }}
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => onToggleDir(node.fullPath)}
+          title={hasChanges ? `${node.name} (contains changes)` : node.name}
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           {expanded ? <FolderOpen size={12} className={styles.treeDirIcon} /> : <Folder size={12} className={styles.treeDirIcon} />}
           <span className={styles.treeDirName}>{node.name}</span>
+          {hasChanges && <span className={styles.treeDirChangeDot} aria-hidden="true" />}
         </button>
         {expanded && (
           <ul className={styles.treeChildren}>
@@ -119,6 +162,8 @@ function FileTreeNodeComponent({
                 depth={depth + 1}
                 onFileClick={onFileClick}
                 selectedFilePath={selectedFilePath}
+                collapsedDirs={collapsedDirs}
+                onToggleDir={onToggleDir}
               />
             ))}
           </ul>
@@ -130,10 +175,11 @@ function FileTreeNodeComponent({
   // File leaf node
   const file = node.file!
   const isSelected = selectedFilePath === file.path
+  const isUnchanged = file.status === 'unchanged'
   return (
     <li>
       <button
-        className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''}`}
+        className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''} ${isUnchanged ? styles.fileItemUnchanged : ''}`}
         style={{ paddingLeft: depth * 16 + 8 }}
         onClick={() => onFileClick(file)}
         title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
@@ -155,13 +201,17 @@ interface DetailPanelProps {
   detail: CommitDetail | null
   repoPath: string | null
   /** Callback when a file is clicked in the changed files list */
-  onFileClick?: (file: CommitFileDetail, commitHash: string) => void
+  onFileClick?: (file: CommitFileDetail, commitHash: string, opts?: { forceFileView?: boolean }) => void
   /** Path of the currently selected file (whose diff is open in center panel) */
   selectedFilePath?: string | null
   /** Current file list view mode */
   fileListView?: FileListView
   /** Callback to change file list view mode */
   onFileListViewChange?: (view: FileListView) => void
+  /** Whether to show every file in the tree at this commit (not just changed) */
+  showAllFiles?: boolean
+  /** Callback to toggle showAllFiles */
+  onShowAllFilesChange?: (show: boolean) => void
   /** Internal split: percent for metadata share (top) vs files (bottom) */
   detailInternalSplit?: number
   /** Callback to change internal split */
@@ -209,6 +259,8 @@ function FileStatusIcon({ status, size = 12 }: { status: string; size?: number }
     case 'R':
     case 'C':
       return <FileSymlink size={size} className={styles.fileRenamed} />
+    case 'unchanged':
+      return <FileText size={size} className={styles.fileUnchanged} />
     case 'M':
     default:
       return <FileEdit size={size} className={styles.fileModified} />
@@ -222,7 +274,7 @@ function splitPath(filePath: string): { dir: string; name: string } {
   return { dir: filePath.substring(0, lastSlash + 1), name: filePath.substring(lastSlash + 1) }
 }
 
-export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, fileListView = 'path', onFileListViewChange, detailInternalSplit = 40, onDetailInternalSplitChange, collapsed = false, onToggleCollapse }: DetailPanelProps): React.JSX.Element {
+export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, fileListView = 'path', onFileListViewChange, showAllFiles = false, onShowAllFilesChange, detailInternalSplit = 40, onDetailInternalSplitChange, collapsed = false, onToggleCollapse }: DetailPanelProps): React.JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null)
   const splitContainerRef = useRef<HTMLDivElement>(null)
   const isDraggingInternalSplitRef = useRef(false)
@@ -316,6 +368,95 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
   const totalDeletions = detail?.totalDeletions ?? 0
   const refs = detail?.refs ?? []
 
+  // ─── All-files-at-commit fetch ────────────────────────────────────────────
+  // When showAllFiles is toggled on, fetch `git ls-tree -r <hash>` to get every
+  // path that exists at this commit, then merge with the changed files list.
+  // Unchanged files become placeholder entries (no stats, no status) that are
+  // visually browsable but not clickable-for-diff.
+  const [allFilePaths, setAllFilePaths] = useState<string[] | null>(null)
+  const [allFilesLoading, setAllFilesLoading] = useState(false)
+  const [allFilesError, setAllFilesError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!showAllFiles || !repoPath || !commit?.hash) {
+      setAllFilePaths(null)
+      setAllFilesError(null)
+      return
+    }
+    let cancelled = false
+    setAllFilesLoading(true)
+    setAllFilesError(null)
+    window.electronAPI.git
+      .listFilesAtCommit(repoPath, commit.hash)
+      .then((result) => {
+        if (cancelled) return
+        if (result.success && Array.isArray(result.data)) {
+          setAllFilePaths(result.data as string[])
+        } else {
+          setAllFilesError(result.error || 'Failed to list files at commit')
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setAllFilesError(err instanceof Error ? err.message : 'Failed to list files at commit')
+      })
+      .finally(() => {
+        if (!cancelled) setAllFilesLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [showAllFiles, repoPath, commit?.hash])
+
+  // ─── Tree view expansion state ───────────────────────────────────────────
+  // Set of directory fullPaths that are currently collapsed. All directories
+  // are expanded by default (empty set). Reset when the commit changes.
+  const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    setCollapsedDirs(new Set())
+  }, [commit?.hash])
+
+  const toggleDir = useCallback((fullPath: string) => {
+    setCollapsedDirs((prev) => {
+      const next = new Set(prev)
+      if (next.has(fullPath)) next.delete(fullPath)
+      else next.add(fullPath)
+      return next
+    })
+  }, [])
+
+  // Merged file list used when "show all files" is active. Changed files keep
+  // their full metadata (status + stats); unchanged files are emitted as
+  // placeholder entries with status='unchanged' so the renderer can style them
+  // differently and skip the diff click handler.
+  const mergedFileList: CommitFileDetail[] = useMemo(() => {
+    if (!showAllFiles || !allFilePaths) return fileDetails
+    const changedByPath = new Map<string, CommitFileDetail>()
+    for (const f of fileDetails) changedByPath.set(f.path, f)
+    // Also index by oldPath for renames so the source path shows the rename row
+    const merged: CommitFileDetail[] = []
+    const seenChanged = new Set<string>()
+    for (const path of allFilePaths) {
+      const changed = changedByPath.get(path)
+      if (changed) {
+        merged.push(changed)
+        seenChanged.add(path)
+      } else {
+        merged.push({
+          path,
+          oldPath: undefined,
+          status: 'unchanged',
+          insertions: 0,
+          deletions: 0
+        } as CommitFileDetail)
+      }
+    }
+    // Deleted files are in fileDetails but NOT in ls-tree (they no longer exist
+    // at this commit). Append them so the user still sees the full picture.
+    for (const f of fileDetails) {
+      if (!seenChanged.has(f.path)) merged.push(f)
+    }
+    return merged
+  }, [showAllFiles, allFilePaths, fileDetails])
+
   const sigOk = commit?.signatureStatus === 'good'
   const sigBad = commit?.signatureStatus === 'bad' || commit?.signatureStatus === 'error'
   const hasSig = commit?.signatureStatus !== 'none' && commit?.signatureStatus !== undefined
@@ -332,10 +473,13 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
     }
   }, [commit?.hash])
 
-  // Handle file click — delegate to parent via onFileClick callback
+  // Handle file click — delegate to parent via onFileClick callback.
+  // Unchanged files (from "All files" mode) have no diff, so force the
+  // center pane into File view when one is clicked.
   const handleFileClick = useCallback((file: CommitFileDetail) => {
     if (!commit) return
-    onFileClick?.(file, commit.hash)
+    const forceFileView = file.status === 'unchanged'
+    onFileClick?.(file, commit.hash, forceFileView ? { forceFileView: true } : undefined)
   }, [onFileClick, commit?.hash])
 
   const fileCount = fileDetails.length
@@ -532,6 +676,35 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
                 </button>
                 {filesExpanded && (
                   <div className={styles.viewToggle}>
+                    <label
+                      className={styles.showAllFilesToggle}
+                      title="Also show every unchanged file in the tree at this commit"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={showAllFiles}
+                        onChange={(e) => onShowAllFilesChange?.(e.target.checked)}
+                      />
+                      <span>All files</span>
+                    </label>
+                    {fileListView === 'tree' && (
+                      <>
+                        <button
+                          className={styles.viewToggleBtn}
+                          onClick={() => setCollapsedDirs(new Set())}
+                          title="Expand all directories"
+                        >
+                          <ChevronsUpDown size={14} />
+                        </button>
+                        <button
+                          className={styles.viewToggleBtn}
+                          onClick={() => setCollapsedDirs(new Set(collectAllDirPaths(buildFileTree(mergedFileList))))}
+                          title="Collapse all directories"
+                        >
+                          <ChevronsDownUp size={14} />
+                        </button>
+                      </>
+                    )}
                     <button
                       className={`${styles.viewToggleBtn} ${fileListView === 'path' ? styles.viewToggleBtnActive : ''}`}
                       onClick={() => onFileListViewChange?.('path')}
@@ -550,15 +723,25 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
                 )}
               </div>
 
+              {filesExpanded && showAllFiles && allFilesLoading && (
+                <div className={styles.filesLoadingState}>
+                  <Loader2 size={14} className={styles.spinnerIcon} /> Loading file tree…
+                </div>
+              )}
+              {filesExpanded && showAllFiles && allFilesError && (
+                <div className={styles.filesErrorState}>{allFilesError}</div>
+              )}
+
               {filesExpanded && fileListView === 'path' && (
                 <ul className={styles.fileList}>
-                  {fileDetails.map((file) => {
+                  {mergedFileList.map((file) => {
                     const { dir, name } = splitPath(file.path)
                     const isSelected = selectedFilePath === file.path
+                    const isUnchanged = file.status === 'unchanged'
                     return (
                       <li key={file.path}>
                         <button
-                          className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''}`}
+                          className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''} ${isUnchanged ? styles.fileItemUnchanged : ''}`}
                           onClick={() => handleFileClick(file)}
                           title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
                         >
@@ -580,19 +763,24 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
                 </ul>
               )}
 
-              {filesExpanded && fileListView === 'tree' && (
-                <ul className={styles.fileList}>
-                  {buildFileTree(fileDetails).map((node) => (
-                    <FileTreeNodeComponent
-                      key={node.fullPath}
-                      node={node}
-                      depth={0}
-                      onFileClick={handleFileClick}
-                      selectedFilePath={selectedFilePath}
-                    />
-                  ))}
-                </ul>
-              )}
+              {filesExpanded && fileListView === 'tree' && (() => {
+                const tree = buildFileTree(mergedFileList)
+                return (
+                  <ul className={styles.fileList}>
+                    {tree.map((node) => (
+                      <FileTreeNodeComponent
+                        key={node.fullPath}
+                        node={node}
+                        depth={0}
+                        onFileClick={handleFileClick}
+                        selectedFilePath={selectedFilePath}
+                        collapsedDirs={collapsedDirs}
+                        onToggleDir={toggleDir}
+                      />
+                    ))}
+                  </ul>
+                )
+              })()}
             </div>
           </div>
         </div>

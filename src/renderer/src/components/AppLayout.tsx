@@ -50,6 +50,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setDiffViewMode,
     setDetailStagingSplit,
     setFileListView,
+    setShowAllFilesInDetail,
     setStagingInternalSplit,
     setDetailInternalSplit,
     toggleRightPanelPosition,
@@ -204,14 +205,22 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   }, [currentRepo, saveTabState])
 
   // ─── Center-Stage Diff Handlers ────────────────────────────────────────────
-  const handleFileClick = useCallback((file: CommitFileDetail, commitHash: string) => {
-    // Clicking a commit file clears any working-tree selection — the two views
-    // are mutually exclusive in the center pane.
-    setWorkingTreeFile(null)
-    setDiffFile(file.path)
-    setDiffCommitHash(commitHash)
-    setViewingDiff(true)
-  }, [])
+  const handleFileClick = useCallback(
+    (file: CommitFileDetail, commitHash: string, opts?: { forceFileView?: boolean }) => {
+      // Clicking a commit file clears any working-tree selection — the two views
+      // are mutually exclusive in the center pane.
+      setWorkingTreeFile(null)
+      setDiffFile(file.path)
+      setDiffCommitHash(commitHash)
+      setViewingDiff(true)
+      // Unchanged files (from "All files" mode) have no diff — force the
+      // center pane into File view so the user sees the full file content.
+      if (opts?.forceFileView) {
+        setDiffViewMode('file')
+      }
+    },
+    [setDiffViewMode]
+  )
 
   const handleWorkingTreeFileSelect = useCallback(
     (sel: { path: string; staged: boolean; isUntracked: boolean } | null) => {
@@ -625,6 +634,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         selectedFilePath={viewingDiff ? diffFile : null}
                         fileListView={layout.fileListView}
                         onFileListViewChange={setFileListView}
+                        showAllFiles={layout.showAllFilesInDetail}
+                        onShowAllFilesChange={setShowAllFilesInDetail}
                         detailInternalSplit={layout.detailInternalSplit}
                         onDetailInternalSplitChange={setDetailInternalSplit}
                         collapsed={layout.detailPanelCollapsed}
@@ -741,6 +752,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         selectedFilePath={viewingDiff ? diffFile : null}
                         fileListView={layout.fileListView}
                         onFileListViewChange={setFileListView}
+                        showAllFiles={layout.showAllFilesInDetail}
+                        onShowAllFilesChange={setShowAllFilesInDetail}
                         detailInternalSplit={layout.detailInternalSplit}
                         onDetailInternalSplitChange={setDetailInternalSplit}
                       />

@@ -62,6 +62,7 @@ declare global {
         showCommitFileDiff: (repoPath: string, hash: string, filePath: string) => Promise<GitServiceResult>
         showFileAtCommit: (repoPath: string, hash: string, filePath: string) => Promise<GitServiceResult>
         showFileAtParent: (repoPath: string, hash: string, filePath: string) => Promise<GitServiceResult>
+        listFilesAtCommit: (repoPath: string, hash: string) => Promise<GitServiceResult>
         cancelOperation: (operationId: string) => Promise<{ success: boolean; error?: string }>
         exec: (args: string[], repoPath: string) => Promise<GitServiceResult>
         checkout: (repoPath: string, branchName: string) => Promise<GitServiceResult>
@@ -270,6 +271,8 @@ export interface LayoutState {
   diffViewMode: DiffViewMode
   detailStagingSplit: number // 0-100, percent for detail share
   fileListView: FileListView
+  /** Whether the commit detail panel shows every file in the tree, not just changed ones */
+  showAllFilesInDetail: boolean
   stagingInternalSplit: number // 0-100, percent for file list share (top) vs commit form (bottom)
   detailInternalSplit: number // 0-100, percent for metadata share (top) vs files (bottom)
   rightPanelPosition: RightPanelPosition
@@ -290,6 +293,7 @@ const DEFAULT_LAYOUT: LayoutState = {
   diffViewMode: 'inline',
   detailStagingSplit: 60,
   fileListView: 'path',
+  showAllFilesInDetail: false,
   stagingInternalSplit: 65,
   detailInternalSplit: 40,
   rightPanelPosition: 'right',
@@ -373,6 +377,7 @@ export function useLayoutState(): {
   setDiffViewMode: (mode: DiffViewMode) => void
   setDetailStagingSplit: (split: number) => void
   setFileListView: (view: FileListView) => void
+  setShowAllFilesInDetail: (show: boolean) => void
   setStagingInternalSplit: (split: number) => void
   setDetailInternalSplit: (split: number) => void
   setRightPanelPosition: (position: RightPanelPosition) => void
@@ -473,6 +478,10 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, fileListView: view }))
   }, [])
 
+  const setShowAllFilesInDetail = useCallback((show: boolean) => {
+    setLayout((prev) => ({ ...prev, showAllFilesInDetail: show }))
+  }, [])
+
   const setStagingInternalSplit = useCallback((split: number) => {
     const clamped = Math.max(20, Math.min(90, Math.round(split)))
     setLayout((prev) => ({ ...prev, stagingInternalSplit: clamped }))
@@ -518,6 +527,7 @@ export function useLayoutState(): {
     setDiffViewMode,
     setDetailStagingSplit,
     setFileListView,
+    setShowAllFilesInDetail,
     setStagingInternalSplit,
     setDetailInternalSplit,
     setRightPanelPosition,

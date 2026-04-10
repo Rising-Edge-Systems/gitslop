@@ -383,6 +383,20 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── List All Files At Commit ──────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:listFilesAtCommit',
+    async (_event, repoPath: string, hash: string) => {
+      try {
+        const data = await gitService.listFilesAtCommit(repoPath, hash)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Clone ─────────────────────────────────────────────────────────────
 
   ipcMain.handle(

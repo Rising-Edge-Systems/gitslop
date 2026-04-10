@@ -131,6 +131,11 @@ const electronAPI = {
       filePath: string
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:showFileAtParent', repoPath, hash, filePath),
+    listFilesAtCommit: (
+      repoPath: string,
+      hash: string
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:listFilesAtCommit', repoPath, hash),
     cancelOperation: (operationId: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('git:cancelOperation', operationId),
     exec: (args: string[], repoPath: string): Promise<GitServiceResult> =>

@@ -801,6 +801,24 @@ export class GitService {
   }
 
   /**
+   * List every file that exists at a given commit (recursive tree listing).
+   * Used by the commit detail panel's "show all files" mode so users can
+   * browse the full project tree at the commit, not just the changed files.
+   */
+  async listFilesAtCommit(
+    repoPath: string,
+    hash: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<string[]> {
+    const args = ['ls-tree', '-r', '--name-only', hash]
+    const result = await this.exec(args, repoPath, { signal: options?.signal })
+    return result.stdout
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+  }
+
+  /**
    * Clone a remote repository with progress reporting.
    * Uses spawn instead of execFile to get real-time stderr progress output.
    */

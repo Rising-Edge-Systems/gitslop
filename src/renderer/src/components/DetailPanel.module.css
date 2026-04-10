@@ -417,6 +417,24 @@
   flex-shrink: 0;
 }
 
+.fileUnchanged {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+/* "Show all files" mode — unchanged rows are dimmed to keep changed files
+ * visually dominant. Still clickable so the user can browse file content. */
+.fileItemUnchanged {
+  opacity: 0.55;
+}
+.fileItemUnchanged:hover {
+  opacity: 0.85;
+}
+.fileItemUnchanged .fileName {
+  font-weight: 400;
+}
+
 .fileName {
   flex: 1;
   overflow: hidden;
@@ -481,6 +499,50 @@
   border-color: var(--border);
 }
 
+/* "All files" checkbox next to the path/tree toggle */
+.showAllFilesToggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 var(--space-xs);
+  user-select: none;
+  white-space: nowrap;
+  transition: color var(--transition-fast);
+}
+.showAllFilesToggle:hover {
+  color: var(--text-primary);
+}
+.showAllFilesToggle input[type='checkbox'] {
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+/* Loading / error state while fetching the full file tree */
+.filesLoadingState {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+.filesErrorState {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-xs);
+  color: var(--error);
+}
+.spinnerIcon {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ===== Tree view ===== */
 .treeChildren {
   list-style: none;
@@ -518,6 +580,25 @@
   font-size: var(--font-xs);
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+/* Directory containing a changed descendant — highlighted so users can trace
+ * the path from the repo root down to a changed file at a glance. */
+.treeDirChanged .treeDirName {
+  color: var(--accent);
+}
+.treeDirChanged .treeDirIcon {
+  color: var(--accent);
+}
+.treeDirChangeDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: var(--space-xs);
+  flex-shrink: 0;
+  box-shadow: 0 0 4px rgba(137, 180, 250, 0.55);
 }
 
 /* ─── Branches section ──────────────────────────────────────────────────── */
