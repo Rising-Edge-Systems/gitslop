@@ -44,7 +44,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "gitslop",
+      "owner": "Rising-Edge-Systems",
       "repo": "gitslop"
     },
     "linux": {
