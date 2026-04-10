@@ -30,6 +30,11 @@
     "email": "ben.kidwell@gmail.com"
   },
   "license": "MIT",
+  "homepage": "https://github.com/Rising-Edge-Systems/gitslop",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rising-Edge-Systems/gitslop.git"
+  },
   "build": {
     "appId": "com.gitslop.app",
     "productName": "GitSlop",
