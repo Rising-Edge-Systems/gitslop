@@ -121,6 +121,30 @@ function collectAllDirPaths(nodes: FileTreeNode[]): string[] {
   return out
 }
 
+/** Collect directory paths that contain NO changed descendants. Used by the
+ *  "All files" mode to auto-collapse irrelevant parts of the tree on large
+ *  projects while keeping the paths leading to changed files expanded. */
+function collectUnchangedDirPaths(nodes: FileTreeNode[]): string[] {
+  const out: string[] = []
+  const walk = (list: FileTreeNode[]): void => {
+    for (const n of list) {
+      if (n.isDir) {
+        if (!n.containsChanges) {
+          // Collapse this dir — no need to walk its children since they'd
+          // also be hidden when the parent is collapsed.
+          out.push(n.fullPath)
+        } else {
+          // Recurse — a changed child's siblings may still be unchanged dirs
+          // that should be collapsed.
+          walk(n.children)
+        }
+      }
+    }
+  }
+  walk(nodes)
+  return out
+}
+
 /** Recursive component to render a tree node */
 function FileTreeNodeComponent({
   node,
@@ -407,8 +431,12 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
   }, [showAllFiles, repoPath, commit?.hash])
 
   // ─── Tree view expansion state ───────────────────────────────────────────
-  // Set of directory fullPaths that are currently collapsed. All directories
-  // are expanded by default (empty set). Reset when the commit changes.
+  // Set of directory fullPaths that are currently collapsed. Default:
+  //   - "changed files only" mode: all expanded (empty set) — the tree is
+  //     already small because it only contains dirs that changed.
+  //   - "all files" mode: auto-collapse every dir that contains NO changed
+  //     descendants, so big repos stay navigable. The paths leading from the
+  //     repo root down to each changed file stay expanded automatically.
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set())
   useEffect(() => {
     setCollapsedDirs(new Set())
@@ -456,6 +484,19 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
     }
     return merged
   }, [showAllFiles, allFilePaths, fileDetails])
+
+  // Memoized file tree shared by the renderer, Expand/Collapse All buttons,
+  // and the auto-collapse-unchanged-dirs effect below.
+  const mergedFileTree = useMemo(() => buildFileTree(mergedFileList), [mergedFileList])
+
+  // Auto-collapse effect: when "All files" mode activates AND the full file
+  // list has finished loading, collapse every dir that contains no changed
+  // descendants. Preserves the paths leading down to changed files so users
+  // can still find what actually changed on a large project.
+  useEffect(() => {
+    if (!showAllFiles || !allFilePaths) return
+    setCollapsedDirs(new Set(collectUnchangedDirPaths(mergedFileTree)))
+  }, [showAllFiles, allFilePaths, mergedFileTree])
 
   const sigOk = commit?.signatureStatus === 'good'
   const sigBad = commit?.signatureStatus === 'bad' || commit?.signatureStatus === 'error'
@@ -698,7 +739,7 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
                         </button>
                         <button
                           className={styles.viewToggleBtn}
-                          onClick={() => setCollapsedDirs(new Set(collectAllDirPaths(buildFileTree(mergedFileList))))}
+                          onClick={() => setCollapsedDirs(new Set(collectAllDirPaths(mergedFileTree)))}
                           title="Collapse all directories"
                         >
                           <ChevronsDownUp size={14} />
@@ -763,24 +804,21 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
                 </ul>
               )}
 
-              {filesExpanded && fileListView === 'tree' && (() => {
-                const tree = buildFileTree(mergedFileList)
-                return (
-                  <ul className={styles.fileList}>
-                    {tree.map((node) => (
-                      <FileTreeNodeComponent
-                        key={node.fullPath}
-                        node={node}
-                        depth={0}
-                        onFileClick={handleFileClick}
-                        selectedFilePath={selectedFilePath}
-                        collapsedDirs={collapsedDirs}
-                        onToggleDir={toggleDir}
-                      />
-                    ))}
-                  </ul>
-                )
-              })()}
+              {filesExpanded && fileListView === 'tree' && (
+                <ul className={styles.fileList}>
+                  {mergedFileTree.map((node) => (
+                    <FileTreeNodeComponent
+                      key={node.fullPath}
+                      node={node}
+                      depth={0}
+                      onFileClick={handleFileClick}
+                      selectedFilePath={selectedFilePath}
+                      collapsedDirs={collapsedDirs}
+                      onToggleDir={toggleDir}
+                    />
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
