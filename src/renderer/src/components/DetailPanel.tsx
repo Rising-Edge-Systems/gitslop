@@ -8,10 +8,6 @@ import {
   FileText,
   ShieldCheck,
   ShieldAlert,
-  FilePlus,
-  FileMinus,
-  FileEdit,
-  FileSymlink,
   Copy,
   Check,
   ChevronDown,
@@ -273,22 +269,36 @@ function formatAbsoluteDate(dateStr: string): string {
   })
 }
 
-/** Returns the appropriate Lucide icon for a file status */
-function FileStatusIcon({ status, size = 12 }: { status: string; size?: number }): React.JSX.Element {
-  switch (status) {
-    case 'A':
-      return <FilePlus size={size} className={styles.fileAdded} />
-    case 'D':
-      return <FileMinus size={size} className={styles.fileDeleted} />
-    case 'R':
-    case 'C':
-      return <FileSymlink size={size} className={styles.fileRenamed} />
-    case 'unchanged':
-      return <FileText size={size} className={styles.fileUnchanged} />
-    case 'M':
-    default:
-      return <FileEdit size={size} className={styles.fileModified} />
-  }
+/**
+ * Compact single-letter status badge for a changed file. Replaces the
+ * previous Lucide icons which all shared the same underlying "file"
+ * silhouette and were hard to tell apart at 12px. The letters match git's
+ * CLI conventions (A/M/D/R) so users who work with git on the command line
+ * immediately recognize them; the colored background makes the distinction
+ * readable at a glance without hovering.
+ */
+function FileStatusIcon({ status, size: _size = 12 }: { status: string; size?: number }): React.JSX.Element {
+  const letter = status === 'A' ? 'A'
+    : status === 'D' ? 'D'
+    : status === 'R' || status === 'C' ? 'R'
+    : status === 'unchanged' ? '·'
+    : 'M'
+  const cls = status === 'A' ? styles.fileBadgeAdded
+    : status === 'D' ? styles.fileBadgeDeleted
+    : status === 'R' || status === 'C' ? styles.fileBadgeRenamed
+    : status === 'unchanged' ? styles.fileBadgeUnchanged
+    : styles.fileBadgeModified
+  const title = status === 'A' ? 'Added'
+    : status === 'D' ? 'Deleted'
+    : status === 'R' ? 'Renamed'
+    : status === 'C' ? 'Copied'
+    : status === 'unchanged' ? 'Unchanged'
+    : 'Modified'
+  return (
+    <span className={`${styles.fileBadge} ${cls}`} title={title} aria-label={title}>
+      {letter}
+    </span>
+  )
 }
 
 /** Extracts just the filename from a full path */

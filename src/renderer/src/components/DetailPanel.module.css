@@ -396,30 +396,56 @@
   background: var(--bg-tertiary);
 }
 
-/* ===== File status icons ===== */
-.fileAdded {
-  color: var(--success, #4ade80);
+/* ===== File status letter badges =====
+ * Compact A/M/D/R pills shown to the left of each file name. Replace the
+ * previous Lucide file icons which all shared the same file silhouette
+ * and were hard to distinguish at 12px. */
+.fileBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  user-select: none;
+  border: 1px solid transparent;
 }
 
-.fileDeleted {
-  color: var(--error, #f87171);
-  flex-shrink: 0;
+.fileBadgeAdded {
+  background: rgba(74, 222, 128, 0.18);
+  border-color: rgba(74, 222, 128, 0.5);
+  color: #4ade80;
 }
 
-.fileModified {
-  color: var(--warning, #fbbf24);
-  flex-shrink: 0;
+.fileBadgeModified {
+  background: rgba(251, 191, 36, 0.18);
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fbbf24;
 }
 
-.fileRenamed {
-  color: var(--info, #60a5fa);
-  flex-shrink: 0;
+.fileBadgeDeleted {
+  background: rgba(248, 113, 113, 0.18);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #f87171;
 }
 
-.fileUnchanged {
+.fileBadgeRenamed {
+  background: rgba(96, 165, 250, 0.18);
+  border-color: rgba(96, 165, 250, 0.5);
+  color: #60a5fa;
+}
+
+.fileBadgeUnchanged {
+  background: transparent;
+  border-color: transparent;
   color: var(--text-muted);
-  flex-shrink: 0;
   opacity: 0.5;
 }
 
