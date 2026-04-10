@@ -11,6 +11,7 @@ import { autoUpdater } from 'electron-updater'
 import { registerGitIpcHandlers } from './git-ipc'
 import { gitService } from './git-service'
 import { registerTerminalIpcHandlers, killAllTerminals } from './terminal-manager'
+import { startOAuthFlow as startGitLabOAuthFlow } from './gitlab-oauth'
 import {
   createWatcherState,
   suppressWatcher as _suppressWatcher,
@@ -43,8 +44,13 @@ interface IntegrationAccount {
   id: string
   label: string      // user-chosen name like "Work" or "Personal"
   username: string    // fetched from API after login
-  token: string       // encrypted via safeStorage
+  token: string       // encrypted via safeStorage (access token for OAuth)
   instanceUrl?: string // for self-hosted GitLab
+  // GitLab OAuth fields (absent/undefined = legacy PAT account)
+  authType?: 'pat' | 'oauth'
+  refreshToken?: string // encrypted via safeStorage
+  expiresAt?: number    // ms since epoch
+  clientId?: string     // OAuth Application ID, needed for refresh
 }
 
 interface StoreSchema {
@@ -1045,6 +1051,61 @@ ipcMain.handle('gitlab:addAccount', async (_event, pat: string, label: string, i
     return { success: false, error: err instanceof Error ? err.message : 'Login failed' }
   }
 })
+
+ipcMain.handle(
+  'gitlab:startOAuthFlow',
+  async (
+    _event,
+    opts: { instanceUrl?: string; clientId: string; label?: string }
+  ) => {
+    try {
+      const instanceUrl = opts.instanceUrl || 'https://gitlab.com'
+      const result = await startGitLabOAuthFlow({
+        instanceUrl,
+        clientId: opts.clientId
+      })
+      const account: IntegrationAccount = {
+        id: `gl-${Date.now()}`,
+        label: opts.label || result.user.username,
+        username: result.user.username,
+        token: encryptToken(result.accessToken),
+        instanceUrl: result.instanceUrl,
+        authType: 'oauth',
+        refreshToken: result.refreshToken
+          ? encryptToken(result.refreshToken)
+          : undefined,
+        expiresAt: result.expiresAt,
+        clientId: opts.clientId
+      }
+      const accounts = store.get('gitlabAccounts', [])
+      accounts.push(account)
+      store.set('gitlabAccounts', accounts)
+      return {
+        success: true,
+        data: {
+          id: account.id,
+          label: account.label,
+          username: result.user.username,
+          name: result.user.name || result.user.username,
+          avatarUrl: result.user.avatar_url,
+          email: result.user.email,
+          instanceUrl: result.instanceUrl,
+          webUrl: result.user.web_url
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // Map the loopback timeout message to the PRD-specified phrasing.
+      if (/timed out after 120 seconds/i.test(msg)) {
+        return {
+          success: false,
+          error: 'OAuth login timed out or was cancelled'
+        }
+      }
+      return { success: false, error: msg }
+    }
+  }
+)
 
 ipcMain.handle('gitlab:getAccounts', async () => {
   migrateGitLabLegacy()

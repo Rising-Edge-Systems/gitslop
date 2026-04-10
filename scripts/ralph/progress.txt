@@ -8,6 +8,8 @@ Started: Fri Apr 10 04:03:27 PM EDT 2026
 - Main-process code uses Node built-ins freely (crypto, http) — avoid new deps.
 - Main process entry: `src/main/index.ts`. New main-process modules should be siblings of index.ts.
 - Fixed loopback OAuth redirect: `http://localhost:47823/callback` (see `src/main/gitlab-oauth.ts` `LOOPBACK_PORT`). Do not change — it is baked into user-registered GitLab OAuth apps.
+- GitLab auth headers differ by account type: PAT uses `PRIVATE-TOKEN: <token>`; OAuth uses `Authorization: Bearer <access_token>`. `gitlabApiRequest()` in `src/main/index.ts` currently only sends `PRIVATE-TOKEN` — US-GL-003+ must branch on `account.authType` when calling any `/api/v4/*` endpoint.
+- `IntegrationAccount` in `src/main/index.ts` has optional OAuth fields: `authType?: 'pat' | 'oauth'`, `refreshToken?` (encrypted), `expiresAt?` (ms), `clientId?`. Missing/undefined `authType` means legacy PAT account.
 
 ---
 
@@ -22,4 +24,20 @@ Started: Fri Apr 10 04:03:27 PM EDT 2026
   - Loopback server must give the browser ~500ms after responding before closing, otherwise the user sees a "connection reset" page.
   - For EADDRINUSE tests, clean up the first server by firing a real callback to it — do not leak listeners.
   - GitLab OAuth redirect URI must be pre-registered, so `LOOPBACK_PORT` is a hard-coded constant that must match the Settings UI instructions (US-GL-004).
+---
+
+## 2026-04-10 - US-GL-002
+- Implemented end-to-end GitLab OAuth PKCE flow (authorize → callback → token exchange → user fetch).
+- Files changed:
+  - `src/main/gitlab-oauth.ts` — added `startOAuthFlow()`, internal `postJson()` and `fetchOAuthUser()` helpers, `normalizeInstanceUrl()`. Imports `electron.shell` and `https`.
+  - `src/main/index.ts` — extended `IntegrationAccount` with optional `authType`/`refreshToken`/`expiresAt`/`clientId` fields (legacy PAT accounts continue to work — absent fields default to PAT). Added `gitlab:startOAuthFlow` IPC handler that stores a new OAuth account and returns the same shape as `gitlab:addAccount`.
+  - `src/preload/index.ts` — exposed `window.electronAPI.gitlab.startOAuthFlow(opts)`.
+  - `src/renderer/src/hooks/useLayoutState.ts` — added `startOAuthFlow` to the `gitlab:` type block.
+- Quality: typecheck clean, all 121 tests pass (6 files).
+- **Learnings for future iterations:**
+  - OAuth access tokens use `Authorization: Bearer <token>` on `/api/v4/*`, NOT the `PRIVATE-TOKEN` header that PAT flow uses. US-GL-003 must branch on `authType` when making API calls (or keep using ensureFreshToken which returns the raw token — but the request helper must know which header to send).
+  - `gitlabApiRequest()` in index.ts is hardcoded to send `PRIVATE-TOKEN`. For OAuth we added a dedicated `fetchOAuthUser()` in gitlab-oauth.ts. US-GL-003 will need to either parameterize `gitlabApiRequest` to accept a header type, or add a thin OAuth-aware wrapper.
+  - Start the loopback server BEFORE calling `shell.openExternal` to avoid losing fast redirects.
+  - GitLab OAuth token response includes both `expires_in` (seconds) and `created_at` — we use `Date.now() + expires_in*1000` to sidestep clock skew, as the PRD notes recommend.
+  - The loopback server's 120s timeout error message is `"OAuth login timed out after 120 seconds"` — the IPC handler maps this to the PRD-required phrasing `"OAuth login timed out or was cancelled"`.
 ---

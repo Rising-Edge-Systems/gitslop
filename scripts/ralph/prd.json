@@ -36,7 +36,7 @@
         "Typecheck passes, existing tests still pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "electron.shell.openExternal is already imported in main/index.ts — use it. Use the existing gitlabApiRequest helper for the /api/v4/user call. Use raw https for the /oauth/token POST since it's not under /api/v4. GitLab's POST /oauth/token accepts application/x-www-form-urlencoded OR application/json — use JSON for consistency. The response body includes 'created_at' as a unix timestamp in seconds AND 'expires_in' in seconds; compute expiresAt from Date.now() + expires_in*1000 to avoid clock-skew headaches."
     },
     {

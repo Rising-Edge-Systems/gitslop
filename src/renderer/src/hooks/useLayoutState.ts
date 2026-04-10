@@ -221,6 +221,7 @@ declare global {
         getUser: () => Promise<GitServiceResult>
         logout: () => Promise<GitServiceResult>
         addAccount: (pat: string, label: string, instanceUrl?: string) => Promise<GitServiceResult>
+        startOAuthFlow: (opts: { instanceUrl?: string; clientId: string; label?: string }) => Promise<GitServiceResult>
         getAccounts: () => Promise<GitServiceResult>
         removeAccount: (accountId: string) => Promise<GitServiceResult>
         isLoggedIn: () => Promise<GitServiceResult>
