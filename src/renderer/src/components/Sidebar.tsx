@@ -1668,12 +1668,20 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
     }
   }
 
-  // Don't show section if no submodules
-  if (submodules.length === 0) return null
+  // Render the section wrapper even when empty so the expanded sidebar
+  // mirrors the collapsed icon rail (which always shows the Submodules
+  // entry). Previously this returned null on empty, causing the expanded
+  // view to silently omit a menu the user could see in the icon rail.
+  const hasSubmodules = submodules.length > 0
 
   return (
     <>
-      <SidebarSection title="Submodules" icon={<Package size={16} />} defaultOpen={true} count={submodules.length}>
+      <SidebarSection title="Submodules" icon={<Package size={16} />} defaultOpen={hasSubmodules} count={submodules.length}>
+        {!hasSubmodules ? (
+          <div className={styles.placeholder}>
+            {currentRepo ? 'No submodules' : 'No repository open'}
+          </div>
+        ) : (
         <div className={styles.list}>
           {submodules.map((sm) => (
             <div
@@ -1698,6 +1706,7 @@ function SubmodulesSection({ currentRepo }: SubmodulesSectionProps): React.JSX.E
             </div>
           ))}
         </div>
+        )}
       </SidebarSection>
 
       {/* Submodule Context Menu */}
@@ -1923,8 +1932,10 @@ function PullRequestsSection({ currentRepo }: PullRequestsSectionProps): React.J
     window.open(url, '_blank')
   }, [])
 
-  // Don't show section if not a GitHub repo
-  if (!ghInfo) return null
+  // Always render the Pull Requests section so the expanded sidebar
+  // mirrors the collapsed icon rail. When the current repo has no GitHub
+  // remote we still show the section with a helpful "Not a GitHub repo"
+  // placeholder instead of hiding it entirely.
 
   const timeAgo = (dateStr: string): string => {
     const diff = Date.now() - new Date(dateStr).getTime()
@@ -1942,10 +1953,10 @@ function PullRequestsSection({ currentRepo }: PullRequestsSectionProps): React.J
       <SidebarSection
         title="Pull Requests"
         icon={<GitBranch size={16} />}
-        defaultOpen={true}
-        count={prs.length}
+        defaultOpen={!!ghInfo}
+        count={ghInfo ? prs.length : undefined}
         headerAction={
-          isLoggedIn ? (
+          ghInfo && isLoggedIn ? (
             <button
               className={styles.sectionActionBtn}
               title="Create Pull Request"
@@ -1954,7 +1965,11 @@ function PullRequestsSection({ currentRepo }: PullRequestsSectionProps): React.J
           ) : undefined
         }
       >
-        {!isLoggedIn ? (
+        {!ghInfo ? (
+          <div className={styles.placeholder}>
+            {currentRepo ? 'Not a GitHub repository' : 'No repository open'}
+          </div>
+        ) : !isLoggedIn ? (
           <div className={styles.prLoginHint}>
             Log in to GitHub in Settings to view pull requests.
           </div>
@@ -2403,8 +2418,8 @@ function MergeRequestsSection({ currentRepo }: MergeRequestsSectionProps): React
     window.open(url, '_blank')
   }, [])
 
-  // Don't show section if not a GitLab repo
-  if (!glInfo) return null
+  // Always render the Merge Requests section so the expanded sidebar
+  // mirrors the collapsed icon rail — see comment in PullRequestsSection.
 
   const timeAgo = (dateStr: string): string => {
     const diff = Date.now() - new Date(dateStr).getTime()
@@ -2422,10 +2437,10 @@ function MergeRequestsSection({ currentRepo }: MergeRequestsSectionProps): React
       <SidebarSection
         title="Merge Requests"
         icon={<Gitlab size={16} />}
-        defaultOpen={true}
-        count={mrs.length}
+        defaultOpen={!!glInfo}
+        count={glInfo ? mrs.length : undefined}
         headerAction={
-          isLoggedIn ? (
+          glInfo && isLoggedIn ? (
             <button
               className={styles.sectionActionBtn}
               title="Create Merge Request"
@@ -2434,7 +2449,11 @@ function MergeRequestsSection({ currentRepo }: MergeRequestsSectionProps): React
           ) : undefined
         }
       >
-        {!isLoggedIn ? (
+        {!glInfo ? (
+          <div className={styles.placeholder}>
+            {currentRepo ? 'Not a GitLab repository' : 'No repository open'}
+          </div>
+        ) : !isLoggedIn ? (
           <div className={styles.prLoginHint}>
             Log in to GitLab in Settings to view merge requests.
           </div>
