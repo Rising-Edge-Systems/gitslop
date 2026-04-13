@@ -58,3 +58,26 @@ Started: 2026-04-13
   - Canvas renderer needs `setLineDash([])` to reset after drawing dashed elements
   - Both SVG and Canvas renderers need parallel updates for any graph layout changes
 ---
+
+## 2026-04-13 - US-UP-003
+- What was implemented:
+  - Replaced stacked DetailPanel + StatusPanel layout with unified panel that uses CSS `display:none` to toggle
+  - Both panels remain mounted at all times (preserving commit form state when switching modes)
+  - `selectedCommit` state controls which panel is visible: non-null → DetailPanel, null → StatusPanel (staging)
+  - Removed detail/staging split drag handle between panels (no longer needed)
+  - Removed `isDraggingDetailSplit` state, `handleDetailSplitDragStart`, `handleDetailSplitDoubleClick` from AppLayout
+  - Removed `collapsed` and `onToggleCollapse` props from DetailPanel in unified layout (no panel collapse toggle in detail mode)
+  - Removed unused `handleCloseDetailPanel` callback and `ChevronLeft` import
+  - Both 'right' and 'bottom' panel position variants use the unified panel
+  - Added auto-selection on initial repo load: WIP row selected if dirty tree, HEAD commit if clean
+  - Added `wipStatusLoaded` state and `initialAutoSelectDone` ref to CommitGraph for auto-selection
+- Files changed:
+  - `src/renderer/src/components/AppLayout.tsx` — unified panel rendering, removed stacked layout and drag handle
+  - `src/renderer/src/components/CommitGraph.tsx` — auto-select WIP/HEAD on initial load
+  - `scripts/ralph/prd.json` — marked US-UP-003 passes: true
+- **Learnings for future iterations:**
+  - The unified panel pattern: wrap both panels in divs, toggle `display: none` based on `selectedCommit`. CRITICAL: don't conditionally unmount to preserve state.
+  - `detailStagingSplit` is still used by the bottom panel position for the overall height split between graph and panel strip
+  - `loadCommitDetail` and `nodes` must be defined before the auto-select useEffect that references them (declared order matters for const in closures during the same render)
+  - Both right and bottom position variants need parallel updates for any panel layout changes
+---

@@ -59,7 +59,7 @@
         "Typecheck passes, existing tests pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "The key implementation pattern: render both <StatusPanel style={{display: isWipOrNothingSelected ? undefined : 'none'}} /> and <DetailPanel style={{display: isWipOrNothingSelected ? 'none' : undefined}} /> inside a single container div. This keeps both mounted for state preservation. Remove the isDraggingDetailSplit state, handleDetailSplitDragStart, detailStagingSplit from useLayoutState, and the drag handle div between the two panels. The selectedCommit state in AppLayout already tracks this — when CommitGraph calls onCommitSelect(null) for WIP selection, selectedCommit becomes null, which switches to staging mode."
     },
     {
