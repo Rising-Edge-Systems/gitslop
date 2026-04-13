@@ -274,7 +274,10 @@ const GraphSVG = React.memo(function GraphSVG({
     return lanes
   }, [nodes])
 
-  // Render a buffer around visible range — generous buffer prevents gaps during fast scrolling
+  // Two render buffers: large for lines (keeps connections visible when
+  // source commits scroll off-screen), smaller for nodes/circles
+  const lineStart = Math.max(0, visibleStartIndex - 100)
+  const lineStop = Math.min(nodes.length - 1, visibleStopIndex + 100)
   const renderStart = Math.max(0, visibleStartIndex - 15)
   const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 15)
 
@@ -331,23 +334,19 @@ const GraphSVG = React.memo(function GraphSVG({
     )
   }
 
-  for (let i = renderStart; i <= renderStop; i++) {
+  // Draw lines with the larger buffer so connections stay visible when scrolling
+  for (let i = lineStart; i <= lineStop; i++) {
     const node = nodes[i]
     const y = (i + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
-    const x = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
-    const hasHead = node.refs.some((r) => r.type === 'head')
 
-    // Draw lines to parents
     for (let p = 0; p < node.parentConnections.length; p++) {
       const conn = node.parentConnections[p]
       const fromX = GRAPH_LEFT_PAD + conn.fromLane * GRAPH_COL_WIDTH
       const toX = GRAPH_LEFT_PAD + conn.toLane * GRAPH_COL_WIDTH
       const parentIdx = hashIndex.get(conn.parentHash)
-      // For merge connections (p > 0), use the source branch color (parent's lane color)
       const lineColor = p > 0 ? (laneColorMap.get(conn.toLane) || node.color) : node.color
 
       if (parentIdx === undefined) {
-        // Parent not in data — draw line going down off screen
         const endY = height + ROW_HEIGHT - scrollOffset
         if (fromX === toX) {
           lines.push(
@@ -388,6 +387,14 @@ const GraphSVG = React.memo(function GraphSVG({
         }
       }
     }
+  }
+
+  // Draw nodes/circles with the smaller buffer (only need visible ones)
+  for (let i = renderStart; i <= renderStop; i++) {
+    const node = nodes[i]
+    const y = (i + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+    const x = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
+    const hasHead = node.refs.some((r) => r.type === 'head')
 
     // Draw node circle
     if (hasHead) {
