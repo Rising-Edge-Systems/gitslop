@@ -239,6 +239,7 @@ declare global {
         onDownloadProgress: (callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => () => void
         onUpdateDownloaded: (callback: () => void) => () => void
         onUpdateError: (callback: (error: { message: string }) => void) => () => void
+        setAutoCheck: (enabled: boolean) => Promise<void>
       }
       terminal: {
         create: (opts: { cwd?: string; id?: string }) => Promise<{ success: boolean; data?: { id: string }; error?: string }>

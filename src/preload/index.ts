@@ -495,7 +495,9 @@ const electronAPI = {
       return () => {
         ipcRenderer.removeListener('update:error', handler)
       }
-    }
+    },
+    setAutoCheck: (enabled: boolean): Promise<void> =>
+      ipcRenderer.invoke('updates:setAutoCheck', enabled)
   },
   terminal: {
     create: (opts: { cwd?: string; id?: string }): Promise<{ success: boolean; data?: { id: string }; error?: string }> =>

@@ -193,9 +193,52 @@ function GeneralSection({
   onUpdate: (partial: Partial<AppSettings>) => void
   onBrowseCloneDir: () => void
 }): React.JSX.Element {
+  const [checkStatus, setCheckStatus] = useState<'idle' | 'checking' | 'up-to-date' | string>('idle')
+
+  const handleCheckNow = useCallback(async () => {
+    setCheckStatus('checking')
+    try {
+      const result = await window.electronAPI.updates.checkForUpdates()
+      if (result.available && result.version) {
+        setCheckStatus(`Update available: v${result.version}`)
+      } else {
+        setCheckStatus('up-to-date')
+      }
+    } catch {
+      setCheckStatus('idle')
+    }
+  }, [])
+
+  const handleAutoCheckToggle = useCallback((checked: boolean) => {
+    onUpdate({ autoCheckUpdates: checked })
+    window.electronAPI.updates.setAutoCheck(checked)
+  }, [onUpdate])
+
   return (
     <div className={styles.section}>
       <h3 className={styles.sectionTitle}>General</h3>
+
+      <SettingsRow label="Check for updates automatically" description="Automatically check for new versions on startup">
+        <div className={styles.inputGroup}>
+          <SettingsToggle
+            checked={settings.autoCheckUpdates}
+            onChange={handleAutoCheckToggle}
+          />
+          <button
+            className={styles.browseBtn}
+            onClick={handleCheckNow}
+            disabled={checkStatus === 'checking'}
+          >
+            {checkStatus === 'checking' ? 'Checking...' : 'Check Now'}
+          </button>
+          {checkStatus === 'up-to-date' && (
+            <span className={styles.inputSuffix}>Up to date!</span>
+          )}
+          {checkStatus !== 'idle' && checkStatus !== 'checking' && checkStatus !== 'up-to-date' && (
+            <span className={styles.inputSuffix}>{checkStatus}</span>
+          )}
+        </div>
+      </SettingsRow>
 
       <SettingsRow label="Default Clone Directory" description="Default folder for cloned repositories">
         <div className={styles.inputWithBtn}>
