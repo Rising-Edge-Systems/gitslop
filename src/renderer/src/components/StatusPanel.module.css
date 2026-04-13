@@ -194,6 +194,22 @@
   color: var(--success);
 }
 
+.columnHeaderClickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.columnHeaderClickable:hover {
+  background: var(--bg-hover);
+}
+
+.sectionChevron {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .columnActions {
   display: flex;
   align-items: center;

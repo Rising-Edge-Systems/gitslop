@@ -77,7 +77,7 @@
         "Typecheck passes, existing tests pass"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "StatusPanel already has a file list rendering system. The change is to split the single file list into two sections with independent collapse state. Use useState<boolean> for unstagedCollapsed and stagedCollapsed (default false = expanded). The existing 'Stage All' and 'Unstage All' buttons can move into the section headers. Keep the existing onFileSelect callback for routing diffs to the center panel."
     },
     {

@@ -157,6 +157,10 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
   const internalSplitContainerRef = useRef<HTMLDivElement>(null)
   const [isDraggingInternalSplit, setIsDraggingInternalSplit] = useState(false)
 
+  // Per-section collapse state (independent of the overall panel collapse)
+  const [unstagedCollapsed, setUnstagedCollapsed] = useState(false)
+  const [stagedCollapsed, setStagedCollapsed] = useState(false)
+
   const loadStatus = useCallback(async () => {
     if (!mountedRef.current) return
     // Prevent overlapping requests
@@ -866,12 +870,21 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
                 onDragOver={(e) => handleDragOver('unstaged', e)}
                 onDrop={(e) => handleDrop('unstaged', e)}
               >
-                <div className={styles.columnHeader}>
+                <div
+                  className={`${styles.columnHeader} ${styles.columnHeaderClickable}`}
+                  onClick={() => setUnstagedCollapsed(prev => !prev)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setUnstagedCollapsed(prev => !prev) } }}
+                >
                   <span className={styles.columnTitle}>
+                    <span className={styles.sectionChevron}>
+                      {unstagedCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                    </span>
                     Unstaged Changes
                     <span className={styles.columnCount}>{unstagedCount}</span>
                   </span>
-                  <div className={styles.columnActions}>
+                  <div className={styles.columnActions} onClick={(e) => e.stopPropagation()}>
                     {unstagedCount > 0 && (
                       <>
                         <button
@@ -894,7 +907,7 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
                     )}
                   </div>
                 </div>
-                <div className={styles.columnFiles}>
+                {!unstagedCollapsed && <div className={styles.columnFiles}>
                   {unstagedCount === 0 ? (
                     <div className={styles.columnEmpty}>No unstaged changes</div>
                   ) : (
@@ -962,7 +975,7 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
                       )
                     })
                   )}
-                </div>
+                </div>}
               </div>
 
               {/* ─── Right Column: Staged Changes ─── */}
@@ -971,12 +984,21 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
                 onDragOver={(e) => handleDragOver('staged', e)}
                 onDrop={(e) => handleDrop('staged', e)}
               >
-                <div className={styles.columnHeader}>
+                <div
+                  className={`${styles.columnHeader} ${styles.columnHeaderClickable}`}
+                  onClick={() => setStagedCollapsed(prev => !prev)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStagedCollapsed(prev => !prev) } }}
+                >
                   <span className={styles.columnTitle}>
+                    <span className={styles.sectionChevron}>
+                      {stagedCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                    </span>
                     Staged Changes
                     <span className={`${styles.columnCount} ${styles.columnCountStaged}`}>{stagedCount}</span>
                   </span>
-                  <div className={styles.columnActions}>
+                  <div className={styles.columnActions} onClick={(e) => e.stopPropagation()}>
                     {stagedCount > 0 && (
                       <button
                         className={`${styles.actionBtn} ${styles.actionUnstageAll}`}
@@ -989,7 +1011,7 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
                     )}
                   </div>
                 </div>
-                <div className={styles.columnFiles}>
+                {!stagedCollapsed && <div className={styles.columnFiles}>
                   {stagedCount === 0 ? (
                     <div className={styles.columnEmpty}>No staged changes</div>
                   ) : (
@@ -1042,7 +1064,7 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
                       )
                     })
                   )}
-                </div>
+                </div>}
               </div>
             </div>
           )}
