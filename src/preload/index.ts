@@ -453,6 +453,50 @@ const electronAPI = {
     createMergeRequest: (projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }): Promise<GitServiceResult> =>
       ipcRenderer.invoke('gitlab:createMergeRequest', projectPath, opts)
   },
+  updates: {
+    checkForUpdates: (): Promise<{ available: boolean; version?: string; releaseNotes?: string }> =>
+      ipcRenderer.invoke('updates:checkForUpdates'),
+    downloadUpdate: (): Promise<void> =>
+      ipcRenderer.invoke('updates:downloadUpdate'),
+    installUpdate: (): Promise<void> =>
+      ipcRenderer.invoke('updates:installUpdate'),
+    onUpdateAvailable: (callback: (info: { version: string; releaseNotes: string }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, info: { version: string; releaseNotes: string }): void => {
+        callback(info)
+      }
+      ipcRenderer.on('update:available', handler)
+      return () => {
+        ipcRenderer.removeListener('update:available', handler)
+      }
+    },
+    onDownloadProgress: (callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }): void => {
+        callback(progress)
+      }
+      ipcRenderer.on('update:download-progress', handler)
+      return () => {
+        ipcRenderer.removeListener('update:download-progress', handler)
+      }
+    },
+    onUpdateDownloaded: (callback: () => void): (() => void) => {
+      const handler = (): void => {
+        callback()
+      }
+      ipcRenderer.on('update:downloaded', handler)
+      return () => {
+        ipcRenderer.removeListener('update:downloaded', handler)
+      }
+    },
+    onUpdateError: (callback: (error: { message: string }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, error: { message: string }): void => {
+        callback(error)
+      }
+      ipcRenderer.on('update:error', handler)
+      return () => {
+        ipcRenderer.removeListener('update:error', handler)
+      }
+    }
+  },
   terminal: {
     create: (opts: { cwd?: string; id?: string }): Promise<{ success: boolean; data?: { id: string }; error?: string }> =>
       ipcRenderer.invoke('terminal:create', opts),

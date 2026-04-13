@@ -231,6 +231,15 @@ declare global {
         getMergeRequest: (projectPath: string, mrIid: number) => Promise<GitServiceResult>
         createMergeRequest: (projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }) => Promise<GitServiceResult>
       }
+      updates: {
+        checkForUpdates: () => Promise<{ available: boolean; version?: string; releaseNotes?: string }>
+        downloadUpdate: () => Promise<void>
+        installUpdate: () => Promise<void>
+        onUpdateAvailable: (callback: (info: { version: string; releaseNotes: string }) => void) => () => void
+        onDownloadProgress: (callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => () => void
+        onUpdateDownloaded: (callback: () => void) => () => void
+        onUpdateError: (callback: (error: { message: string }) => void) => () => void
+      }
       terminal: {
         create: (opts: { cwd?: string; id?: string }) => Promise<{ success: boolean; data?: { id: string }; error?: string }>
         write: (opts: { id: string; data: string }) => Promise<{ success: boolean; error?: string }>
