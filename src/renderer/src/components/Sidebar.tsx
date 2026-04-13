@@ -92,12 +92,20 @@ function SidebarSection({
   children,
   headerAction
 }: SidebarSectionProps): React.JSX.Element {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
+  const storageKey = `gitslop-sidebar-section-${title.toLowerCase().replace(/\s+/g, '-')}`
+  const [isOpen, setIsOpen] = useState(() => {
+    const stored = localStorage.getItem(storageKey)
+    return stored !== null ? stored === 'true' : defaultOpen
+  })
   const contentRef = useRef<HTMLDivElement>(null)
 
   const toggle = useCallback(() => {
-    setIsOpen((prev) => !prev)
-  }, [])
+    setIsOpen((prev) => {
+      const next = !prev
+      localStorage.setItem(storageKey, String(next))
+      return next
+    })
+  }, [storageKey])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -2717,7 +2725,14 @@ const RAIL_SECTIONS: RailSectionDef[] = [
 ]
 
 export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<SidebarTab>('git')
+  const [activeTab, setActiveTab] = useState<SidebarTab>(() => {
+    const stored = localStorage.getItem('gitslop-sidebar-tab')
+    return (stored === 'git' || stored === 'files') ? stored : 'git'
+  })
+  const handleSetActiveTab = useCallback((tab: SidebarTab) => {
+    setActiveTab(tab)
+    localStorage.setItem('gitslop-sidebar-tab', tab)
+  }, [])
   const [branches, setBranches] = useState<GitBranch[]>([])
   const [searchFilter, setSearchFilter] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
@@ -3211,7 +3226,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
         <div className={styles.tabs} role="tablist">
           <button
             className={`${styles.tab} ${activeTab === 'git' ? styles.tabActive : ''}`}
-            onClick={() => setActiveTab('git')}
+            onClick={() => handleSetActiveTab('git')}
             title="Git"
             role="tab"
             aria-selected={activeTab === 'git'}
@@ -3220,7 +3235,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
           </button>
           <button
             className={`${styles.tab} ${activeTab === 'files' ? styles.tabActive : ''}`}
-            onClick={() => setActiveTab('files')}
+            onClick={() => handleSetActiveTab('files')}
             title="Files"
             role="tab"
             aria-selected={activeTab === 'files'}

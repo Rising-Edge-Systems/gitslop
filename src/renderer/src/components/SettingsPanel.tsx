@@ -580,6 +580,7 @@ function SSHKeysSection(): React.JSX.Element {
 
   // Generate form state
   const [showGenerate, setShowGenerate] = useState(false)
+  const [showKeyDetails, setShowKeyDetails] = useState(false)
   const [genName, setGenName] = useState('')
   const [genType, setGenType] = useState<'ed25519' | 'rsa'>('ed25519')
   const [genPassphrase, setGenPassphrase] = useState('')
@@ -705,6 +706,19 @@ function SSHKeysSection(): React.JSX.Element {
               No SSH keys found in ~/.ssh/. Generate one below.
             </div>
           )}
+          {keys.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-xs)' }}>
+              <button
+                className={styles.sshKeyActionBtn}
+                onClick={() => setShowKeyDetails(!showKeyDetails)}
+                title={showKeyDetails ? 'Hide key details' : 'Show key details'}
+                style={{ fontSize: 'var(--font-sm)', display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-secondary)' }}
+              >
+                {showKeyDetails ? <EyeOff size={13} /> : <Eye size={13} />}
+                {showKeyDetails ? 'Hide details' : 'Show details'}
+              </button>
+            </div>
+          )}
           {keys.map((key) => (
             <div key={key.name} className={styles.sshKeyCard}>
               <div className={styles.sshKeyInfo}>
@@ -713,9 +727,13 @@ function SSHKeysSection(): React.JSX.Element {
                   {key.type && <span className={styles.sshKeyTypeBadge}>{key.type}</span>}
                 </div>
                 {key.fingerprint && (
-                  <span className={styles.sshKeyFingerprint}>{key.fingerprint}</span>
+                  <span className={styles.sshKeyFingerprint}>
+                    {showKeyDetails ? key.fingerprint : '••••••••••••••••'}
+                  </span>
                 )}
-                <span className={styles.sshKeyPath}>{key.path}</span>
+                {showKeyDetails && (
+                  <span className={styles.sshKeyPath}>{key.path}</span>
+                )}
               </div>
               <div className={styles.sshKeyActions}>
                 <button
