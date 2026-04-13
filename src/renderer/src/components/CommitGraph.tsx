@@ -59,6 +59,8 @@ export interface CommitDetail {
   totalInsertions: number
   totalDeletions: number
   refs: ParsedRef[]
+  /** True while the full detail (files, stats) is still loading */
+  loading?: boolean
 }
 
 interface CherryPickState {
@@ -1236,8 +1238,23 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
   const [canvasHoverIndex, setCanvasHoverIndex] = useState<number | null>(null)
 
   // Load commit detail when selected
-  const loadCommitDetail = useCallback(async (hash: string, refs: ParsedRef[]) => {
+  const loadCommitDetail = useCallback(async (hash: string, refs: ParsedRef[], commitData?: GitCommit) => {
     setLoadingDetail(true)
+    // Immediately show a skeleton with the commit info we already have
+    // so the detail panel updates instantly instead of going stale
+    if (commitData) {
+      const skeleton: CommitDetail = {
+        commit: commitData,
+        files: [],
+        fileDetails: [],
+        totalInsertions: 0,
+        totalDeletions: 0,
+        refs,
+        loading: true
+      }
+      setCommitDetail(skeleton)
+      onCommitSelect?.(skeleton)
+    }
     try {
       const result = await window.electronAPI.git.showCommit(repoPath, hash)
       if (result.success && result.data) {
@@ -1268,7 +1285,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       if (node) {
         setSelectedIndex(headInfo.index)
         setSelectedHash(node.commit.hash)
-        loadCommitDetail(node.commit.hash, node.refs)
+        loadCommitDetail(node.commit.hash, node.refs, node.commit)
       }
     }
   }, [headInfo, selectedHash, nodes, loadCommitDetail])
@@ -1287,7 +1304,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       if (index >= 0) {
         setSelectedIndex(index)
         setSelectedHash(nodes[index].commit.hash)
-        loadCommitDetail(nodes[index].commit.hash, nodes[index].refs)
+        loadCommitDetail(nodes[index].commit.hash, nodes[index].refs, nodes[index].commit)
         listRef?.scrollToRow({ index, align: 'center' })
       }
     }
@@ -1320,7 +1337,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       })
       setSelectedIndex(index)
       setSelectedHash(node.commit.hash)
-      loadCommitDetail(node.commit.hash, node.refs)
+      loadCommitDetail(node.commit.hash, node.refs, node.commit)
     } else if (event.shiftKey && selectedIndex >= 0) {
       // Range select
       const start = Math.min(selectedIndex, index)
@@ -1330,7 +1347,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
         if (nodes[i]) rangeHashes.add(nodes[i].commit.hash)
       }
       setSelectedHashes(rangeHashes)
-      loadCommitDetail(node.commit.hash, node.refs)
+      loadCommitDetail(node.commit.hash, node.refs, node.commit)
     } else {
       // Normal single click
       setSelectedHashes(new Set())
@@ -1342,7 +1359,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       } else {
         setSelectedIndex(index)
         setSelectedHash(node.commit.hash)
-        loadCommitDetail(node.commit.hash, node.refs)
+        loadCommitDetail(node.commit.hash, node.refs, node.commit)
       }
     }
   }, [nodes, selectedHash, selectedIndex, loadCommitDetail, onCommitSelect])
@@ -1356,7 +1373,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     // Also select the commit
     setSelectedIndex(index)
     setSelectedHash(node.commit.hash)
-    loadCommitDetail(node.commit.hash, node.refs)
+    loadCommitDetail(node.commit.hash, node.refs, node.commit)
 
     setContextMenu({
       x: event.clientX,
@@ -1441,7 +1458,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     } else {
       setSelectedIndex(index)
       setSelectedHash(node.commit.hash)
-      loadCommitDetail(node.commit.hash, node.refs)
+      loadCommitDetail(node.commit.hash, node.refs, node.commit)
     }
   }, [nodes, selectedHash, loadCommitDetail, onCommitSelect])
 
@@ -1691,7 +1708,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
           // Open commit details for currently selected commit
           if (selectedIndex >= 0 && nodes[selectedIndex]) {
             const node = nodes[selectedIndex]
-            loadCommitDetail(node.commit.hash, node.refs)
+            loadCommitDetail(node.commit.hash, node.refs, node.commit)
           }
           return
         case 'Escape':
@@ -1708,7 +1725,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
         const node = nodes[newIndex]
         setSelectedIndex(newIndex)
         setSelectedHash(node.commit.hash)
-        loadCommitDetail(node.commit.hash, node.refs)
+        loadCommitDetail(node.commit.hash, node.refs, node.commit)
 
         // Scroll into view if needed
         if (listRef) {
