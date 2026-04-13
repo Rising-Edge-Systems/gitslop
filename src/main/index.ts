@@ -1842,15 +1842,57 @@ ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
   }
 
   try {
-    activeWatcher = chokidarWatch(repoPath, {
-      ignored: (path: string) => shouldIgnorePath(path),
-      ignoreInitial: true,
-      persistent: true,
-      awaitWriteFinish: {
-        stabilityThreshold: 300,
-        pollInterval: 100
+    // Only watch directories that contain git-tracked files. Watching the
+    // entire repo tree is too expensive when gitignored directories contain
+    // hundreds of thousands of build artifacts (FPGA outputs, .venv, etc.).
+    // We get the tracked top-level directories from `git ls-files` and watch
+    // only those, plus a depth-0 watch on the repo root for new top-level files.
+    const { execFileSync } = require('child_process')
+    let trackedDirs: string[] = []
+    try {
+      const tracked = execFileSync('git', ['ls-files', '--deduplicate'], {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: 10000
+      }).toString().trim()
+      if (tracked) {
+        const dirs = new Set<string>()
+        for (const f of tracked.split('\n')) {
+          const lastSlash = f.lastIndexOf('/')
+          if (lastSlash > 0) {
+            dirs.add(join(repoPath, f.substring(0, lastSlash)))
+          }
+        }
+        trackedDirs = [...dirs]
       }
-    })
+    } catch {
+      // Fallback: empty — only root + gitRefWatcher
+    }
+
+    // Watch tracked subdirectories deeply (these are small — only dirs with tracked files)
+    if (trackedDirs.length > 0) {
+      activeWatcher = chokidarWatch(trackedDirs, {
+        ignored: (path: string) => shouldIgnorePath(path),
+        ignoreInitial: true,
+        persistent: true,
+        awaitWriteFinish: {
+          stabilityThreshold: 300,
+          pollInterval: 100
+        }
+      })
+    } else {
+      // Fallback: shallow watch on repo root only
+      activeWatcher = chokidarWatch(repoPath, {
+        ignored: (path: string) => shouldIgnorePath(path),
+        ignoreInitial: true,
+        persistent: true,
+        depth: 0,
+        awaitWriteFinish: {
+          stabilityThreshold: 300,
+          pollInterval: 100
+        }
+      })
+    }
 
     activeWatcher.on('add', () => sendRepoChanged())
     activeWatcher.on('change', () => sendRepoChanged())

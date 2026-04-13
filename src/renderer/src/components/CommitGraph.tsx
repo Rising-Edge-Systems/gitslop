@@ -1259,6 +1259,25 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     }
   }, [repoPath, onCommitSelect])
 
+  // Auto-select HEAD commit on initial load (when no commit is selected yet)
+  const autoSelectedRef = useRef(false)
+  useEffect(() => {
+    if (headInfo && !autoSelectedRef.current && selectedHash === null && nodes.length > 0) {
+      autoSelectedRef.current = true
+      const node = nodes[headInfo.index]
+      if (node) {
+        setSelectedIndex(headInfo.index)
+        setSelectedHash(node.commit.hash)
+        loadCommitDetail(node.commit.hash, node.refs)
+      }
+    }
+  }, [headInfo, selectedHash, nodes, loadCommitDetail])
+
+  // Reset auto-select flag when repo changes
+  useEffect(() => {
+    autoSelectedRef.current = false
+  }, [repoPath])
+
   // Handle row click (select commit, Ctrl+click for multi-select)
   const handleRowClick = useCallback((index: number, event: React.MouseEvent) => {
     const node = nodes[index]
@@ -1352,12 +1371,16 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     if (tooltipTimerRef.current) {
       clearTimeout(tooltipTimerRef.current)
     }
+    // Capture the DOM element NOW — event.currentTarget is nulled after
+    // the handler returns (React synthetic event pooling).
+    const target = event.currentTarget as HTMLElement
     // Show tooltip after a small delay
     tooltipTimerRef.current = setTimeout(() => {
+      if (!target.isConnected) return
       const fullMessage = node.commit.body
         ? `${node.commit.subject}\n\n${node.commit.body.trim()}`
         : node.commit.subject
-      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+      const rect = target.getBoundingClientRect()
       setTooltip({
         x: Math.min(rect.left + 100, window.innerWidth - 420),
         y: rect.bottom + 4,

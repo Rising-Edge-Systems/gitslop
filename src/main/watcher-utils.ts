@@ -80,16 +80,24 @@ export function debouncedSend(
  * Check if a file path should be ignored by the watcher.
  * Ignores .git/ directory contents and node_modules/.
  */
+const IGNORED_DIRS = [
+  '.git', 'node_modules',
+  // Python
+  '.venv', 'venv', '__pycache__', '.tox', '.mypy_cache', '.pytest_cache',
+  // Build outputs
+  'dist', 'build', 'out', 'target',
+  // IDE / tooling
+  '.idea', '.vs', '.vscode',
+  // Other ecosystems
+  '.gradle', '.cargo', 'vendor', '.bundle',
+]
+
+const ignoredDirPattern = new RegExp(
+  IGNORED_DIRS.map(d => `(?:^|[\\\\/])${d.replace('.', '\\.')}(?:[\\\\/]|$)`).join('|')
+)
+
 export function shouldIgnorePath(path: string): boolean {
-  if (path.includes('/.git/') || path.includes('\\.git\\')) {
-    return true
-  }
-  if (path.endsWith('/.git') || path.endsWith('\\.git')) {
-    return true
-  }
-  if (path.includes('/node_modules/') || path.includes('\\node_modules\\')) {
-    return true
-  }
+  if (ignoredDirPattern.test(path)) return true
   // Electron .asar archives appear as directories to fs but crash readdirp
   // when traversed. Ignore them and their unpacked siblings entirely.
   if (

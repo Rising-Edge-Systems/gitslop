@@ -71,6 +71,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [selectedCommit, setSelectedCommit] = useState<CommitDetail | null>(null)
   const [repoSwitching, setRepoSwitching] = useState(false)
+  const repoSwitchingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ─── Center-Stage Diff View State ──────────────────────────────────────────
   const [viewingDiff, setViewingDiff] = useState(false)
@@ -100,6 +101,14 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     // Restore state for new tab
     if (currentRepo && currentRepo !== prevRepo && prevRepo !== null) {
       setRepoSwitching(true)
+      // Safety valve: always dismiss the overlay after 15s, even if the repo
+      // load never signals completion (e.g. stuck in a view mode where
+      // CommitGraph isn't mounted, or a silent failure deep in the load chain).
+      if (repoSwitchingTimerRef.current) clearTimeout(repoSwitchingTimerRef.current)
+      repoSwitchingTimerRef.current = setTimeout(() => {
+        setRepoSwitching(false)
+        repoSwitchingTimerRef.current = null
+      }, 15000)
       const restored = getTabState(currentRepo)
       setSidebarCollapsed(restored.sidebarCollapsed)
       // Clear selected commit — it will be re-selected by the commit graph if the hash matches.
@@ -178,6 +187,10 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   // handleRightPanelResize removed — detail panel is now a plain CSS div, not a react-resizable-panels Panel
 
   const handleRepoLoaded = useCallback(() => {
+    if (repoSwitchingTimerRef.current) {
+      clearTimeout(repoSwitchingTimerRef.current)
+      repoSwitchingTimerRef.current = null
+    }
     setRepoSwitching(false)
   }, [])
 
