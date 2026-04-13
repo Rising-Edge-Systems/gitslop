@@ -102,3 +102,41 @@ Started: 2026-04-13
   - Action buttons in section headers need `e.stopPropagation()` on their container to avoid triggering header click (collapse toggle)
   - Conditional rendering of file list with `{!collapsed && <div>...</div>}` is simpler than CSS display:none for this case since file list state doesn't need preservation across collapses
 ---
+
+## 2026-04-13 - US-UP-005
+- What was implemented:
+  - Removed `detailPanelCollapsed`, `setDetailPanelCollapsed`, `toggleDetailPanelCollapse` from useLayoutState (unused dead code)
+  - Removed `stagingCollapsed`, `setStagingCollapsed`, `toggleStagingCollapse` from useLayoutState (replaced by per-section collapse in US-UP-004)
+  - Kept `detailPanelCollapsed` and `stagingCollapsed` as deprecated optional fields in LayoutState interface for localStorage migration compatibility
+  - Updated StatusPanel: removed `collapsed`/`onToggleCollapse` props, converted outer header from collapsible button to static div
+  - Removed `.panelHeaderChevron` CSS class and button-specific styles from `.panelHeader`
+  - Updated AppLayout: removed `toggleStagingCollapse` destructuring and `collapsed`/`onToggleCollapse` props from both StatusPanel usages (right + bottom layouts)
+  - `detailStagingSplit` kept — still actively used for bottom panel height sizing
+- Files changed:
+  - `src/renderer/src/hooks/useLayoutState.ts` — removed functions, return types, defaults for dead layout state
+  - `src/renderer/src/components/AppLayout.tsx` — removed stagingCollapse props from StatusPanel
+  - `src/renderer/src/components/StatusPanel.tsx` — removed collapsed/onToggleCollapse props, simplified header
+  - `src/renderer/src/components/StatusPanel.module.css` — removed dead CSS (panelHeaderChevron, pointer/hover on header)
+- **Learnings for future iterations:**
+  - When removing localStorage-persisted fields, keep them as optional deprecated in the interface to avoid migration issues (old stored values with extra fields parsed via spread won't cause errors, but removing them from the interface documents intent)
+  - `detailStagingSplit` is dual-purpose: originally for stacked panel split, now reused for bottom panel height percentage. Don't remove it.
+  - The pattern for dead code removal: search all `src/` files for references before removing, verify with typecheck + tests
+---
+
+## 2026-04-13 - US-UP-006
+- What was implemented:
+  - Fixed `handleBackToGraph` in AppLayout to also clear `workingTreeFile` state (was only clearing commit-diff state)
+  - Changed working-tree diff "Close" button to "Back to Graph" with ArrowLeft icon (matching commit-diff UX)
+  - Added Escape key handler for working-tree diffs (previously only worked for commit-file diffs)
+  - Added `onCommitSuccess` callback prop to StatusPanel, called after successful commits
+  - Wired `handleCommitSuccess` in AppLayout to clear `workingTreeFile` so center panel returns to graph after commit
+  - Removed unused `XIcon` import from RepoView
+- Files changed:
+  - `src/renderer/src/components/AppLayout.tsx` — handleBackToGraph fix, handleCommitSuccess callback, wired to both StatusPanel instances
+  - `src/renderer/src/components/RepoView.tsx` — Back to Graph button, Escape key for working-tree diffs, removed XIcon import
+  - `src/renderer/src/components/StatusPanel.tsx` — onCommitSuccess prop, called after successful commit
+- **Learnings for future iterations:**
+  - Working-tree diffs and commit-file diffs have separate state paths (`workingTreeFile` vs `viewingDiff/diffFile/diffCommitHash`) — both need to be cleared in shared handlers like `handleBackToGraph`
+  - Escape key handlers need separate useEffect hooks for each diff mode since they depend on different state
+  - Post-operation callbacks (like onCommitSuccess) are the clean way to communicate cross-component side effects in this architecture
+---

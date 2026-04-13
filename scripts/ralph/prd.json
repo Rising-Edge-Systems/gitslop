@@ -111,7 +111,7 @@
         "Typecheck passes, existing tests pass"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "This functionality mostly exists already via the workingTreeFile prop system added in the staging diff overhaul. This story is primarily about verifying it still works after the panel refactor and fixing any broken connections. The key flow: StatusPanel calls onFileSelect → AppLayout sets workingTreeFile → RepoView shows the diff in center panel. Make sure the 'Back to Graph' button clears workingTreeFile AND keeps the WIP row selected."
     }
   ]
