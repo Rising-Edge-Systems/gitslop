@@ -446,12 +446,12 @@ const electronAPI = {
       ipcRenderer.invoke('gitlab:getInstanceUrl'),
     parseRemote: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('gitlab:parseRemote', repoPath),
-    listMergeRequests: (projectPath: string, state?: string): Promise<GitServiceResult> =>
-      ipcRenderer.invoke('gitlab:listMergeRequests', projectPath, state),
-    getMergeRequest: (projectPath: string, mrIid: number): Promise<GitServiceResult> =>
-      ipcRenderer.invoke('gitlab:getMergeRequest', projectPath, mrIid),
-    createMergeRequest: (projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }): Promise<GitServiceResult> =>
-      ipcRenderer.invoke('gitlab:createMergeRequest', projectPath, opts)
+    listMergeRequests: (projectPath: string, state?: string, instanceUrl?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:listMergeRequests', projectPath, state, instanceUrl),
+    getMergeRequest: (projectPath: string, mrIid: number, instanceUrl?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:getMergeRequest', projectPath, mrIid, instanceUrl),
+    createMergeRequest: (projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }, instanceUrl?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:createMergeRequest', projectPath, opts, instanceUrl)
   },
   terminal: {
     create: (opts: { cwd?: string; id?: string }): Promise<{ success: boolean; data?: { id: string }; error?: string }> =>

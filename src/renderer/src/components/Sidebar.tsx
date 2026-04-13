@@ -2275,7 +2275,7 @@ interface MergeRequestsSectionProps {
 function MergeRequestsSection({ currentRepo }: MergeRequestsSectionProps): React.JSX.Element | null {
   const [mrs, setMrs] = useState<GitLabMR[]>([])
   const [loading, setLoading] = useState(false)
-  const [glInfo, setGlInfo] = useState<{ projectPath: string; webUrl: string } | null>(null)
+  const [glInfo, setGlInfo] = useState<{ projectPath: string; webUrl: string; instanceUrl: string } | null>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [selectedMR, setSelectedMR] = useState<GitLabMRDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -2303,7 +2303,7 @@ function MergeRequestsSection({ currentRepo }: MergeRequestsSectionProps): React
       if (cancelled) return
       setIsLoggedIn(!!loginRes.data)
       if (parseRes.success && parseRes.data) {
-        setGlInfo(parseRes.data as { projectPath: string; webUrl: string })
+        setGlInfo(parseRes.data as { projectPath: string; webUrl: string; instanceUrl: string })
       } else {
         setGlInfo(null)
       }
@@ -2317,7 +2317,7 @@ function MergeRequestsSection({ currentRepo }: MergeRequestsSectionProps): React
     if (!glInfo || !isLoggedIn) return
     setLoading(true)
     try {
-      const result = await window.electronAPI.gitlab.listMergeRequests(glInfo.projectPath, filterState)
+      const result = await window.electronAPI.gitlab.listMergeRequests(glInfo.projectPath, filterState, glInfo.instanceUrl)
       if (result.success && Array.isArray(result.data)) {
         setMrs(result.data as GitLabMR[])
       }
