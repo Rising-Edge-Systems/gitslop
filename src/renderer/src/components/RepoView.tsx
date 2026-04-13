@@ -10,7 +10,7 @@ import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
 // StatusPanel moved to right panel in AppLayout
 import { DiffViewer, FullDiffView, type DiffViewMode } from './DiffViewer'
-import { Columns, X as XIcon } from 'lucide-react'
+import { Columns } from 'lucide-react'
 
 interface RepoViewProps {
   repoPath: string
@@ -377,6 +377,19 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
     return () => window.removeEventListener('keydown', handler)
   }, [viewingDiff, onBackToGraph, onNavigateFile])
 
+  // Escape key returns from working-tree diff to graph
+  useEffect(() => {
+    if (!workingTreeFile) return
+    const handler = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onCloseWorkingTreeFile?.()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [workingTreeFile, onCloseWorkingTreeFile])
+
   const initialLoadDone = useRef(false)
 
   const loadRepoData = useCallback(async () => {
@@ -546,8 +559,8 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
             <>
               <div className={styles.diffBackBar}>
                 <button className={styles.diffBackBtn} onClick={onCloseWorkingTreeFile}>
-                  <XIcon size={14} />
-                  <span>Close</span>
+                  <ArrowLeft size={14} />
+                  <span>Back to Graph</span>
                 </button>
                 <span className={styles.diffBackSeparator}>·</span>
                 <span className={styles.diffBackPath}>

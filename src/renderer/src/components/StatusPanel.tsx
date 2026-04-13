@@ -54,6 +54,11 @@ interface StatusPanelProps {
    * panel's internal selectedFile for row-highlight purposes.
    */
   externallySelectedFile?: WorkingTreeFileSelection | null
+  /**
+   * Called after a successful commit so the parent can clear any active
+   * working-tree diff view and return to the commit graph.
+   */
+  onCommitSuccess?: () => void
 }
 
 // ─── CSS Module Lookup Maps ──────────────────────────────────────────────────
@@ -113,7 +118,7 @@ function fileDir(filePath: string): string {
 
 const SUBJECT_WARN_LENGTH = 72
 
-export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagingInternalSplitChange, onFileSelect, externallySelectedFile }: StatusPanelProps): React.JSX.Element {
+export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagingInternalSplitChange, onFileSelect, externallySelectedFile, onCommitSuccess }: StatusPanelProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -746,6 +751,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
 
         await loadStatus()
         onRefresh?.()
+        onCommitSuccess?.()
       } else {
         setCommitError(result.error || 'Commit failed')
       }
@@ -754,7 +760,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
     } finally {
       setCommitting(false)
     }
-  }, [canCommit, buildMessage, repoPath, amend, signoff, gpgSign, loadStatus, onRefresh])
+  }, [canCommit, buildMessage, repoPath, amend, signoff, gpgSign, loadStatus, onRefresh, onCommitSuccess])
 
   // Ctrl+Enter shortcut for commit
   const stableCommit = useShortcutHandler(() => {

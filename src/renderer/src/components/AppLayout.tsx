@@ -223,6 +223,13 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setViewingDiff(false)
     setDiffFile(null)
     setDiffCommitHash(null)
+    setWorkingTreeFile(null)
+  }, [])
+
+  const handleCommitSuccess = useCallback(() => {
+    // After a successful commit, clear any active working-tree diff
+    // so the center panel returns to the commit graph.
+    setWorkingTreeFile(null)
   }, [])
 
   const handleNavigateFile = useCallback((direction: 'prev' | 'next') => {
@@ -583,6 +590,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         onStagingInternalSplitChange={setStagingInternalSplit}
                         onFileSelect={handleWorkingTreeFileSelect}
                         externallySelectedFile={workingTreeFile}
+                        onCommitSuccess={handleCommitSuccess}
                       />
                     </div>
                   </div>
@@ -699,6 +707,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         onStagingInternalSplitChange={setStagingInternalSplit}
                         onFileSelect={handleWorkingTreeFileSelect}
                         externallySelectedFile={workingTreeFile}
+                        onCommitSuccess={handleCommitSuccess}
                       />
                     </div>
                   </div>
