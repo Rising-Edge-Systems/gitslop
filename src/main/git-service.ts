@@ -629,9 +629,19 @@ export class GitService {
       '%G?', '%GS', '%GK'
     ].join(SEPARATOR)
 
+    // Check if this is a merge commit (has a second parent)
+    const isMerge = await this.exec(
+      ['rev-parse', '--verify', `${hash}^2`], repoPath, { signal: options?.signal }
+    ).then(() => true).catch(() => false)
+
+    // For merge commits, `git show --stat` produces a combined diff that omits
+    // files only changed in one parent. Use `--first-parent` to diff against
+    // the first parent, matching GitKraken's behavior.
+    const firstParentFlag = isMerge ? ['--first-parent'] : []
+
     // Run show with --stat for basic file list
     const result = await this.exec(
-      ['show', '--format=' + format, '--stat', '--stat-width=200', hash],
+      ['show', '--format=' + format, '--stat', '--stat-width=200', ...firstParentFlag, hash],
       repoPath,
       { signal: options?.signal }
     )
@@ -661,12 +671,12 @@ export class GitService {
     try {
       // Run --name-status and --numstat in one call using --format=
       const statusResult = await this.exec(
-        ['show', '--format=', '--name-status', hash],
+        ['show', '--format=', '--name-status', ...firstParentFlag, hash],
         repoPath,
         { signal: options?.signal }
       )
       const numstatResult = await this.exec(
-        ['show', '--format=', '--numstat', hash],
+        ['show', '--format=', '--numstat', ...firstParentFlag, hash],
         repoPath,
         { signal: options?.signal }
       )
@@ -735,6 +745,26 @@ export class GitService {
     filePath: string,
     options?: { signal?: AbortSignal }
   ): Promise<string> {
+    // For merge commits, `git show --patch` produces a combined diff that's
+    // empty for files only changed in one parent. Use `git diff parent..hash`
+    // against the first parent instead, which matches what GitKraken shows.
+    const parentCheck = await this.exec(
+      ['rev-parse', '--verify', `${hash}^2`],
+      repoPath,
+      { signal: options?.signal }
+    ).catch(() => null)
+
+    if (parentCheck) {
+      // Merge commit — diff against first parent
+      const result = await this.exec(
+        ['diff', `${hash}^1`, hash, '--', filePath],
+        repoPath,
+        { signal: options?.signal }
+      )
+      return result.stdout
+    }
+
+    // Normal commit — use git show
     const args = ['show', '--format=', '--patch', hash, '--', filePath]
     const result = await this.exec(args, repoPath, { signal: options?.signal })
     return result.stdout
