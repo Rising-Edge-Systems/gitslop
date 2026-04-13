@@ -1107,6 +1107,11 @@ function TagsSection({ currentRepo }: TagsSectionProps): React.JSX.Element {
                       ? `${tag.name} (annotated)\n${tag.message}`
                       : `${tag.name} (lightweight)`
                   }
+                  onClick={() => {
+                    window.dispatchEvent(
+                      new CustomEvent('graph:scroll-to-commit', { detail: { hash: tag.hash } })
+                    )
+                  }}
                   onContextMenu={(e) => handleContextMenu(e, tag)}
                 >
                   <span className={styles.tagIcon}>

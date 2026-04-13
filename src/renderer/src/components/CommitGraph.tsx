@@ -1278,6 +1278,23 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     autoSelectedRef.current = false
   }, [repoPath])
 
+  // Listen for scroll-to-commit events (from sidebar tag/branch clicks, blame view, etc.)
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const hash = (e as CustomEvent<{ hash: string }>).detail?.hash
+      if (!hash) return
+      const index = nodes.findIndex((n) => n.commit.hash === hash || n.commit.hash.startsWith(hash))
+      if (index >= 0) {
+        setSelectedIndex(index)
+        setSelectedHash(nodes[index].commit.hash)
+        loadCommitDetail(nodes[index].commit.hash, nodes[index].refs)
+        listRef?.scrollToRow({ index, align: 'center' })
+      }
+    }
+    window.addEventListener('graph:scroll-to-commit', handler)
+    return () => window.removeEventListener('graph:scroll-to-commit', handler)
+  }, [nodes, loadCommitDetail, listRef])
+
   // Handle row click (select commit, Ctrl+click for multi-select)
   const handleRowClick = useCallback((index: number, event: React.MouseEvent) => {
     const node = nodes[index]

@@ -486,7 +486,8 @@ export class GitService {
       '%(objectname:short)',
       '%(objecttype)',
       '%(subject)',
-      '%(creatordate:iso-strict)'
+      '%(creatordate:iso-strict)',
+      '%(*objectname:short)'  // dereferenced commit hash (non-empty for annotated tags)
     ].join(SEPARATOR)
 
     try {
@@ -501,10 +502,12 @@ export class GitService {
         .filter((line) => line.trim())
         .map((line) => {
           const parts = line.split(SEPARATOR)
+          const isAnnotated = parts[2] === 'tag'
           return {
             name: parts[0],
-            hash: parts[1],
-            isAnnotated: parts[2] === 'tag',
+            // For annotated tags, use the dereferenced commit hash
+            hash: (isAnnotated && parts[5]) ? parts[5] : parts[1],
+            isAnnotated,
             message: parts[3] || '',
             taggerDate: parts[4] || ''
           }
