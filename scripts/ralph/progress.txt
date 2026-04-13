@@ -81,3 +81,24 @@ Started: 2026-04-13
   - `loadCommitDetail` and `nodes` must be defined before the auto-select useEffect that references them (declared order matters for const in closures during the same render)
   - Both right and bottom position variants need parallel updates for any panel layout changes
 ---
+
+## 2026-04-13 - US-UP-004
+- What was implemented:
+  - Added `unstagedCollapsed` and `stagedCollapsed` useState<boolean> (default false = expanded)
+  - Made Unstaged and Staged section headers clickable with chevron toggle (ChevronRight when collapsed, ChevronDown when expanded)
+  - Added `onClick` handler to column headers that toggles collapse state, with `e.stopPropagation()` on action buttons to prevent toggle when clicking Stage All/Unstage All/Discard All
+  - When collapsed, only header row visible (chevron + title + file count badge + action buttons)
+  - File list (`columnFiles` div) conditionally rendered based on collapse state
+  - Commit form always visible below Staged Changes section (never collapsible)
+  - Added keyboard accessibility (Enter/Space to toggle) and role="button" to headers
+  - Collapse state persists when switching between WIP and commit detail modes (StatusPanel stays mounted per US-UP-003)
+  - Added CSS styles: `.columnHeaderClickable` for cursor/hover, `.sectionChevron` for chevron icon
+- Files changed:
+  - `src/renderer/src/components/StatusPanel.tsx` — collapse state, clickable headers with chevrons
+  - `src/renderer/src/components/StatusPanel.module.css` — clickable header and chevron styles
+  - `scripts/ralph/prd.json` — marked US-UP-004 passes: true
+- **Learnings for future iterations:**
+  - The twoColumnLayout is actually a vertical stack (flex-direction: column) despite the name — Unstaged on top, Staged below
+  - Action buttons in section headers need `e.stopPropagation()` on their container to avoid triggering header click (collapse toggle)
+  - Conditional rendering of file list with `{!collapsed && <div>...</div>}` is simpler than CSS display:none for this case since file list state doesn't need preservation across collapses
+---
