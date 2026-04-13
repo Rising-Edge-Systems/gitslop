@@ -294,6 +294,22 @@
   color: var(--accent);
 }
 
+/* ─── WIP Row ──────────────────────────────────────────────────────────── */
+
+.rowWip {
+  border-bottom: 1px dashed var(--border);
+}
+
+.rowWip .wipMessage {
+  font-style: italic;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.rowWip.rowSelected .wipMessage {
+  color: var(--accent);
+}
+
 /* ─── Lane ──────────────────────────────────────────────────────────────── */
 
 .lane {

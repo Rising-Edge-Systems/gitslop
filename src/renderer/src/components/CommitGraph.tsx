@@ -231,6 +231,7 @@ interface GraphSVGProps {
   scrollOffset: number
   visibleStartIndex: number
   visibleStopIndex: number
+  wipOffset: number
 }
 
 /** Build a hash→index lookup for fast parent resolution */
@@ -248,7 +249,8 @@ const GraphSVG = React.memo(function GraphSVG({
   height,
   scrollOffset,
   visibleStartIndex,
-  visibleStopIndex
+  visibleStopIndex,
+  wipOffset
 }: GraphSVGProps): React.JSX.Element {
   const width = Math.max(GRAPH_MIN_WIDTH, GRAPH_LEFT_PAD + maxColumns * GRAPH_COL_WIDTH + GRAPH_LEFT_PAD)
 
@@ -293,9 +295,38 @@ const GraphSVG = React.memo(function GraphSVG({
     )
   })
 
+  // Draw WIP node at row 0 (lane 0) with dashed circle and dashed line to HEAD
+  if (wipOffset > 0) {
+    const wipY = ROW_HEIGHT / 2 - scrollOffset
+    const wipX = GRAPH_LEFT_PAD + 0 * GRAPH_COL_WIDTH // lane 0
+    const headY = (0 + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset // HEAD commit is at node index 0
+    const wipColor = LANE_COLORS[0]
+
+    // Dashed line from WIP to HEAD commit
+    lines.push(
+      <line
+        key="wip-line"
+        x1={wipX} y1={wipY} x2={wipX} y2={headY}
+        stroke={wipColor} strokeWidth={2} strokeDasharray="4,3" fill="none"
+      />
+    )
+
+    // Dashed circle for WIP node
+    circles.push(
+      <circle
+        key="wip-node"
+        cx={wipX} cy={wipY} r={NODE_RADIUS}
+        fill="var(--bg-primary, #1e1e2e)"
+        stroke={wipColor}
+        strokeWidth={2}
+        strokeDasharray="3,2"
+      />
+    )
+  }
+
   for (let i = renderStart; i <= renderStop; i++) {
     const node = nodes[i]
-    const y = i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+    const y = (i + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
     const x = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
     const hasHead = node.refs.some((r) => r.type === 'head')
 
@@ -329,7 +360,7 @@ const GraphSVG = React.memo(function GraphSVG({
           )
         }
       } else {
-        const parentY = parentIdx * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+        const parentY = (parentIdx + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
         if (fromX === toX) {
           lines.push(
             <line
@@ -420,6 +451,7 @@ interface GraphCanvasProps {
   scrollOffset: number
   visibleStartIndex: number
   visibleStopIndex: number
+  wipOffset: number
   onNodeHover?: (index: number | null) => void
   onNodeClick?: (index: number) => void
 }
@@ -436,6 +468,7 @@ const GraphCanvas = React.memo(function GraphCanvas({
   scrollOffset,
   visibleStartIndex,
   visibleStopIndex,
+  wipOffset,
   onNodeHover,
   onNodeClick
 }: GraphCanvasProps): React.JSX.Element {
@@ -496,11 +529,40 @@ const GraphCanvas = React.memo(function GraphCanvas({
     })
     ctx.globalAlpha = 1.0
 
+    // Draw WIP node and dashed line (Canvas)
+    if (wipOffset > 0) {
+      const wipY = ROW_HEIGHT / 2 - scrollOffset
+      const wipX = GRAPH_LEFT_PAD
+      const headY = wipOffset * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+      const wipColor = laneColorMap.get(0) || LANE_COLORS[0]
+
+      // Dashed line from WIP to HEAD
+      ctx.strokeStyle = wipColor
+      ctx.lineWidth = 2
+      ctx.setLineDash([4, 3])
+      ctx.beginPath()
+      ctx.moveTo(wipX, wipY)
+      ctx.lineTo(wipX, headY)
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      // Dashed circle for WIP node
+      ctx.beginPath()
+      ctx.arc(wipX, wipY, NODE_RADIUS, 0, Math.PI * 2)
+      ctx.fillStyle = '#1e1e2e'
+      ctx.fill()
+      ctx.strokeStyle = wipColor
+      ctx.lineWidth = 2
+      ctx.setLineDash([3, 2])
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
+
     // Draw lines first (below nodes)
     for (let i = renderStart; i <= renderStop; i++) {
       const node = nodes[i]
       if (!node) continue
-      const y = i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+      const y = (i + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
 
       for (let p = 0; p < node.parentConnections.length; p++) {
         const conn = node.parentConnections[p]
@@ -531,7 +593,7 @@ const GraphCanvas = React.memo(function GraphCanvas({
             ctx.lineTo(toX, endY)
           }
         } else {
-          const parentY = parentIdx * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+          const parentY = (parentIdx + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
           if (fromX === toX) {
             ctx.moveTo(fromX, y)
             ctx.lineTo(toX, parentY)
@@ -549,7 +611,7 @@ const GraphCanvas = React.memo(function GraphCanvas({
     for (let i = renderStart; i <= renderStop; i++) {
       const node = nodes[i]
       if (!node) continue
-      const y = i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+      const y = (i + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
       const x = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
       const hasHead = node.refs.some((r) => r.type === 'head')
       // Resolve CSS variables for Canvas (which can't use var())
@@ -591,7 +653,7 @@ const GraphCanvas = React.memo(function GraphCanvas({
         ctx.fill()
       }
     }
-  }, [nodes, hashIndex, laneColorMap, width, height, scrollOffset, renderStart, renderStop])
+  }, [nodes, hashIndex, laneColorMap, width, height, scrollOffset, wipOffset, renderStart, renderStop])
 
   // Hit-testing: map canvas coordinates to commit node indices
   const hitTest = useCallback((clientX: number, clientY: number): number | null => {
@@ -606,7 +668,7 @@ const GraphCanvas = React.memo(function GraphCanvas({
       const node = nodes[i]
       if (!node) continue
       const nodeX = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
-      const nodeY = i * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+      const nodeY = (i + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
       const hasHead = node.refs.some((r) => r.type === 'head')
       const hitRadius = hasHead ? HEAD_RING_RADIUS + 2 : NODE_RADIUS + 4 // Generous hit area
 
@@ -617,7 +679,7 @@ const GraphCanvas = React.memo(function GraphCanvas({
       }
     }
     return null
-  }, [nodes, scrollOffset, renderStart, renderStop])
+  }, [nodes, scrollOffset, wipOffset, renderStart, renderStop])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!onNodeHover) return
@@ -696,6 +758,9 @@ interface CommitRowProps {
   selectedHash: string | null
   selectedHashes: Set<string>
   showBranchLabels: boolean
+  wipStatus: WipStatus | null
+  wipOffset: number
+  isWipSelected: boolean
   onRowClick: (index: number, event: React.MouseEvent) => void
   onRowContextMenu: (index: number, event: React.MouseEvent) => void
   onRefContextMenu: (ref: ParsedRef, commitHash: string, event: React.MouseEvent) => void
@@ -708,8 +773,50 @@ function CommitRowComponent(props: {
   index: number
   style: React.CSSProperties
 } & CommitRowProps): React.ReactElement {
-  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, onRowClick, onRowContextMenu, onRefContextMenu, onRowMouseEnter, onRowMouseLeave } = props
-  const node = nodes[index]
+  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, onRowClick, onRowContextMenu, onRefContextMenu, onRowMouseEnter, onRowMouseLeave } = props
+
+  // WIP row renders at index 0 when wipOffset > 0
+  if (index === 0 && wipOffset > 0 && wipStatus) {
+    const handleWipClick = (e: React.MouseEvent): void => {
+      onRowClick(index, e)
+    }
+
+    // Build change summary
+    const parts: string[] = []
+    if (wipStatus.staged > 0) parts.push(`${wipStatus.staged} staged`)
+    if (wipStatus.unstaged > 0) parts.push(`${wipStatus.unstaged} unstaged`)
+    if (wipStatus.untracked > 0) parts.push(`${wipStatus.untracked} untracked`)
+    const changeSummary = parts.join(', ')
+
+    return (
+      <div
+        className={`${styles.row} ${styles.rowWip}${isWipSelected ? ` ${styles.rowSelected}` : ''}`}
+        style={style}
+        onClick={handleWipClick}
+        data-index={index}
+      >
+        {/* Graph space (transparent — SVG draws the WIP node underneath) */}
+        <div className={styles.lane} style={{ minWidth: graphWidth, width: graphWidth }} />
+
+        {/* WIP info */}
+        <div className={styles.info}>
+          <span className={styles.wipMessage}>Working Tree Changes</span>
+        </div>
+
+        <span className={styles.author}>
+          {changeSummary}
+        </span>
+
+        {/* No date for WIP row */}
+        <span className={styles.date} />
+      </div>
+    )
+  }
+
+  // Real commit row — adjust index by wipOffset
+  const nodeIndex = index - wipOffset
+  const node = nodes[nodeIndex]
+  if (!node) return <div style={style} />
   const { commit, refs, laneBranch } = node
   // Show branch label for non-HEAD lanes when enabled
   const isHeadLane = node.lane === 0
@@ -1254,14 +1361,18 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     return Math.max(1, ...nodes.map((n) => n.lane + 1))
   }, [nodes])
 
+  // Compute wipOffset: 1 when WIP row is visible, 0 otherwise
+  const wipOffset = wipStatus ? 1 : 0
+
   // Find HEAD commit index and branch name for floating indicator
+  // Index is in list coordinates (accounting for wipOffset)
   const headInfo = useMemo(() => {
     for (let i = 0; i < nodes.length; i++) {
       const headRef = nodes[i].refs.find((r) => r.type === 'head')
-      if (headRef) return { index: i, branchName: headRef.name }
+      if (headRef) return { index: i + wipOffset, branchName: headRef.name }
     }
     return null
-  }, [nodes])
+  }, [nodes, wipOffset])
 
   const graphWidth = Math.max(GRAPH_MIN_WIDTH, GRAPH_LEFT_PAD + maxColumns * GRAPH_COL_WIDTH + GRAPH_LEFT_PAD)
 
@@ -1297,7 +1408,19 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
 
   // Handle row click (select commit, Ctrl+click for multi-select)
   const handleRowClick = useCallback((index: number, event: React.MouseEvent) => {
-    const node = nodes[index]
+    // WIP row click
+    if (index === 0 && wipOffset > 0) {
+      setIsWipSelected(true)
+      setSelectedIndex(-1)
+      setSelectedHash(null)
+      setSelectedHashes(new Set())
+      setCommitDetail(null)
+      onCommitSelect?.(null)
+      return
+    }
+
+    const nodeIndex = index - wipOffset
+    const node = nodes[nodeIndex]
     if (!node) return
 
     // Deselect WIP row when clicking a real commit
@@ -1325,12 +1448,13 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       setSelectedHash(node.commit.hash)
       loadCommitDetail(node.commit.hash, node.refs)
     } else if (event.shiftKey && selectedIndex >= 0) {
-      // Range select
+      // Range select (only among real commit rows)
       const start = Math.min(selectedIndex, index)
       const end = Math.max(selectedIndex, index)
       const rangeHashes = new Set<string>()
       for (let i = start; i <= end; i++) {
-        if (nodes[i]) rangeHashes.add(nodes[i].commit.hash)
+        const ni = i - wipOffset
+        if (ni >= 0 && nodes[ni]) rangeHashes.add(nodes[ni].commit.hash)
       }
       setSelectedHashes(rangeHashes)
       loadCommitDetail(node.commit.hash, node.refs)
@@ -1348,12 +1472,16 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
         loadCommitDetail(node.commit.hash, node.refs)
       }
     }
-  }, [nodes, selectedHash, selectedIndex, loadCommitDetail, onCommitSelect])
+  }, [nodes, selectedHash, selectedIndex, wipOffset, loadCommitDetail, onCommitSelect])
 
   // Handle right-click context menu
   const handleRowContextMenu = useCallback((index: number, event: React.MouseEvent) => {
     event.preventDefault()
-    const node = nodes[index]
+    // No context menu for WIP row
+    if (index === 0 && wipOffset > 0) return
+
+    const nodeIndex = index - wipOffset
+    const node = nodes[nodeIndex]
     if (!node) return
 
     // Deselect WIP row when right-clicking a real commit
@@ -1369,7 +1497,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       commit: node.commit,
       refs: node.refs
     })
-  }, [nodes, loadCommitDetail])
+  }, [nodes, wipOffset, loadCommitDetail])
 
   // Handle right-click on branch/tag ref label
   const handleRefContextMenu = useCallback((ref: ParsedRef, commitHash: string, event: React.MouseEvent) => {
@@ -1387,7 +1515,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
 
   // Tooltip on row hover
   const handleRowMouseEnter = useCallback((index: number, event: React.MouseEvent) => {
-    const node = nodes[index]
+    // No tooltip for WIP row
+    if (index === 0 && wipOffset > 0) return
+    const nodeIndex = index - wipOffset
+    const node = nodes[nodeIndex]
     if (!node) return
     // Clear any pending tooltip timer
     if (tooltipTimerRef.current) {
@@ -1405,7 +1536,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
         message: fullMessage.length > 300 ? fullMessage.substring(0, 300) + '...' : fullMessage
       })
     }, 600)
-  }, [nodes])
+  }, [nodes, wipOffset])
 
   const handleRowMouseLeave = useCallback(() => {
     if (tooltipTimerRef.current) {
@@ -1430,22 +1561,23 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
   }, [])
 
   const handleCanvasNodeClick = useCallback((index: number) => {
-    // Delegate to the same row click handler (simulating a normal left click)
+    // Canvas indices are for nodes[] directly — no wipOffset here since canvas doesn't render WIP
     const node = nodes[index]
     if (!node) return
     setIsWipSelected(false)
     setSelectedHashes(new Set())
+    const listIndex = index + wipOffset
     if (selectedHash === node.commit.hash) {
       setSelectedIndex(-1)
       setSelectedHash(null)
       setCommitDetail(null)
       onCommitSelect?.(null)
     } else {
-      setSelectedIndex(index)
+      setSelectedIndex(listIndex)
       setSelectedHash(node.commit.hash)
       loadCommitDetail(node.commit.hash, node.refs)
     }
-  }, [nodes, selectedHash, loadCommitDetail, onCommitSelect])
+  }, [nodes, selectedHash, wipOffset, loadCommitDetail, onCommitSelect])
 
   // Cherry-pick handler
   const handleCherryPick = useCallback(async (hashes: string[]) => {
@@ -1674,29 +1806,38 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     const container = containerRef.current
     if (!container) return
 
+    const totalRows = nodes.length + wipOffset
     const handleKeyDown = (e: KeyboardEvent): void => {
-      if (nodes.length === 0) return
+      if (totalRows === 0) return
 
-      let newIndex = selectedIndex
+      // Current effective index in the list (including wipOffset)
+      // If WIP is selected, treat as index 0; if nothing selected, -1
+      let currentIndex = isWipSelected ? 0 : selectedIndex
+
+      let newIndex = currentIndex
 
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault()
-          newIndex = selectedIndex < 0 ? 0 : Math.min(selectedIndex + 1, nodes.length - 1)
+          newIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, totalRows - 1)
           break
         case 'ArrowUp':
           e.preventDefault()
-          newIndex = selectedIndex < 0 ? 0 : Math.max(selectedIndex - 1, 0)
+          newIndex = currentIndex < 0 ? 0 : Math.max(currentIndex - 1, 0)
           break
         case 'Enter':
           e.preventDefault()
           // Open commit details for currently selected commit
-          if (selectedIndex >= 0 && nodes[selectedIndex]) {
-            const node = nodes[selectedIndex]
-            loadCommitDetail(node.commit.hash, node.refs)
+          if (!isWipSelected && selectedIndex >= 0) {
+            const nodeIdx = selectedIndex - wipOffset
+            if (nodeIdx >= 0 && nodes[nodeIdx]) {
+              const node = nodes[nodeIdx]
+              loadCommitDetail(node.commit.hash, node.refs)
+            }
           }
           return
         case 'Escape':
+          setIsWipSelected(false)
           setSelectedIndex(-1)
           setSelectedHash(null)
           setCommitDetail(null)
@@ -1706,12 +1847,24 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
           return
       }
 
-      if (newIndex !== selectedIndex && newIndex >= 0) {
-        const node = nodes[newIndex]
-        setIsWipSelected(false)
-        setSelectedIndex(newIndex)
-        setSelectedHash(node.commit.hash)
-        loadCommitDetail(node.commit.hash, node.refs)
+      if (newIndex !== currentIndex && newIndex >= 0) {
+        // Check if navigating to WIP row
+        if (newIndex === 0 && wipOffset > 0) {
+          setIsWipSelected(true)
+          setSelectedIndex(-1)
+          setSelectedHash(null)
+          setCommitDetail(null)
+          onCommitSelect?.(null)
+        } else {
+          const nodeIdx = newIndex - wipOffset
+          if (nodeIdx >= 0 && nodes[nodeIdx]) {
+            const node = nodes[nodeIdx]
+            setIsWipSelected(false)
+            setSelectedIndex(newIndex)
+            setSelectedHash(node.commit.hash)
+            loadCommitDetail(node.commit.hash, node.refs)
+          }
+        }
 
         // Scroll into view if needed
         if (listRef) {
@@ -1722,7 +1875,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
 
     container.addEventListener('keydown', handleKeyDown)
     return () => container.removeEventListener('keydown', handleKeyDown)
-  }, [nodes, selectedIndex, listRef, loadCommitDetail, onCommitSelect])
+  }, [nodes, selectedIndex, isWipSelected, wipOffset, listRef, loadCommitDetail, onCommitSelect])
 
   const handleScroll = useCallback(() => {
     // Close menus on scroll
@@ -1756,12 +1909,15 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     selectedHash,
     selectedHashes,
     showBranchLabels,
+    wipStatus,
+    wipOffset,
+    isWipSelected,
     onRowClick: handleRowClick,
     onRowContextMenu: handleRowContextMenu,
     onRefContextMenu: handleRefContextMenu,
     onRowMouseEnter: handleRowMouseEnter,
     onRowMouseLeave: handleRowMouseLeave
-  }), [nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, handleRowClick, handleRowContextMenu, handleRefContextMenu, handleRowMouseEnter, handleRowMouseLeave])
+  }), [nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, handleRowClick, handleRowContextMenu, handleRefContextMenu, handleRowMouseEnter, handleRowMouseLeave])
 
   if (loading && commits.length === 0) {
     return (
@@ -1857,6 +2013,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
               scrollOffset={scrollOffset}
               visibleStartIndex={visibleRange.start}
               visibleStopIndex={visibleRange.stop}
+              wipOffset={wipOffset}
               onNodeHover={handleCanvasNodeHover}
               onNodeClick={handleCanvasNodeClick}
             />
@@ -1868,13 +2025,14 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
               scrollOffset={scrollOffset}
               visibleStartIndex={visibleRange.start}
               visibleStopIndex={visibleRange.stop}
+              wipOffset={wipOffset}
             />
           )}
 
           <List<CommitRowProps>
             listRef={setListRef}
             rowComponent={CommitRowComponent}
-            rowCount={nodes.length}
+            rowCount={nodes.length + wipOffset}
             rowHeight={ROW_HEIGHT}
             rowProps={rowProps}
             overscanCount={10}

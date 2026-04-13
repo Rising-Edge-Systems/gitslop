@@ -39,7 +39,7 @@
         "Typecheck passes, existing tests pass"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "The WIP row is NOT a real GraphNode — create a special rendering path in the row component. Check `index === 0 && wipStatus` to render the WIP row, otherwise render commits[index - wipOffset]. wipOffset = wipStatus ? 1 : 0. Update handleRowClick, handleRowContextMenu, keyboard nav (up/down), handleRowsRendered, selectedIndex, headInfo, and the scroll-to-commit listener to account for the offset. The SVG graph renderer also needs to handle the WIP node — draw a dashed circle at lane 0, row 0, with a dashed line to the HEAD commit at row 1."
     },
     {
