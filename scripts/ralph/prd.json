@@ -94,7 +94,7 @@
         "Typecheck passes, existing tests pass"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Be careful with localStorage migration — if the stored layout state has detailStagingSplit and the code tries to read it, it should gracefully handle the missing field. The simplest approach: keep the field in the interface but stop reading/writing it, then remove it in a future version. Or add a migration that strips it."
     },
     {
