@@ -295,19 +295,24 @@ const GraphSVG = React.memo(function GraphSVG({
     )
   })
 
-  // Draw WIP node at row 0 (lane 0) with dashed circle and dashed line to HEAD
-  if (wipOffset > 0) {
+  // Draw WIP node above HEAD with dashed circle and dashed line connecting them
+  if (wipOffset > 0 && nodes.length > 0) {
+    // Find the HEAD commit to get its lane (it may not be lane 0)
+    const headNode = nodes.find((n) => n.refs.some((r) => r.type === 'head'))
+    const headLane = headNode ? headNode.lane : 0
+    const headIdx = headNode ? nodes.indexOf(headNode) : 0
+    const headColor = headNode?.color || 'var(--accent)'
+
     const wipY = ROW_HEIGHT / 2 - scrollOffset
-    const wipX = GRAPH_LEFT_PAD + 0 * GRAPH_COL_WIDTH // lane 0
-    const headY = (0 + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset // HEAD commit is at node index 0
-    const wipColor = LANE_COLORS[0]
+    const wipX = GRAPH_LEFT_PAD + headLane * GRAPH_COL_WIDTH
+    const headY = (headIdx + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
 
     // Dashed line from WIP to HEAD commit
     lines.push(
       <line
         key="wip-line"
         x1={wipX} y1={wipY} x2={wipX} y2={headY}
-        stroke={wipColor} strokeWidth={2} strokeDasharray="4,3" fill="none"
+        stroke={headColor} strokeWidth={2} strokeDasharray="4,3" fill="none"
       />
     )
 
@@ -317,7 +322,7 @@ const GraphSVG = React.memo(function GraphSVG({
         key="wip-node"
         cx={wipX} cy={wipY} r={NODE_RADIUS}
         fill="var(--bg-primary, #1e1e2e)"
-        stroke={wipColor}
+        stroke={headColor}
         strokeWidth={2}
         strokeDasharray="3,2"
       />
@@ -530,11 +535,14 @@ const GraphCanvas = React.memo(function GraphCanvas({
     ctx.globalAlpha = 1.0
 
     // Draw WIP node and dashed line (Canvas)
-    if (wipOffset > 0) {
+    if (wipOffset > 0 && nodes.length > 0) {
+      const headNode = nodes.find((n) => n.refs.some((r) => r.type === 'head'))
+      const headLane = headNode ? headNode.lane : 0
+      const headIdx = headNode ? nodes.indexOf(headNode) : 0
       const wipY = ROW_HEIGHT / 2 - scrollOffset
-      const wipX = GRAPH_LEFT_PAD
-      const headY = wipOffset * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
-      const wipColor = laneColorMap.get(0) || LANE_COLORS[0]
+      const wipX = GRAPH_LEFT_PAD + headLane * GRAPH_COL_WIDTH
+      const headY = (headIdx + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
+      const wipColor = laneColorMap.get(headLane) || LANE_COLORS[0]
 
       // Dashed line from WIP to HEAD
       ctx.strokeStyle = wipColor
