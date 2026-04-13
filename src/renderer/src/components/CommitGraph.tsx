@@ -1132,9 +1132,12 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
   const [resetTarget, setResetTarget] = useState<{ hash: string; subject: string; defaultMode?: 'soft' | 'mixed' | 'hard' } | null>(null)
   const initialCommitLoadDone = useRef(false)
   const refreshInFlightRef = useRef(false)
+  const initialAutoSelectDone = useRef(false)
 
   // WIP (working tree changes) state
+  // undefined = not loaded yet, null = clean working tree, WipStatus = has changes
   const [wipStatus, setWipStatus] = useState<WipStatus | null>(null)
+  const [wipStatusLoaded, setWipStatusLoaded] = useState(false)
   const [isWipSelected, setIsWipSelected] = useState(false)
 
   // Ahead/behind tracking state
@@ -1180,6 +1183,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       }
     } catch {
       // Ignore errors — wipStatus stays as-is
+    } finally {
+      setWipStatusLoaded(true)
     }
   }, [repoPath])
 
@@ -1299,6 +1304,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       setCommitDetail(null)
       setIsWipSelected(false)
       setWipStatus(null)
+      setWipStatusLoaded(false)
+      initialAutoSelectDone.current = false
       onCommitSelect?.(null)
     }
   }, [repoPath, onCommitSelect])
@@ -1405,6 +1412,37 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       setLoadingDetail(false)
     }
   }, [repoPath, onCommitSelect])
+
+  // Auto-select WIP row (if dirty) or HEAD commit (if clean) on initial repo load
+  useEffect(() => {
+    if (initialAutoSelectDone.current) return
+    if (!wipStatusLoaded || !initialCommitLoadDone.current) return
+    if (commits.length === 0) return
+    initialAutoSelectDone.current = true
+
+    if (wipStatus) {
+      // Dirty working tree → select WIP row → shows staging panel
+      setIsWipSelected(true)
+      setSelectedIndex(-1)
+      setSelectedHash(null)
+      setCommitDetail(null)
+      onCommitSelect?.(null)
+    } else {
+      // Clean working tree → select HEAD commit → shows detail panel
+      const headCommit = commits[0]
+      if (headCommit) {
+        setIsWipSelected(false)
+        setSelectedIndex(0)
+        setSelectedHash(headCommit.hash)
+        // Load commit details to populate DetailPanel
+        const headNode = nodes[0]
+        if (headNode) {
+          loadCommitDetail(headCommit.hash, headNode.refs)
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wipStatusLoaded, commits])
 
   // Handle row click (select commit, Ctrl+click for multi-select)
   const handleRowClick = useCallback((index: number, event: React.MouseEvent) => {

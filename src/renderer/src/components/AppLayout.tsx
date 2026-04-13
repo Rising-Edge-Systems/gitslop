@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, PanelRight, PanelBottom } from 'lucide-react'
+import { PanelRight, PanelBottom } from 'lucide-react'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 // react-resizable-panels fully removed — all panels use plain CSS flex divs with drag handles
 import { Toolbar } from './Toolbar'
@@ -45,8 +45,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setSidebarCollapsed,
     setRightPanelSize,
     toggleStagingCollapse,
-    setDetailPanelCollapsed,
-    toggleDetailPanelCollapse,
     setDiffViewMode,
     setDetailStagingSplit,
     setFileListView,
@@ -191,19 +189,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     }
   }, [currentRepo, saveTabState])
 
-  const handleCloseDetailPanel = useCallback(() => {
-    setSelectedCommit(null)
-    setViewingDiff(false)
-    setDiffFile(null)
-    setDiffCommitHash(null)
-    if (currentRepo) {
-      saveTabState(currentRepo, {
-        selectedCommitHash: null,
-        detailPanelOpen: false
-      })
-    }
-  }, [currentRepo, saveTabState])
-
   // ─── Center-Stage Diff Handlers ────────────────────────────────────────────
   const handleFileClick = useCallback(
     (file: CommitFileDetail, commitHash: string) => {
@@ -343,55 +328,8 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     setRightPanelSize(DEFAULT_RIGHT_PANEL_WIDTH)
   }, [setRightPanelSize])
 
-  // ─── Detail/Staging Vertical Split Drag Handle ────────────────────────────
-  const isDraggingDetailSplitRef = useRef(false)
-  const [isDraggingDetailSplit, setIsDraggingDetailSplit] = useState(false)
-  const dragStartYDetailRef = useRef(0)
-  const dragStartSplitRef = useRef(0)
   const rightPanelContainerRef = useRef<HTMLDivElement>(null)
   const columnsContentRef = useRef<HTMLDivElement>(null)
-
-  const handleDetailSplitDragStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault()
-      isDraggingDetailSplitRef.current = true
-      setIsDraggingDetailSplit(true)
-      dragStartYDetailRef.current = e.clientY
-      dragStartSplitRef.current = layout.detailStagingSplit
-      document.body.classList.add('sidebar-dragging')
-
-      const onMouseMove = (ev: MouseEvent): void => {
-        if (!isDraggingDetailSplitRef.current) return
-        // In bottom mode, use the full columns container; in right mode, use the right panel container
-        const container = layout.rightPanelPosition === 'bottom'
-          ? columnsContentRef.current
-          : rightPanelContainerRef.current
-        if (!container) return
-        const containerHeight = container.clientHeight
-        if (containerHeight === 0) return
-        const delta = ev.clientY - dragStartYDetailRef.current
-        const deltaPercent = (delta / containerHeight) * 100
-        const newSplit = dragStartSplitRef.current + deltaPercent
-        setDetailStagingSplit(newSplit)
-      }
-
-      const onMouseUp = (): void => {
-        isDraggingDetailSplitRef.current = false
-        setIsDraggingDetailSplit(false)
-        document.body.classList.remove('sidebar-dragging')
-        document.removeEventListener('mousemove', onMouseMove)
-        document.removeEventListener('mouseup', onMouseUp)
-      }
-
-      document.addEventListener('mousemove', onMouseMove)
-      document.addEventListener('mouseup', onMouseUp)
-    },
-    [layout.detailStagingSplit, layout.rightPanelPosition, setDetailStagingSplit]
-  )
-
-  const handleDetailSplitDoubleClick = useCallback(() => {
-    setDetailStagingSplit(60)
-  }, [setDetailStagingSplit])
 
   const sidebarExpanded = layout.sidebarVisible && !layout.sidebarCollapsed
 
@@ -615,17 +553,12 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         <PanelBottom size={14} />
                       </button>
                     </div>
-                    {/* Detail panel — takes all space when staging collapsed, shrinks when detail collapsed */}
+                    {/* Unified panel: show DetailPanel when a commit is selected, StatusPanel when WIP/nothing selected.
+                        CRITICAL: Both remain mounted (display:none) to preserve internal state (e.g. commit form). */}
                     <div style={{
-                      height: layout.detailPanelCollapsed
-                        ? 'auto'
-                        : layout.stagingCollapsed
-                          ? '100%'
-                          : `calc(${layout.detailStagingSplit}% - 2px)`,
-                      minHeight: layout.detailPanelCollapsed ? undefined : 100,
-                      flex: layout.detailPanelCollapsed ? '0 0 auto' : (layout.stagingCollapsed ? '1 1 auto' : undefined),
-                      overflow: 'hidden',
-                      transition: isDraggingDetailSplit ? 'none' : undefined
+                      display: selectedCommit ? undefined : 'none',
+                      flex: '1 1 auto',
+                      overflow: 'hidden'
                     }}>
                       <DetailPanel
                         detail={selectedCommit}
@@ -638,38 +571,12 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         onShowAllFilesChange={setShowAllFilesInDetail}
                         detailInternalSplit={layout.detailInternalSplit}
                         onDetailInternalSplitChange={setDetailInternalSplit}
-                        collapsed={layout.detailPanelCollapsed}
-                        onToggleCollapse={toggleDetailPanelCollapse}
                       />
                     </div>
-                    {/* Drag handle — only show when both panels are expanded */}
-                    {!layout.stagingCollapsed && !layout.detailPanelCollapsed && (
-                      <div
-                        style={{
-                          height: 5,
-                          flexShrink: 0,
-                          cursor: 'row-resize',
-                          background: isDraggingDetailSplit ? 'var(--border)' : 'transparent',
-                          borderTop: '1px solid var(--border)',
-                          transition: 'background 0.15s ease'
-                        }}
-                        onMouseDown={handleDetailSplitDragStart}
-                        onDoubleClick={handleDetailSplitDoubleClick}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
-                        onMouseLeave={(e) => { if (!isDraggingDetailSplit) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
-                      />
-                    )}
-                    {/* Staging panel — takes all space when detail collapsed, shrinks when staging collapsed */}
                     <div style={{
-                      height: layout.stagingCollapsed
-                        ? 'auto'
-                        : layout.detailPanelCollapsed
-                          ? '100%'
-                          : `calc(${100 - layout.detailStagingSplit}% - 3px)`,
-                      minHeight: layout.stagingCollapsed ? undefined : 100,
-                      flex: layout.stagingCollapsed ? '0 0 auto' : (layout.detailPanelCollapsed ? '1 1 auto' : undefined),
-                      overflow: 'hidden',
-                      transition: isDraggingDetailSplit ? 'none' : undefined
+                      display: selectedCommit ? 'none' : undefined,
+                      flex: '1 1 auto',
+                      overflow: 'hidden'
                     }}>
                       <StatusPanel
                         repoPath={currentRepo}
@@ -684,7 +591,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                   </div>
                 )}
               </div>
-              {/* Bottom panel strip: detail + staging side-by-side (when position is 'bottom') */}
+              {/* Bottom panel strip: unified panel (when position is 'bottom') */}
               {currentRepo && layout.rightPanelPosition === 'bottom' && (
                 <>
                   <div
@@ -692,14 +599,34 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       height: 5,
                       flexShrink: 0,
                       cursor: 'row-resize',
-                      background: isDraggingDetailSplit ? 'var(--border)' : 'transparent',
+                      background: 'transparent',
                       borderTop: '1px solid var(--border)',
                       transition: 'background 0.15s ease'
                     }}
-                    onMouseDown={handleDetailSplitDragStart}
-                    onDoubleClick={handleDetailSplitDoubleClick}
+                    onMouseDown={(e) => {
+                      // Bottom panel height drag — reuse detailStagingSplit to control the panel size
+                      e.preventDefault()
+                      const startY = e.clientY
+                      const container = columnsContentRef.current
+                      if (!container) return
+                      const containerHeight = container.clientHeight
+                      const startSplit = layout.detailStagingSplit
+                      document.body.classList.add('sidebar-dragging')
+                      const onMove = (ev: MouseEvent): void => {
+                        const delta = ev.clientY - startY
+                        const deltaPercent = (delta / containerHeight) * 100
+                        setDetailStagingSplit(startSplit + deltaPercent)
+                      }
+                      const onUp = (): void => {
+                        document.body.classList.remove('sidebar-dragging')
+                        document.removeEventListener('mousemove', onMove)
+                        document.removeEventListener('mouseup', onUp)
+                      }
+                      document.addEventListener('mousemove', onMove)
+                      document.addEventListener('mouseup', onUp)
+                    }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
-                    onMouseLeave={(e) => { if (!isDraggingDetailSplit) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
                   />
                   <div
                     ref={rightPanelContainerRef}
@@ -709,8 +636,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       flexShrink: 0,
                       overflow: 'hidden',
                       display: 'flex',
-                      flexDirection: 'row',
-                      transition: isDraggingDetailSplit ? 'none' : undefined
+                      flexDirection: 'row'
                     }}
                   >
                     {/* Position toggle button */}
@@ -744,7 +670,13 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         <PanelRight size={14} />
                       </button>
                     </div>
-                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                    {/* Unified panel: show DetailPanel when commit selected, StatusPanel when WIP/nothing */}
+                    <div style={{
+                      display: selectedCommit ? undefined : 'none',
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: 'hidden'
+                    }}>
                       <DetailPanel
                         detail={selectedCommit}
                         repoPath={currentRepo}
@@ -759,11 +691,11 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       />
                     </div>
                     <div style={{
-                      width: 1,
-                      flexShrink: 0,
-                      background: 'var(--border)'
-                    }} />
-                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      display: selectedCommit ? 'none' : undefined,
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: 'hidden'
+                    }}>
                       <StatusPanel
                         repoPath={currentRepo}
                         collapsed={layout.stagingCollapsed}
