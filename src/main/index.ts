@@ -64,6 +64,7 @@ interface StoreSchema {
   activeProfileId: string
   githubAccounts: IntegrationAccount[]
   gitlabAccounts: IntegrationAccount[]
+  autoCheckUpdates: boolean
   // Legacy single-token fields (migrated on load)
   githubToken?: string
   gitlabToken?: string
@@ -76,7 +77,8 @@ const store = new Store<StoreSchema>({
     profiles: [],
     activeProfileId: '',
     githubAccounts: [],
-    gitlabAccounts: []
+    gitlabAccounts: [],
+    autoCheckUpdates: true
   }
 })
 
@@ -1698,7 +1700,7 @@ app.whenReady().then(async () => {
 
   // ─── Auto-Updater Setup ──────────────────────────────────────────────────
   if (!isDev) {
-    autoUpdater.autoDownload = true
+    autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
     autoUpdater.logger = {
       info: (msg: unknown) => console.log('[AutoUpdater]', msg),
@@ -1710,32 +1712,48 @@ app.whenReady().then(async () => {
     autoUpdater.on('update-available', (info) => {
       const win = BrowserWindow.getAllWindows()[0]
       if (win && !win.isDestroyed()) {
-        win.webContents.send('updater:update-available', {
+        win.webContents.send('update:available', {
           version: info.version,
-          releaseDate: info.releaseDate
+          releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : ''
         })
       }
     })
 
-    autoUpdater.on('update-downloaded', (info) => {
+    autoUpdater.on('download-progress', (progress) => {
       const win = BrowserWindow.getAllWindows()[0]
       if (win && !win.isDestroyed()) {
-        win.webContents.send('updater:update-downloaded', {
-          version: info.version
+        win.webContents.send('update:download-progress', {
+          percent: progress.percent,
+          bytesPerSecond: progress.bytesPerSecond,
+          transferred: progress.transferred,
+          total: progress.total
         })
+      }
+    })
+
+    autoUpdater.on('update-downloaded', () => {
+      const win = BrowserWindow.getAllWindows()[0]
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('update:downloaded')
       }
     })
 
     autoUpdater.on('error', (err) => {
       console.error('[AutoUpdater] Error:', err.message)
+      const win = BrowserWindow.getAllWindows()[0]
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('update:error', { message: err.message })
+      }
     })
 
-    // Check for updates after a brief delay
-    setTimeout(() => {
-      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-        console.error('[AutoUpdater] Check failed:', err)
-      })
-    }, 5000)
+    // Auto-check runs 10 seconds after app launch, only if enabled
+    if (store.get('autoCheckUpdates', true)) {
+      setTimeout(() => {
+        autoUpdater.checkForUpdates().catch((err) => {
+          console.error('[AutoUpdater] Check failed:', err)
+        })
+      }, 10000)
+    }
   }
 
   app.on('activate', () => {
@@ -1906,23 +1924,40 @@ ipcMain.handle('watcher:stop', async () => {
 
 // ─── Auto-Updater IPC ─────────────────────────────────────────────────────
 
-ipcMain.handle('updater:checkForUpdates', async () => {
-  if (isDev) return { success: false, error: 'Auto-update disabled in development' }
+ipcMain.handle('updates:checkForUpdates', async () => {
+  if (isDev) return { available: false }
   try {
     const result = await autoUpdater.checkForUpdates()
-    return {
-      success: true,
-      data: result
-        ? { version: result.updateInfo.version, releaseDate: result.updateInfo.releaseDate }
-        : null
+    if (result && result.updateInfo) {
+      const releaseNotes = typeof result.updateInfo.releaseNotes === 'string'
+        ? result.updateInfo.releaseNotes
+        : ''
+      return {
+        available: true,
+        version: result.updateInfo.version,
+        releaseNotes
+      }
     }
+    return { available: false }
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : 'Update check failed' }
+    console.error('[AutoUpdater] Check failed:', err)
+    return { available: false }
   }
 })
 
-ipcMain.handle('updater:quitAndInstall', () => {
+ipcMain.handle('updates:downloadUpdate', async () => {
+  if (isDev) return
+  autoUpdater.downloadUpdate().catch((err) => {
+    console.error('[AutoUpdater] Download failed:', err)
+  })
+})
+
+ipcMain.handle('updates:installUpdate', () => {
   autoUpdater.quitAndInstall()
+})
+
+ipcMain.handle('updates:setAutoCheck', (_event, enabled: boolean) => {
+  store.set('autoCheckUpdates', enabled)
 })
 
 // ─── Auto-Fetch IPC ────────────────────────────────────────────────────────
