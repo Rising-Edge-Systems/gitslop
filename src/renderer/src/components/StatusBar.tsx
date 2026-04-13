@@ -11,7 +11,8 @@ import {
   XCircle,
   AlertTriangle,
   Info,
-  UserCircle
+  UserCircle,
+  Download
 } from 'lucide-react'
 import type { Notification } from '../hooks/useNotifications'
 import styles from './StatusBar.module.css'
@@ -71,6 +72,8 @@ export function StatusBar({
   const [, setTick] = useState(0)
   const lastOpRef = useRef<LastOperation | null>(null)
   const [activeProfileName, setActiveProfileName] = useState<string | null>(null)
+  const [updateAvailable, setUpdateAvailable] = useState<{ version: string; releaseNotes: string } | null>(null)
+  const [updateDownloaded, setUpdateDownloaded] = useState(false)
 
   // Fetch branch info
   const fetchBranchInfo = useCallback(async () => {
@@ -163,6 +166,23 @@ export function StatusBar({
     return cleanup
   }, [])
 
+  // Listen for update availability
+  useEffect(() => {
+    const cleanup = window.electronAPI.updates.onUpdateAvailable((info) => {
+      setUpdateAvailable({ version: info.version, releaseNotes: info.releaseNotes })
+      setUpdateDownloaded(false)
+    })
+    return cleanup
+  }, [])
+
+  // Listen for update downloaded
+  useEffect(() => {
+    const cleanup = window.electronAPI.updates.onUpdateDownloaded(() => {
+      setUpdateDownloaded(true)
+    })
+    return cleanup
+  }, [])
+
   // When active op clears, save as last operation
   useEffect(() => {
     if (!activeOp) return
@@ -244,7 +264,26 @@ export function StatusBar({
             )}
           </>
         )}
-        {!currentRepo && (
+        {updateAvailable && (
+          <button
+            className={styles.updateBadge}
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent('updates:show-dialog', {
+                  detail: {
+                    version: updateAvailable.version,
+                    releaseNotes: updateAvailable.releaseNotes
+                  }
+                })
+              )
+            }}
+            title={updateDownloaded ? 'Click to restart and update' : `Update available: v${updateAvailable.version}`}
+          >
+            <Download size={12} />
+            {updateDownloaded ? 'Restart to update' : `v${updateAvailable.version} available`}
+          </button>
+        )}
+        {!currentRepo && !updateAvailable && (
           <span className={styles.text}>No repository open</span>
         )}
       </div>
