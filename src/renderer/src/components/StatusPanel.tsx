@@ -40,8 +40,6 @@ export interface WorkingTreeFileSelection {
 interface StatusPanelProps {
   repoPath: string
   onRefresh?: () => void
-  collapsed: boolean
-  onToggleCollapse: () => void
   stagingInternalSplit: number
   onStagingInternalSplitChange: (split: number) => void
   /**
@@ -115,7 +113,7 @@ function fileDir(filePath: string): string {
 
 const SUBJECT_WARN_LENGTH = 72
 
-export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, stagingInternalSplit, onStagingInternalSplitChange, onFileSelect, externallySelectedFile }: StatusPanelProps): React.JSX.Element {
+export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagingInternalSplitChange, onFileSelect, externallySelectedFile }: StatusPanelProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -823,15 +821,9 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
 
   return (
     <div className={styles.panel} ref={panelRef} tabIndex={-1}>
-      {/* Collapsible header */}
-      <button
-        className={styles.panelHeader}
-        onClick={onToggleCollapse}
-      >
+      {/* Panel header (non-collapsible — sections collapse individually) */}
+      <div className={styles.panelHeader}>
         <span className={styles.panelHeaderLeft}>
-          <span className={styles.panelHeaderChevron}>
-            {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-          </span>
           <h3 className={styles.panelTitle}>Staging Area</h3>
           {isClean && <span className={styles.cleanBadge}><Check size={12} /> Clean</span>}
           {!isClean && (
@@ -840,14 +832,13 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
             </span>
           )}
         </span>
-        <span className={styles.panelHeaderRight} onClick={(e) => e.stopPropagation()}>
+        <span className={styles.panelHeaderRight}>
           <button className={styles.panelRefresh} onClick={loadStatus} title="Refresh status">
             <RefreshCw size={14} />
           </button>
         </span>
-      </button>
+      </div>
 
-      {!collapsed && (
         <div ref={internalSplitContainerRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <div style={{
             height: `calc(${stagingInternalSplit}% - 2px)`,
@@ -1228,7 +1219,6 @@ export function StatusPanel({ repoPath, onRefresh, collapsed, onToggleCollapse, 
       </div>
           </div>
         </div>
-      )}
 
       {/* File Context Menu */}
       {fileContextMenu && (

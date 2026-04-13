@@ -267,8 +267,10 @@ export interface LayoutState {
   sidebarVisible: boolean
   sidebarCollapsed: boolean
   rightPanelSize: number
-  stagingCollapsed: boolean
-  detailPanelCollapsed: boolean
+  /** @deprecated No longer used — kept for localStorage migration compatibility */
+  stagingCollapsed?: boolean
+  /** @deprecated No longer used — kept for localStorage migration compatibility */
+  detailPanelCollapsed?: boolean
   diffViewMode: DiffViewMode
   detailStagingSplit: number // 0-100, percent for detail share
   fileListView: FileListView
@@ -289,8 +291,6 @@ const DEFAULT_LAYOUT: LayoutState = {
   sidebarVisible: true,
   sidebarCollapsed: false,
   rightPanelSize: 340,
-  stagingCollapsed: false,
-  detailPanelCollapsed: false,
   diffViewMode: 'inline',
   detailStagingSplit: 60,
   fileListView: 'path',
@@ -371,10 +371,6 @@ export function useLayoutState(): {
   toggleSidebar: () => void
   toggleSidebarCollapse: () => void
   setSidebarCollapsed: (collapsed: boolean) => void
-  setStagingCollapsed: (collapsed: boolean) => void
-  toggleStagingCollapse: () => void
-  setDetailPanelCollapsed: (collapsed: boolean) => void
-  toggleDetailPanelCollapse: () => void
   setDiffViewMode: (mode: DiffViewMode) => void
   setDetailStagingSplit: (split: number) => void
   setFileListView: (view: FileListView) => void
@@ -450,21 +446,6 @@ export function useLayoutState(): {
     setLayout((prev) => ({ ...prev, sidebarCollapsed: collapsed, sidebarVisible: true }))
   }, [])
 
-  const setStagingCollapsed = useCallback((collapsed: boolean) => {
-    setLayout((prev) => ({ ...prev, stagingCollapsed: collapsed }))
-  }, [])
-
-  const toggleStagingCollapse = useCallback(() => {
-    setLayout((prev) => ({ ...prev, stagingCollapsed: !prev.stagingCollapsed }))
-  }, [])
-
-  const setDetailPanelCollapsed = useCallback((collapsed: boolean) => {
-    setLayout((prev) => ({ ...prev, detailPanelCollapsed: collapsed }))
-  }, [])
-
-  const toggleDetailPanelCollapse = useCallback(() => {
-    setLayout((prev) => ({ ...prev, detailPanelCollapsed: !prev.detailPanelCollapsed }))
-  }, [])
 
   const setDiffViewMode = useCallback((mode: DiffViewMode) => {
     setLayout((prev) => ({ ...prev, diffViewMode: mode }))
@@ -521,10 +502,6 @@ export function useLayoutState(): {
     toggleSidebar,
     toggleSidebarCollapse,
     setSidebarCollapsed,
-    setStagingCollapsed,
-    toggleStagingCollapse,
-    setDetailPanelCollapsed,
-    toggleDetailPanelCollapse,
     setDiffViewMode,
     setDetailStagingSplit,
     setFileListView,

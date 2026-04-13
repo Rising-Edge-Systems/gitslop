@@ -44,7 +44,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     toggleSidebarCollapse,
     setSidebarCollapsed,
     setRightPanelSize,
-    toggleStagingCollapse,
     setDiffViewMode,
     setDetailStagingSplit,
     setFileListView,
@@ -580,8 +579,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     }}>
                       <StatusPanel
                         repoPath={currentRepo}
-                        collapsed={layout.stagingCollapsed}
-                        onToggleCollapse={toggleStagingCollapse}
                         stagingInternalSplit={layout.stagingInternalSplit}
                         onStagingInternalSplitChange={setStagingInternalSplit}
                         onFileSelect={handleWorkingTreeFileSelect}
@@ -698,8 +695,6 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     }}>
                       <StatusPanel
                         repoPath={currentRepo}
-                        collapsed={layout.stagingCollapsed}
-                        onToggleCollapse={toggleStagingCollapse}
                         stagingInternalSplit={layout.stagingInternalSplit}
                         onStagingInternalSplitChange={setStagingInternalSplit}
                         onFileSelect={handleWorkingTreeFileSelect}

@@ -19,32 +19,19 @@
   padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--border);
   background: var(--bg-tertiary);
-  cursor: pointer;
-  border: none;
   color: var(--text-primary);
   font-size: var(--font-sm);
   width: 100%;
-  text-align: left;
   flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 2;
 }
 
-.panelHeader:hover {
-  background: var(--bg-hover);
-}
-
 .panelHeaderLeft {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-}
-
-.panelHeaderChevron {
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
 }
 
 .panelTitle {
