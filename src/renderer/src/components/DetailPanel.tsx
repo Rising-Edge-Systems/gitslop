@@ -706,6 +706,14 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
           transition: isDraggingInternalSplit ? 'none' : undefined
         }}>
           <div className={styles.filesWrapper}>
+            {detail.loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0', color: 'var(--text-secondary)', gap: '8px', fontSize: '12px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                Loading files...
+              </div>
+            ) : (
             <div className={styles.filesSection} style={{ borderTop: 'none' }}>
               <div className={styles.filesHeaderRow}>
                 <button
@@ -830,6 +838,7 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
                 </ul>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>}

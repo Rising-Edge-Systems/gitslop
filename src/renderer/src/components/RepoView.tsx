@@ -432,15 +432,17 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load repository data')
+      // On error, CommitGraph never mounts and can't signal completion,
+      // so dismiss the tab-switch overlay here instead.
+      onRepoLoaded?.()
     } finally {
       setLoading(false)
       initialLoadDone.current = true
     }
-  }, [repoPath])
+  }, [repoPath, onRepoLoaded])
 
   useEffect(() => {
     loadRepoData()
-    // Start file watcher for this repo
     window.electronAPI.watcher.start(repoPath)
     return () => {
       window.electronAPI.watcher.stop()

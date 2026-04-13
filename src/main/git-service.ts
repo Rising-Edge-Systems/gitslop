@@ -142,46 +142,30 @@ export interface GitOperationProgress {
 
 const MIN_GIT_VERSION = { major: 2, minor: 20, patch: 0 }
 
-// ─── Queue Implementation ────────────────────────────────────────────────────
+// ─── Request Deduplication ───────────────────────────────────────────────────
+//
+// When multiple components request the same git command simultaneously (e.g.
+// five components all calling getBranches on repo open), only one subprocess
+// is spawned. All callers share the same in-flight promise.
+//
+// Keys are "repoPath\0arg1\0arg2..." — identical commands on the same repo
+// coalesce automatically.
 
-interface QueueItem {
-  fn: () => Promise<GitExecResult>
-  resolve: (value: GitExecResult) => void
-  reject: (reason: unknown) => void
-}
+class DedupedExecutor {
+  private inflight: Map<string, Promise<GitExecResult>> = new Map()
 
-class CommandQueue {
-  private queues: Map<string, QueueItem[]> = new Map()
-  private running: Map<string, boolean> = new Map()
+  async exec(
+    key: string,
+    fn: () => Promise<GitExecResult>
+  ): Promise<GitExecResult> {
+    const existing = this.inflight.get(key)
+    if (existing) return existing
 
-  async enqueue(repoPath: string, fn: () => Promise<GitExecResult>): Promise<GitExecResult> {
-    return new Promise<GitExecResult>((resolve, reject) => {
-      if (!this.queues.has(repoPath)) {
-        this.queues.set(repoPath, [])
-      }
-      this.queues.get(repoPath)!.push({ fn, resolve, reject })
-      this.processNext(repoPath)
+    const promise = fn().finally(() => {
+      this.inflight.delete(key)
     })
-  }
-
-  private async processNext(repoPath: string): Promise<void> {
-    if (this.running.get(repoPath)) return
-
-    const queue = this.queues.get(repoPath)
-    if (!queue || queue.length === 0) return
-
-    this.running.set(repoPath, true)
-    const item = queue.shift()!
-
-    try {
-      const result = await item.fn()
-      item.resolve(result)
-    } catch (err) {
-      item.reject(err)
-    } finally {
-      this.running.set(repoPath, false)
-      this.processNext(repoPath)
-    }
+    this.inflight.set(key, promise)
+    return promise
   }
 }
 
@@ -204,7 +188,7 @@ function parseSignatureStatus(code: string): SignatureStatus {
 // ─── GitService ──────────────────────────────────────────────────────────────
 
 export class GitService {
-  private queue = new CommandQueue()
+  private dedup = new DedupedExecutor()
   private cachedVersion: GitVersion | null = null
 
   /**
@@ -258,7 +242,13 @@ export class GitService {
       return execFn()
     }
 
-    return this.queue.enqueue(repoPath, execFn)
+    // Dedup key: identical commands on the same repo share one subprocess.
+    // Write commands (commit, checkout, merge, etc.) should NOT dedup —
+    // they use noQueue or are inherently unique. Read commands that
+    // multiple components fire simultaneously (getBranches, getStatus, etc.)
+    // coalesce here automatically.
+    const dedupKey = repoPath + '\0' + args.join('\0')
+    return this.dedup.exec(dedupKey, execFn)
   }
 
   /**
@@ -496,7 +486,8 @@ export class GitService {
       '%(objectname:short)',
       '%(objecttype)',
       '%(subject)',
-      '%(creatordate:iso-strict)'
+      '%(creatordate:iso-strict)',
+      '%(*objectname:short)'  // dereferenced commit hash (non-empty for annotated tags)
     ].join(SEPARATOR)
 
     try {
@@ -511,10 +502,12 @@ export class GitService {
         .filter((line) => line.trim())
         .map((line) => {
           const parts = line.split(SEPARATOR)
+          const isAnnotated = parts[2] === 'tag'
           return {
             name: parts[0],
-            hash: parts[1],
-            isAnnotated: parts[2] === 'tag',
+            // For annotated tags, use the dereferenced commit hash
+            hash: (isAnnotated && parts[5]) ? parts[5] : parts[1],
+            isAnnotated,
             message: parts[3] || '',
             taggerDate: parts[4] || ''
           }
@@ -933,7 +926,7 @@ export class GitService {
     options?: { signal?: AbortSignal }
   ): Promise<void> {
     const remote = remoteName || 'origin'
-    await this.exec(['push', remote, `refs/tags/${tagName}`], repoPath, { signal: options?.signal })
+    await this.exec(['push', remote, `refs/tags/${tagName}`], repoPath, { signal: options?.signal, noQueue: true })
   }
 
   /**
@@ -1131,7 +1124,9 @@ export class GitService {
     } else {
       args.push('--all')
     }
-    await this.exec(args, repoPath, { signal: options?.signal })
+    // Network operations bypass the queue so they can't block local reads
+    // (status, log, branch) that the UI depends on for initial load.
+    await this.exec(args, repoPath, { signal: options?.signal, noQueue: true })
   }
 
   /**

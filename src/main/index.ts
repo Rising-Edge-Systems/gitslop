@@ -500,6 +500,24 @@ function githubApiRequest(
 // Token encryption lives in ./token-crypto so it can be shared with
 // gitlab-oauth.ts (refresh flow). Re-imported below.
 
+/**
+ * Get a GitHub token from the new multi-account system, falling back to the
+ * legacy single-token field. Returns null if no account is configured.
+ */
+function getGitHubToken(): string | null {
+  const accounts = store.get('githubAccounts', []) as IntegrationAccount[]
+  if (accounts.length > 0 && accounts[0].token) {
+    const token = decryptToken(accounts[0].token)
+    if (token) return token
+  }
+  const legacy = store.get('githubToken', '') as string
+  if (legacy) {
+    const token = decryptToken(legacy)
+    if (token) return token
+  }
+  return null
+}
+
 // Migrate legacy single-token to multi-account on first access
 function migrateGitHubLegacy(): void {
   const legacy = store.get('githubToken' as keyof StoreSchema, '') as string
@@ -611,9 +629,7 @@ ipcMain.handle('github:logout', () => {
 })
 
 ipcMain.handle('github:isLoggedIn', () => {
-  const encrypted = store.get('githubToken', '')
-  const token = decryptToken(encrypted)
-  return { success: true, data: !!token }
+  return { success: true, data: !!getGitHubToken() }
 })
 
 // ─── GitHub OAuth Device Flow ────────────────────────────────────────────
@@ -787,8 +803,7 @@ ipcMain.handle('github:parseRemote', async (_event, repoPath: string) => {
 })
 
 ipcMain.handle('github:listPullRequests', async (_event, owner: string, repo: string, state?: string) => {
-  const encrypted = store.get('githubToken', '')
-  const token = decryptToken(encrypted)
+  const token = getGitHubToken()
   if (!token) return { success: false, error: 'Not logged in to GitHub' }
   try {
     const queryState = state || 'open'
@@ -830,8 +845,7 @@ ipcMain.handle('github:listPullRequests', async (_event, owner: string, repo: st
 })
 
 ipcMain.handle('github:getPullRequest', async (_event, owner: string, repo: string, prNumber: number) => {
-  const encrypted = store.get('githubToken', '')
-  const token = decryptToken(encrypted)
+  const token = getGitHubToken()
   if (!token) return { success: false, error: 'Not logged in to GitHub' }
   try {
     // Fetch PR details, comments, and reviews in parallel
@@ -905,8 +919,7 @@ ipcMain.handle('github:getPullRequest', async (_event, owner: string, repo: stri
 })
 
 ipcMain.handle('github:createPullRequest', async (_event, owner: string, repo: string, opts: { title: string; body: string; head: string; base: string; draft?: boolean }) => {
-  const encrypted = store.get('githubToken', '')
-  const token = decryptToken(encrypted)
+  const token = getGitHubToken()
   if (!token) return { success: false, error: 'Not logged in to GitHub' }
   try {
     const body = JSON.stringify({
@@ -1012,18 +1025,23 @@ function migrateGitLabLegacy(): void {
  * expired: true, ... }` when an OAuth refresh fails so callers can surface
  * the 'please re-authorize' error distinctly from 'not logged in'.
  */
-async function getGitLabConfig(): Promise<{
+async function getGitLabConfig(forInstanceUrl?: string): Promise<{
   token: string
   instanceUrl: string
   authType: 'pat' | 'oauth'
   expired?: boolean
 }> {
   migrateGitLabLegacy()
-  const accounts = store.get('gitlabAccounts', [])
+  const accounts = store.get('gitlabAccounts', []) as IntegrationAccount[]
   if (accounts.length === 0) {
     return { token: '', instanceUrl: 'https://gitlab.com', authType: 'pat' }
   }
-  const account = accounts[0]
+  // Find the account matching the requested instance URL, or fall back to first
+  let account = accounts[0]
+  if (forInstanceUrl) {
+    const match = accounts.find((a) => (a.instanceUrl || 'https://gitlab.com') === forInstanceUrl)
+    if (match) account = match
+  }
   const instanceUrl = account.instanceUrl || 'https://gitlab.com'
   const authType: 'pat' | 'oauth' = account.authType === 'oauth' ? 'oauth' : 'pat'
   const token = await ensureFreshGitLabToken(account)
@@ -1180,7 +1198,7 @@ ipcMain.handle('gitlab:removeAccount', (_event, accountId: string) => {
 })
 
 // Parse GitLab project path from a remote URL
-function parseGitLabRemote(url: string, instanceUrl: string): { projectPath: string; webUrl: string } | null {
+function parseGitLabRemote(url: string, instanceUrl: string): { projectPath: string; webUrl: string; instanceUrl: string } | null {
   // Extract the hostname from instanceUrl for matching
   let instanceHost: string
   try {
@@ -1192,13 +1210,13 @@ function parseGitLabRemote(url: string, instanceUrl: string): { projectPath: str
   // SSH: git@gitlab.com:owner/repo.git or git@gitlab.com:group/subgroup/repo.git
   const sshMatch = url.match(new RegExp(`${instanceHost.replace(/\./g, '\\.')}[:/](.+?)(?:\\.git)?$`))
   if (sshMatch) {
-    return { projectPath: sshMatch[1], webUrl: `${instanceUrl}/${sshMatch[1]}` }
+    return { projectPath: sshMatch[1], webUrl: `${instanceUrl}/${sshMatch[1]}`, instanceUrl }
   }
 
   // HTTPS: https://gitlab.com/owner/repo.git or https://gitlab.com/group/subgroup/repo
   const httpsMatch = url.match(new RegExp(`${instanceHost.replace(/\./g, '\\.')}[/](.+?)(?:\\.git)?$`))
   if (httpsMatch) {
-    return { projectPath: httpsMatch[1], webUrl: `${instanceUrl}/${httpsMatch[1]}` }
+    return { projectPath: httpsMatch[1], webUrl: `${instanceUrl}/${httpsMatch[1]}`, instanceUrl }
   }
 
   return null
@@ -1299,24 +1317,31 @@ ipcMain.handle('gitlab:getInstanceUrl', () => {
 ipcMain.handle('gitlab:parseRemote', async (_event, repoPath: string) => {
   try {
     migrateGitLabLegacy()
-    const accounts = store.get('gitlabAccounts', [])
-    const instanceUrl =
-      accounts.length > 0
-        ? accounts[0].instanceUrl || 'https://gitlab.com'
-        : 'https://gitlab.com'
+    const accounts = store.get('gitlabAccounts', []) as IntegrationAccount[]
     const remotes = await gitService.getRemotes(repoPath)
     const origin = remotes.find((r: { name: string }) => r.name === 'origin') || remotes[0]
     if (!origin) return { success: false, error: 'No remotes found' }
-    const parsed = parseGitLabRemote(origin.fetchUrl, instanceUrl)
-    if (!parsed) return { success: false, error: 'Not a GitLab repository' }
-    return { success: true, data: parsed }
+
+    // Try each account's instance URL to find a match
+    const instanceUrls = new Set<string>()
+    for (const acct of accounts) {
+      instanceUrls.add(acct.instanceUrl || 'https://gitlab.com')
+    }
+    if (instanceUrls.size === 0) instanceUrls.add('https://gitlab.com')
+
+    for (const url of instanceUrls) {
+      const parsed = parseGitLabRemote(origin.fetchUrl, url)
+      if (parsed) return { success: true, data: parsed }
+    }
+
+    return { success: false, error: 'Not a GitLab repository' }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Failed to parse remote' }
   }
 })
 
-ipcMain.handle('gitlab:listMergeRequests', async (_event, projectPath: string, state?: string) => {
-  const cfg = await getGitLabConfig()
+ipcMain.handle('gitlab:listMergeRequests', async (_event, projectPath: string, state?: string, forInstanceUrl?: string) => {
+  const cfg = await getGitLabConfig(forInstanceUrl)
   if (!cfg.token) {
     return {
       success: false,
@@ -1325,7 +1350,8 @@ ipcMain.handle('gitlab:listMergeRequests', async (_event, projectPath: string, s
   }
   const { token, instanceUrl, authType } = cfg
   try {
-    const queryState = state === 'closed' ? 'merged' : (state || 'opened')
+    // GitLab API uses 'opened' (not 'open') and 'merged' (not 'closed')
+    const queryState = (state === 'closed' || state === 'merged') ? 'merged' : 'opened'
     const encodedPath = encodeURIComponent(projectPath)
     const { statusCode, data } = await gitlabApiRequest(
       'GET',
@@ -1366,8 +1392,8 @@ ipcMain.handle('gitlab:listMergeRequests', async (_event, projectPath: string, s
   }
 })
 
-ipcMain.handle('gitlab:getMergeRequest', async (_event, projectPath: string, mrIid: number) => {
-  const cfg = await getGitLabConfig()
+ipcMain.handle('gitlab:getMergeRequest', async (_event, projectPath: string, mrIid: number, forInstanceUrl?: string) => {
+  const cfg = await getGitLabConfig(forInstanceUrl)
   if (!cfg.token) {
     return {
       success: false,
@@ -1441,8 +1467,8 @@ ipcMain.handle('gitlab:getMergeRequest', async (_event, projectPath: string, mrI
   }
 })
 
-ipcMain.handle('gitlab:createMergeRequest', async (_event, projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }) => {
-  const cfg = await getGitLabConfig()
+ipcMain.handle('gitlab:createMergeRequest', async (_event, projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }, forInstanceUrl?: string) => {
+  const cfg = await getGitLabConfig(forInstanceUrl)
   if (!cfg.token) {
     return {
       success: false,
@@ -1842,15 +1868,57 @@ ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
   }
 
   try {
-    activeWatcher = chokidarWatch(repoPath, {
-      ignored: (path: string) => shouldIgnorePath(path),
-      ignoreInitial: true,
-      persistent: true,
-      awaitWriteFinish: {
-        stabilityThreshold: 300,
-        pollInterval: 100
+    // Only watch directories that contain git-tracked files. Watching the
+    // entire repo tree is too expensive when gitignored directories contain
+    // hundreds of thousands of build artifacts (FPGA outputs, .venv, etc.).
+    // We get the tracked top-level directories from `git ls-files` and watch
+    // only those, plus a depth-0 watch on the repo root for new top-level files.
+    const { execFileSync } = require('child_process')
+    let trackedDirs: string[] = []
+    try {
+      const tracked = execFileSync('git', ['ls-files', '--deduplicate'], {
+        cwd: repoPath,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: 10000
+      }).toString().trim()
+      if (tracked) {
+        const dirs = new Set<string>()
+        for (const f of tracked.split('\n')) {
+          const lastSlash = f.lastIndexOf('/')
+          if (lastSlash > 0) {
+            dirs.add(join(repoPath, f.substring(0, lastSlash)))
+          }
+        }
+        trackedDirs = [...dirs]
       }
-    })
+    } catch {
+      // Fallback: empty — only root + gitRefWatcher
+    }
+
+    // Watch tracked subdirectories deeply (these are small — only dirs with tracked files)
+    if (trackedDirs.length > 0) {
+      activeWatcher = chokidarWatch(trackedDirs, {
+        ignored: (path: string) => shouldIgnorePath(path),
+        ignoreInitial: true,
+        persistent: true,
+        awaitWriteFinish: {
+          stabilityThreshold: 300,
+          pollInterval: 100
+        }
+      })
+    } else {
+      // Fallback: shallow watch on repo root only
+      activeWatcher = chokidarWatch(repoPath, {
+        ignored: (path: string) => shouldIgnorePath(path),
+        ignoreInitial: true,
+        persistent: true,
+        depth: 0,
+        awaitWriteFinish: {
+          stabilityThreshold: 300,
+          pollInterval: 100
+        }
+      })
+    }
 
     activeWatcher.on('add', () => sendRepoChanged())
     activeWatcher.on('change', () => sendRepoChanged())

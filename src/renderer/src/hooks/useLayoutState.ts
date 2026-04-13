@@ -227,9 +227,9 @@ declare global {
         isLoggedIn: () => Promise<GitServiceResult>
         getInstanceUrl: () => Promise<GitServiceResult>
         parseRemote: (repoPath: string) => Promise<GitServiceResult>
-        listMergeRequests: (projectPath: string, state?: string) => Promise<GitServiceResult>
-        getMergeRequest: (projectPath: string, mrIid: number) => Promise<GitServiceResult>
-        createMergeRequest: (projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }) => Promise<GitServiceResult>
+        listMergeRequests: (projectPath: string, state?: string, instanceUrl?: string) => Promise<GitServiceResult>
+        getMergeRequest: (projectPath: string, mrIid: number, instanceUrl?: string) => Promise<GitServiceResult>
+        createMergeRequest: (projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }, instanceUrl?: string) => Promise<GitServiceResult>
       }
       terminal: {
         create: (opts: { cwd?: string; id?: string }) => Promise<{ success: boolean; data?: { id: string }; error?: string }>

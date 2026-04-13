@@ -59,6 +59,8 @@ export interface CommitDetail {
   totalInsertions: number
   totalDeletions: number
   refs: ParsedRef[]
+  /** True while the full detail (files, stats) is still loading */
+  loading?: boolean
 }
 
 interface CherryPickState {
@@ -1416,8 +1418,23 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
   const [canvasHoverIndex, setCanvasHoverIndex] = useState<number | null>(null)
 
   // Load commit detail when selected
-  const loadCommitDetail = useCallback(async (hash: string, refs: ParsedRef[]) => {
+  const loadCommitDetail = useCallback(async (hash: string, refs: ParsedRef[], commitData?: GitCommit) => {
     setLoadingDetail(true)
+    // Immediately show a skeleton with the commit info we already have
+    // so the detail panel updates instantly instead of going stale
+    if (commitData) {
+      const skeleton: CommitDetail = {
+        commit: commitData,
+        files: [],
+        fileDetails: [],
+        totalInsertions: 0,
+        totalDeletions: 0,
+        refs,
+        loading: true
+      }
+      setCommitDetail(skeleton)
+      onCommitSelect?.(skeleton)
+    }
     try {
       const result = await window.electronAPI.git.showCommit(repoPath, hash)
       if (result.success && result.data) {
@@ -1460,15 +1477,31 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
         setIsWipSelected(false)
         setSelectedIndex(0)
         setSelectedHash(headCommit.hash)
-        // Load commit details to populate DetailPanel
         const headNode = nodes[0]
         if (headNode) {
-          loadCommitDetail(headCommit.hash, headNode.refs)
+          loadCommitDetail(headCommit.hash, headNode.refs, headCommit)
         }
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wipStatusLoaded, commits])
+
+  // Listen for scroll-to-commit events (from sidebar tag/branch clicks, blame view, etc.)
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const hash = (e as CustomEvent<{ hash: string }>).detail?.hash
+      if (!hash) return
+      const index = nodes.findIndex((n) => n.commit.hash === hash || n.commit.hash.startsWith(hash))
+      if (index >= 0) {
+        setSelectedIndex(index)
+        setSelectedHash(nodes[index].commit.hash)
+        loadCommitDetail(nodes[index].commit.hash, nodes[index].refs, nodes[index].commit)
+        listRef?.scrollToRow({ index, align: 'center' })
+      }
+    }
+    window.addEventListener('graph:scroll-to-commit', handler)
+    return () => window.removeEventListener('graph:scroll-to-commit', handler)
+  }, [nodes, loadCommitDetail, listRef])
 
   // Handle row click (select commit, Ctrl+click for multi-select)
   const handleRowClick = useCallback((index: number, event: React.MouseEvent) => {
@@ -1510,7 +1543,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       })
       setSelectedIndex(index)
       setSelectedHash(node.commit.hash)
-      loadCommitDetail(node.commit.hash, node.refs)
+      loadCommitDetail(node.commit.hash, node.refs, node.commit)
     } else if (event.shiftKey && selectedIndex >= 0) {
       // Range select (only among real commit rows)
       const start = Math.min(selectedIndex, index)
@@ -1521,7 +1554,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
         if (ni >= 0 && nodes[ni]) rangeHashes.add(nodes[ni].commit.hash)
       }
       setSelectedHashes(rangeHashes)
-      loadCommitDetail(node.commit.hash, node.refs)
+      loadCommitDetail(node.commit.hash, node.refs, node.commit)
     } else {
       // Normal single click
       setSelectedHashes(new Set())
@@ -1533,7 +1566,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       } else {
         setSelectedIndex(index)
         setSelectedHash(node.commit.hash)
-        loadCommitDetail(node.commit.hash, node.refs)
+        loadCommitDetail(node.commit.hash, node.refs, node.commit)
       }
     }
   }, [nodes, selectedHash, selectedIndex, wipOffset, loadCommitDetail, onCommitSelect])
@@ -1553,7 +1586,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     // Also select the commit
     setSelectedIndex(index)
     setSelectedHash(node.commit.hash)
-    loadCommitDetail(node.commit.hash, node.refs)
+    loadCommitDetail(node.commit.hash, node.refs, node.commit)
 
     setContextMenu({
       x: event.clientX,
@@ -1588,12 +1621,16 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     if (tooltipTimerRef.current) {
       clearTimeout(tooltipTimerRef.current)
     }
+    // Capture the DOM element NOW — event.currentTarget is nulled after
+    // the handler returns (React synthetic event pooling).
+    const target = event.currentTarget as HTMLElement
     // Show tooltip after a small delay
     tooltipTimerRef.current = setTimeout(() => {
+      if (!target.isConnected) return
       const fullMessage = node.commit.body
         ? `${node.commit.subject}\n\n${node.commit.body.trim()}`
         : node.commit.subject
-      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+      const rect = target.getBoundingClientRect()
       setTooltip({
         x: Math.min(rect.left + 100, window.innerWidth - 420),
         y: rect.bottom + 4,
@@ -1639,7 +1676,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     } else {
       setSelectedIndex(listIndex)
       setSelectedHash(node.commit.hash)
-      loadCommitDetail(node.commit.hash, node.refs)
+      loadCommitDetail(node.commit.hash, node.refs, node.commit)
     }
   }, [nodes, selectedHash, wipOffset, loadCommitDetail, onCommitSelect])
 
@@ -1896,7 +1933,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
             const nodeIdx = selectedIndex - wipOffset
             if (nodeIdx >= 0 && nodes[nodeIdx]) {
               const node = nodes[nodeIdx]
-              loadCommitDetail(node.commit.hash, node.refs)
+              loadCommitDetail(node.commit.hash, node.refs, node.commit)
             }
           }
           return
@@ -1926,7 +1963,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
             setIsWipSelected(false)
             setSelectedIndex(newIndex)
             setSelectedHash(node.commit.hash)
-            loadCommitDetail(node.commit.hash, node.refs)
+            loadCommitDetail(node.commit.hash, node.refs, node.commit)
           }
         }
 
