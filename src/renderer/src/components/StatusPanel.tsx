@@ -140,8 +140,18 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
       setSelectedFile(externallySelectedFile)
     }
   }, [externallySelectedFile])
-  // Commit form state
+  // Commit form state — synced with WIP row input via custom events
   const [commitSubject, setCommitSubject] = useState('')
+  const wipSyncRef = useRef(false)
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const value = (e as CustomEvent<{ value: string }>).detail?.value ?? ''
+      wipSyncRef.current = true
+      setCommitSubject(value)
+    }
+    window.addEventListener('wip:subject-change', handler)
+    return () => window.removeEventListener('wip:subject-change', handler)
+  }, [])
   const [commitBody, setCommitBody] = useState('')
   const [commitBodyExpanded, setCommitBodyExpanded] = useState(false)
   const [amend, setAmend] = useState(false)
@@ -1144,7 +1154,10 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
             className={`${styles.commitSubject} ${subjectOverLimit ? styles.commitSubjectOverLimit : ''}`}
             type="text"
             value={commitSubject}
-            onChange={(e) => setCommitSubject(e.target.value)}
+            onChange={(e) => {
+              setCommitSubject(e.target.value)
+              window.dispatchEvent(new CustomEvent('wip:subject-sync', { detail: { value: e.target.value } }))
+            }}
             placeholder="Commit message..."
             disabled={committing}
           />

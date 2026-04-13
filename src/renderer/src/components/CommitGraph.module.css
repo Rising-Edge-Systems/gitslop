@@ -300,14 +300,51 @@
   border-bottom: 1px dashed var(--border);
 }
 
-.rowWip .wipMessage {
-  font-style: italic;
-  color: var(--text-secondary);
-  font-weight: 500;
+.wipInput {
+  font-size: var(--font-md);
+  font-family: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  height: 22px;
+  flex: 1;
+  min-width: 0;
+  outline: none;
+  cursor: text;
 }
 
-.rowWip.rowSelected .wipMessage {
-  color: var(--accent);
+.wipInput::placeholder {
+  color: var(--text-secondary);
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.wipInput:hover {
+  border-color: rgba(128, 128, 128, 0.45);
+}
+
+.wipInput:focus {
+  border-color: var(--accent);
+  background: var(--bg-secondary);
+}
+
+.wipDiffStats {
+  display: flex;
+  gap: 8px;
+  font-size: var(--font-sm);
+  margin-left: 8px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.wipStatsModified {
+  color: var(--yellow, #f9e2af);
+}
+
+.wipStatsAdded {
+  color: var(--green, #a6e3a1);
 }
 
 /* ─── Lane ──────────────────────────────────────────────────────────────── */

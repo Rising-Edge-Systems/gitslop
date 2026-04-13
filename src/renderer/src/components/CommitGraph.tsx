@@ -775,55 +775,18 @@ function CommitRowComponent(props: {
 } & CommitRowProps): React.ReactElement {
   const { index, style, nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, onRowClick, onRowContextMenu, onRefContextMenu, onRowMouseEnter, onRowMouseLeave } = props
 
-  // WIP row renders at index 0 when wipOffset > 0
-  if (index === 0 && wipOffset > 0 && wipStatus) {
-    const handleWipClick = (e: React.MouseEvent): void => {
-      onRowClick(index, e)
+  // WIP row — sync commit subject from StatusPanel (hooks must be unconditional)
+  const wipInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const value = (e as CustomEvent<{ value: string }>).detail?.value ?? ''
+      if (wipInputRef.current) wipInputRef.current.value = value
     }
+    window.addEventListener('wip:subject-sync', handler)
+    return () => window.removeEventListener('wip:subject-sync', handler)
+  }, [])
 
-    // Build change summary
-    const parts: string[] = []
-    if (wipStatus.staged > 0) parts.push(`${wipStatus.staged} staged`)
-    if (wipStatus.unstaged > 0) parts.push(`${wipStatus.unstaged} unstaged`)
-    if (wipStatus.untracked > 0) parts.push(`${wipStatus.untracked} untracked`)
-    const changeSummary = parts.join(', ')
-
-    return (
-      <div
-        className={`${styles.row} ${styles.rowWip}${isWipSelected ? ` ${styles.rowSelected}` : ''}`}
-        style={style}
-        onClick={handleWipClick}
-        data-index={index}
-      >
-        {/* Graph space (transparent — SVG draws the WIP node underneath) */}
-        <div className={styles.lane} style={{ minWidth: graphWidth, width: graphWidth }} />
-
-        {/* WIP info */}
-        <div className={styles.info}>
-          <span className={styles.wipMessage}>Working Tree Changes</span>
-        </div>
-
-        <span className={styles.author}>
-          {changeSummary}
-        </span>
-
-        {/* No date for WIP row */}
-        <span className={styles.date} />
-      </div>
-    )
-  }
-
-  // Real commit row — adjust index by wipOffset
-  const nodeIndex = index - wipOffset
-  const node = nodes[nodeIndex]
-  if (!node) return <div style={style} />
-  const { commit, refs, laneBranch } = node
-  // Show branch label for non-HEAD lanes when enabled
-  const isHeadLane = node.lane === 0
-  const showLaneBranch = showBranchLabels && !isHeadLane && laneBranch && refs.length === 0
-  const isSelected = commit.hash === selectedHash || selectedHashes.has(commit.hash)
-  const isHeadCommit = refs.some((r) => r.type === 'head')
-
+  // ALL hooks must be declared before ANY early return (React rules of hooks)
   const handleClick = useCallback((e: React.MouseEvent) => {
     onRowClick(index, e)
   }, [index, onRowClick])
@@ -832,15 +795,70 @@ function CommitRowComponent(props: {
     onRowContextMenu(index, e)
   }, [index, onRowContextMenu])
 
+  const nodeIndex = index - wipOffset
+  const node = nodes[nodeIndex]
+  const commitHash = node?.commit?.hash ?? ''
+
   const handleRefContextMenu = useCallback((ref: ParsedRef, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    onRefContextMenu(ref, commit.hash, e)
-  }, [commit.hash, onRefContextMenu])
+    onRefContextMenu(ref, commitHash, e)
+  }, [commitHash, onRefContextMenu])
 
   const handleMouseEnter = useCallback((e: React.MouseEvent) => {
     onRowMouseEnter(index, e)
   }, [index, onRowMouseEnter])
+
+  // WIP row renders at index 0 when wipOffset > 0
+  if (index === 0 && wipOffset > 0 && wipStatus) {
+    const handleWipClick = (e: React.MouseEvent): void => {
+      if ((e.target as HTMLElement).tagName === 'INPUT') return
+      onRowClick(index, e)
+    }
+
+    // File-level change counts
+    const modified = wipStatus.staged + wipStatus.unstaged
+    const added = wipStatus.untracked
+
+    return (
+      <div
+        className={`${styles.row} ${styles.rowWip}${isWipSelected ? ` ${styles.rowSelected}` : ''}`}
+        style={style}
+        onClick={handleWipClick}
+        data-index={index}
+      >
+        <div className={styles.lane} style={{ minWidth: graphWidth, width: graphWidth }} />
+        <div className={styles.info}>
+          <input
+            ref={wipInputRef}
+            className={styles.wipInput}
+            type="text"
+            placeholder="// WIP"
+            onClick={(e) => { e.stopPropagation(); onRowClick(index, e as unknown as React.MouseEvent) }}
+            onChange={(e) => {
+              window.dispatchEvent(new CustomEvent('wip:subject-change', { detail: { value: e.target.value } }))
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }}
+          />
+          <span className={styles.wipDiffStats}>
+            {modified > 0 && <span className={styles.wipStatsModified}>~{modified}</span>}
+            {added > 0 && <span className={styles.wipStatsAdded}>+{added}</span>}
+          </span>
+        </div>
+        <span className={styles.author} />
+        <span className={styles.date} />
+      </div>
+    )
+  }
+
+  // Real commit row
+  if (!node) return <div style={style} />
+  const { commit, refs, laneBranch } = node
+  // Show branch label for non-HEAD lanes when enabled
+  const isHeadLane = node.lane === 0
+  const showLaneBranch = showBranchLabels && !isHeadLane && laneBranch && refs.length === 0
+  const isSelected = commit.hash === selectedHash || selectedHashes.has(commit.hash)
+  const isHeadCommit = refs.some((r) => r.type === 'head')
 
   return (
     <div
