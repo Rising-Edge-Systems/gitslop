@@ -11,6 +11,7 @@ export interface AppSettings {
   defaultCloneDirectory: string
   autoFetchInterval: number // minutes, 0 = disabled
   proxyUrl: string
+  autoCheckUpdates: boolean
 
   // Appearance
   theme: 'dark' | 'light'
@@ -37,6 +38,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultCloneDirectory: '',
   autoFetchInterval: 5,
   proxyUrl: '',
+  autoCheckUpdates: true,
 
   // Appearance
   theme: 'dark',

@@ -1,142 +1,103 @@
 # Ralph Progress Log
-Started: 2026-04-13
+Started: 04/13/2026 14:02:59
+---
 
 ## Codebase Patterns
-- Typecheck: `npm run typecheck` (runs both `typecheck:node` and `typecheck:web`)
-- Tests: `npm test` (vitest run, 127 tests across 6 files)
-- No lint script configured
-- CommitGraph.tsx is ~2100 lines with all types, state, and rendering in one file
-- IPC pattern: `window.electronAPI.git.<method>(repoPath)` returns `{ success: boolean, data?: T, error?: string }`
-- Status IPC returns `{ staged: FileStatus[], unstaged: FileStatus[], untracked: FileStatus[] }` — count array lengths for summary
-- Repo change events: `window.electronAPI.onRepoChanged()` for file watcher, `graph:force-refresh` custom event for post-operation refresh
-- Lane assignment and graph layout via `assignLanes()` / `compactLanes()` from `./laneAssignment`
-- Commit selection: `handleRowClick`, `handleCanvasNodeClick`, keyboard handler all manage selectedIndex/selectedHash
-- WIP row uses wipOffset pattern: `wipOffset = wipStatus ? 1 : 0` — all indices in handlers, SVG, Canvas must add wipOffset to node index for Y-position calculation
-- CommitRowProps extends with wipStatus/wipOffset/isWipSelected — row component checks `index === 0 && wipOffset > 0` for WIP rendering
-- Both GraphSVG and GraphCanvas need wipOffset prop to offset node positions and render WIP node
+- Typecheck uses `npm run typecheck` (split into `typecheck:node` and `typecheck:web` via tsconfig.node.json / tsconfig.web.json)
+- Tests use `npm test` (vitest)
+- Main process is monolithic in `src/main/index.ts` with IPC handlers using `ipcMain.handle()`
+- electron-store schema defined in `StoreSchema` interface, defaults in `new Store<StoreSchema>({ defaults: {...} })`
+- Auto-updater already existed with basic setup; IPC channels now use `updates:*` prefix
+- BrowserWindow.getAllWindows()[0] pattern for sending events to renderer
+
+## 04/13/2026 - US-AU-001
+- Implemented main process update event handling via electron-updater
+- Modified `src/main/index.ts`:
+  - Changed autoDownload to false (user must opt in)
+  - Changed IPC channels from `updater:*` to `updates:*` prefix
+  - Added `download-progress` event forwarding to renderer
+  - Added `update:error` event forwarding to renderer
+  - Added `updates:downloadUpdate` IPC handler
+  - Added `updates:installUpdate` IPC handler  
+  - Added `updates:setAutoCheck` IPC handler with electron-store persistence
+  - Changed checkForUpdates return to `{ available, version?, releaseNotes? }`
+  - Added `autoCheckUpdates` to StoreSchema with default true
+  - Auto-check delay changed from 5s to 10s, gated by autoCheckUpdates setting
+  - releaseNotes included in update:available event
+- **Learnings for future iterations:**
+  - There was an existing auto-updater implementation that needed refactoring, not building from scratch
+  - The `releaseNotes` from electron-updater can be either a string or an array of objects — guard with typeof check
+  - `autoUpdater.downloadUpdate()` returns a promise but fires events for progress tracking
 ---
 
-## 2026-04-13 - US-UP-001
-- What was implemented:
-  - Added `WipStatus` exported type: `{ staged: number, unstaged: number, untracked: number }`
-  - Added `wipStatus` state (WipStatus | null) and `isWipSelected` state (boolean)
-  - Added `loadWipStatus()` callback that calls `getStatus` IPC and counts arrays
-  - `loadWipStatus` called on initial mount, `repo:changed`, and `graph:force-refresh`
-  - `wipStatus` set to null when all counts are zero (clean tree)
-  - `isWipSelected` reset to false in all real commit selection paths (click, context menu, canvas click, keyboard nav)
-  - Reset both states when repo path changes
-- Files changed:
-  - `src/renderer/src/components/CommitGraph.tsx` — added WipStatus type, wipStatus/isWipSelected state, loadWipStatus callback, integrated into event listeners
-  - `scripts/ralph/prd.json` — marked US-UP-001 passes: true
+## 04/13/2026 - US-AU-002
+- Implemented preload bridge functions and renderer type definitions for the update system
+- Modified `src/preload/index.ts`:
+  - Added `updates` namespace with `checkForUpdates()`, `downloadUpdate()`, `installUpdate()` invoke wrappers
+  - Added `onUpdateAvailable`, `onDownloadProgress`, `onUpdateDownloaded`, `onUpdateError` event listeners with cleanup functions
+  - Follows exact same pattern as existing `onRepoChanged` and `onCloneProgress` listeners
+- Modified `src/renderer/src/hooks/useLayoutState.ts`:
+  - Added `updates` namespace to the `Window.electronAPI` type declaration with full type signatures
 - **Learnings for future iterations:**
-  - CommitGraph has many commit selection paths: handleRowClick, handleRowContextMenu, handleCanvasNodeClick, keyboard handler — all need updating when adding selection state
-  - The `initialCommitLoadDone` ref pattern prevents showing loading spinner on refresh — follow same pattern for new async loads
-  - getStatus IPC data shape needs type assertion since the IPC return type is generic `GitServiceResult`
+  - The preload `electronAPI` object and the `declare global { interface Window }` block in useLayoutState.ts must stay in sync
+  - Event listener pattern: `ipcRenderer.on(channel, handler)` with cleanup via `ipcRenderer.removeListener(channel, handler)`
+  - Invoke pattern: `ipcRenderer.invoke(channel, ...args)` for request-response IPC
 ---
 
-## 2026-04-13 - US-UP-002
-- What was implemented:
-  - Added `wipOffset` computed value (1 when wipStatus non-null, 0 otherwise)
-  - Updated `CommitRowComponent` to render WIP row at index 0 with "Working Tree Changes" label and change summary (e.g. "2 staged, 5 unstaged")
-  - Updated `handleRowClick` to handle WIP row selection (sets isWipSelected=true, selectedCommit=null)
-  - Updated `handleRowContextMenu` to skip WIP row (no context menu)
-  - Updated `handleRowMouseEnter` to skip tooltip for WIP row
-  - Updated `handleCanvasNodeClick` to account for wipOffset in list index
-  - Updated keyboard navigation (ArrowUp/Down) to handle WIP row at index 0
-  - Updated `headInfo` useMemo to use wipOffset for correct list coordinates
-  - Updated `GraphSVG` to render dashed circle and dashed line at lane 0 for WIP node
-  - Updated `GraphCanvas` to render WIP node with dashed stroke
-  - Updated `rowCount` in List to `nodes.length + wipOffset`
-  - Added CSS styles for WIP row (dashed border, italic message)
-- Files changed:
-  - `src/renderer/src/components/CommitGraph.tsx` — wipOffset logic, row rendering, handlers, SVG/Canvas
-  - `src/renderer/src/components/CommitGraph.module.css` — WIP row styles
-  - `scripts/ralph/prd.json` — marked US-UP-002 passes: true
+## 04/13/2026 - US-AU-003
+- Implemented status bar update indicator badge
+- Modified `src/renderer/src/components/StatusBar.tsx`:
+  - Added `updateAvailable` and `updateDownloaded` state
+  - Added useEffect listeners for `onUpdateAvailable` and `onUpdateDownloaded`
+  - Added clickable badge in left section showing "v{version} available" or "Restart to update"
+  - Badge dispatches `updates:show-dialog` CustomEvent with version + releaseNotes detail
+  - Uses Download icon from lucide-react, accent color styling
+- Modified `src/renderer/src/components/StatusBar.module.css`:
+  - Added `.updateBadge` styles with accent color, hover background, focus-visible outline
 - **Learnings for future iterations:**
-  - Variable declaration order matters in TypeScript — wipOffset must be declared before useMemo hooks that reference it
-  - The List component's rowCount drives the virtual list size; adding wipOffset to it automatically handles the extra row
-  - Canvas renderer needs `setLineDash([])` to reset after drawing dashed elements
-  - Both SVG and Canvas renderers need parallel updates for any graph layout changes
+  - The "No repository open" text should not show when an update badge is visible (added condition)
+  - The update badge is in the left section alongside branch info, not in the right section
+  - CustomEvent detail pattern: `new CustomEvent('name', { detail: { ... } })`
 ---
 
-## 2026-04-13 - US-UP-003
-- What was implemented:
-  - Replaced stacked DetailPanel + StatusPanel layout with unified panel that uses CSS `display:none` to toggle
-  - Both panels remain mounted at all times (preserving commit form state when switching modes)
-  - `selectedCommit` state controls which panel is visible: non-null → DetailPanel, null → StatusPanel (staging)
-  - Removed detail/staging split drag handle between panels (no longer needed)
-  - Removed `isDraggingDetailSplit` state, `handleDetailSplitDragStart`, `handleDetailSplitDoubleClick` from AppLayout
-  - Removed `collapsed` and `onToggleCollapse` props from DetailPanel in unified layout (no panel collapse toggle in detail mode)
-  - Removed unused `handleCloseDetailPanel` callback and `ChevronLeft` import
-  - Both 'right' and 'bottom' panel position variants use the unified panel
-  - Added auto-selection on initial repo load: WIP row selected if dirty tree, HEAD commit if clean
-  - Added `wipStatusLoaded` state and `initialAutoSelectDone` ref to CommitGraph for auto-selection
-- Files changed:
-  - `src/renderer/src/components/AppLayout.tsx` — unified panel rendering, removed stacked layout and drag handle
-  - `src/renderer/src/components/CommitGraph.tsx` — auto-select WIP/HEAD on initial load
-  - `scripts/ralph/prd.json` — marked US-UP-003 passes: true
+## 04/13/2026 - US-AU-004
+- Implemented UpdateDialog component with full download lifecycle (idle → downloading → downloaded → error)
+- Created `src/renderer/src/components/UpdateDialog.tsx`:
+  - Shows current version → new version, release notes as pre-formatted text
+  - "Download & Install" button triggers download, shows progress bar with percentage and speed
+  - Progress bar updates via onDownloadProgress listener
+  - When download completes, button changes to "Restart to Update" (calls installUpdate)
+  - Error state with retry button
+  - Modal overlay with backdrop click to dismiss
+- Created `src/renderer/src/components/UpdateDialog.module.css`:
+  - Follows MergeDialog conventions (overlay, dialog, header/body/footer pattern)
+  - Progress bar track/fill with accent color
+  - All button variants (primary, secondary, success)
+- Modified `src/renderer/src/components/AppLayout.tsx`:
+  - Added updateDialogInfo state and CustomEvent listener for 'updates:show-dialog'
+  - Renders UpdateDialog conditionally when event fires
 - **Learnings for future iterations:**
-  - The unified panel pattern: wrap both panels in divs, toggle `display: none` based on `selectedCommit`. CRITICAL: don't conditionally unmount to preserve state.
-  - `detailStagingSplit` is still used by the bottom panel position for the overall height split between graph and panel strip
-  - `loadCommitDetail` and `nodes` must be defined before the auto-select useEffect that references them (declared order matters for const in closures during the same render)
-  - Both right and bottom position variants need parallel updates for any panel layout changes
+  - Dialogs are rendered at various levels — AppLayout for global dialogs triggered via CustomEvent, inline in components for context-specific dialogs
+  - The CustomEvent pattern (window.dispatchEvent/addEventListener) bridges components without prop drilling
+  - Download speed formatting: check if >= 1MB for MB/s, else KB/s
+  - navigator.userAgent contains the app name/version in Electron (e.g., "GitSlop/1.0.1")
 ---
 
-## 2026-04-13 - US-UP-004
-- What was implemented:
-  - Added `unstagedCollapsed` and `stagedCollapsed` useState<boolean> (default false = expanded)
-  - Made Unstaged and Staged section headers clickable with chevron toggle (ChevronRight when collapsed, ChevronDown when expanded)
-  - Added `onClick` handler to column headers that toggles collapse state, with `e.stopPropagation()` on action buttons to prevent toggle when clicking Stage All/Unstage All/Discard All
-  - When collapsed, only header row visible (chevron + title + file count badge + action buttons)
-  - File list (`columnFiles` div) conditionally rendered based on collapse state
-  - Commit form always visible below Staged Changes section (never collapsible)
-  - Added keyboard accessibility (Enter/Space to toggle) and role="button" to headers
-  - Collapse state persists when switching between WIP and commit detail modes (StatusPanel stays mounted per US-UP-003)
-  - Added CSS styles: `.columnHeaderClickable` for cursor/hover, `.sectionChevron` for chevron icon
-- Files changed:
-  - `src/renderer/src/components/StatusPanel.tsx` — collapse state, clickable headers with chevrons
-  - `src/renderer/src/components/StatusPanel.module.css` — clickable header and chevron styles
-  - `scripts/ralph/prd.json` — marked US-UP-004 passes: true
+## 04/13/2026 - US-AU-005
+- Implemented settings toggle for automatic update checks with "Check Now" button
+- Modified `src/renderer/src/hooks/useSettings.ts`:
+  - Added `autoCheckUpdates: boolean` to AppSettings interface (default true)
+- Modified `src/renderer/src/components/SettingsPanel.tsx`:
+  - Added auto-check toggle with SettingsToggle component at top of General section
+  - Added "Check Now" button that calls checkForUpdates and shows inline result
+  - Shows "Checking...", "Up to date!", or "Update available: vX.Y.Z" status
+  - Toggle change calls both onUpdate (localStorage) and setAutoCheck IPC (electron-store)
+- Modified `src/preload/index.ts`:
+  - Added `setAutoCheck(enabled: boolean)` to updates namespace
+- Modified `src/renderer/src/hooks/useLayoutState.ts`:
+  - Added `setAutoCheck` type definition to updates namespace
 - **Learnings for future iterations:**
-  - The twoColumnLayout is actually a vertical stack (flex-direction: column) despite the name — Unstaged on top, Staged below
-  - Action buttons in section headers need `e.stopPropagation()` on their container to avoid triggering header click (collapse toggle)
-  - Conditional rendering of file list with `{!collapsed && <div>...</div>}` is simpler than CSS display:none for this case since file list state doesn't need preservation across collapses
----
-
-## 2026-04-13 - US-UP-005
-- What was implemented:
-  - Removed `detailPanelCollapsed`, `setDetailPanelCollapsed`, `toggleDetailPanelCollapse` from useLayoutState (unused dead code)
-  - Removed `stagingCollapsed`, `setStagingCollapsed`, `toggleStagingCollapse` from useLayoutState (replaced by per-section collapse in US-UP-004)
-  - Kept `detailPanelCollapsed` and `stagingCollapsed` as deprecated optional fields in LayoutState interface for localStorage migration compatibility
-  - Updated StatusPanel: removed `collapsed`/`onToggleCollapse` props, converted outer header from collapsible button to static div
-  - Removed `.panelHeaderChevron` CSS class and button-specific styles from `.panelHeader`
-  - Updated AppLayout: removed `toggleStagingCollapse` destructuring and `collapsed`/`onToggleCollapse` props from both StatusPanel usages (right + bottom layouts)
-  - `detailStagingSplit` kept — still actively used for bottom panel height sizing
-- Files changed:
-  - `src/renderer/src/hooks/useLayoutState.ts` — removed functions, return types, defaults for dead layout state
-  - `src/renderer/src/components/AppLayout.tsx` — removed stagingCollapse props from StatusPanel
-  - `src/renderer/src/components/StatusPanel.tsx` — removed collapsed/onToggleCollapse props, simplified header
-  - `src/renderer/src/components/StatusPanel.module.css` — removed dead CSS (panelHeaderChevron, pointer/hover on header)
-- **Learnings for future iterations:**
-  - When removing localStorage-persisted fields, keep them as optional deprecated in the interface to avoid migration issues (old stored values with extra fields parsed via spread won't cause errors, but removing them from the interface documents intent)
-  - `detailStagingSplit` is dual-purpose: originally for stacked panel split, now reused for bottom panel height percentage. Don't remove it.
-  - The pattern for dead code removal: search all `src/` files for references before removing, verify with typecheck + tests
----
-
-## 2026-04-13 - US-UP-006
-- What was implemented:
-  - Fixed `handleBackToGraph` in AppLayout to also clear `workingTreeFile` state (was only clearing commit-diff state)
-  - Changed working-tree diff "Close" button to "Back to Graph" with ArrowLeft icon (matching commit-diff UX)
-  - Added Escape key handler for working-tree diffs (previously only worked for commit-file diffs)
-  - Added `onCommitSuccess` callback prop to StatusPanel, called after successful commits
-  - Wired `handleCommitSuccess` in AppLayout to clear `workingTreeFile` so center panel returns to graph after commit
-  - Removed unused `XIcon` import from RepoView
-- Files changed:
-  - `src/renderer/src/components/AppLayout.tsx` — handleBackToGraph fix, handleCommitSuccess callback, wired to both StatusPanel instances
-  - `src/renderer/src/components/RepoView.tsx` — Back to Graph button, Escape key for working-tree diffs, removed XIcon import
-  - `src/renderer/src/components/StatusPanel.tsx` — onCommitSuccess prop, called after successful commit
-- **Learnings for future iterations:**
-  - Working-tree diffs and commit-file diffs have separate state paths (`workingTreeFile` vs `viewingDiff/diffFile/diffCommitHash`) — both need to be cleared in shared handlers like `handleBackToGraph`
-  - Escape key handlers need separate useEffect hooks for each diff mode since they depend on different state
-  - Post-operation callbacks (like onCommitSuccess) are the clean way to communicate cross-component side effects in this architecture
+  - SettingsToggle is a function declaration (hoisted) so can be referenced before its definition in the file
+  - The updates:setAutoCheck IPC handler was already implemented in US-AU-001 in main process
+  - Settings need dual persistence: localStorage (renderer via useSettings) AND electron-store (main process via IPC)
 ---

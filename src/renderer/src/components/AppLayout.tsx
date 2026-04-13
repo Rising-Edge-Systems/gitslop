@@ -10,6 +10,7 @@ import { StatusPanel } from './StatusPanel'
 import { TerminalPanel } from './Terminal'
 import { SearchPalette } from './SearchPalette'
 import { KeyboardShortcutsPanel } from './KeyboardShortcutsPanel'
+import { UpdateDialog } from './UpdateDialog'
 import { StatusBar } from './StatusBar'
 import { NotificationToast } from './NotificationToast'
 import { useAutoFetch } from '../hooks/useAutoFetch'
@@ -66,9 +67,20 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [updateDialogInfo, setUpdateDialogInfo] = useState<{ version: string; releaseNotes: string } | null>(null)
   const [selectedCommit, setSelectedCommit] = useState<CommitDetail | null>(null)
   const [repoSwitching, setRepoSwitching] = useState(false)
   const repoSwitchingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ─── Update Dialog Listener ────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const detail = (e as CustomEvent<{ version: string; releaseNotes: string }>).detail
+      setUpdateDialogInfo(detail)
+    }
+    window.addEventListener('updates:show-dialog', handler)
+    return () => window.removeEventListener('updates:show-dialog', handler)
+  }, [])
 
   // ─── Center-Stage Diff View State ──────────────────────────────────────────
   const [viewingDiff, setViewingDiff] = useState(false)
@@ -448,6 +460,15 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
       {/* Keyboard Shortcuts Panel (Ctrl+?) */}
       {shortcutsOpen && (
         <KeyboardShortcutsPanel onClose={() => setShortcutsOpen(false)} />
+      )}
+
+      {/* Update Dialog */}
+      {updateDialogInfo && (
+        <UpdateDialog
+          version={updateDialogInfo.version}
+          releaseNotes={updateDialogInfo.releaseNotes}
+          onClose={() => setUpdateDialogInfo(null)}
+        />
       )}
 
       <div className="app-body" style={{ position: 'relative' }}>

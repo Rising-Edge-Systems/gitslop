@@ -1,118 +1,100 @@
 {
   "project": "GitSlop",
-  "branchName": "fix/unified-panel",
-  "description": "Unified Detail & Staging Panel — Replace stacked DetailPanel + StatusPanel with a single context-aware right panel that switches between staging and commit details based on graph selection. Add a virtual WIP row to the commit graph representing uncommitted changes.",
+  "branchName": "fix/in-app-updates",
+  "description": "In-App Updates — Add user-facing update notifications via electron-updater with status bar indicator, update dialog with release notes and download progress, and settings toggle for auto-check.",
   "userStories": [
     {
-      "id": "US-UP-001",
-      "title": "WIP row data model and status integration",
-      "description": "As a developer, I need the CommitGraph component to maintain a WIP (Work In Progress) data model that tracks uncommitted working tree changes, so that later stories can render it as a virtual row.",
+      "id": "US-AU-001",
+      "title": "Main process update event handling",
+      "description": "As a developer, I need the main process to check for updates via electron-updater and expose update state to the renderer via IPC.",
       "acceptanceCriteria": [
-        "CommitGraph maintains a `wipStatus` state: { staged: number, unstaged: number, untracked: number } | null",
-        "wipStatus is loaded on initial mount by calling window.electronAPI.git.getStatus(repoPath) and counting the arrays",
-        "wipStatus updates when repo:changed events fire (via the existing onRepoChanged listener)",
-        "wipStatus is null when all counts are zero (clean working tree)",
-        "A new `isWipSelected` state (boolean, default false) tracks whether the WIP row is selected",
-        "When isWipSelected is true, onCommitSelect is called with null (no commit detail to show — the parent will use this to switch to staging mode)",
-        "Export a new WipStatus type from CommitGraph.tsx: { staged: number, unstaged: number, untracked: number }",
+        "Main process uses autoUpdater from electron-updater to check for updates",
+        "autoUpdater.autoDownload is set to false (user must opt in to download)",
+        "autoUpdater.autoInstallOnAppQuit is set to true",
+        "IPC handler updates:checkForUpdates triggers a manual check and returns { available: boolean, version?: string, releaseNotes?: string }",
+        "IPC handler updates:downloadUpdate starts the download and returns immediately",
+        "IPC handler updates:installUpdate calls autoUpdater.quitAndInstall()",
+        "Main process forwards autoUpdater events to the renderer via webContents.send: update:available (with version + releaseNotes), update:download-progress (with percent, bytesPerSecond, transferred, total), update:downloaded (ready to install), update:error (with error message)",
+        "Auto-check runs 10 seconds after app launch (non-blocking), only if the autoCheckUpdates setting is enabled in electron-store (default true)",
+        "In dev mode (!app.isPackaged), skip update checks entirely to avoid errors",
         "Typecheck passes, existing tests pass"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Don't render the WIP row yet — just set up the data model and selection state. Use the existing getStatus IPC call. The status data shape from the IPC is { branch, upstream, ahead, behind, staged: FileStatus[], unstaged: FileStatus[], untracked: FileStatus[] } — count the array lengths."
+      "notes": "Import autoUpdater from 'electron-updater'. It's already in package.json dependencies. Use store.get('autoCheckUpdates', true) to read the setting. autoUpdater events: checking-for-update, update-available, update-not-available, download-progress, update-downloaded, error. The update-available event provides { version, releaseNotes } in its info object. Use BrowserWindow.getAllWindows()[0].webContents.send() to forward events to renderer."
     },
     {
-      "id": "US-UP-002",
-      "title": "Render WIP row in commit graph",
-      "description": "As a user, I want to see a WIP row at the top of the commit graph when I have uncommitted changes, so that I can click it to access the staging area.",
+      "id": "US-AU-002",
+      "title": "Preload and renderer type definitions",
+      "description": "As a developer, I need IPC bridge functions and event listeners in the preload script so the renderer can interact with the update system.",
       "acceptanceCriteria": [
-        "When wipStatus is non-null, a WIP row renders at the top of the commit graph (index 0 in react-window)",
-        "All real commit indices shift by 1 when the WIP row is visible (itemCount = commits.length + 1 when wipStatus is present, commits.length otherwise)",
-        "The WIP row uses a dotted/dashed circle node on lane 0 (HEAD lane) with a dashed line connecting to the HEAD commit below",
-        "The WIP row message column shows 'Working Tree Changes'",
-        "The WIP row shows a change summary in the author column area: e.g. '2 staged, 5 unstaged' or '3 files changed'",
-        "The WIP row has no hash, no date column content",
-        "Clicking the WIP row selects it (highlighted with the selected row style) and sets isWipSelected to true",
-        "Clicking a real commit row sets isWipSelected to false and works as before",
-        "The WIP row is hidden when wipStatus is null (clean working tree)",
-        "All existing click handlers, context menus, keyboard navigation, and scroll-to-commit work correctly with the index offset",
-        "Typecheck passes, existing tests pass"
+        "Preload exposes window.electronAPI.updates.checkForUpdates() wrapping ipcRenderer.invoke('updates:checkForUpdates')",
+        "Preload exposes window.electronAPI.updates.downloadUpdate() wrapping ipcRenderer.invoke('updates:downloadUpdate')",
+        "Preload exposes window.electronAPI.updates.installUpdate() wrapping ipcRenderer.invoke('updates:installUpdate')",
+        "Preload exposes window.electronAPI.updates.onUpdateAvailable(callback) using ipcRenderer.on('update:available', ...) and returning a cleanup function",
+        "Preload exposes window.electronAPI.updates.onDownloadProgress(callback) using ipcRenderer.on('update:download-progress', ...) and returning a cleanup function",
+        "Preload exposes window.electronAPI.updates.onUpdateDownloaded(callback) using ipcRenderer.on('update:downloaded', ...) and returning a cleanup function",
+        "Preload exposes window.electronAPI.updates.onUpdateError(callback) using ipcRenderer.on('update:error', ...) and returning a cleanup function",
+        "Type definitions added to useLayoutState.ts window.electronAPI block for the updates namespace",
+        "Typecheck passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "The WIP row is NOT a real GraphNode — create a special rendering path in the row component. Check `index === 0 && wipStatus` to render the WIP row, otherwise render commits[index - wipOffset]. wipOffset = wipStatus ? 1 : 0. Update handleRowClick, handleRowContextMenu, keyboard nav (up/down), handleRowsRendered, selectedIndex, headInfo, and the scroll-to-commit listener to account for the offset. The SVG graph renderer also needs to handle the WIP node — draw a dashed circle at lane 0, row 0, with a dashed line to the HEAD commit at row 1."
+      "notes": "Follow the same pattern as the existing onRepoChanged listener in preload: ipcRenderer.on('channel', handler) with a cleanup function that calls ipcRenderer.removeListener. The callback signatures: onUpdateAvailable receives { version: string, releaseNotes: string }, onDownloadProgress receives { percent: number, bytesPerSecond: number, transferred: number, total: number }, onUpdateDownloaded receives no args, onUpdateError receives { message: string }."
     },
     {
-      "id": "US-UP-003",
-      "title": "Unified right panel — mode switching in AppLayout",
-      "description": "As a user, I want the right panel to show the staging area when WIP is selected and commit details when a commit is selected, so that I have one clean panel instead of two cramped stacked panels.",
+      "id": "US-AU-003",
+      "title": "Status bar update indicator",
+      "description": "As a user, I want to see a subtle indicator in the status bar when an update is available, so I know there's a new version without being interrupted.",
       "acceptanceCriteria": [
-        "AppLayout renders a single panel in the right column that switches between StatusPanel and DetailPanel based on whether WIP or a commit is selected",
-        "When selectedCommit is null (WIP selected or nothing selected): StatusPanel is shown, DetailPanel is hidden",
-        "When selectedCommit is non-null (real commit selected): DetailPanel is shown, StatusPanel is hidden",
-        "CRITICAL: Both StatusPanel and DetailPanel must remain mounted at all times — use CSS display:none to hide the inactive one, do NOT conditionally unmount. This preserves commit form state (subject, body, amend) when switching between modes.",
-        "The old stacked layout (DetailPanel on top, StatusPanel on bottom, drag handle between them) is removed",
-        "The detailStagingSplit drag handle is removed",
-        "Both 'right' and 'bottom' panel position variants use the unified panel",
-        "The panel has no collapse toggle in detail mode. In staging mode, individual sections (unstaged/staged) are collapsible (handled by StatusPanel internally, see US-UP-004)",
-        "On initial repo load: if there are working tree changes, WIP is auto-selected (staging visible). If clean, HEAD is auto-selected (detail visible)",
-        "Typecheck passes, existing tests pass"
+        "StatusBar component listens for update:available events via window.electronAPI.updates.onUpdateAvailable",
+        "When an update is available, a clickable badge appears in the status bar showing the version (e.g. 'v1.2.0 available') with a download icon from Lucide",
+        "The badge uses accent color, small font size (var(--font-sm)), fits the existing status bar aesthetic",
+        "Clicking the badge dispatches window.dispatchEvent(new CustomEvent('updates:show-dialog', { detail: { version, releaseNotes } }))",
+        "The badge is hidden by default and only appears when an update is available",
+        "After update is downloaded, badge text changes to 'Restart to update'",
+        "Typecheck passes"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "The key implementation pattern: render both <StatusPanel style={{display: isWipOrNothingSelected ? undefined : 'none'}} /> and <DetailPanel style={{display: isWipOrNothingSelected ? 'none' : undefined}} /> inside a single container div. This keeps both mounted for state preservation. Remove the isDraggingDetailSplit state, handleDetailSplitDragStart, detailStagingSplit from useLayoutState, and the drag handle div between the two panels. The selectedCommit state in AppLayout already tracks this — when CommitGraph calls onCommitSelect(null) for WIP selection, selectedCommit becomes null, which switches to staging mode."
+      "notes": "StatusBar.tsx already has useEffect hooks for listening to events. Add the update listener alongside existing ones. Use the Download or ArrowDownToLine icon from lucide-react. Style the badge similar to the ahead/behind badges already in the status bar."
     },
     {
-      "id": "US-UP-004",
-      "title": "Staging panel — collapsible Unstaged and Staged sections",
-      "description": "As a user, I want to individually collapse the Unstaged Changes and Staged Changes sections in the staging panel like GitKraken, so that I can focus on one section at a time.",
+      "id": "US-AU-004",
+      "title": "Update dialog",
+      "description": "As a user, I want to see what changed in the new version and download it with one click.",
       "acceptanceCriteria": [
-        "The staging panel (StatusPanel) has two distinct sections: 'Unstaged Changes' header with file count badge and collapse chevron, and 'Staged Changes' header with file count badge and collapse chevron",
-        "Clicking a section header toggles its collapsed/expanded state",
-        "When collapsed, only the header row is visible (chevron + title + file count + Stage All/Unstage All button)",
-        "The commit form (subject input, body textarea, commit button, amend/signoff/gpg checkboxes) is always visible below the Staged Changes section — it is never collapsible",
-        "Collapse state persists when switching between WIP and commit detail modes (since StatusPanel stays mounted)",
-        "Stage All button is in the Unstaged section header, Unstage All is in the Staged section header",
-        "File click, right-click context menu, and drag-and-drop between sections all still work",
-        "Typecheck passes, existing tests pass"
+        "AppLayout renders an UpdateDialog component when updates:show-dialog custom event fires",
+        "Dialog shows: current version, new version number, release notes as pre-formatted text, and action buttons",
+        "Initial state shows 'Download & Install' and 'Remind Me Later' buttons",
+        "Clicking 'Download & Install' calls window.electronAPI.updates.downloadUpdate(), shows a progress bar with percentage",
+        "Progress bar updates via onDownloadProgress listener showing percent and download speed (e.g. '45% — 2.3 MB/s')",
+        "When download completes (onUpdateDownloaded fires), button changes to 'Restart to Update'",
+        "Clicking 'Restart to Update' calls window.electronAPI.updates.installUpdate()",
+        "Clicking 'Remind Me Later' or the X close button closes the dialog (status bar badge remains)",
+        "If an error occurs during download, show error message with a 'Retry' button",
+        "Dialog is a modal overlay with backdrop click to dismiss, styled consistently with existing dialogs in the app",
+        "Typecheck passes"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "StatusPanel already has a file list rendering system. The change is to split the single file list into two sections with independent collapse state. Use useState<boolean> for unstagedCollapsed and stagedCollapsed (default false = expanded). The existing 'Stage All' and 'Unstage All' buttons can move into the section headers. Keep the existing onFileSelect callback for routing diffs to the center panel."
+      "notes": "Create a new component src/renderer/src/components/UpdateDialog.tsx. Use the existing dialog overlay pattern from the app (e.g. KeyboardShortcutsPanel or the merge/rebase dialogs use .branch-dialog-overlay). The release notes string may contain markdown — render it as a <pre> block for simplicity (no need for a full markdown renderer). For download speed, format bytes: if > 1MB show as 'X.X MB/s', else 'X KB/s'."
     },
     {
-      "id": "US-UP-005",
-      "title": "Layout state cleanup and dead code removal",
-      "description": "As a developer, I want to remove unused layout state fields and dead code from the old stacked panel layout, so that the codebase stays clean.",
+      "id": "US-AU-005",
+      "title": "Settings toggle for auto-check",
+      "description": "As a user, I want to enable or disable automatic update checks in Settings.",
       "acceptanceCriteria": [
-        "Remove detailStagingSplit field from useLayoutState (or leave as deprecated no-op if removing causes migration issues with stored localStorage data)",
-        "Remove detailPanelCollapsed field and toggleDetailPanelCollapse from useLayoutState",
-        "Remove stagingCollapsed field and toggleStagingCollapse from useLayoutState if no longer used (the new collapse is per-section inside StatusPanel)",
-        "Remove the isDraggingDetailSplit state, handleDetailSplitDragStart, and handleDetailSplitDoubleClick from AppLayout",
-        "Remove any leftover references to the old stacked panel layout in AppLayout, MainContent, or other files",
-        "Verify no console warnings about unused variables or imports",
-        "Typecheck passes, existing tests pass"
+        "Add autoCheckUpdates: boolean to AppSettings in useSettings.ts (default true)",
+        "Add a 'General' section at the top of SettingsPanel with a 'Check for updates automatically' toggle",
+        "Add a 'Check Now' button next to the toggle that calls window.electronAPI.updates.checkForUpdates() and shows inline result: 'Checking...' then 'Up to date!' or 'Update available: vX.Y.Z'",
+        "The setting is saved to localStorage via useSettings AND sent to the main process via a new IPC call updates:setAutoCheck so the main process can persist it to electron-store",
+        "IPC handler updates:setAutoCheck in main process stores the value in electron-store so it can be read on next startup before the renderer loads",
+        "Typecheck passes"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Be careful with localStorage migration — if the stored layout state has detailStagingSplit and the code tries to read it, it should gracefully handle the missing field. The simplest approach: keep the field in the interface but stop reading/writing it, then remove it in a future version. Or add a migration that strips it."
-    },
-    {
-      "id": "US-UP-006",
-      "title": "Working tree diffs in center panel — verify and fix",
-      "description": "As a user, I want clicking a file in the staging area to open its diff in the center panel, so that I get a full-width view of my changes.",
-      "acceptanceCriteria": [
-        "Clicking a staged or unstaged file in the staging panel opens its diff in the center panel (replacing the commit graph)",
-        "The center panel header shows the file path and indicates it's a working tree diff (not a commit diff)",
-        "Clicking 'Back to Graph' returns to the commit graph with the WIP row still selected",
-        "The diff view mode toggle (Diff / Full / File) works for working tree diffs",
-        "Untracked files show in File view (no diff available for new files)",
-        "After committing changes, the center panel returns to the graph view and the WIP row updates or disappears if the tree is now clean",
-        "Typecheck passes, existing tests pass"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": "This functionality mostly exists already via the workingTreeFile prop system added in the staging diff overhaul. This story is primarily about verifying it still works after the panel refactor and fixing any broken connections. The key flow: StatusPanel calls onFileSelect → AppLayout sets workingTreeFile → RepoView shows the diff in center panel. Make sure the 'Back to Graph' button clears workingTreeFile AND keeps the WIP row selected."
+      "notes": "Follow the existing pattern in useSettings.ts for adding new settings. The SettingsPanel already has styled toggle/checkbox components — reuse those. The 'Check Now' button should be small and inline, similar to the refresh buttons elsewhere in the app. For the IPC handler, just do store.set('autoCheckUpdates', value) in main."
     }
   ]
 }

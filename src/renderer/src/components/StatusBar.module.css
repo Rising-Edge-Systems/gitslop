@@ -236,6 +236,34 @@
   cursor: default;
 }
 
+/* ─── Update badge ───────────────────────────────────────────────────── */
+
+.updateBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.updateBadge:hover {
+  background: rgba(var(--accent-rgb, 100, 150, 255), 0.15);
+  color: var(--accent);
+}
+
+.updateBadge:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .text {
   color: var(--text-muted);
   font-style: italic;
