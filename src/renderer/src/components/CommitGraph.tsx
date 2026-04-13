@@ -85,6 +85,13 @@ export interface CommitLogFilters {
   path?: string
 }
 
+/** Tracks uncommitted working tree changes for the virtual WIP row */
+export interface WipStatus {
+  staged: number
+  unstaged: number
+  untracked: number
+}
+
 const DEFAULT_PAGE_SIZE = 500
 
 interface CommitGraphProps {
@@ -1019,6 +1026,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
   const initialCommitLoadDone = useRef(false)
   const refreshInFlightRef = useRef(false)
 
+  // WIP (working tree changes) state
+  const [wipStatus, setWipStatus] = useState<WipStatus | null>(null)
+  const [isWipSelected, setIsWipSelected] = useState(false)
+
   // Ahead/behind tracking state
   const [aheadCount, setAheadCount] = useState(0)
   const [behindCount, setBehindCount] = useState(0)
@@ -1042,6 +1053,26 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       }
     } catch {
       // Ignore errors
+    }
+  }, [repoPath])
+
+  // Load WIP status from working tree
+  const loadWipStatus = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.git.getStatus(repoPath)
+      if (result.success && result.data) {
+        const data = result.data as { staged?: unknown[]; unstaged?: unknown[]; untracked?: unknown[] }
+        const staged = Array.isArray(data.staged) ? data.staged.length : 0
+        const unstaged = Array.isArray(data.unstaged) ? data.unstaged.length : 0
+        const untracked = Array.isArray(data.untracked) ? data.untracked.length : 0
+        if (staged === 0 && unstaged === 0 && untracked === 0) {
+          setWipStatus(null)
+        } else {
+          setWipStatus({ staged, unstaged, untracked })
+        }
+      }
+    } catch {
+      // Ignore errors — wipStatus stays as-is
     }
   }, [repoPath])
 
@@ -1159,6 +1190,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       setSelectedHash(null)
       setSelectedIndex(-1)
       setCommitDetail(null)
+      setIsWipSelected(false)
+      setWipStatus(null)
       onCommitSelect?.(null)
     }
   }, [repoPath, onCommitSelect])
@@ -1168,16 +1201,18 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     initialCommitLoadDone.current = false
     loadCommits()
     fetchAheadBehind()
-  }, [loadCommits, fetchAheadBehind])
+    loadWipStatus()
+  }, [loadCommits, fetchAheadBehind, loadWipStatus])
 
   // Listen for file watcher events instead of polling
   useEffect(() => {
     const cleanup = window.electronAPI.onRepoChanged?.(() => {
       loadCommits()
       fetchAheadBehind()
+      loadWipStatus()
     })
     return () => cleanup?.()
-  }, [loadCommits, fetchAheadBehind])
+  }, [loadCommits, fetchAheadBehind, loadWipStatus])
 
   // Listen for graph:force-refresh custom event (dispatched after push/fetch/pull)
   // This bypasses the skip-if-unchanged check since refs may have changed without new commits
@@ -1185,10 +1220,11 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     const handler = (): void => {
       loadCommits(true)
       fetchAheadBehind()
+      loadWipStatus()
     }
     window.addEventListener('graph:force-refresh', handler)
     return () => window.removeEventListener('graph:force-refresh', handler)
-  }, [loadCommits, fetchAheadBehind])
+  }, [loadCommits, fetchAheadBehind, loadWipStatus])
 
   // Observe container size
   useEffect(() => {
@@ -1264,6 +1300,9 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     const node = nodes[index]
     if (!node) return
 
+    // Deselect WIP row when clicking a real commit
+    setIsWipSelected(false)
+
     if (event.ctrlKey || event.metaKey) {
       // Multi-select toggle
       setSelectedHashes((prev) => {
@@ -1317,6 +1356,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     const node = nodes[index]
     if (!node) return
 
+    // Deselect WIP row when right-clicking a real commit
+    setIsWipSelected(false)
     // Also select the commit
     setSelectedIndex(index)
     setSelectedHash(node.commit.hash)
@@ -1392,6 +1433,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
     // Delegate to the same row click handler (simulating a normal left click)
     const node = nodes[index]
     if (!node) return
+    setIsWipSelected(false)
     setSelectedHashes(new Set())
     if (selectedHash === node.commit.hash) {
       setSelectedIndex(-1)
@@ -1666,6 +1708,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
 
       if (newIndex !== selectedIndex && newIndex >= 0) {
         const node = nodes[newIndex]
+        setIsWipSelected(false)
         setSelectedIndex(newIndex)
         setSelectedHash(node.commit.hash)
         loadCommitDetail(node.commit.hash, node.refs)

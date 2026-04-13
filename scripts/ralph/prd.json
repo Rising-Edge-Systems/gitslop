@@ -1,78 +1,118 @@
 {
   "project": "GitSlop",
-  "branchName": "feature/gitlab-oauth",
-  "description": "Add OAuth 2.0 browser-based login for GitLab, supporting both gitlab.com AND arbitrary self-hosted GitLab instances (e.g. git.intrepidcs.net). Uses PKCE flow for public desktop clients with no client secret. Users paste their GitLab OAuth Application ID into the Add Account form, click 'Login with GitLab', authorize in the browser, and come back to a logged-in account. PAT flow continues to work unchanged as a fallback.",
+  "branchName": "fix/unified-panel",
+  "description": "Unified Detail & Staging Panel — Replace stacked DetailPanel + StatusPanel with a single context-aware right panel that switches between staging and commit details based on graph selection. Add a virtual WIP row to the commit graph representing uncommitted changes.",
   "userStories": [
     {
-      "id": "US-GL-001",
-      "title": "OAuth PKCE helpers and loopback callback server",
-      "description": "As a developer, I want main-process helpers to generate PKCE code verifiers/challenges and to briefly run a localhost HTTP server that captures the OAuth authorization code redirect, so that later stories can compose them into a full OAuth flow.",
+      "id": "US-UP-001",
+      "title": "WIP row data model and status integration",
+      "description": "As a developer, I need the CommitGraph component to maintain a WIP (Work In Progress) data model that tracks uncommitted working tree changes, so that later stories can render it as a virtual row.",
       "acceptanceCriteria": [
-        "New file src/main/gitlab-oauth.ts exports helpers: generatePkcePair() returning { verifier, challenge } using SHA-256 (base64url-encoded), and startLoopbackServer(port: number) returning a Promise<{ code: string, state: string }> that resolves when /callback is hit with ?code=... query parameters",
-        "generatePkcePair uses crypto.randomBytes(32) for the verifier (base64url, no padding), and crypto.createHash('sha256').update(verifier).digest('base64url') for the challenge",
-        "startLoopbackServer listens on exactly http.createServer().listen(47823, '127.0.0.1') — fixed port so the redirect_uri registered with GitLab always matches",
-        "If the port is already in use, the server rejects with a clear error: 'Port 47823 is already in use — close the app using it and try again'",
-        "On GET /callback, the server: (1) reads ?code and ?state from the URL, (2) responds with a minimal HTML page saying 'GitSlop login successful — you can close this tab', (3) closes itself after a 500ms delay to ensure the browser received the response, (4) resolves the Promise with { code, state }",
-        "On GET /callback with ?error=... (user denied), the server responds with an error HTML page and rejects the Promise with the error description",
-        "The server times out and rejects after 120 seconds if no callback arrives",
-        "Add a unit test in src/main/__tests__/gitlab-oauth.test.ts: verifies generatePkcePair produces distinct verifier/challenge pairs, that challenge === base64url(sha256(verifier)), and that the verifier+challenge are URL-safe (no +/= chars)",
-        "Typecheck and existing tests still pass"
+        "CommitGraph maintains a `wipStatus` state: { staged: number, unstaged: number, untracked: number } | null",
+        "wipStatus is loaded on initial mount by calling window.electronAPI.git.getStatus(repoPath) and counting the arrays",
+        "wipStatus updates when repo:changed events fire (via the existing onRepoChanged listener)",
+        "wipStatus is null when all counts are zero (clean working tree)",
+        "A new `isWipSelected` state (boolean, default false) tracks whether the WIP row is selected",
+        "When isWipSelected is true, onCommitSelect is called with null (no commit detail to show — the parent will use this to switch to staging mode)",
+        "Export a new WipStatus type from CommitGraph.tsx: { staged: number, unstaged: number, untracked: number }",
+        "Typecheck passes, existing tests pass"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "crypto is built into Node, no new deps. Use 'http' module for the loopback server — don't reach for express. Port 47823 is arbitrary but must match what the user registers as their OAuth app's Redirect URI. Document this constant clearly so future maintainers understand why it can't change casually. GitLab's OAuth docs: https://docs.gitlab.com/ee/api/oauth2.html"
+      "notes": "Don't render the WIP row yet — just set up the data model and selection state. Use the existing getStatus IPC call. The status data shape from the IPC is { branch, upstream, ahead, behind, staged: FileStatus[], unstaged: FileStatus[], untracked: FileStatus[] } — count the array lengths."
     },
     {
-      "id": "US-GL-002",
-      "title": "End-to-end OAuth flow — authorize, exchange code, return user + token",
-      "description": "As a user, I want to click a single 'Login with GitLab' button, authorize GitSlop in my browser, and return to find a new GitLab account added, so that I don't have to manually create and paste a Personal Access Token.",
+      "id": "US-UP-002",
+      "title": "Render WIP row in commit graph",
+      "description": "As a user, I want to see a WIP row at the top of the commit graph when I have uncommitted changes, so that I can click it to access the staging area.",
       "acceptanceCriteria": [
-        "src/main/gitlab-oauth.ts exports an async function startOAuthFlow({ instanceUrl, clientId }) that: (1) generates a PKCE pair, (2) generates a random state token, (3) constructs the GitLab authorize URL: {instanceUrl}/oauth/authorize?client_id={id}&redirect_uri=http://localhost:47823/callback&response_type=code&state={state}&scope=api+read_user&code_challenge={challenge}&code_challenge_method=S256, (4) opens it in the user's default browser via electron.shell.openExternal, (5) starts the loopback server and awaits the callback, (6) verifies the returned state matches, (7) POSTs to {instanceUrl}/oauth/token with grant_type=authorization_code, code, client_id, redirect_uri, code_verifier, (8) parses the JSON response { access_token, refresh_token, expires_in, token_type }, (9) calls GET /api/v4/user with the new access token to fetch the user profile, (10) returns { user, accessToken, refreshToken, expiresAt } where expiresAt = Date.now() + expires_in * 1000",
-        "New IPC handler gitlab:startOAuthFlow in src/main/index.ts that accepts { instanceUrl, clientId, label? } from the renderer, calls startOAuthFlow, then stores the result as a new IntegrationAccount with authType: 'oauth' and the refresh token fields alongside the encrypted access token (see US-GL-003). Returns the account info (same shape as gitlab:addAccount's return value) so the UI can render the new row without reloading",
-        "If the user closes the browser without authorizing, the loopback server's 120s timeout fires and the IPC handler returns { success: false, error: 'OAuth login timed out or was cancelled' }",
-        "If the state mismatches or the token exchange fails, the IPC handler returns { success: false, error: <specific error message> } — do not crash",
-        "Preload: expose window.electronAPI.gitlab.startOAuthFlow(opts) wrapping the IPC",
-        "Type definitions in src/renderer/src/hooks/useLayoutState.ts gitlab: block include startOAuthFlow",
-        "Typecheck passes, existing tests still pass"
+        "When wipStatus is non-null, a WIP row renders at the top of the commit graph (index 0 in react-window)",
+        "All real commit indices shift by 1 when the WIP row is visible (itemCount = commits.length + 1 when wipStatus is present, commits.length otherwise)",
+        "The WIP row uses a dotted/dashed circle node on lane 0 (HEAD lane) with a dashed line connecting to the HEAD commit below",
+        "The WIP row message column shows 'Working Tree Changes'",
+        "The WIP row shows a change summary in the author column area: e.g. '2 staged, 5 unstaged' or '3 files changed'",
+        "The WIP row has no hash, no date column content",
+        "Clicking the WIP row selects it (highlighted with the selected row style) and sets isWipSelected to true",
+        "Clicking a real commit row sets isWipSelected to false and works as before",
+        "The WIP row is hidden when wipStatus is null (clean working tree)",
+        "All existing click handlers, context menus, keyboard navigation, and scroll-to-commit work correctly with the index offset",
+        "Typecheck passes, existing tests pass"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "electron.shell.openExternal is already imported in main/index.ts — use it. Use the existing gitlabApiRequest helper for the /api/v4/user call. Use raw https for the /oauth/token POST since it's not under /api/v4. GitLab's POST /oauth/token accepts application/x-www-form-urlencoded OR application/json — use JSON for consistency. The response body includes 'created_at' as a unix timestamp in seconds AND 'expires_in' in seconds; compute expiresAt from Date.now() + expires_in*1000 to avoid clock-skew headaches."
+      "passes": false,
+      "notes": "The WIP row is NOT a real GraphNode — create a special rendering path in the row component. Check `index === 0 && wipStatus` to render the WIP row, otherwise render commits[index - wipOffset]. wipOffset = wipStatus ? 1 : 0. Update handleRowClick, handleRowContextMenu, keyboard nav (up/down), handleRowsRendered, selectedIndex, headInfo, and the scroll-to-commit listener to account for the offset. The SVG graph renderer also needs to handle the WIP node — draw a dashed circle at lane 0, row 0, with a dashed line to the HEAD commit at row 1."
     },
     {
-      "id": "US-GL-003",
-      "title": "Extended IntegrationAccount with refresh-token auto-refresh",
-      "description": "As a user, I want my GitLab OAuth session to automatically refresh when the access token expires, so that I don't have to re-authorize every few hours.",
+      "id": "US-UP-003",
+      "title": "Unified right panel — mode switching in AppLayout",
+      "description": "As a user, I want the right panel to show the staging area when WIP is selected and commit details when a commit is selected, so that I have one clean panel instead of two cramped stacked panels.",
       "acceptanceCriteria": [
-        "IntegrationAccount interface in src/main/index.ts gains optional fields: authType?: 'pat' | 'oauth' (default 'pat'), refreshToken?: string (encrypted via encryptToken), expiresAt?: number (ms since epoch), clientId?: string (OAuth only — needed to refresh)",
-        "New helper refreshGitLabToken(account: IntegrationAccount): Promise<IntegrationAccount | null> in src/main/gitlab-oauth.ts that: (1) decrypts the stored refresh token, (2) POSTs to {account.instanceUrl}/oauth/token with grant_type=refresh_token, refresh_token, client_id, (3) on success returns a cloned account with new encrypted access+refresh tokens and updated expiresAt, (4) on failure (refresh token expired or revoked) returns null",
-        "New helper ensureFreshToken(account) in gitlab-oauth.ts: if account.authType === 'oauth' and account.expiresAt is within 60 seconds of now (or already past), calls refreshGitLabToken, persists the updated account to electron-store, returns the decrypted access token. If authType === 'pat' or no expiresAt, returns the decrypted account.token as-is (unchanged behavior for existing PAT accounts)",
-        "All existing gitlab:* IPC handlers (getAccounts, listMergeRequests, getMergeRequest, createMergeRequest, etc.) that currently decrypt account.token must instead call ensureFreshToken(account) to get a guaranteed-valid token",
-        "If ensureFreshToken returns null (refresh failed), the account is kept in the store but the IPC handler returns { success: false, error: 'GitLab session expired — please re-authorize' } and marks the account row with an 'error' field so the UI shows a 'Re-login' hint",
-        "Legacy PAT accounts (no authType field) continue to work unchanged — the authType check treats undefined as 'pat'",
-        "Typecheck passes, existing tests still pass"
+        "AppLayout renders a single panel in the right column that switches between StatusPanel and DetailPanel based on whether WIP or a commit is selected",
+        "When selectedCommit is null (WIP selected or nothing selected): StatusPanel is shown, DetailPanel is hidden",
+        "When selectedCommit is non-null (real commit selected): DetailPanel is shown, StatusPanel is hidden",
+        "CRITICAL: Both StatusPanel and DetailPanel must remain mounted at all times — use CSS display:none to hide the inactive one, do NOT conditionally unmount. This preserves commit form state (subject, body, amend) when switching between modes.",
+        "The old stacked layout (DetailPanel on top, StatusPanel on bottom, drag handle between them) is removed",
+        "The detailStagingSplit drag handle is removed",
+        "Both 'right' and 'bottom' panel position variants use the unified panel",
+        "The panel has no collapse toggle in detail mode. In staging mode, individual sections (unstaged/staged) are collapsible (handled by StatusPanel internally, see US-UP-004)",
+        "On initial repo load: if there are working tree changes, WIP is auto-selected (staging visible). If clean, HEAD is auto-selected (detail visible)",
+        "Typecheck passes, existing tests pass"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Be careful with the atomic read-modify-write of the account list in electron-store. After refreshGitLabToken returns the updated account, re-read gitlabAccounts from the store, replace the matching id, and write it back. Do NOT serialize the in-memory account back to the store since other operations may have written to it concurrently. GitLab refresh tokens are single-use — each refresh returns a NEW refresh_token that replaces the old one. If you don't persist the new refresh token, the next refresh will fail."
+      "passes": false,
+      "notes": "The key implementation pattern: render both <StatusPanel style={{display: isWipOrNothingSelected ? undefined : 'none'}} /> and <DetailPanel style={{display: isWipOrNothingSelected ? 'none' : undefined}} /> inside a single container div. This keeps both mounted for state preservation. Remove the isDraggingDetailSplit state, handleDetailSplitDragStart, detailStagingSplit from useLayoutState, and the drag handle div between the two panels. The selectedCommit state in AppLayout already tracks this — when CommitGraph calls onCommitSelect(null) for WIP selection, selectedCommit becomes null, which switches to staging mode."
     },
     {
-      "id": "US-GL-004",
-      "title": "Settings UI — OAuth tab in Add GitLab Account form",
-      "description": "As a user, I want the Add GitLab Account form to offer two login methods (OAuth browser login and Personal Access Token), with clear setup instructions for self-hosted instances, so that I can pick whichever matches my GitLab instance's capabilities.",
+      "id": "US-UP-004",
+      "title": "Staging panel — collapsible Unstaged and Staged sections",
+      "description": "As a user, I want to individually collapse the Unstaged Changes and Staged Changes sections in the staging panel like GitKraken, so that I can focus on one section at a time.",
       "acceptanceCriteria": [
-        "GitLabSection in src/renderer/src/components/SettingsPanel.tsx (around line 1537) gains a method tab at the top of the Add Account form: two buttons 'OAuth' and 'Personal Access Token', styled similarly to the existing view-mode toggles elsewhere in the app",
-        "OAuth tab contents: Instance URL input (defaults to https://gitlab.com), Account Label input, Client ID / Application ID input with a hint 'Paste the Application ID from your GitLab OAuth app', a collapsible 'How to register an OAuth app' section that expands to show step-by-step instructions, and a 'Login with GitLab' button",
-        "The collapsible instructions read: 'On your GitLab instance, go to User Settings → Applications → Add new application. Name: GitSlop. Redirect URI: http://localhost:47823/callback (exactly this, including the port). Confidential: UNCHECKED. Scopes: api, read_user. Save and paste the Application ID above.' Include a clickable 'Open applications page' link that launches {instanceUrl}/-/user_settings/applications in the user's browser",
-        "Clicking 'Login with GitLab' disables the button, shows a 'Opening browser, waiting for authorization…' status, and calls window.electronAPI.gitlab.startOAuthFlow({ instanceUrl, clientId, label }). On success, clears the form, reloads the accounts list, and closes the add form. On failure, shows the error message inline",
-        "PAT tab contents are unchanged — same form, same behavior as current",
-        "The two tabs remember their own form state while the user switches between them (don't reset instanceUrl when switching tabs)",
-        "A small one-line note above the tabs: 'OAuth requires registering an application on your GitLab instance. PAT works on any instance without setup.'",
-        "Typecheck passes. Manually verify in browser via `npm run dev` that both tabs render, tabs can be switched, OAuth instructions expand/collapse, and the 'Open applications page' link opens the correct URL"
+        "The staging panel (StatusPanel) has two distinct sections: 'Unstaged Changes' header with file count badge and collapse chevron, and 'Staged Changes' header with file count badge and collapse chevron",
+        "Clicking a section header toggles its collapsed/expanded state",
+        "When collapsed, only the header row is visible (chevron + title + file count + Stage All/Unstage All button)",
+        "The commit form (subject input, body textarea, commit button, amend/signoff/gpg checkboxes) is always visible below the Staged Changes section — it is never collapsible",
+        "Collapse state persists when switching between WIP and commit detail modes (since StatusPanel stays mounted)",
+        "Stage All button is in the Unstaged section header, Unstage All is in the Staged section header",
+        "File click, right-click context menu, and drag-and-drop between sections all still work",
+        "Typecheck passes, existing tests pass"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Reuse the existing .ghInput, .ghLoginBtn, .ghLoginSection CSS classes. Add a new .ghMethodTabs class for the tab row if needed. The collapsible instructions can be a simple <details>/<summary> or a React useState toggle — either works. The OAuth flow is opt-in so keep PAT as the default tab for discoverability (users who haven't registered an app shouldn't land on a form that needs a Client ID they don't have)."
+      "passes": false,
+      "notes": "StatusPanel already has a file list rendering system. The change is to split the single file list into two sections with independent collapse state. Use useState<boolean> for unstagedCollapsed and stagedCollapsed (default false = expanded). The existing 'Stage All' and 'Unstage All' buttons can move into the section headers. Keep the existing onFileSelect callback for routing diffs to the center panel."
+    },
+    {
+      "id": "US-UP-005",
+      "title": "Layout state cleanup and dead code removal",
+      "description": "As a developer, I want to remove unused layout state fields and dead code from the old stacked panel layout, so that the codebase stays clean.",
+      "acceptanceCriteria": [
+        "Remove detailStagingSplit field from useLayoutState (or leave as deprecated no-op if removing causes migration issues with stored localStorage data)",
+        "Remove detailPanelCollapsed field and toggleDetailPanelCollapse from useLayoutState",
+        "Remove stagingCollapsed field and toggleStagingCollapse from useLayoutState if no longer used (the new collapse is per-section inside StatusPanel)",
+        "Remove the isDraggingDetailSplit state, handleDetailSplitDragStart, and handleDetailSplitDoubleClick from AppLayout",
+        "Remove any leftover references to the old stacked panel layout in AppLayout, MainContent, or other files",
+        "Verify no console warnings about unused variables or imports",
+        "Typecheck passes, existing tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Be careful with localStorage migration — if the stored layout state has detailStagingSplit and the code tries to read it, it should gracefully handle the missing field. The simplest approach: keep the field in the interface but stop reading/writing it, then remove it in a future version. Or add a migration that strips it."
+    },
+    {
+      "id": "US-UP-006",
+      "title": "Working tree diffs in center panel — verify and fix",
+      "description": "As a user, I want clicking a file in the staging area to open its diff in the center panel, so that I get a full-width view of my changes.",
+      "acceptanceCriteria": [
+        "Clicking a staged or unstaged file in the staging panel opens its diff in the center panel (replacing the commit graph)",
+        "The center panel header shows the file path and indicates it's a working tree diff (not a commit diff)",
+        "Clicking 'Back to Graph' returns to the commit graph with the WIP row still selected",
+        "The diff view mode toggle (Diff / Full / File) works for working tree diffs",
+        "Untracked files show in File view (no diff available for new files)",
+        "After committing changes, the center panel returns to the graph view and the WIP row updates or disappears if the tree is now clean",
+        "Typecheck passes, existing tests pass"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "This functionality mostly exists already via the workingTreeFile prop system added in the staging diff overhaul. This story is primarily about verifying it still works after the panel refactor and fixing any broken connections. The key flow: StatusPanel calls onFileSelect → AppLayout sets workingTreeFile → RepoView shows the diff in center panel. Make sure the 'Back to Graph' button clears workingTreeFile AND keeps the WIP row selected."
     }
   ]
 }
