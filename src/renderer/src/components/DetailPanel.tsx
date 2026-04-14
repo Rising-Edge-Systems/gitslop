@@ -660,7 +660,7 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
                   onClick={handleCopySha}
                   title="Click to copy full SHA"
                 >
-                  {commit.hash}
+                  {commit!.hash}
                 </code>
                 <button className={styles.copyBtn} onClick={handleCopySha} title="Copy SHA">
                   {copiedSha ? (
@@ -675,24 +675,24 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
               </div>
               <div className={styles.metaRow}>
                 <User size={14} className={styles.metaIcon} />
-                <span>{commit.authorName} &lt;{commit.authorEmail}&gt;</span>
+                <span>{commit!.authorName} &lt;{commit!.authorEmail}&gt;</span>
               </div>
               <div className={styles.metaRow}>
                 <Calendar size={14} className={styles.metaIcon} />
-                <span className={styles.dateAbsolute}>{formatAbsoluteDate(commit.authorDate)}</span>
-                <span className={styles.dateRelative}>({formatRelativeDate(commit.authorDate)})</span>
+                <span className={styles.dateAbsolute}>{formatAbsoluteDate(commit!.authorDate)}</span>
+                <span className={styles.dateRelative}>({formatRelativeDate(commit!.authorDate)})</span>
               </div>
               {hasSig && (
                 <div className={styles.metaRow}>
                   {sigOk ? <ShieldCheck size={14} className={styles.sigGood} /> : sigBad ? <ShieldAlert size={14} className={styles.sigBad} /> : <ShieldAlert size={14} className={styles.metaIcon} />}
-                  <span>{sigOk ? 'Verified' : sigBad ? 'Bad signature' : commit.signatureStatus}</span>
+                  <span>{sigOk ? 'Verified' : sigBad ? 'Bad signature' : commit!.signatureStatus}</span>
                 </div>
               )}
             </div>
 
             {/* Body */}
-            {commit.body && (
-              <pre className={styles.body}>{commit.body}</pre>
+            {commit!.body && (
+              <pre className={styles.body}>{commit!.body}</pre>
             )}
 
             {/* Branches containing this commit */}
