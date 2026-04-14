@@ -215,6 +215,8 @@ declare global {
         listPullRequests: (owner: string, repo: string, state?: string) => Promise<GitServiceResult>
         getPullRequest: (owner: string, repo: string, prNumber: number) => Promise<GitServiceResult>
         createPullRequest: (owner: string, repo: string, opts: { title: string; body: string; head: string; base: string; draft?: boolean }) => Promise<GitServiceResult>
+        listIssues: (owner: string, repo: string, state?: string) => Promise<GitServiceResult>
+        getIssue: (owner: string, repo: string, issueNumber: number) => Promise<GitServiceResult>
       }
       gitlab: {
         login: (pat: string, instanceUrl?: string) => Promise<GitServiceResult>

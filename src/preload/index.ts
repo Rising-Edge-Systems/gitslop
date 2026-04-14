@@ -424,7 +424,11 @@ const electronAPI = {
     getPullRequest: (owner: string, repo: string, prNumber: number): Promise<GitServiceResult> =>
       ipcRenderer.invoke('github:getPullRequest', owner, repo, prNumber),
     createPullRequest: (owner: string, repo: string, opts: { title: string; body: string; head: string; base: string; draft?: boolean }): Promise<GitServiceResult> =>
-      ipcRenderer.invoke('github:createPullRequest', owner, repo, opts)
+      ipcRenderer.invoke('github:createPullRequest', owner, repo, opts),
+    listIssues: (owner: string, repo: string, state?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:listIssues', owner, repo, state),
+    getIssue: (owner: string, repo: string, issueNumber: number): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('github:getIssue', owner, repo, issueNumber)
   },
   gitlab: {
     login: (pat: string, instanceUrl?: string): Promise<GitServiceResult> =>

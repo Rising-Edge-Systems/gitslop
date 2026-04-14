@@ -920,6 +920,90 @@ ipcMain.handle('github:getPullRequest', async (_event, owner: string, repo: stri
   }
 })
 
+ipcMain.handle('github:listIssues', async (_event, owner: string, repo: string, state?: string) => {
+  const token = getGitHubToken()
+  if (!token) return { success: false, error: 'Not logged in to GitHub' }
+  try {
+    const queryState = state || 'open'
+    const { statusCode, data } = await githubApiRequest(
+      'GET',
+      `/repos/${owner}/${repo}/issues?state=${queryState}&per_page=50&sort=updated&direction=desc`,
+      token
+    )
+    if (statusCode !== 200) {
+      const parsed = JSON.parse(data)
+      return { success: false, error: parsed.message || 'Failed to fetch issues' }
+    }
+    const items = JSON.parse(data)
+    // GitHub issues endpoint includes PRs — filter them out
+    const issues = items
+      .filter((item: any) => !item.pull_request)
+      .map((issue: any) => ({
+        number: issue.number,
+        title: issue.title,
+        state: issue.state,
+        author: issue.user?.login || 'unknown',
+        authorAvatar: issue.user?.avatar_url || '',
+        labels: (issue.labels || []).map((l: { name: string; color: string }) => ({ name: l.name, color: `#${l.color}` })),
+        assignees: (issue.assignees || []).map((a: any) => a.login),
+        createdAt: issue.created_at,
+        updatedAt: issue.updated_at,
+        commentCount: issue.comments || 0,
+        htmlUrl: issue.html_url,
+        body: issue.body || ''
+      }))
+    return { success: true, data: issues }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch issues' }
+  }
+})
+
+ipcMain.handle('github:getIssue', async (_event, owner: string, repo: string, issueNumber: number) => {
+  const token = getGitHubToken()
+  if (!token) return { success: false, error: 'Not logged in to GitHub' }
+  try {
+    const [issueRes, commentsRes] = await Promise.all([
+      githubApiRequest('GET', `/repos/${owner}/${repo}/issues/${issueNumber}`, token),
+      githubApiRequest('GET', `/repos/${owner}/${repo}/issues/${issueNumber}/comments?per_page=50`, token)
+    ])
+
+    if (issueRes.statusCode !== 200) {
+      const parsed = JSON.parse(issueRes.data)
+      return { success: false, error: parsed.message || 'Failed to fetch issue' }
+    }
+
+    const issue = JSON.parse(issueRes.data)
+    const comments = commentsRes.statusCode === 200 ? JSON.parse(commentsRes.data).map((c: any) => ({
+      id: c.id,
+      author: c.user?.login || 'unknown',
+      authorAvatar: c.user?.avatar_url || '',
+      body: c.body || '',
+      createdAt: c.created_at
+    })) : []
+
+    return {
+      success: true,
+      data: {
+        number: issue.number,
+        title: issue.title,
+        state: issue.state,
+        author: issue.user?.login || 'unknown',
+        authorAvatar: issue.user?.avatar_url || '',
+        labels: (issue.labels || []).map((l: { name: string; color: string }) => ({ name: l.name, color: `#${l.color}` })),
+        assignees: (issue.assignees || []).map((a: any) => a.login),
+        createdAt: issue.created_at,
+        updatedAt: issue.updated_at,
+        commentCount: issue.comments || 0,
+        htmlUrl: issue.html_url,
+        body: issue.body || '',
+        comments
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch issue details' }
+  }
+})
+
 ipcMain.handle('github:createPullRequest', async (_event, owner: string, repo: string, opts: { title: string; body: string; head: string; base: string; draft?: boolean }) => {
   const token = getGitHubToken()
   if (!token) return { success: false, error: 'Not logged in to GitHub' }
