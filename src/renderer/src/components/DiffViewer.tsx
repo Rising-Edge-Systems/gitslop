@@ -566,9 +566,6 @@ export function DiffViewer({
   const [mode, setMode] = useState<DiffViewMode>(initialMode)
   const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT)
   const [largeDiffExpanded, setLargeDiffExpanded] = useState(false)
-  const leftPaneRef = useRef<HTMLDivElement>(null)
-  const rightPaneRef = useRef<HTMLDivElement>(null)
-  const syncingRef = useRef(false)
 
   const parsed = useMemo(() => parseDiff(diffContent), [diffContent])
   const language = useMemo(() => detectLanguage(filePath), [filePath])
@@ -598,24 +595,6 @@ export function DiffViewer({
       onDiscardPatch: onDiscardHunk
     }
   }, [stagingMode, onStageHunk, onUnstageHunk, onDiscardHunk, parsed.fileHeader])
-
-  // ─── Scroll Sync (side-by-side) ─────────────────────────────────────────
-
-  const handleScrollSync = useCallback((source: 'left' | 'right') => {
-    if (syncingRef.current) return
-    syncingRef.current = true
-
-    const sourceEl = source === 'left' ? leftPaneRef.current : rightPaneRef.current
-    const targetEl = source === 'left' ? rightPaneRef.current : leftPaneRef.current
-
-    if (sourceEl && targetEl) {
-      targetEl.scrollTop = sourceEl.scrollTop
-    }
-
-    requestAnimationFrame(() => {
-      syncingRef.current = false
-    })
-  }, [])
 
   // ─── Binary file ────────────────────────────────────────────────────────
 
@@ -755,9 +734,6 @@ export function DiffViewer({
         <SideBySideDiffView
           hunks={displayHunks}
           language={language}
-          leftPaneRef={leftPaneRef}
-          rightPaneRef={rightPaneRef}
-          onScrollSync={handleScrollSync}
           hunkActions={hunkActions}
         />
       )}
@@ -1297,18 +1273,13 @@ function findRemovedPairKey(hunk: DiffHunk, addedIdx: number): string | null {
 function SideBySideDiffView({
   hunks,
   language,
-  leftPaneRef,
-  rightPaneRef,
-  onScrollSync,
   hunkActions
 }: {
   hunks: DiffHunk[]
   language: string | null
-  leftPaneRef: React.RefObject<HTMLDivElement | null>
-  rightPaneRef: React.RefObject<HTMLDivElement | null>
-  onScrollSync: (source: 'left' | 'right') => void
   hunkActions: HunkActionsConfig | null
 }): React.JSX.Element {
+  const containerRef = useRef<HTMLDivElement>(null)
   const { pairs, pairMeta, hunkHeaders } = useMemo(() => pairLinesForSideBySide(hunks), [hunks])
 
   // Shared line-selection hook (same UX as inline view)
@@ -1328,7 +1299,6 @@ function SideBySideDiffView({
   }, [pairs])
 
   // Track hunk header positions for display
-  const hunkHeaderSet = useMemo(() => new Set(hunkHeaders.map((h) => h.index)), [hunkHeaders])
   const hunkHeaderMap = useMemo(() => {
     const map = new Map<number, { header: string; suffix: string; hunk: DiffHunk; hunkIdx: number }>()
     for (let i = 0; i < hunkHeaders.length; i++) {
@@ -1338,41 +1308,32 @@ function SideBySideDiffView({
     return map
   }, [hunkHeaders, hunks])
 
-  // Compute scrollbar markers for each pane from paired lines
-  const sbsMarkers = useMemo(() => {
-    const leftTypes: Array<'added' | 'removed' | 'context' | null> = []
-    const rightTypes: Array<'added' | 'removed' | 'context' | null> = []
+  // Compute unified scrollbar markers from paired lines
+  const unifiedMarkers = useMemo(() => {
+    const types: Array<'added' | 'removed' | 'context' | null> = []
     for (const pair of pairs) {
-      // Left pane: only show removed markers (context lines are neutral)
-      if (pair.left) {
-        leftTypes.push(pair.left.type === 'removed' ? 'removed' : 'context')
+      if (pair.left?.type === 'removed') {
+        types.push('removed')
+      } else if (pair.right?.type === 'added') {
+        types.push('added')
+      } else if (pair.left || pair.right) {
+        types.push('context')
       } else {
-        leftTypes.push(null)
-      }
-      // Right pane: only show added markers
-      if (pair.right) {
-        rightTypes.push(pair.right.type === 'added' ? 'added' : 'context')
-      } else {
-        rightTypes.push(null)
+        types.push(null)
       }
     }
-    return {
-      left: computeMarkers(leftTypes, pairs.length),
-      right: computeMarkers(rightTypes, pairs.length)
-    }
+    return computeMarkers(types, types.length)
   }, [pairs])
 
   return (
-    <div className={styles.sbsView}>
-      {/* Left pane (old) */}
-      <div className={styles.diffWithMarkers}>
-      <div
-        className={`${styles.sbsPane} ${styles.sbsLeft}`}
-        ref={leftPaneRef}
-        onScroll={() => onScrollSync('left')}
-      >
-        <div className={styles.sbsPaneInner}>
-        <div className={styles.sbsPaneHeader}>Old</div>
+    <div className={styles.diffWithMarkers}>
+      <div className={styles.fullDiffContainer} ref={containerRef}>
+        {/* Sticky column headers */}
+        <div className={styles.fullDiffStickyHeaders}>
+          <div className={styles.sbsPaneHeader}>Old</div>
+          <div className={styles.sbsPaneHeader}>New</div>
+        </div>
+
         {pairs.map((pair, idx) => {
           const hh = hunkHeaderMap.get(idx)
           const meta = pairMeta[idx]
@@ -1380,7 +1341,7 @@ function SideBySideDiffView({
             ? wordDiffCache.get(`${pair.left.oldLineNum}:${pair.right.newLineNum}`)
             : undefined
 
-          // Line-selection state for the LEFT (removed) side
+          // Line-selection state for LEFT (removed) side
           const leftSelectable =
             !!hunkActions &&
             pair.left !== null &&
@@ -1391,66 +1352,7 @@ function SideBySideDiffView({
             ? (getHunkSelection(meta.hunkIdx)?.has(meta.leftLineIdx!) ?? false)
             : false
 
-          return (
-            <React.Fragment key={idx}>
-              {hh && (
-                <div className={styles.sbsHunkHeader}>
-                  <span className={styles.sbsHunkHeaderText}>{hh.header}</span>
-                </div>
-              )}
-              <div
-                className={`${styles.sbsLine} ${pair.left ? (sbsLineTypeClass[pair.left.type] || '') : styles.sbsLineEmpty} ${leftSelected ? styles.sbsLineSelected : ''}`}
-              >
-                {hunkActions && (
-                  leftSelectable ? (
-                    <span
-                      className={`${styles.lineSelect} ${styles.lineSelectActive}`}
-                      onClick={(e) => { e.stopPropagation(); toggleLineSelection(meta.hunkIdx, meta.leftLineIdx!, e) }}
-                      title="Click to select line (shift-click for range)"
-                    >
-                      {leftSelected ? '●' : '○'}
-                    </span>
-                  ) : (
-                    <span className={styles.lineSelect} />
-                  )
-                )}
-                <span className={styles.sbsLineNum}>
-                  {pair.left?.oldLineNum ?? pair.left?.newLineNum ?? ''}
-                </span>
-                <span className={styles.sbsLineContent}>
-                  {pair.left ? (
-                    wordDiff ? (
-                      <WordDiffContent segments={wordDiff.oldSegments} lineType="removed" />
-                    ) : (
-                      <SyntaxHighlightedContent text={pair.left.content} language={language} />
-                    )
-                  ) : ''}
-                </span>
-              </div>
-            </React.Fragment>
-          )
-        })}
-        </div>
-      </div>
-      <ScrollbarMarkers markers={sbsMarkers.left} containerRef={leftPaneRef} />
-      </div>
-
-      {/* Right pane (new) */}
-      <div className={styles.diffWithMarkers}>
-      <div
-        className={`${styles.sbsPane}`}
-        ref={rightPaneRef}
-        onScroll={() => onScrollSync('right')}
-      >
-        <div className={styles.sbsPaneInner}>
-        <div className={styles.sbsPaneHeader}>New</div>
-        {pairs.map((pair, idx) => {
-          const hh = hunkHeaderMap.get(idx)
-          const meta = pairMeta[idx]
-          const wordDiff = pair.left && pair.right && pair.left.type === 'removed' && pair.right.type === 'added'
-            ? wordDiffCache.get(`${pair.left.oldLineNum}:${pair.right.newLineNum}`)
-            : undefined
-
+          // Line-selection state for RIGHT (added) side
           const rightSelectable =
             !!hunkActions &&
             pair.right !== null &&
@@ -1464,8 +1366,9 @@ function SideBySideDiffView({
           return (
             <React.Fragment key={idx}>
               {hh && (
-                <div className={styles.sbsHunkHeader}>
+                <div className={styles.fullHunkDivider}>
                   <span className={styles.sbsHunkHeaderText}>{hh.header}</span>
+                  {hh.suffix && <span className={styles.hunkHeaderSuffix}>{hh.suffix}</span>}
                   <HunkActions
                     hunk={hh.hunk}
                     actions={hunkActions}
@@ -1475,42 +1378,78 @@ function SideBySideDiffView({
                   />
                 </div>
               )}
-              <div
-                className={`${styles.sbsLine} ${pair.right ? (sbsLineTypeClass[pair.right.type] || '') : styles.sbsLineEmpty} ${rightSelected ? styles.sbsLineSelected : ''}`}
-              >
-                {hunkActions && (
-                  rightSelectable ? (
-                    <span
-                      className={`${styles.lineSelect} ${styles.lineSelectActive}`}
-                      onClick={(e) => { e.stopPropagation(); toggleLineSelection(meta.hunkIdx, meta.rightLineIdx!, e) }}
-                      title="Click to select line (shift-click for range)"
-                    >
-                      {rightSelected ? '●' : '○'}
+              <div className={styles.fullDiffRow}>
+                {/* Left cell (old) */}
+                <div className={styles.fullDiffCellLeft}>
+                  <div
+                    className={`${styles.sbsLine} ${pair.left ? (sbsLineTypeClass[pair.left.type] || '') : styles.sbsLineEmpty} ${leftSelected ? styles.sbsLineSelected : ''}`}
+                  >
+                    {hunkActions && (
+                      leftSelectable ? (
+                        <span
+                          className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+                          onClick={(e) => { e.stopPropagation(); toggleLineSelection(meta.hunkIdx, meta.leftLineIdx!, e) }}
+                          title="Click to select line (shift-click for range)"
+                        >
+                          {leftSelected ? '●' : '○'}
+                        </span>
+                      ) : (
+                        <span className={styles.lineSelect} />
+                      )
+                    )}
+                    <span className={styles.sbsLineNum}>
+                      {pair.left?.oldLineNum ?? pair.left?.newLineNum ?? ''}
                     </span>
-                  ) : (
-                    <span className={styles.lineSelect} />
-                  )
-                )}
-                <span className={styles.sbsLineNum}>
-                  {pair.right?.newLineNum ?? pair.right?.oldLineNum ?? ''}
-                </span>
-                <span className={styles.sbsLineContent}>
-                  {pair.right ? (
-                    wordDiff ? (
-                      <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
-                    ) : (
-                      <SyntaxHighlightedContent text={pair.right.content} language={language} />
-                    )
-                  ) : ''}
-                </span>
+                    <span className={styles.sbsLineContent}>
+                      {pair.left ? (
+                        wordDiff ? (
+                          <WordDiffContent segments={wordDiff.oldSegments} lineType="removed" />
+                        ) : (
+                          <SyntaxHighlightedContent text={pair.left.content} language={language} />
+                        )
+                      ) : ''}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Right cell (new) */}
+                <div className={styles.fullDiffCellRight}>
+                  <div
+                    className={`${styles.sbsLine} ${pair.right ? (sbsLineTypeClass[pair.right.type] || '') : styles.sbsLineEmpty} ${rightSelected ? styles.sbsLineSelected : ''}`}
+                  >
+                    {hunkActions && (
+                      rightSelectable ? (
+                        <span
+                          className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+                          onClick={(e) => { e.stopPropagation(); toggleLineSelection(meta.hunkIdx, meta.rightLineIdx!, e) }}
+                          title="Click to select line (shift-click for range)"
+                        >
+                          {rightSelected ? '●' : '○'}
+                        </span>
+                      ) : (
+                        <span className={styles.lineSelect} />
+                      )
+                    )}
+                    <span className={styles.sbsLineNum}>
+                      {pair.right?.newLineNum ?? pair.right?.oldLineNum ?? ''}
+                    </span>
+                    <span className={styles.sbsLineContent}>
+                      {pair.right ? (
+                        wordDiff ? (
+                          <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
+                        ) : (
+                          <SyntaxHighlightedContent text={pair.right.content} language={language} />
+                        )
+                      ) : ''}
+                    </span>
+                  </div>
+                </div>
               </div>
             </React.Fragment>
           )
         })}
-        </div>
       </div>
-      <ScrollbarMarkers markers={sbsMarkers.right} containerRef={rightPaneRef} />
-      </div>
+      <ScrollbarMarkers markers={unifiedMarkers} containerRef={containerRef} />
     </div>
   )
 }
