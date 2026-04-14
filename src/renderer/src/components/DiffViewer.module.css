@@ -693,11 +693,13 @@
   width: 50%;
   min-width: 0;
   border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
 }
 
 .fullDiffCellRight {
   width: 50%;
   min-width: 0;
+  background: var(--bg-secondary);
 }
 
 /* Sticky header row that sits at the top of the single container */
