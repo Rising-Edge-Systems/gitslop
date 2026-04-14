@@ -705,6 +705,48 @@
   z-index: 2;
 }
 
+/* ─── FullDiffView single-container layout ─────────────────────────────── */
+
+/* Outer scroll container — replaces the two separate scrollable panes */
+.fullDiffContainer {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+/* Each unified row is a flex row spanning left + right */
+.fullDiffRow {
+  display: flex;
+}
+
+/* Left/right cells each take 50% of the row */
+.fullDiffCellLeft {
+  width: 50%;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+}
+
+.fullDiffCellRight {
+  width: 50%;
+  min-width: 0;
+}
+
+/* Sticky header row that sits at the top of the single container */
+.fullDiffStickyHeaders {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.fullDiffStickyHeaders .sbsPaneHeader {
+  flex: 1;
+}
+
+.fullDiffStickyHeaders .sbsPaneHeader:first-child {
+  border-right: 1px solid var(--border);
+}
+
 /* ─── Full Diff View Placeholder ───────────────────────────────────────── */
 
 .fullDiffPlaceholder {
