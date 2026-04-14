@@ -111,6 +111,10 @@ const electronAPI = {
       filePath?: string,
       opts?: { staged?: boolean }
     ): Promise<GitServiceResult> => ipcRenderer.invoke('git:diff', repoPath, filePath, opts),
+    diffNumstat: (
+      repoPath: string,
+      opts?: { staged?: boolean }
+    ): Promise<GitServiceResult> => ipcRenderer.invoke('git:diffNumstat', repoPath, opts),
     showCommit: (repoPath: string, hash: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:showCommit', repoPath, hash),
     showCommitFileDiff: (
@@ -120,6 +124,19 @@ const electronAPI = {
       opts?: { isMerge?: boolean }
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:showCommitFileDiff', repoPath, hash, filePath, opts),
+    diffTwoCommits: (
+      repoPath: string,
+      hashFrom: string,
+      hashTo: string
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:diffTwoCommits', repoPath, hashFrom, hashTo),
+    diffTwoCommitsFile: (
+      repoPath: string,
+      hashFrom: string,
+      hashTo: string,
+      filePath: string
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:diffTwoCommitsFile', repoPath, hashFrom, hashTo, filePath),
     showFileAtCommit: (
       repoPath: string,
       hash: string,

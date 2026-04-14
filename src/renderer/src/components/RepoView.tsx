@@ -15,6 +15,7 @@ import { Columns } from 'lucide-react'
 interface RepoViewProps {
   repoPath: string
   onCommitSelect?: (detail: CommitDetail | null) => void
+  onTwoCommitSelect?: (data: { hashFrom: string; hashTo: string; selectedCommits: Array<{ hash: string; shortHash: string; subject: string; authorName: string; authorDate: string }> } | null) => void
   onRepoLoaded?: () => void
   // Center-stage diff props
   viewingDiff?: boolean
@@ -44,7 +45,7 @@ interface RepoStatus {
   untracked: number
 }
 
-export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels, commitHistoryDepth, workingTreeFile, onCloseWorkingTreeFile }: RepoViewProps): React.JSX.Element {
+export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels, commitHistoryDepth, workingTreeFile, onCloseWorkingTreeFile }: RepoViewProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -153,8 +154,17 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
     let cancelled = false
     setDiffLoading(true)
     setDiffError(null)
-    const isMerge = selectedCommit?.commit?.parentHashes && selectedCommit.commit.parentHashes.length > 1
-    window.electronAPI.git.showCommitFileDiff(repoPath, diffCommitHash, diffFile, { isMerge: !!isMerge })
+
+    // Two-commit comparison mode: diffCommitHash is "comparison:hashFrom..hashTo"
+    const compMatch = diffCommitHash.match(/^comparison:([a-f0-9]+)\.\.([a-f0-9]+)$/)
+    const diffPromise = compMatch
+      ? window.electronAPI.git.diffTwoCommitsFile(repoPath, compMatch[1], compMatch[2], diffFile)
+      : (() => {
+          const isMerge = selectedCommit?.commit?.parentHashes && selectedCommit.commit.parentHashes.length > 1
+          return window.electronAPI.git.showCommitFileDiff(repoPath, diffCommitHash, diffFile, { isMerge: !!isMerge })
+        })()
+
+    diffPromise
       .then((result) => {
         if (cancelled) return
         if (result.success && result.data) {
@@ -190,7 +200,12 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
     let cancelled = false
     setFileLoading(true)
     setFileError(null)
-    window.electronAPI.git.showFileAtCommit(repoPath, diffCommitHash, diffFile)
+
+    // For comparison mode, show file at the "to" commit
+    const compMatch = diffCommitHash.match(/^comparison:([a-f0-9]+)\.\.([a-f0-9]+)$/)
+    const effectiveHash = compMatch ? compMatch[2] : diffCommitHash
+
+    window.electronAPI.git.showFileAtCommit(repoPath, effectiveHash, diffFile)
       .then((result) => {
         if (cancelled) return
         if (result.success && typeof result.data === 'string') {
@@ -225,10 +240,16 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
     setFullOldContent(null)
     setFullNewContent(null)
 
-    Promise.all([
-      window.electronAPI.git.showFileAtParent(repoPath, diffCommitHash, diffFile),
-      window.electronAPI.git.showFileAtCommit(repoPath, diffCommitHash, diffFile)
-    ])
+    // For comparison mode, use the from/to commits directly
+    const compMatch = diffCommitHash.match(/^comparison:([a-f0-9]+)\.\.([a-f0-9]+)$/)
+    const oldPromise = compMatch
+      ? window.electronAPI.git.showFileAtCommit(repoPath, compMatch[1], diffFile)
+      : window.electronAPI.git.showFileAtParent(repoPath, diffCommitHash, diffFile)
+    const newPromise = compMatch
+      ? window.electronAPI.git.showFileAtCommit(repoPath, compMatch[2], diffFile)
+      : window.electronAPI.git.showFileAtCommit(repoPath, diffCommitHash, diffFile)
+
+    Promise.all([oldPromise, newPromise])
       .then(([oldResult, newResult]) => {
         if (cancelled) return
         // Old content: may fail for new files — treat as empty
@@ -706,7 +727,11 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
                 </button>
                 <span className={styles.diffBackSeparator}>·</span>
                 <span className={styles.diffBackPath}>
-                  <code className={styles.diffBackHash}>{diffCommitHash.substring(0, 7)}</code>
+                  <code className={styles.diffBackHash}>{
+                    diffCommitHash.startsWith('comparison:')
+                      ? diffCommitHash.replace(/^comparison:/, '').replace(/([a-f0-9]{7})[a-f0-9]*\.\.([a-f0-9]{7})[a-f0-9]*/, '$1..$2')
+                      : diffCommitHash.substring(0, 7)
+                  }</code>
                   {' / '}
                   {diffFile}
                 </span>
@@ -843,7 +868,7 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
               />
 
               {/* Commit Graph */}
-              <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} onLoadComplete={onRepoLoaded} filters={graphFilters} showBranchLabels={showBranchLabels} maxCommits={commitHistoryDepth} />
+              <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} onTwoCommitSelect={onTwoCommitSelect} onLoadComplete={onRepoLoaded} filters={graphFilters} showBranchLabels={showBranchLabels} maxCommits={commitHistoryDepth} />
 
               {/* Staging Area moved to right panel in AppLayout */}
             </>

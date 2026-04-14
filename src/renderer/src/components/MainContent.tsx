@@ -8,6 +8,7 @@ interface MainContentProps {
   currentRepo: string | null
   onRepoOpen: (repoPath: string) => void
   onCommitSelect?: (detail: CommitDetail | null) => void
+  onTwoCommitSelect?: (data: { hashFrom: string; hashTo: string; selectedCommits: Array<{ hash: string; shortHash: string; subject: string; authorName: string; authorDate: string }> } | null) => void
   onRepoLoaded?: () => void
   // Center-stage diff props
   viewingDiff?: boolean
@@ -25,7 +26,7 @@ interface MainContentProps {
   onCloseWorkingTreeFile?: () => void
 }
 
-export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels, commitHistoryDepth, workingTreeFile, onCloseWorkingTreeFile }: MainContentProps): React.JSX.Element {
+export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCommitSelect, onTwoCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels, commitHistoryDepth, workingTreeFile, onCloseWorkingTreeFile }: MainContentProps): React.JSX.Element {
   if (!currentRepo) {
     return (
       <div className="main-content main-content--centered">
@@ -39,6 +40,7 @@ export const MainContent = React.memo(function MainContent({ currentRepo, onRepo
       <RepoView
         repoPath={currentRepo}
         onCommitSelect={onCommitSelect}
+        onTwoCommitSelect={onTwoCommitSelect}
         onRepoLoaded={onRepoLoaded}
         viewingDiff={viewingDiff}
         diffFile={diffFile}

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, Copy, HelpCircle, EyeOff, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2 } from 'lucide-react'
+import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, HelpCircle, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2, Folder, FolderOpen, Copy } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { openFileInEditor } from './CodeEditor'
@@ -10,6 +10,7 @@ import {
   defineShortcut,
   type ShortcutDefinition
 } from '../hooks/useKeyboardShortcuts'
+import type { FileListView } from '../hooks/useLayoutState'
 import styles from './StatusPanel.module.css'
 
 interface FileStatus {
@@ -59,33 +60,16 @@ interface StatusPanelProps {
    * working-tree diff view and return to the commit graph.
    */
   onCommitSuccess?: () => void
+  /** Current file list view mode (path or tree) */
+  fileListView?: FileListView
 }
 
 // ─── CSS Module Lookup Maps ──────────────────────────────────────────────────
-
-const iconClassMap: Record<string, string> = {
-  added: styles.iconAdded,
-  modified: styles.iconModified,
-  deleted: styles.iconDeleted,
-  renamed: styles.iconRenamed,
-  copied: styles.iconCopied,
-  untracked: styles.iconUntracked
-}
 
 const hunkLineTypeClass: Record<string, string> = {
   added: styles.hunkLineAdded,
   removed: styles.hunkLineRemoved,
   context: styles.hunkLineContext
-}
-
-const STATUS_ICONS: Record<string, React.ReactNode> = {
-  added: <FilePlus size={14} />,
-  modified: <FileEdit size={14} />,
-  deleted: <FileMinus size={14} />,
-  renamed: <ArrowRightLeft size={14} />,
-  copied: <Copy size={14} />,
-  untracked: <HelpCircle size={14} />,
-  ignored: <EyeOff size={14} />
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -96,6 +80,46 @@ const STATUS_LABELS: Record<string, string> = {
   copied: 'Copied',
   untracked: 'Untracked',
   ignored: 'Ignored'
+}
+
+const iconClassMap: Record<string, string> = {
+  added: styles.iconAdded,
+  modified: styles.iconModified,
+  deleted: styles.iconDeleted,
+  renamed: styles.iconRenamed,
+  copied: styles.iconCopied,
+  untracked: styles.iconUntracked
+}
+
+const STATUS_ICONS: Record<string, React.ReactNode> = {
+  added: <FilePlus size={14} />,
+  modified: <FileEdit size={14} />,
+  deleted: <FileMinus size={14} />,
+  renamed: <ArrowRightLeft size={14} />,
+  copied: <Copy size={14} />,
+  untracked: <HelpCircle size={14} />
+}
+
+/** Lucide icon status indicator for a changed file */
+function FileStatusBadge({ status }: { status: string }): React.JSX.Element {
+  const icon = STATUS_ICONS[status] || '?'
+  const cls = iconClassMap[status] || ''
+  return (
+    <span className={`${styles.fileIcon} ${cls}`} title={STATUS_LABELS[status] || status}>
+      {icon}
+    </span>
+  )
+}
+
+/** Insertion/deletion stats display */
+function FileStatsBadge({ insertions, deletions }: { insertions: number; deletions: number }): React.JSX.Element | null {
+  if (insertions === 0 && deletions === 0) return null
+  return (
+    <span className={styles.fileStats}>
+      {insertions > 0 && <span className={styles.statsAdded}>+{insertions}</span>}
+      {deletions > 0 && <span className={styles.statsRemoved}>-{deletions}</span>}
+    </span>
+  )
 }
 
 function getAppSettings(): AppSettings {
@@ -116,9 +140,280 @@ function fileDir(filePath: string): string {
   return parts.slice(0, -1).join('/')
 }
 
+/** Per-file insertion/deletion counts from git diff --numstat */
+interface NumstatMap {
+  [path: string]: { insertions: number; deletions: number }
+}
+
+/** Per-status file counts for a directory */
+interface DirStatusCounts {
+  added: number
+  modified: number
+  deleted: number
+  renamed: number
+  untracked: number
+}
+
+/** Tree node for directory tree view of staging files */
+interface StatusTreeNode {
+  name: string
+  fullPath: string
+  isDir: boolean
+  children: StatusTreeNode[]
+  file?: FileStatus
+  /** Per-status file counts in this directory (recursively) — set after build */
+  statusCounts?: DirStatusCounts
+}
+
+/** Build a directory tree from a flat list of FileStatus */
+function buildStatusFileTree(files: FileStatus[]): StatusTreeNode[] {
+  const root: StatusTreeNode = { name: '', fullPath: '', isDir: true, children: [] }
+
+  for (const file of files) {
+    const parts = file.path.split('/')
+    let current = root
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]
+      const isLast = i === parts.length - 1
+      const partPath = parts.slice(0, i + 1).join('/')
+
+      if (isLast) {
+        current.children.push({
+          name: part,
+          fullPath: file.path,
+          isDir: false,
+          children: [],
+          file
+        })
+      } else {
+        let dirNode = current.children.find((c) => c.isDir && c.name === part)
+        if (!dirNode) {
+          dirNode = { name: part, fullPath: partPath, isDir: true, children: [] }
+          current.children.push(dirNode)
+        }
+        current = dirNode
+      }
+    }
+  }
+
+  // Sort: directories first, then alphabetical
+  const sortTree = (nodes: StatusTreeNode[]): void => {
+    nodes.sort((a, b) => {
+      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+    for (const node of nodes) {
+      if (node.isDir) sortTree(node.children)
+    }
+  }
+  sortTree(root.children)
+
+  // Count files per directory, grouped by status
+  const countFiles = (nodes: StatusTreeNode[]): DirStatusCounts => {
+    const counts: DirStatusCounts = { added: 0, modified: 0, deleted: 0, renamed: 0, untracked: 0 }
+    for (const node of nodes) {
+      if (node.isDir) {
+        const childCounts = countFiles(node.children)
+        node.statusCounts = childCounts
+        counts.added += childCounts.added
+        counts.modified += childCounts.modified
+        counts.deleted += childCounts.deleted
+        counts.renamed += childCounts.renamed
+        counts.untracked += childCounts.untracked
+      } else if (node.file) {
+        const s = node.file.status
+        if (s === 'added') counts.added++
+        else if (s === 'deleted') counts.deleted++
+        else if (s === 'renamed' || s === 'copied') counts.renamed++
+        else if (s === 'untracked') counts.untracked++
+        else counts.modified++
+      }
+    }
+    return counts
+  }
+  countFiles(root.children)
+
+  return root.children
+}
+
 const SUBJECT_WARN_LENGTH = 72
 
-export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagingInternalSplitChange, onFileSelect, externallySelectedFile, onCommitSuccess }: StatusPanelProps): React.JSX.Element {
+/** Recursive tree node renderer for staging area tree view */
+function StatusTreeNodeComponent({
+  node,
+  depth,
+  section,
+  collapsedDirs,
+  onToggleDir,
+  selectedFiles,
+  activeSelection,
+  onFileClick,
+  onDragStart,
+  onDragEnd,
+  onContextMenu,
+  stageFiles,
+  unstageFiles,
+  discardFile,
+  operationInProgress,
+  numstat
+}: {
+  node: StatusTreeNode
+  depth: number
+  section: 'unstaged' | 'staged'
+  collapsedDirs: Set<string>
+  onToggleDir: (fullPath: string) => void
+  selectedFiles: Set<string>
+  activeSelection: { path: string; staged: boolean } | null
+  onFileClick: (file: FileStatus, isUntracked: boolean, section: string, e: React.MouseEvent) => void
+  onDragStart: (file: FileStatus, source: 'staged' | 'unstaged' | 'untracked', e: React.DragEvent) => void
+  onDragEnd: () => void
+  onContextMenu: (file: FileStatus, x: number, y: number) => void
+  stageFiles?: (paths: string[]) => void
+  unstageFiles?: (paths: string[]) => void
+  discardFile?: (file: FileStatus) => void
+  operationInProgress: boolean
+  numstat: NumstatMap
+}): React.JSX.Element {
+  if (node.isDir) {
+    const expanded = !collapsedDirs.has(node.fullPath)
+    return (
+      <li>
+        <button
+          className={styles.treeDir}
+          style={{ paddingLeft: depth * 16 + 8 }}
+          onClick={() => onToggleDir(node.fullPath)}
+          title={node.name}
+        >
+          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          {expanded ? <FolderOpen size={12} className={styles.treeDirIcon} /> : <Folder size={12} className={styles.treeDirIcon} />}
+          <span className={styles.treeDirName}>{node.name}</span>
+          {node.statusCounts && (
+            // Show counts when collapsed, or when this is a leaf directory (no subdirs)
+            !expanded || !node.children.some((c) => c.isDir)
+          ) && (
+            <span className={styles.folderStats}>
+              {node.statusCounts.modified > 0 && <span className={styles.folderStatsModified}>~{node.statusCounts.modified}</span>}
+              {node.statusCounts.added > 0 && <span className={styles.folderStatsAdded}>+{node.statusCounts.added}</span>}
+              {node.statusCounts.deleted > 0 && <span className={styles.folderStatsDeleted}>&minus;{node.statusCounts.deleted}</span>}
+              {node.statusCounts.untracked > 0 && <span className={styles.folderStatsUntracked}>?{node.statusCounts.untracked}</span>}
+              {node.statusCounts.renamed > 0 && <span className={styles.folderStatsRenamed}>R{node.statusCounts.renamed}</span>}
+            </span>
+          )}
+        </button>
+        {expanded && (
+          <ul className={styles.treeChildren}>
+            {node.children.map((child) => (
+              <StatusTreeNodeComponent
+                key={child.fullPath}
+                node={child}
+                depth={depth + 1}
+                section={section}
+                collapsedDirs={collapsedDirs}
+                onToggleDir={onToggleDir}
+                selectedFiles={selectedFiles}
+                activeSelection={activeSelection}
+                onFileClick={onFileClick}
+                onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
+                onContextMenu={onContextMenu}
+                stageFiles={stageFiles}
+                unstageFiles={unstageFiles}
+                discardFile={discardFile}
+                operationInProgress={operationInProgress}
+                numstat={numstat}
+              />
+            ))}
+          </ul>
+        )}
+      </li>
+    )
+  }
+
+  // File leaf node
+  const file = node.file!
+  const isUntracked = file.status === 'untracked'
+  const fileSection = isUntracked ? 'untracked' : section
+  const fileKey = `${fileSection}:${file.path}`
+  const isSelected =
+    selectedFiles.has(fileKey) ||
+    (selectedFiles.size === 0 &&
+      activeSelection?.path === file.path &&
+      (section === 'staged' ? activeSelection?.staged === true : !activeSelection?.staged))
+  const stats = numstat[file.path]
+
+  return (
+    <li>
+      <div
+        className={`${styles.treeFileItem} ${isSelected ? styles.treeFileItemSelected : ''}`}
+        style={{ paddingLeft: depth * 16 + 8 }}
+        draggable
+        onDragStart={(e) => onDragStart(file, fileSection as 'staged' | 'unstaged' | 'untracked', e)}
+        onDragEnd={onDragEnd}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          onContextMenu(file, e.clientX, e.clientY)
+        }}
+      >
+        <button
+          className={styles.treeFileInfo}
+          onClick={(e) => onFileClick(file, isUntracked, fileSection, e)}
+          title={`${file.path} (${STATUS_LABELS[file.status] || file.status})`}
+        >
+          <FileStatusBadge status={file.status} />
+          <span className={styles.fileName}>{node.name}</span>
+          {stats && <FileStatsBadge insertions={stats.insertions} deletions={stats.deletions} />}
+        </button>
+        <div className={styles.treeFileActions}>
+          {section === 'unstaged' && stageFiles && (
+            <>
+              <button
+                className={`${styles.stageBtn} ${styles.stage}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  stageFiles([file.path])
+                }}
+                disabled={operationInProgress}
+                title={`Stage ${file.path}`}
+              >
+                <Plus size={14} />
+              </button>
+              {discardFile && (
+                <button
+                  className={`${styles.stageBtn} ${styles.discardBtn}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    discardFile(file)
+                  }}
+                  disabled={operationInProgress}
+                  title={`Discard changes to ${file.path}`}
+                >
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </>
+          )}
+          {section === 'staged' && unstageFiles && (
+            <button
+              className={`${styles.stageBtn} ${styles.unstage}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                unstageFiles([file.path])
+              }}
+              disabled={operationInProgress}
+              title={`Unstage ${file.path}`}
+            >
+              <Minus size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+    </li>
+  )
+}
+
+export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagingInternalSplitChange, onFileSelect, externallySelectedFile, onCommitSuccess, fileListView = 'path' }: StatusPanelProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -133,6 +428,10 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
     y: number
     file: FileStatus
   } | null>(null)
+
+  // Numstat data for insertion/deletion counts per file
+  const [unstagedNumstat, setUnstagedNumstat] = useState<NumstatMap>({})
+  const [stagedNumstat, setStagedNumstat] = useState<NumstatMap>({})
 
   // Sync internal selection with parent when an external selection is provided
   useEffect(() => {
@@ -199,6 +498,26 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
       statusLoadInFlightRef.current = false
     }
   }, [repoPath])
+
+  // Load numstat data when status changes (parallel to avoid blocking)
+  useEffect(() => {
+    if (!status) return
+    // Guard: diffNumstat may not exist if preload hasn't been rebuilt
+    if (typeof window.electronAPI.git.diffNumstat !== 'function') return
+    let cancelled = false
+    // Fetch unstaged + staged numstat in parallel
+    Promise.all([
+      window.electronAPI.git.diffNumstat(repoPath, { staged: false }),
+      window.electronAPI.git.diffNumstat(repoPath, { staged: true })
+    ]).then(([unstaged, staged]) => {
+      if (cancelled) return
+      if (unstaged.success && unstaged.data) setUnstagedNumstat(unstaged.data as NumstatMap)
+      if (staged.success && staged.data) setStagedNumstat(staged.data as NumstatMap)
+    }).catch((err) => {
+      console.warn('Failed to load numstat:', err)
+    })
+    return () => { cancelled = true }
+  }, [status, repoPath])
 
   // Initial load
   useEffect(() => {
@@ -810,6 +1129,22 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
   }, [status])
 
   const unstagedCount = unstagedFiles.length
+  const stagedFiles = status?.staged ?? []
+
+  // Tree view state
+  const unstagedTree = useMemo(() => buildStatusFileTree(unstagedFiles), [unstagedFiles])
+  const stagedTree = useMemo(() => buildStatusFileTree(stagedFiles), [stagedFiles])
+  const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set())
+
+  const toggleDir = useCallback((fullPath: string) => {
+    setCollapsedDirs((prev) => {
+      const next = new Set(prev)
+      if (next.has(fullPath)) next.delete(fullPath)
+      else next.add(fullPath)
+      return next
+    })
+  }, [])
+
   const subjectLength = commitSubject.length
   const subjectOverLimit = subjectLength > SUBJECT_WARN_LENGTH
 
@@ -917,6 +1252,29 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
                 {!unstagedCollapsed && <div className={styles.columnFiles}>
                   {unstagedCount === 0 ? (
                     <div className={styles.columnEmpty}>No unstaged changes</div>
+                  ) : fileListView === 'tree' ? (
+                    <ul className={styles.treeChildren}>
+                      {unstagedTree.map((node) => (
+                        <StatusTreeNodeComponent
+                          key={node.fullPath}
+                          node={node}
+                          depth={0}
+                          section="unstaged"
+                          collapsedDirs={collapsedDirs}
+                          onToggleDir={toggleDir}
+                          selectedFiles={selectedFiles}
+                          activeSelection={externallySelectedFile ?? selectedFile}
+                          onFileClick={handleFileClick}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          onContextMenu={handleFileContextMenu}
+                          stageFiles={stageFiles}
+                          discardFile={discardFile}
+                          operationInProgress={operationInProgress}
+                          numstat={unstagedNumstat}
+                        />
+                      ))}
+                    </ul>
                   ) : (
                     unstagedFiles.map((file) => {
                       const isUntracked = file.status === 'untracked'
@@ -946,12 +1304,13 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
                             onClick={(e) => handleFileClick(file, isUntracked, section, e)}
                             title={`${file.path} (${STATUS_LABELS[file.status] || file.status})`}
                           >
-                            <span className={`${styles.fileIcon} ${iconClassMap[file.status] || ''}`}>
-                              {STATUS_ICONS[file.status] || '?'}
+                            <FileStatusBadge status={file.status} />
+                            <span className={styles.fileName}>
+                              {fileDir(file.path) && <span className={styles.fileDir}>{fileDir(file.path)}/</span>}
+                              {fileName(file.path)}
                             </span>
-                            <span className={styles.fileName}>{fileName(file.path)}</span>
-                            {fileDir(file.path) && (
-                              <span className={styles.fileDir}>{fileDir(file.path)}</span>
+                            {unstagedNumstat[file.path] && (
+                              <FileStatsBadge insertions={unstagedNumstat[file.path].insertions} deletions={unstagedNumstat[file.path].deletions} />
                             )}
                           </button>
                           <div className={styles.fileActions}>
@@ -1021,8 +1380,30 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
                 {!stagedCollapsed && <div className={styles.columnFiles}>
                   {stagedCount === 0 ? (
                     <div className={styles.columnEmpty}>No staged changes</div>
+                  ) : fileListView === 'tree' ? (
+                    <ul className={styles.treeChildren}>
+                      {stagedTree.map((node) => (
+                        <StatusTreeNodeComponent
+                          key={node.fullPath}
+                          node={node}
+                          depth={0}
+                          section="staged"
+                          collapsedDirs={collapsedDirs}
+                          onToggleDir={toggleDir}
+                          selectedFiles={selectedFiles}
+                          activeSelection={externallySelectedFile ?? selectedFile}
+                          onFileClick={handleFileClick}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          onContextMenu={handleFileContextMenu}
+                          unstageFiles={unstageFiles}
+                          operationInProgress={operationInProgress}
+                          numstat={stagedNumstat}
+                        />
+                      ))}
+                    </ul>
                   ) : (
-                    (status?.staged ?? []).map((file) => {
+                    stagedFiles.map((file) => {
                       const fileKey = `staged:${file.path}`
                       const activeSelection = externallySelectedFile ?? selectedFile
                       const isSelected =
@@ -1048,12 +1429,13 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
                             onClick={(e) => handleFileClick(file, false, 'staged', e)}
                             title={`${file.path} (${STATUS_LABELS[file.status] || file.status})`}
                           >
-                            <span className={`${styles.fileIcon} ${iconClassMap[file.status] || ''}`}>
-                              {STATUS_ICONS[file.status] || '?'}
+                            <FileStatusBadge status={file.status} />
+                            <span className={styles.fileName}>
+                              {fileDir(file.path) && <span className={styles.fileDir}>{fileDir(file.path)}/</span>}
+                              {fileName(file.path)}
                             </span>
-                            <span className={styles.fileName}>{fileName(file.path)}</span>
-                            {fileDir(file.path) && (
-                              <span className={styles.fileDir}>{fileDir(file.path)}</span>
+                            {stagedNumstat[file.path] && (
+                              <FileStatsBadge insertions={stagedNumstat[file.path].insertions} deletions={stagedNumstat[file.path].deletions} />
                             )}
                           </button>
                           <button

@@ -6,14 +6,17 @@ import {
   User,
   Calendar,
   FileText,
+  FilePlus,
+  FileEdit,
+  FileMinus,
+  ArrowRightLeft,
+  Circle,
   ShieldCheck,
   ShieldAlert,
   Copy,
   Check,
   ChevronDown,
   ChevronRight,
-  List,
-  FolderTree,
   Folder,
   FolderOpen,
   ChevronsDownUp,
@@ -217,8 +220,29 @@ function FileTreeNodeComponent({
   )
 }
 
+/** Summary of a selected commit for comparison view */
+export interface ComparisonCommitSummary {
+  hash: string
+  shortHash: string
+  subject: string
+  authorName: string
+  authorDate: string
+}
+
+/** Two-commit comparison data (multi-select diff) */
+export interface TwoCommitComparison {
+  hashFrom: string
+  hashTo: string
+  selectedCommits: ComparisonCommitSummary[]
+  fileDetails: Array<{ path: string; status: string; insertions: number; deletions: number; oldPath?: string }>
+  totalInsertions: number
+  totalDeletions: number
+}
+
 interface DetailPanelProps {
   detail: CommitDetail | null
+  /** Two-commit comparison data — when provided, renders comparison view instead of single commit */
+  comparison?: TwoCommitComparison | null
   repoPath: string | null
   /** Callback when a file is clicked in the changed files list */
   onFileClick?: (file: CommitFileDetail, commitHash: string) => void
@@ -269,34 +293,27 @@ function formatAbsoluteDate(dateStr: string): string {
   })
 }
 
-/**
- * Compact single-letter status badge for a changed file. Replaces the
- * previous Lucide icons which all shared the same underlying "file"
- * silhouette and were hard to tell apart at 12px. The letters match git's
- * CLI conventions (A/M/D/R) so users who work with git on the command line
- * immediately recognize them; the colored background makes the distinction
- * readable at a glance without hovering.
- */
-function FileStatusIcon({ status, size: _size = 12 }: { status: string; size?: number }): React.JSX.Element {
-  const letter = status === 'A' ? 'A'
-    : status === 'D' ? 'D'
-    : status === 'R' || status === 'C' ? 'R'
-    : status === 'unchanged' ? '·'
-    : 'M'
-  const cls = status === 'A' ? styles.fileBadgeAdded
-    : status === 'D' ? styles.fileBadgeDeleted
-    : status === 'R' || status === 'C' ? styles.fileBadgeRenamed
-    : status === 'unchanged' ? styles.fileBadgeUnchanged
-    : styles.fileBadgeModified
+/** Lucide icon status indicator for a changed file */
+function FileStatusIcon({ status, size = 14 }: { status: string; size?: number }): React.JSX.Element {
+  const cls = status === 'A' ? styles.iconAdded
+    : status === 'D' ? styles.iconDeleted
+    : status === 'R' || status === 'C' ? styles.iconRenamed
+    : status === 'unchanged' ? styles.iconUnchanged
+    : styles.iconModified
   const title = status === 'A' ? 'Added'
     : status === 'D' ? 'Deleted'
     : status === 'R' ? 'Renamed'
     : status === 'C' ? 'Copied'
     : status === 'unchanged' ? 'Unchanged'
     : 'Modified'
+  const icon = status === 'A' ? <FilePlus size={size} />
+    : status === 'D' ? <FileMinus size={size} />
+    : status === 'R' || status === 'C' ? <ArrowRightLeft size={size} />
+    : status === 'unchanged' ? <Circle size={size} />
+    : <FileEdit size={size} />
   return (
-    <span className={`${styles.fileBadge} ${cls}`} title={title} aria-label={title}>
-      {letter}
+    <span className={`${styles.fileIcon} ${cls}`} title={title} aria-label={title}>
+      {icon}
     </span>
   )
 }
@@ -308,7 +325,7 @@ function splitPath(filePath: string): { dir: string; name: string } {
   return { dir: filePath.substring(0, lastSlash + 1), name: filePath.substring(lastSlash + 1) }
 }
 
-export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, fileListView = 'path', onFileListViewChange, showAllFiles = false, onShowAllFilesChange, detailInternalSplit = 40, onDetailInternalSplitChange, collapsed = false, onToggleCollapse }: DetailPanelProps): React.JSX.Element {
+export function DetailPanel({ detail, comparison, repoPath, onFileClick, selectedFilePath, fileListView = 'path', onFileListViewChange, showAllFiles = false, onShowAllFilesChange, detailInternalSplit = 40, onDetailInternalSplitChange, collapsed = false, onToggleCollapse }: DetailPanelProps): React.JSX.Element {
   const panelRef = useRef<HTMLDivElement>(null)
   const splitContainerRef = useRef<HTMLDivElement>(null)
   const isDraggingInternalSplitRef = useRef(false)
@@ -466,6 +483,8 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
   // placeholder entries with status='unchanged' so the renderer can style them
   // differently and skip the diff click handler.
   const mergedFileList: CommitFileDetail[] = useMemo(() => {
+    // In comparison mode, use comparison file details directly
+    if (comparison) return comparison.fileDetails.map(f => f as CommitFileDetail)
     if (!showAllFiles || !allFilePaths) return fileDetails
     const changedByPath = new Map<string, CommitFileDetail>()
     for (const f of fileDetails) changedByPath.set(f.path, f)
@@ -493,7 +512,7 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
       if (!seenChanged.has(f.path)) merged.push(f)
     }
     return merged
-  }, [showAllFiles, allFilePaths, fileDetails])
+  }, [showAllFiles, allFilePaths, fileDetails, comparison])
 
   // Memoized file tree shared by the renderer, Expand/Collapse All buttons,
   // and the auto-collapse-unchanged-dirs effect below.
@@ -529,14 +548,24 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
   // `noDiffForCurrentFile`) so the user's persisted Diff/Full/File
   // preference is preserved across file navigation.
   const handleFileClick = useCallback((file: CommitFileDetail) => {
+    if (comparison) {
+      // In comparison mode, use hashTo as the "commit" for the diff viewer
+      onFileClick?.(file, `comparison:${comparison.hashFrom}..${comparison.hashTo}`)
+      return
+    }
     if (!commit) return
     onFileClick?.(file, commit.hash)
-  }, [onFileClick, commit?.hash])
+  }, [onFileClick, commit?.hash, comparison])
 
-  const fileCount = fileDetails.length
+  // Use comparison data when in comparison mode
+  const effectiveFileDetails = comparison ? comparison.fileDetails.map(f => f as CommitFileDetail) : fileDetails
+  const effectiveTotalInsertions = comparison ? comparison.totalInsertions : totalInsertions
+  const effectiveTotalDeletions = comparison ? comparison.totalDeletions : totalDeletions
+  const fileCount = effectiveFileDetails.length
+  const isComparisonMode = !!comparison
 
-  // Show empty state when no commit is selected
-  if (!detail || !commit) {
+  // Show empty state when no commit is selected and no comparison active
+  if ((!detail || !commit) && !comparison) {
     return (
       <div ref={panelRef} className={styles.detailPanel}>
         <button className={styles.header} onClick={onToggleCollapse}>
@@ -565,7 +594,7 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
       <button className={styles.header} onClick={onToggleCollapse} style={{ cursor: onToggleCollapse ? 'pointer' : 'default', width: '100%', border: 'none', textAlign: 'left' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
           {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-          <span className={styles.headerTitle}>Commit Details</span>
+          <span className={styles.headerTitle}>{isComparisonMode ? 'Comparing Commits' : 'Commit Details'}</span>
         </span>
       </button>
 
@@ -578,13 +607,38 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
         {/* Metadata section (top) */}
         <div style={{
           height: `calc(${detailInternalSplit}% - 2px)`,
-          minHeight: 100,
+          minHeight: 60,
+          maxHeight: isComparisonMode ? '33%' : undefined,
           overflow: 'hidden',
           transition: isDraggingInternalSplit ? 'none' : undefined
         }}>
+          {isComparisonMode ? (
+            <div className={styles.content} style={{ overflow: 'auto', height: '100%' }}>
+              {[...comparison!.selectedCommits].reverse().map((c) => (
+                <div key={c.hash} style={{
+                  padding: '6px 0',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px'
+                }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.subject}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)', cursor: 'pointer' }} title={c.hash}>
+                      {c.shortHash}
+                    </code>
+                    <span><User size={11} style={{ verticalAlign: '-2px', marginRight: '2px' }} />{c.authorName}</span>
+                    <span><Calendar size={11} style={{ verticalAlign: '-2px', marginRight: '2px' }} />{formatRelativeDate(c.authorDate)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className={styles.content}>
             {/* Commit subject */}
-            <h3 className={styles.subject}>{commit.subject}</h3>
+            <h3 className={styles.subject}>{commit!.subject}</h3>
 
             {/* Refs (branches, tags) */}
             {refs.length > 0 && (
@@ -680,6 +734,7 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
               )}
             </div>
           </div>
+          )}
         </div>
 
         {/* Drag handle */}
@@ -706,7 +761,7 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
           transition: isDraggingInternalSplit ? 'none' : undefined
         }}>
           <div className={styles.filesWrapper}>
-            {detail.loading ? (
+            {detail?.loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0', color: 'var(--text-secondary)', gap: '8px', fontSize: '12px' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 0.8s linear infinite' }}>
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
@@ -725,16 +780,17 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
                   <span className={styles.filesTitle}>
                     {fileCount} file{fileCount !== 1 ? 's' : ''} changed
                   </span>
-                  {(totalInsertions > 0 || totalDeletions > 0) && (
+                  {(effectiveTotalInsertions > 0 || effectiveTotalDeletions > 0) && (
                     <span className={styles.statsSummary}>
-                      {totalInsertions > 0 && <span className={styles.statsAdded}>+{totalInsertions}</span>}
-                      {totalInsertions > 0 && totalDeletions > 0 && ' '}
-                      {totalDeletions > 0 && <span className={styles.statsRemoved}>-{totalDeletions}</span>}
+                      {effectiveTotalInsertions > 0 && <span className={styles.statsAdded}>+{effectiveTotalInsertions}</span>}
+                      {effectiveTotalInsertions > 0 && effectiveTotalDeletions > 0 && ' '}
+                      {effectiveTotalDeletions > 0 && <span className={styles.statsRemoved}>-{effectiveTotalDeletions}</span>}
                     </span>
                   )}
                 </button>
                 {filesExpanded && (
                   <div className={styles.viewToggle}>
+                    {!isComparisonMode && (
                     <label
                       className={styles.showAllFilesToggle}
                       title="Also show every unchanged file in the tree at this commit"
@@ -746,6 +802,7 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
                       />
                       <span>All files</span>
                     </label>
+                    )}
                     {fileListView === 'tree' && (
                       <>
                         <button
@@ -764,20 +821,6 @@ export function DetailPanel({ detail, repoPath, onFileClick, selectedFilePath, f
                         </button>
                       </>
                     )}
-                    <button
-                      className={`${styles.viewToggleBtn} ${fileListView === 'path' ? styles.viewToggleBtnActive : ''}`}
-                      onClick={() => onFileListViewChange?.('path')}
-                      title="Flat list view"
-                    >
-                      <List size={14} />
-                    </button>
-                    <button
-                      className={`${styles.viewToggleBtn} ${fileListView === 'tree' ? styles.viewToggleBtnActive : ''}`}
-                      onClick={() => onFileListViewChange?.('tree')}
-                      title="Directory tree view"
-                    >
-                      <FolderTree size={14} />
-                    </button>
                   </div>
                 )}
               </div>

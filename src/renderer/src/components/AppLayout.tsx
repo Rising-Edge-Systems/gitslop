@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { PanelRight, PanelBottom } from 'lucide-react'
+import { PanelRight, PanelBottom, List, FolderTree } from 'lucide-react'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 // react-resizable-panels fully removed — all panels use plain CSS flex divs with drag handles
 import { Toolbar } from './Toolbar'
@@ -69,6 +69,14 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [updateDialogInfo, setUpdateDialogInfo] = useState<{ version: string; releaseNotes: string } | null>(null)
   const [selectedCommit, setSelectedCommit] = useState<CommitDetail | null>(null)
+  const [twoCommitComparison, setTwoCommitComparison] = useState<{
+    hashFrom: string
+    hashTo: string
+    selectedCommits: Array<{ hash: string; shortHash: string; subject: string; authorName: string; authorDate: string }>
+    fileDetails: Array<{ path: string; status: string; insertions: number; deletions: number; oldPath?: string }>
+    totalInsertions: number
+    totalDeletions: number
+  } | null>(null)
   const [repoSwitching, setRepoSwitching] = useState(false)
   const repoSwitchingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -213,6 +221,28 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
     }
   }, [currentRepo, saveTabState])
 
+  const handleTwoCommitSelect = useCallback(async (data: { hashFrom: string; hashTo: string; selectedCommits: Array<{ hash: string; shortHash: string; subject: string; authorName: string; authorDate: string }> } | null) => {
+    if (!data || !currentRepo) {
+      setTwoCommitComparison(null)
+      return
+    }
+    try {
+      const result = await window.electronAPI.git.diffTwoCommits(currentRepo, data.hashFrom, data.hashTo)
+      if (result.success && result.data) {
+        setTwoCommitComparison({
+          hashFrom: data.hashFrom,
+          hashTo: data.hashTo,
+          selectedCommits: data.selectedCommits,
+          fileDetails: result.data.fileDetails,
+          totalInsertions: result.data.totalInsertions,
+          totalDeletions: result.data.totalDeletions
+        })
+      }
+    } catch {
+      setTwoCommitComparison(null)
+    }
+  }, [currentRepo])
+
   // ─── Center-Stage Diff Handlers ────────────────────────────────────────────
   const handleFileClick = useCallback(
     (file: CommitFileDetail, commitHash: string) => {
@@ -258,15 +288,15 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
   }, [])
 
   const handleNavigateFile = useCallback((direction: 'prev' | 'next') => {
-    if (!selectedCommit || !diffFile) return
-    const files = selectedCommit.fileDetails
+    const files = twoCommitComparison?.fileDetails ?? selectedCommit?.fileDetails
+    if (!files || !diffFile) return
     const currentIdx = files.findIndex(f => f.path === diffFile)
     if (currentIdx === -1) return
     const newIdx = direction === 'next'
       ? (currentIdx + 1) % files.length
       : (currentIdx - 1 + files.length) % files.length
     setDiffFile(files[newIdx].path)
-  }, [selectedCommit, diffFile])
+  }, [selectedCommit, twoCommitComparison, diffFile])
 
   // Terminal double-click-to-reset removed — handled inline in drag handle
 
@@ -524,6 +554,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     currentRepo={currentRepo}
                     onRepoOpen={onRepoOpen}
                     onCommitSelect={handleCommitSelect}
+                    onTwoCommitSelect={handleTwoCommitSelect}
                     onRepoLoaded={handleRepoLoaded}
                     viewingDiff={viewingDiff}
                     diffFile={diffFile}
@@ -563,15 +594,57 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       transition: isDraggingRight ? 'none' : undefined
                     }}
                   >
-                    {/* Position toggle button */}
+                    {/* Panel header: file list view toggle + position toggle */}
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'flex-end',
                       padding: '2px 4px',
                       borderBottom: '1px solid var(--border)',
-                      flexShrink: 0
+                      flexShrink: 0,
+                      gap: '2px'
                     }}>
+                      <button
+                        onClick={() => setFileListView('path')}
+                        title="Flat list view"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: layout.fileListView === 'path' ? 'var(--bg-tertiary)' : 'none',
+                          border: layout.fileListView === 'path' ? '1px solid var(--border)' : '1px solid transparent',
+                          color: layout.fileListView === 'path' ? 'var(--text-primary)' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '3px',
+                          borderRadius: 'var(--radius-sm)',
+                          transition: 'background-color var(--transition-fast), color var(--transition-fast)'
+                        }}
+                        onMouseEnter={(e) => { if (layout.fileListView !== 'path') { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+                        onMouseLeave={(e) => { if (layout.fileListView !== 'path') { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)' } }}
+                      >
+                        <List size={14} />
+                      </button>
+                      <button
+                        onClick={() => setFileListView('tree')}
+                        title="Directory tree view"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: layout.fileListView === 'tree' ? 'var(--bg-tertiary)' : 'none',
+                          border: layout.fileListView === 'tree' ? '1px solid var(--border)' : '1px solid transparent',
+                          color: layout.fileListView === 'tree' ? 'var(--text-primary)' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '3px',
+                          borderRadius: 'var(--radius-sm)',
+                          transition: 'background-color var(--transition-fast), color var(--transition-fast)'
+                        }}
+                        onMouseEnter={(e) => { if (layout.fileListView !== 'tree') { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+                        onMouseLeave={(e) => { if (layout.fileListView !== 'tree') { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)' } }}
+                      >
+                        <FolderTree size={14} />
+                      </button>
+                      <div style={{ width: 1, height: 14, background: 'var(--border)', margin: '0 2px' }} />
                       <button
                         onClick={toggleRightPanelPosition}
                         title="Move panel to bottom"
@@ -593,15 +666,16 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         <PanelBottom size={14} />
                       </button>
                     </div>
-                    {/* Unified panel: show DetailPanel when a commit is selected, StatusPanel when WIP/nothing selected.
+                    {/* Unified panel: show DetailPanel when a commit is selected or two-commit comparison active, StatusPanel when WIP/nothing selected.
                         CRITICAL: Both remain mounted (display:none) to preserve internal state (e.g. commit form). */}
                     <div style={{
-                      display: selectedCommit ? undefined : 'none',
+                      display: (selectedCommit || twoCommitComparison) ? undefined : 'none',
                       flex: '1 1 auto',
                       overflow: 'hidden'
                     }}>
                       <DetailPanel
                         detail={selectedCommit}
+                        comparison={twoCommitComparison}
                         repoPath={currentRepo}
                         onFileClick={handleFileClick}
                         selectedFilePath={viewingDiff ? diffFile : null}
@@ -614,7 +688,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       />
                     </div>
                     <div style={{
-                      display: selectedCommit ? 'none' : undefined,
+                      display: (selectedCommit || twoCommitComparison) ? 'none' : undefined,
                       flex: '1 1 auto',
                       overflow: 'hidden'
                     }}>
@@ -625,6 +699,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         onFileSelect={handleWorkingTreeFileSelect}
                         externallySelectedFile={workingTreeFile}
                         onCommitSuccess={handleCommitSuccess}
+                        fileListView={layout.fileListView}
                       />
                     </div>
                   </div>
@@ -678,7 +753,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       flexDirection: 'row'
                     }}
                   >
-                    {/* Position toggle button */}
+                    {/* Panel header: file list view toggle + position toggle */}
                     <div style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -686,8 +761,50 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       justifyContent: 'flex-start',
                       padding: '4px 2px',
                       borderRight: '1px solid var(--border)',
-                      flexShrink: 0
+                      flexShrink: 0,
+                      gap: '2px'
                     }}>
+                      <button
+                        onClick={() => setFileListView('path')}
+                        title="Flat list view"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: layout.fileListView === 'path' ? 'var(--bg-tertiary)' : 'none',
+                          border: layout.fileListView === 'path' ? '1px solid var(--border)' : '1px solid transparent',
+                          color: layout.fileListView === 'path' ? 'var(--text-primary)' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '3px',
+                          borderRadius: 'var(--radius-sm)',
+                          transition: 'background-color var(--transition-fast), color var(--transition-fast)'
+                        }}
+                        onMouseEnter={(e) => { if (layout.fileListView !== 'path') { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+                        onMouseLeave={(e) => { if (layout.fileListView !== 'path') { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)' } }}
+                      >
+                        <List size={14} />
+                      </button>
+                      <button
+                        onClick={() => setFileListView('tree')}
+                        title="Directory tree view"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: layout.fileListView === 'tree' ? 'var(--bg-tertiary)' : 'none',
+                          border: layout.fileListView === 'tree' ? '1px solid var(--border)' : '1px solid transparent',
+                          color: layout.fileListView === 'tree' ? 'var(--text-primary)' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '3px',
+                          borderRadius: 'var(--radius-sm)',
+                          transition: 'background-color var(--transition-fast), color var(--transition-fast)'
+                        }}
+                        onMouseEnter={(e) => { if (layout.fileListView !== 'tree') { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)' } }}
+                        onMouseLeave={(e) => { if (layout.fileListView !== 'tree') { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)' } }}
+                      >
+                        <FolderTree size={14} />
+                      </button>
+                      <div style={{ width: 14, height: 1, background: 'var(--border)', margin: '2px 0' }} />
                       <button
                         onClick={toggleRightPanelPosition}
                         title="Move panel to right"
@@ -709,15 +826,16 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         <PanelRight size={14} />
                       </button>
                     </div>
-                    {/* Unified panel: show DetailPanel when commit selected, StatusPanel when WIP/nothing */}
+                    {/* Unified panel: show DetailPanel when commit selected or comparison active, StatusPanel when WIP/nothing */}
                     <div style={{
-                      display: selectedCommit ? undefined : 'none',
+                      display: (selectedCommit || twoCommitComparison) ? undefined : 'none',
                       flex: 1,
                       minWidth: 0,
                       overflow: 'hidden'
                     }}>
                       <DetailPanel
                         detail={selectedCommit}
+                        comparison={twoCommitComparison}
                         repoPath={currentRepo}
                         onFileClick={handleFileClick}
                         selectedFilePath={viewingDiff ? diffFile : null}
@@ -730,7 +848,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                       />
                     </div>
                     <div style={{
-                      display: selectedCommit ? 'none' : undefined,
+                      display: (selectedCommit || twoCommitComparison) ? 'none' : undefined,
                       flex: 1,
                       minWidth: 0,
                       overflow: 'hidden'
@@ -742,6 +860,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                         onFileSelect={handleWorkingTreeFileSelect}
                         externallySelectedFile={workingTreeFile}
                         onCommitSuccess={handleCommitSuccess}
+                        fileListView={layout.fileListView}
                       />
                     </div>
                   </div>
