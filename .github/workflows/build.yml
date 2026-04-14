@@ -74,13 +74,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract release notes from annotated tag
+        id: tag_notes
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          # Get annotated tag message (empty for lightweight tags)
+          NOTES=$(git tag -l --format='%(contents)' "$TAG_NAME" 2>/dev/null || true)
+          if [ -z "$NOTES" ]; then
+            echo "has_notes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_notes=true" >> "$GITHUB_OUTPUT"
+            # Write notes to file to preserve formatting
+            echo "$NOTES" > /tmp/release_notes.md
+          fi
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (with tag notes)
+        if: steps.tag_notes.outputs.has_notes == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          body_path: /tmp/release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release (auto-generated notes)
+        if: steps.tag_notes.outputs.has_notes != 'true'
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
