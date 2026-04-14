@@ -1553,6 +1553,109 @@ ipcMain.handle('gitlab:getMergeRequest', async (_event, projectPath: string, mrI
   }
 })
 
+ipcMain.handle('gitlab:listIssues', async (_event, projectPath: string, state?: string, forInstanceUrl?: string) => {
+  const cfg = await getGitLabConfig(forInstanceUrl)
+  if (!cfg.token) {
+    return {
+      success: false,
+      error: cfg.expired ? GITLAB_SESSION_EXPIRED_ERROR : 'Not logged in to GitLab'
+    }
+  }
+  const { token, instanceUrl, authType } = cfg
+  try {
+    const queryState = state === 'closed' ? 'closed' : 'opened'
+    const encodedPath = encodeURIComponent(projectPath)
+    const { statusCode, data } = await gitlabApiRequest(
+      'GET',
+      `/api/v4/projects/${encodedPath}/issues?state=${queryState}&per_page=50&order_by=updated_at&sort=desc`,
+      token,
+      instanceUrl,
+      undefined,
+      authType
+    )
+    if (statusCode !== 200) {
+      let msg = 'Failed to fetch issues'
+      try { msg = JSON.parse(data).message || msg } catch { /* */ }
+      return { success: false, error: msg }
+    }
+    const items = JSON.parse(data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped = items.map((issue: any) => ({
+      iid: issue.iid,
+      title: issue.title,
+      state: issue.state,
+      author: issue.author?.username || 'unknown',
+      authorAvatar: issue.author?.avatar_url || '',
+      labels: (issue.labels || []).map((l: string) => ({ name: l })),
+      assignees: (issue.assignees || []).map((a: any) => a.username || 'unknown'),
+      createdAt: issue.created_at,
+      updatedAt: issue.updated_at,
+      commentCount: issue.user_notes_count || 0,
+      webUrl: issue.web_url,
+      description: issue.description || ''
+    }))
+    return { success: true, data: mapped }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch issues' }
+  }
+})
+
+ipcMain.handle('gitlab:getIssue', async (_event, projectPath: string, issueIid: number, forInstanceUrl?: string) => {
+  const cfg = await getGitLabConfig(forInstanceUrl)
+  if (!cfg.token) {
+    return {
+      success: false,
+      error: cfg.expired ? GITLAB_SESSION_EXPIRED_ERROR : 'Not logged in to GitLab'
+    }
+  }
+  const { token, instanceUrl, authType } = cfg
+  try {
+    const encodedPath = encodeURIComponent(projectPath)
+    // Fetch issue details and notes (comments) in parallel
+    const [issueRes, notesRes] = await Promise.all([
+      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/issues/${issueIid}`, token, instanceUrl, undefined, authType),
+      gitlabApiRequest('GET', `/api/v4/projects/${encodedPath}/issues/${issueIid}/notes?per_page=50&sort=asc`, token, instanceUrl, undefined, authType)
+    ])
+
+    if (issueRes.statusCode !== 200) {
+      let msg = 'Failed to fetch issue'
+      try { msg = JSON.parse(issueRes.data).message || msg } catch { /* */ }
+      return { success: false, error: msg }
+    }
+
+    const issue = JSON.parse(issueRes.data)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const notes = notesRes.statusCode === 200 ? JSON.parse(notesRes.data).filter((n: any) => !n.system).map((n: any) => ({
+      id: n.id,
+      author: n.author?.username || 'unknown',
+      authorAvatar: n.author?.avatar_url || '',
+      body: n.body || '',
+      createdAt: n.created_at
+    })) : []
+
+    return {
+      success: true,
+      data: {
+        iid: issue.iid,
+        title: issue.title,
+        state: issue.state,
+        author: issue.author?.username || 'unknown',
+        authorAvatar: issue.author?.avatar_url || '',
+        labels: (issue.labels || []).map((l: string) => ({ name: l })),
+        assignees: (issue.assignees || []).map((a: any) => a.username || 'unknown'),
+        createdAt: issue.created_at,
+        updatedAt: issue.updated_at,
+        commentCount: issue.user_notes_count || 0,
+        webUrl: issue.web_url,
+        description: issue.description || '',
+        notes
+      }
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch issue details' }
+  }
+})
+
 ipcMain.handle('gitlab:createMergeRequest', async (_event, projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }, forInstanceUrl?: string) => {
   const cfg = await getGitLabConfig(forInstanceUrl)
   if (!cfg.token) {

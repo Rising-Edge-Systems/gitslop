@@ -232,6 +232,8 @@ declare global {
         listMergeRequests: (projectPath: string, state?: string, instanceUrl?: string) => Promise<GitServiceResult>
         getMergeRequest: (projectPath: string, mrIid: number, instanceUrl?: string) => Promise<GitServiceResult>
         createMergeRequest: (projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }, instanceUrl?: string) => Promise<GitServiceResult>
+        listIssues: (projectPath: string, state?: string, instanceUrl?: string) => Promise<GitServiceResult>
+        getIssue: (projectPath: string, issueIid: number, instanceUrl?: string) => Promise<GitServiceResult>
       }
       updates: {
         checkForUpdates: () => Promise<{ available: boolean; version?: string; releaseNotes?: string }>

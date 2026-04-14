@@ -456,7 +456,11 @@ const electronAPI = {
     getMergeRequest: (projectPath: string, mrIid: number, instanceUrl?: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('gitlab:getMergeRequest', projectPath, mrIid, instanceUrl),
     createMergeRequest: (projectPath: string, opts: { title: string; description: string; sourceBranch: string; targetBranch: string }, instanceUrl?: string): Promise<GitServiceResult> =>
-      ipcRenderer.invoke('gitlab:createMergeRequest', projectPath, opts, instanceUrl)
+      ipcRenderer.invoke('gitlab:createMergeRequest', projectPath, opts, instanceUrl),
+    listIssues: (projectPath: string, state?: string, instanceUrl?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:listIssues', projectPath, state, instanceUrl),
+    getIssue: (projectPath: string, issueIid: number, instanceUrl?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('gitlab:getIssue', projectPath, issueIid, instanceUrl)
   },
   updates: {
     checkForUpdates: (): Promise<{ available: boolean; version?: string; releaseNotes?: string }> =>
