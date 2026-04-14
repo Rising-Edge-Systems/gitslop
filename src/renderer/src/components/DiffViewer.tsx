@@ -1271,6 +1271,153 @@ function findRemovedPairKey(hunk: DiffHunk, addedIdx: number): string | null {
 
 // ─── Side-by-Side Diff View ─────────────────────────────────────────────────
 
+// ─── Virtual list types for SideBySideDiffView ─────────────────────────────
+
+const SBS_ROW_HEIGHT = 20
+const SBS_HUNK_HEIGHT = 28
+
+type VirtualSbsItem =
+  | { kind: 'data'; pair: SideBySidePair; meta: SideBySidePairMeta }
+  | { kind: 'hunkDivider'; hunkIdx: number; header: string; suffix: string }
+
+interface SbsVirtualRowProps {
+  virtualRows: VirtualSbsItem[]
+  language: string | null
+  hunkActions: HunkActionsConfig | null
+  hunks: DiffHunk[]
+  wordDiffCache: Map<string, { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] }>
+  getHunkSelection: (hunkIdx: number) => Set<number> | undefined
+  toggleLineSelection: (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void
+  clearHunkSelection: (hunkIdx: number) => void
+}
+
+function SbsVirtualRow(props: {
+  ariaAttributes: { 'aria-posinset': number; 'aria-setsize': number; role: 'listitem' }
+  index: number
+  style: React.CSSProperties
+} & SbsVirtualRowProps): React.ReactElement {
+  const {
+    index, style, virtualRows, language, hunkActions, hunks,
+    wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection
+  } = props
+  const item = virtualRows[index]
+
+  if (item.kind === 'hunkDivider') {
+    return (
+      <div style={style} className={styles.fullHunkDividerVirtual}>
+        <span className={styles.sbsHunkHeaderText}>{item.header}</span>
+        {item.suffix && <span className={styles.hunkHeaderSuffix}>{item.suffix}</span>}
+        {hunkActions && (
+          <HunkActions
+            hunk={hunks[item.hunkIdx]}
+            actions={hunkActions}
+            variant="inline"
+            selectedLines={getHunkSelection(item.hunkIdx)}
+            onClearSelection={() => clearHunkSelection(item.hunkIdx)}
+          />
+        )}
+      </div>
+    )
+  }
+
+  const { pair, meta } = item
+  const wordDiff = pair.left && pair.right && pair.left.type === 'removed' && pair.right.type === 'added'
+    ? wordDiffCache.get(`${pair.left.oldLineNum}:${pair.right.newLineNum}`)
+    : undefined
+
+  // Line-selection state for LEFT (removed) side
+  const leftSelectable =
+    !!hunkActions &&
+    pair.left !== null &&
+    meta.leftLineIdx !== null &&
+    pair.left.type !== 'context' &&
+    !pair.left.content.startsWith('\\')
+  const leftSelected = leftSelectable
+    ? (getHunkSelection(meta.hunkIdx)?.has(meta.leftLineIdx!) ?? false)
+    : false
+
+  // Line-selection state for RIGHT (added) side
+  const rightSelectable =
+    !!hunkActions &&
+    pair.right !== null &&
+    meta.rightLineIdx !== null &&
+    pair.right.type !== 'context' &&
+    !pair.right.content.startsWith('\\')
+  const rightSelected = rightSelectable
+    ? (getHunkSelection(meta.hunkIdx)?.has(meta.rightLineIdx!) ?? false)
+    : false
+
+  return (
+    <div style={style} className={styles.fullDiffRow}>
+      {/* Left cell (old) */}
+      <div className={styles.fullDiffCellLeft}>
+        <div
+          className={`${styles.sbsLine} ${pair.left ? (sbsLineTypeClass[pair.left.type] || '') : styles.sbsLineEmpty} ${leftSelected ? styles.sbsLineSelected : ''}`}
+        >
+          {hunkActions && (
+            leftSelectable ? (
+              <span
+                className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+                onClick={(e) => { e.stopPropagation(); toggleLineSelection(meta.hunkIdx, meta.leftLineIdx!, e) }}
+                title="Click to select line (shift-click for range)"
+              >
+                {leftSelected ? '●' : '○'}
+              </span>
+            ) : (
+              <span className={styles.lineSelect} />
+            )
+          )}
+          <span className={styles.sbsLineNum}>
+            {pair.left?.oldLineNum ?? pair.left?.newLineNum ?? ''}
+          </span>
+          <span className={styles.sbsLineContent}>
+            {pair.left ? (
+              wordDiff ? (
+                <WordDiffContent segments={wordDiff.oldSegments} lineType="removed" />
+              ) : (
+                <SyntaxHighlightedContent text={pair.left.content} language={language} />
+              )
+            ) : ''}
+          </span>
+        </div>
+      </div>
+
+      {/* Right cell (new) */}
+      <div className={styles.fullDiffCellRight}>
+        <div
+          className={`${styles.sbsLine} ${pair.right ? (sbsLineTypeClass[pair.right.type] || '') : styles.sbsLineEmpty} ${rightSelected ? styles.sbsLineSelected : ''}`}
+        >
+          {hunkActions && (
+            rightSelectable ? (
+              <span
+                className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+                onClick={(e) => { e.stopPropagation(); toggleLineSelection(meta.hunkIdx, meta.rightLineIdx!, e) }}
+                title="Click to select line (shift-click for range)"
+              >
+                {rightSelected ? '●' : '○'}
+              </span>
+            ) : (
+              <span className={styles.lineSelect} />
+            )
+          )}
+          <span className={styles.sbsLineNum}>
+            {pair.right?.newLineNum ?? pair.right?.oldLineNum ?? ''}
+          </span>
+          <span className={styles.sbsLineContent}>
+            {pair.right ? (
+              wordDiff ? (
+                <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
+              ) : (
+                <SyntaxHighlightedContent text={pair.right.content} language={language} />
+              )
+            ) : ''}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function SideBySideDiffView({
   hunks,
   language,
@@ -1280,7 +1427,29 @@ function SideBySideDiffView({
   language: string | null
   hunkActions: HunkActionsConfig | null
 }): React.JSX.Element {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [listRef, setListRef] = useListCallbackRef()
+  const listWrapperRef = useRef<HTMLDivElement>(null)
+  const [containerHeight, setContainerHeight] = useState(400)
+
+  // Track the List's outer element for ScrollbarMarkers
+  const scrollContainerRef = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    scrollContainerRef.current = listRef?.element ?? null
+  }, [listRef])
+
+  // ResizeObserver to measure available height for the virtual list
+  useEffect(() => {
+    const el = listWrapperRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerHeight(entry.contentRect.height)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   const { pairs, pairMeta, hunkHeaders } = useMemo(() => pairLinesForSideBySide(hunks), [hunks])
 
   // Shared line-selection hook (same UX as inline view)
@@ -1299,15 +1468,34 @@ function SideBySideDiffView({
     return cache
   }, [pairs])
 
-  // Track hunk header positions for display
-  const hunkHeaderMap = useMemo(() => {
-    const map = new Map<number, { header: string; suffix: string; hunk: DiffHunk; hunkIdx: number }>()
+  // Build flat virtual-row list, inserting hunk divider items at hunk boundaries
+  const virtualRows = useMemo(() => {
+    const items: VirtualSbsItem[] = []
+    // Build a map from pair index to hunk header info
+    const hunkHeaderMap = new Map<number, { header: string; suffix: string; hunkIdx: number }>()
     for (let i = 0; i < hunkHeaders.length; i++) {
       const h = hunkHeaders[i]
-      map.set(h.index, { header: h.header, suffix: h.suffix, hunk: hunks[i], hunkIdx: i })
+      hunkHeaderMap.set(h.index, { header: h.header, suffix: h.suffix, hunkIdx: i })
     }
-    return map
-  }, [hunkHeaders, hunks])
+
+    for (let idx = 0; idx < pairs.length; idx++) {
+      const hh = hunkHeaderMap.get(idx)
+      if (hh) {
+        items.push({ kind: 'hunkDivider', hunkIdx: hh.hunkIdx, header: hh.header, suffix: hh.suffix })
+      }
+      items.push({ kind: 'data', pair: pairs[idx], meta: pairMeta[idx] })
+    }
+    return items
+  }, [pairs, pairMeta, hunkHeaders])
+
+  // Variable row height: hunk dividers are taller than data rows
+  const getRowHeight = useCallback(
+    (index: number) => {
+      const item = virtualRows[index]
+      return item.kind === 'hunkDivider' ? SBS_HUNK_HEIGHT : SBS_ROW_HEIGHT
+    },
+    [virtualRows]
+  )
 
   // Compute unified scrollbar markers from paired lines
   const unifiedMarkers = useMemo(() => {
@@ -1326,131 +1514,44 @@ function SideBySideDiffView({
     return computeMarkers(types, types.length)
   }, [pairs])
 
+  // Props passed to every virtual row
+  const rowProps: SbsVirtualRowProps = useMemo(() => ({
+    virtualRows,
+    language,
+    hunkActions,
+    hunks,
+    wordDiffCache,
+    getHunkSelection,
+    toggleLineSelection: toggleLineSelection as (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void,
+    clearHunkSelection
+  }), [
+    virtualRows, language, hunkActions, hunks, wordDiffCache,
+    getHunkSelection, toggleLineSelection, clearHunkSelection
+  ])
+
   return (
     <div className={styles.diffWithMarkers}>
-      <div className={styles.fullDiffContainer} ref={containerRef}>
+      <div className={styles.fullDiffVirtualContainer}>
         {/* Sticky column headers */}
         <div className={styles.fullDiffStickyHeaders}>
           <div className={styles.sbsPaneHeader}>Old</div>
           <div className={styles.sbsPaneHeader}>New</div>
         </div>
 
-        {pairs.map((pair, idx) => {
-          const hh = hunkHeaderMap.get(idx)
-          const meta = pairMeta[idx]
-          const wordDiff = pair.left && pair.right && pair.left.type === 'removed' && pair.right.type === 'added'
-            ? wordDiffCache.get(`${pair.left.oldLineNum}:${pair.right.newLineNum}`)
-            : undefined
-
-          // Line-selection state for LEFT (removed) side
-          const leftSelectable =
-            !!hunkActions &&
-            pair.left !== null &&
-            meta.leftLineIdx !== null &&
-            pair.left.type !== 'context' &&
-            !pair.left.content.startsWith('\\')
-          const leftSelected = leftSelectable
-            ? (getHunkSelection(meta.hunkIdx)?.has(meta.leftLineIdx!) ?? false)
-            : false
-
-          // Line-selection state for RIGHT (added) side
-          const rightSelectable =
-            !!hunkActions &&
-            pair.right !== null &&
-            meta.rightLineIdx !== null &&
-            pair.right.type !== 'context' &&
-            !pair.right.content.startsWith('\\')
-          const rightSelected = rightSelectable
-            ? (getHunkSelection(meta.hunkIdx)?.has(meta.rightLineIdx!) ?? false)
-            : false
-
-          return (
-            <React.Fragment key={idx}>
-              {hh && (
-                <div className={styles.fullHunkDivider}>
-                  <span className={styles.sbsHunkHeaderText}>{hh.header}</span>
-                  {hh.suffix && <span className={styles.hunkHeaderSuffix}>{hh.suffix}</span>}
-                  <HunkActions
-                    hunk={hh.hunk}
-                    actions={hunkActions}
-                    variant="inline"
-                    selectedLines={getHunkSelection(hh.hunkIdx)}
-                    onClearSelection={() => clearHunkSelection(hh.hunkIdx)}
-                  />
-                </div>
-              )}
-              <div className={styles.fullDiffRow}>
-                {/* Left cell (old) */}
-                <div className={styles.fullDiffCellLeft}>
-                  <div
-                    className={`${styles.sbsLine} ${pair.left ? (sbsLineTypeClass[pair.left.type] || '') : styles.sbsLineEmpty} ${leftSelected ? styles.sbsLineSelected : ''}`}
-                  >
-                    {hunkActions && (
-                      leftSelectable ? (
-                        <span
-                          className={`${styles.lineSelect} ${styles.lineSelectActive}`}
-                          onClick={(e) => { e.stopPropagation(); toggleLineSelection(meta.hunkIdx, meta.leftLineIdx!, e) }}
-                          title="Click to select line (shift-click for range)"
-                        >
-                          {leftSelected ? '●' : '○'}
-                        </span>
-                      ) : (
-                        <span className={styles.lineSelect} />
-                      )
-                    )}
-                    <span className={styles.sbsLineNum}>
-                      {pair.left?.oldLineNum ?? pair.left?.newLineNum ?? ''}
-                    </span>
-                    <span className={styles.sbsLineContent}>
-                      {pair.left ? (
-                        wordDiff ? (
-                          <WordDiffContent segments={wordDiff.oldSegments} lineType="removed" />
-                        ) : (
-                          <SyntaxHighlightedContent text={pair.left.content} language={language} />
-                        )
-                      ) : ''}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Right cell (new) */}
-                <div className={styles.fullDiffCellRight}>
-                  <div
-                    className={`${styles.sbsLine} ${pair.right ? (sbsLineTypeClass[pair.right.type] || '') : styles.sbsLineEmpty} ${rightSelected ? styles.sbsLineSelected : ''}`}
-                  >
-                    {hunkActions && (
-                      rightSelectable ? (
-                        <span
-                          className={`${styles.lineSelect} ${styles.lineSelectActive}`}
-                          onClick={(e) => { e.stopPropagation(); toggleLineSelection(meta.hunkIdx, meta.rightLineIdx!, e) }}
-                          title="Click to select line (shift-click for range)"
-                        >
-                          {rightSelected ? '●' : '○'}
-                        </span>
-                      ) : (
-                        <span className={styles.lineSelect} />
-                      )
-                    )}
-                    <span className={styles.sbsLineNum}>
-                      {pair.right?.newLineNum ?? pair.right?.oldLineNum ?? ''}
-                    </span>
-                    <span className={styles.sbsLineContent}>
-                      {pair.right ? (
-                        wordDiff ? (
-                          <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
-                        ) : (
-                          <SyntaxHighlightedContent text={pair.right.content} language={language} />
-                        )
-                      ) : ''}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </React.Fragment>
-          )
-        })}
+        {/* Virtual list fills remaining space */}
+        <div ref={listWrapperRef} style={{ flex: 1, minHeight: 0 }}>
+          <List<SbsVirtualRowProps>
+            listRef={setListRef}
+            rowComponent={SbsVirtualRow}
+            rowCount={virtualRows.length}
+            rowHeight={getRowHeight}
+            rowProps={rowProps}
+            overscanCount={15}
+            style={{ height: containerHeight }}
+          />
+        </div>
       </div>
-      <ScrollbarMarkers markers={unifiedMarkers} containerRef={containerRef} />
+      <ScrollbarMarkers markers={unifiedMarkers} containerRef={scrollContainerRef as React.RefObject<HTMLElement | null>} />
     </div>
   )
 }
