@@ -775,16 +775,8 @@ export class GitService {
     options?: { signal?: AbortSignal }
   ): Promise<string | { binary: true }> {
     try {
-      // Get the first parent hash
-      const parentResult = await this.exec(
-        ['rev-parse', `${hash}^1`],
-        repoPath,
-        { signal: options?.signal }
-      )
-      const parentHash = parentResult.stdout.trim()
-
-      // Get the file content at the parent commit
-      const args = ['show', `${parentHash}:${filePath}`]
+      // Use hash^1:path directly — git resolves the parent without a separate rev-parse
+      const args = ['show', `${hash}^1:${filePath}`]
       const result = await this.exec(args, repoPath, { signal: options?.signal })
 
       // Binary file detection: check for null bytes
