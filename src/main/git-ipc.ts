@@ -345,9 +345,9 @@ export function registerGitIpcHandlers(): void {
 
   ipcMain.handle(
     'git:showCommitFileDiff',
-    async (_event, repoPath: string, hash: string, filePath: string) => {
+    async (_event, repoPath: string, hash: string, filePath: string, opts?: { isMerge?: boolean }) => {
       try {
-        const data = await gitService.showCommitFileDiff(repoPath, hash, filePath)
+        const data = await gitService.showCommitFileDiff(repoPath, hash, filePath, { isMerge: opts?.isMerge })
         return { success: true, data }
       } catch (err) {
         return { success: false, ...formatError(err) }

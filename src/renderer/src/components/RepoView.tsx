@@ -153,7 +153,8 @@ export function RepoView({ repoPath, onCommitSelect, onRepoLoaded, viewingDiff, 
     let cancelled = false
     setDiffLoading(true)
     setDiffError(null)
-    window.electronAPI.git.showCommitFileDiff(repoPath, diffCommitHash, diffFile)
+    const isMerge = selectedCommit?.commit?.parentHashes && selectedCommit.commit.parentHashes.length > 1
+    window.electronAPI.git.showCommitFileDiff(repoPath, diffCommitHash, diffFile, { isMerge: !!isMerge })
       .then((result) => {
         if (cancelled) return
         if (result.success && result.data) {

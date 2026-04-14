@@ -59,7 +59,7 @@ declare global {
         getStatus: (repoPath: string) => Promise<GitServiceResult>
         diff: (repoPath: string, filePath?: string, opts?: { staged?: boolean }) => Promise<GitServiceResult>
         showCommit: (repoPath: string, hash: string) => Promise<GitServiceResult>
-        showCommitFileDiff: (repoPath: string, hash: string, filePath: string) => Promise<GitServiceResult>
+        showCommitFileDiff: (repoPath: string, hash: string, filePath: string, opts?: { isMerge?: boolean }) => Promise<GitServiceResult>
         showFileAtCommit: (repoPath: string, hash: string, filePath: string) => Promise<GitServiceResult>
         showFileAtParent: (repoPath: string, hash: string, filePath: string) => Promise<GitServiceResult>
         listFilesAtCommit: (repoPath: string, hash: string) => Promise<GitServiceResult>

@@ -116,9 +116,10 @@ const electronAPI = {
     showCommitFileDiff: (
       repoPath: string,
       hash: string,
-      filePath: string
+      filePath: string,
+      opts?: { isMerge?: boolean }
     ): Promise<GitServiceResult> =>
-      ipcRenderer.invoke('git:showCommitFileDiff', repoPath, hash, filePath),
+      ipcRenderer.invoke('git:showCommitFileDiff', repoPath, hash, filePath, opts),
     showFileAtCommit: (
       repoPath: string,
       hash: string,

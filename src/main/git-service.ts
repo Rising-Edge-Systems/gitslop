@@ -743,19 +743,12 @@ export class GitService {
     repoPath: string,
     hash: string,
     filePath: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; isMerge?: boolean }
   ): Promise<string> {
     // For merge commits, `git show --patch` produces a combined diff that's
     // empty for files only changed in one parent. Use `git diff parent..hash`
     // against the first parent instead, which matches what GitKraken shows.
-    const parentCheck = await this.exec(
-      ['rev-parse', '--verify', `${hash}^2`],
-      repoPath,
-      { signal: options?.signal }
-    ).catch(() => null)
-
-    if (parentCheck) {
-      // Merge commit — diff against first parent
+    if (options?.isMerge) {
       const result = await this.exec(
         ['diff', `${hash}^1`, hash, '--', filePath],
         repoPath,
@@ -764,7 +757,6 @@ export class GitService {
       return result.stdout
     }
 
-    // Normal commit — use git show
     const args = ['show', '--format=', '--patch', hash, '--', filePath]
     const result = await this.exec(args, repoPath, { signal: options?.signal })
     return result.stdout
