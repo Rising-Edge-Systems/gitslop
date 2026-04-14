@@ -20,6 +20,7 @@
   min-height: 200px;
   overflow: hidden;
   gap: 0;
+  position: relative;
 }
 
 .container {
@@ -390,6 +391,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1;
+  cursor: pointer;
 }
 
 .refHead {

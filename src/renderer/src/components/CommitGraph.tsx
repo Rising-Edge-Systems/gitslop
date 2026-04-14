@@ -801,6 +801,7 @@ interface CommitRowProps {
   onRowClick: (index: number, event: React.MouseEvent) => void
   onRowContextMenu: (index: number, event: React.MouseEvent) => void
   onRefContextMenu: (ref: ParsedRef, commitHash: string, event: React.MouseEvent) => void
+  onRefDoubleClick: (ref: ParsedRef) => void
   onRowMouseEnter: (index: number, event: React.MouseEvent) => void
   onRowMouseLeave: () => void
 }
@@ -810,7 +811,7 @@ function CommitRowComponent(props: {
   index: number
   style: React.CSSProperties
 } & CommitRowProps): React.ReactElement {
-  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, onRowClick, onRowContextMenu, onRefContextMenu, onRowMouseEnter, onRowMouseLeave } = props
+  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, onRowClick, onRowContextMenu, onRefContextMenu, onRefDoubleClick, onRowMouseEnter, onRowMouseLeave } = props
 
   // WIP row — sync commit subject from StatusPanel (hooks must be unconditional)
   const wipInputRef = useRef<HTMLInputElement>(null)
@@ -841,6 +842,16 @@ function CommitRowComponent(props: {
     e.stopPropagation()
     onRefContextMenu(ref, commitHash, e)
   }, [commitHash, onRefContextMenu])
+
+  const handleRowDoubleClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    const refEl = target.closest('[data-ref-name]') as HTMLElement | null
+    if (refEl && nodeIndex >= 0 && nodes[nodeIndex]) {
+      const refName = refEl.getAttribute('data-ref-name')!
+      const refType = refEl.getAttribute('data-ref-type') as ParsedRef['type']
+      onRefDoubleClick({ name: refName, type: refType })
+    }
+  }, [nodeIndex, nodes, onRefDoubleClick])
 
   const handleMouseEnter = useCallback((e: React.MouseEvent) => {
     onRowMouseEnter(index, e)
@@ -902,6 +913,7 @@ function CommitRowComponent(props: {
       className={`${styles.row}${isSelected ? ` ${styles.rowSelected}` : ''}${isHeadCommit ? ` ${styles.rowHead}` : ''}`}
       style={style}
       onClick={handleClick}
+      onDoubleClick={handleRowDoubleClick}
       onContextMenu={handleContextMenu}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={onRowMouseLeave}
@@ -929,7 +941,9 @@ function CommitRowComponent(props: {
                   key={idx}
                   className={`${styles.ref} ${refTypeClass[ref.type] || ''}`}
                   style={laneColorStyle}
-                  title={ref.name}
+                  title={`Double-click to checkout ${ref.name}`}
+                  data-ref-name={ref.name}
+                  data-ref-type={ref.type}
                   onContextMenu={(e) => handleRefContextMenu(ref, e)}
                 >
                   {ref.type === 'head' && <span className={styles.refHeadIcon}><CircleDot size={12} /> </span>}
@@ -1159,6 +1173,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
   const [totalCommitCount, setTotalCommitCount] = useState<number | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [checkoutInProgress, setCheckoutInProgress] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [visibleRange, setVisibleRange] = useState({ start: 0, stop: 0 })
   // Derive scrollOffset from visibleRange to stay in sync with react-window's
@@ -2050,6 +2065,35 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
     onRefresh?.()
   }, [loadCommits, fetchAheadBehind, onRefresh])
 
+  // Handle double-click on branch/tag ref label → checkout
+  const handleRefDoubleClick = useCallback(async (ref: ParsedRef) => {
+    if (!repoPath) return
+    const displayName = ref.type === 'remote' ? ref.name.split('/').slice(1).join('/') : ref.name
+    setCheckoutInProgress(displayName)
+    try {
+      if (ref.type === 'remote') {
+        const parts = ref.name.split('/')
+        const remoteName = parts[0]
+        const branchName = parts.slice(1).join('/')
+        try {
+          await window.electronAPI.git.checkout(repoPath, branchName)
+        } catch {
+          await window.electronAPI.git.checkoutRemoteBranch(repoPath, remoteName, branchName)
+        }
+      } else {
+        await window.electronAPI.git.checkout(repoPath, ref.name)
+      }
+      await loadCommits(true)
+      fetchAheadBehind()
+      loadWipStatus()
+      onRefresh?.()
+    } catch (err) {
+      console.error('Checkout failed:', err)
+    } finally {
+      setCheckoutInProgress(null)
+    }
+  }, [repoPath, loadCommits, fetchAheadBehind, loadWipStatus, onRefresh])
+
   const handleCloseDetail = useCallback(() => {
     setSelectedIndex(-1)
     setSelectedHash(null)
@@ -2069,9 +2113,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
     onRowClick: handleRowClick,
     onRowContextMenu: handleRowContextMenu,
     onRefContextMenu: handleRefContextMenu,
+    onRefDoubleClick: handleRefDoubleClick,
     onRowMouseEnter: handleRowMouseEnter,
     onRowMouseLeave: handleRowMouseLeave
-  }), [nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, handleRowClick, handleRowContextMenu, handleRefContextMenu, handleRowMouseEnter, handleRowMouseLeave])
+  }), [nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, handleRowClick, handleRowContextMenu, handleRefContextMenu, handleRefDoubleClick, handleRowMouseEnter, handleRowMouseLeave])
 
   if (loading && commits.length === 0) {
     return (
@@ -2106,6 +2151,38 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
 
   return (
     <div className={styles.wrapper}>
+      {checkoutInProgress && (
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 50,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0, 0, 0, 0.4)',
+          backdropFilter: 'blur(2px)',
+          borderRadius: 'var(--radius-md)',
+          pointerEvents: 'all'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '12px 20px',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            fontSize: '13px',
+            color: 'var(--text-primary)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            Switching to <strong>{checkoutInProgress}</strong>…
+          </div>
+        </div>
+      )}
       <div
         className={styles.container}
         ref={containerRef}
