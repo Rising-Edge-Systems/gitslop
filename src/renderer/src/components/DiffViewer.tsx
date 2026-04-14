@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { List, useListCallbackRef } from 'react-window'
 import { Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import styles from './DiffViewer.module.css'
 
@@ -1616,6 +1617,135 @@ function buildFullDiffRows(
 
 const LARGE_FILE_THRESHOLD = 5000
 
+// ─── Virtual list types for FullDiffView ──────────────────────────────────
+
+const FULL_DIFF_ROW_HEIGHT = 20
+const FULL_DIFF_HUNK_HEIGHT = 28
+
+type VirtualFullDiffItem =
+  | { kind: 'data'; row: FullDiffRow }
+  | { kind: 'hunkDivider'; hunkIdx: number }
+
+interface FullDiffVirtualRowProps {
+  virtualRows: VirtualFullDiffItem[]
+  language: string | null
+  stagingActive: boolean
+  hunkActionsConfig: HunkActionsConfig | null
+  parsedHunks: DiffHunk[]
+  getHunkSelection: (hunkIdx: number) => Set<number> | undefined
+  toggleLineSelection: (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void
+  clearHunkSelection: (hunkIdx: number) => void
+  isNewFile: boolean
+  isDeletedFile: boolean
+}
+
+function FullDiffVirtualRow(props: {
+  ariaAttributes: { 'aria-posinset': number; 'aria-setsize': number; role: 'listitem' }
+  index: number
+  style: React.CSSProperties
+} & FullDiffVirtualRowProps): React.ReactElement {
+  const {
+    index, style, virtualRows, language, stagingActive, hunkActionsConfig,
+    parsedHunks, getHunkSelection, toggleLineSelection, clearHunkSelection,
+    isNewFile, isDeletedFile
+  } = props
+  const item = virtualRows[index]
+
+  if (item.kind === 'hunkDivider') {
+    return (
+      <div style={style} className={styles.fullHunkDividerVirtual}>
+        <span>{parsedHunks[item.hunkIdx].header}</span>
+        {hunkActionsConfig && (
+          <HunkActions
+            hunk={parsedHunks[item.hunkIdx]}
+            actions={hunkActionsConfig}
+            variant="inline"
+            selectedLines={getHunkSelection(item.hunkIdx)}
+            onClearSelection={() => clearHunkSelection(item.hunkIdx)}
+          />
+        )}
+      </div>
+    )
+  }
+
+  const { row } = item
+
+  const renderSide = (
+    side: FullDiffRow['left'] | FullDiffRow['right'],
+    type: 'left' | 'right'
+  ): React.JSX.Element => {
+    const isLeft = type === 'left'
+
+    // New file: left side always empty
+    if (isNewFile && isLeft) {
+      return (
+        <div className={styles.fullDiffCellLeft}>
+          <div className={`${styles.sbsLine} ${styles.sbsLineEmpty}`}>
+            <span className={styles.sbsLineNum} />
+            <span className={styles.sbsLineContent} />
+          </div>
+        </div>
+      )
+    }
+    // Deleted file: right side always empty
+    if (isDeletedFile && !isLeft) {
+      return (
+        <div className={styles.fullDiffCellRight}>
+          <div className={`${styles.sbsLine} ${styles.sbsLineEmpty}`}>
+            <span className={styles.sbsLineNum} />
+            <span className={styles.sbsLineContent} />
+          </div>
+        </div>
+      )
+    }
+
+    const isChanged = isLeft ? side?.type === 'removed' : side?.type === 'added'
+    const lineIdx = isLeft ? row.leftLineIdx : row.rightLineIdx
+    const selectable = stagingActive && isChanged && row.hunkIdx !== null && lineIdx !== null
+    const sel = row.hunkIdx !== null ? getHunkSelection(row.hunkIdx) : undefined
+    const isSelected = selectable && sel ? sel.has(lineIdx!) : false
+
+    return (
+      <div className={isLeft ? styles.fullDiffCellLeft : styles.fullDiffCellRight}>
+        <div
+          className={`${styles.sbsLine} ${
+            side
+              ? (isChanged
+                  ? (isLeft ? styles.sbsLineRemoved : styles.sbsLineAdded)
+                  : styles.sbsLineContext)
+              : styles.sbsLineEmpty
+          } ${isSelected ? styles.sbsLineSelected : ''}`}
+        >
+          {stagingActive && (
+            selectable ? (
+              <span
+                className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+                onClick={(e) => { e.stopPropagation(); toggleLineSelection(row.hunkIdx!, lineIdx!, e) }}
+                title="Click to select line (shift-click for range)"
+              >
+                {isSelected ? '●' : '○'}
+              </span>
+            ) : (
+              <span className={styles.lineSelect} />
+            )
+          )}
+          <span className={styles.sbsLineNum}>{side?.lineNum ?? ''}</span>
+          <span className={styles.sbsLineContent}>
+            {side ? <SyntaxHighlightedContent text={side.content} language={language} /> : ''}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={style} className={styles.fullDiffRow}>
+      {renderSide(row.left, 'left')}
+      {renderSide(row.right, 'right')}
+    </div>
+  )
+}
+
 export function FullDiffView({
   oldContent,
   newContent,
@@ -1631,6 +1761,28 @@ export function FullDiffView({
 }: FullDiffViewProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const [loadLargeFile, setLoadLargeFile] = useState(false)
+  const [listRef, setListRef] = useListCallbackRef()
+  const listWrapperRef = useRef<HTMLDivElement>(null)
+  const [containerHeight, setContainerHeight] = useState(400)
+
+  // Track the List's outer element for ScrollbarMarkers
+  const scrollContainerRef = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    scrollContainerRef.current = listRef?.element ?? null
+  }, [listRef])
+
+  // ResizeObserver to measure available height for the virtual list
+  useEffect(() => {
+    const el = listWrapperRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerHeight(entry.contentRect.height)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   const language = useMemo(() => detectLanguage(filePath), [filePath])
   const parsed = useMemo(() => parseDiff(diffContent), [diffContent])
@@ -1702,6 +1854,46 @@ export function FullDiffView({
     return computeMarkers(types, types.length)
   }, [fullRows])
 
+  // Build flat virtual-row list, inserting hunk divider items at hunk boundaries
+  const virtualRows = useMemo(() => {
+    const items: VirtualFullDiffItem[] = []
+    for (let idx = 0; idx < fullRows.length; idx++) {
+      const row = fullRows[idx]
+      const prevRow = idx > 0 ? fullRows[idx - 1] : null
+      if (stagingActive && row.hunkIdx !== null && (prevRow === null || prevRow.hunkIdx !== row.hunkIdx)) {
+        items.push({ kind: 'hunkDivider', hunkIdx: row.hunkIdx })
+      }
+      items.push({ kind: 'data', row })
+    }
+    return items
+  }, [fullRows, stagingActive])
+
+  // Variable row height: hunk dividers are taller than data rows
+  const getRowHeight = useCallback(
+    (index: number) => {
+      const item = virtualRows[index]
+      return item.kind === 'hunkDivider' ? FULL_DIFF_HUNK_HEIGHT : FULL_DIFF_ROW_HEIGHT
+    },
+    [virtualRows]
+  )
+
+  // Props passed to every virtual row
+  const rowProps: FullDiffVirtualRowProps = useMemo(() => ({
+    virtualRows,
+    language,
+    stagingActive,
+    hunkActionsConfig,
+    parsedHunks: parsed.hunks,
+    getHunkSelection,
+    toggleLineSelection: toggleLineSelection as (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void,
+    clearHunkSelection,
+    isNewFile,
+    isDeletedFile
+  }), [
+    virtualRows, language, stagingActive, hunkActionsConfig, parsed.hunks,
+    getHunkSelection, toggleLineSelection, clearHunkSelection, isNewFile, isDeletedFile
+  ])
+
   // Binary file — show placeholder in both panes
   if (isBinary) {
     return (
@@ -1754,51 +1946,16 @@ export function FullDiffView({
     )
   }
 
-  // Helper to render a single cell (left or right) within a unified row
-  const renderCell = (
-    side: FullDiffRow['left'] | FullDiffRow['right'],
-    type: 'left' | 'right',
-    row: FullDiffRow,
-    idx: number
-  ): React.JSX.Element => {
-    const isLeft = type === 'left'
-    const isChanged = isLeft ? side?.type === 'removed' : side?.type === 'added'
-    const lineIdx = isLeft ? row.leftLineIdx : row.rightLineIdx
-    const selectable = stagingActive && isChanged && row.hunkIdx !== null && lineIdx !== null
-    const sel = row.hunkIdx !== null ? getHunkSelection(row.hunkIdx) : undefined
-    const isSelected = selectable && sel ? sel.has(lineIdx!) : false
-
+  // Empty file placeholder — no virtualization needed
+  if (isNewFile && isDeletedFile) {
     return (
-      <div
-        className={`${isLeft ? styles.fullDiffCellLeft : styles.fullDiffCellRight}`}
-        key={`${idx}-${type}`}
-      >
-        <div
-          className={`${styles.sbsLine} ${
-            side
-              ? (isChanged
-                  ? (isLeft ? styles.sbsLineRemoved : styles.sbsLineAdded)
-                  : styles.sbsLineContext)
-              : styles.sbsLineEmpty
-          } ${isSelected ? styles.sbsLineSelected : ''}`}
-        >
-          {stagingActive && (
-            selectable ? (
-              <span
-                className={`${styles.lineSelect} ${styles.lineSelectActive}`}
-                onClick={(e) => { e.stopPropagation(); toggleLineSelection(row.hunkIdx!, lineIdx!, e) }}
-                title="Click to select line (shift-click for range)"
-              >
-                {isSelected ? '●' : '○'}
-              </span>
-            ) : (
-              <span className={styles.lineSelect} />
-            )
-          )}
-          <span className={styles.sbsLineNum}>{side?.lineNum ?? ''}</span>
-          <span className={styles.sbsLineContent}>
-            {side ? <SyntaxHighlightedContent text={side.content} language={language} /> : ''}
-          </span>
+      <div className={`${styles.diffViewer} ${className}`}>
+        <div className={styles.fullDiffContainer}>
+          <div className={styles.fullDiffStickyHeaders}>
+            <div className={styles.sbsPaneHeader}>{leftPath} · 0 lines</div>
+            <div className={styles.sbsPaneHeader}>{rightPath} · 0 lines</div>
+          </div>
+          <div className={styles.fullDiffPlaceholder}>No content to display</div>
         </div>
       </div>
     )
@@ -1813,8 +1970,8 @@ export function FullDiffView({
         </div>
       )}
       <div className={styles.diffWithMarkers}>
-        <div className={styles.fullDiffContainer} ref={containerRef}>
-          {/* Sticky column headers */}
+        <div className={styles.fullDiffVirtualContainer} ref={containerRef}>
+          {/* Column headers — fixed above the virtual list */}
           <div className={styles.fullDiffStickyHeaders}>
             <div className={styles.sbsPaneHeader}>
               {leftPath} · {isNewFile ? 0 : oldDisplay.length} lines
@@ -1824,103 +1981,20 @@ export function FullDiffView({
             </div>
           </div>
 
-          {/* New file — show placeholder spanning both columns */}
-          {isNewFile && isDeletedFile ? (
-            <div className={styles.fullDiffPlaceholder}>No content to display</div>
-          ) : isNewFile ? (
-            /* New file: left placeholder, right shows all added lines */
-            fullRows.map((row, idx) => {
-              const prevRow = idx > 0 ? fullRows[idx - 1] : null
-              const isHunkStart =
-                stagingActive && row.hunkIdx !== null && (prevRow === null || prevRow.hunkIdx !== row.hunkIdx)
-              return (
-                <React.Fragment key={idx}>
-                  {isHunkStart && hunkActionsConfig && (
-                    <div className={styles.fullHunkDivider}>
-                      <span>{parsed.hunks[row.hunkIdx!].header}</span>
-                      <HunkActions
-                        hunk={parsed.hunks[row.hunkIdx!]}
-                        actions={hunkActionsConfig}
-                        variant="inline"
-                        selectedLines={getHunkSelection(row.hunkIdx!)}
-                        onClearSelection={() => clearHunkSelection(row.hunkIdx!)}
-                      />
-                    </div>
-                  )}
-                  <div className={styles.fullDiffRow}>
-                    <div className={styles.fullDiffCellLeft}>
-                      <div className={`${styles.sbsLine} ${styles.sbsLineEmpty}`}>
-                        <span className={styles.sbsLineNum} />
-                        <span className={styles.sbsLineContent} />
-                      </div>
-                    </div>
-                    {renderCell(row.right, 'right', row, idx)}
-                  </div>
-                </React.Fragment>
-              )
-            })
-          ) : isDeletedFile ? (
-            /* Deleted file: left shows all removed lines, right placeholder */
-            fullRows.map((row, idx) => {
-              const prevRow = idx > 0 ? fullRows[idx - 1] : null
-              const isHunkStart =
-                stagingActive && row.hunkIdx !== null && (prevRow === null || prevRow.hunkIdx !== row.hunkIdx)
-              return (
-                <React.Fragment key={idx}>
-                  {isHunkStart && hunkActionsConfig && (
-                    <div className={styles.fullHunkDivider}>
-                      <span>{parsed.hunks[row.hunkIdx!].header}</span>
-                      <HunkActions
-                        hunk={parsed.hunks[row.hunkIdx!]}
-                        actions={hunkActionsConfig}
-                        variant="inline"
-                        selectedLines={getHunkSelection(row.hunkIdx!)}
-                        onClearSelection={() => clearHunkSelection(row.hunkIdx!)}
-                      />
-                    </div>
-                  )}
-                  <div className={styles.fullDiffRow}>
-                    {renderCell(row.left, 'left', row, idx)}
-                    <div className={styles.fullDiffCellRight}>
-                      <div className={`${styles.sbsLine} ${styles.sbsLineEmpty}`}>
-                        <span className={styles.sbsLineNum} />
-                        <span className={styles.sbsLineContent} />
-                      </div>
-                    </div>
-                  </div>
-                </React.Fragment>
-              )
-            })
-          ) : (
-            /* Normal diff: render unified rows */
-            fullRows.map((row, idx) => {
-              const prevRow = idx > 0 ? fullRows[idx - 1] : null
-              const isHunkStart =
-                stagingActive && row.hunkIdx !== null && (prevRow === null || prevRow.hunkIdx !== row.hunkIdx)
-              return (
-                <React.Fragment key={idx}>
-                  {isHunkStart && hunkActionsConfig && (
-                    <div className={styles.fullHunkDivider}>
-                      <span>{parsed.hunks[row.hunkIdx!].header}</span>
-                      <HunkActions
-                        hunk={parsed.hunks[row.hunkIdx!]}
-                        actions={hunkActionsConfig}
-                        variant="inline"
-                        selectedLines={getHunkSelection(row.hunkIdx!)}
-                        onClearSelection={() => clearHunkSelection(row.hunkIdx!)}
-                      />
-                    </div>
-                  )}
-                  <div className={styles.fullDiffRow}>
-                    {renderCell(row.left, 'left', row, idx)}
-                    {renderCell(row.right, 'right', row, idx)}
-                  </div>
-                </React.Fragment>
-              )
-            })
-          )}
+          {/* Virtual list fills remaining space */}
+          <div ref={listWrapperRef} style={{ flex: 1, minHeight: 0 }}>
+            <List<FullDiffVirtualRowProps>
+              listRef={setListRef}
+              rowComponent={FullDiffVirtualRow}
+              rowCount={virtualRows.length}
+              rowHeight={getRowHeight}
+              rowProps={rowProps}
+              overscanCount={15}
+              style={{ height: containerHeight }}
+            />
+          </div>
         </div>
-        <ScrollbarMarkers markers={unifiedMarkers} containerRef={containerRef} />
+        <ScrollbarMarkers markers={unifiedMarkers} containerRef={scrollContainerRef as React.RefObject<HTMLElement | null>} />
       </div>
     </div>
   )

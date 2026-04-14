@@ -692,6 +692,31 @@
   min-height: 0;
 }
 
+/* Virtualized variant: flex column, no overflow (List handles scrolling) */
+.fullDiffVirtualContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Hunk divider styled for fixed-height virtual rows */
+.fullHunkDividerVirtual {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 2px var(--space-md);
+  background: rgba(137, 180, 250, 0.1);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
 /* Each unified row is a flex row spanning left + right */
 .fullDiffRow {
   display: flex;
