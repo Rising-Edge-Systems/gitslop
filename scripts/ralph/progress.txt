@@ -1,61 +1,62 @@
 # Ralph Progress Log
-Started: 04/13/2026 20:17:53
+Started: 04/13/2026 21:23:59
 ---
 
 ## Codebase Patterns
-- FullDiffView and DiffViewer are both in the same file: `src/renderer/src/components/DiffViewer.tsx`
-- CSS module: `src/renderer/src/components/DiffViewer.module.css`
-- Typecheck: `npx tsc --noEmit` (ignore TS6305 build artifact warnings)
-- Tests: `npx vitest run` (127 tests across 6 files)
-- Build: `npx electron-vite build`
-- No ESLint config in this project
-- `buildFullDiffRows()` produces aligned `FullDiffRow[]` with left/right/hunkIdx/lineIdx fields
-- ScrollbarMarkers component takes `markers` and `containerRef` props
-- `computeMarkers()` utility converts line type arrays to marker entries
-- Side-by-side uses `.sbsView`, `.sbsPane`, `.sbsLeft` CSS classes
-- Full diff view uses `.fullDiffContainer`, `.fullDiffRow`, `.fullDiffCellLeft`, `.fullDiffCellRight` (new)
+- IPC handlers for GitHub/GitLab APIs live in `src/main/index.ts`, use `githubApiRequest`/`gitlabApiRequest` helpers
+- Preload exposes IPC to renderer in `src/preload/index.ts` under `github`/`gitlab` objects
+- Type definitions for `window.electronAPI` are in `src/renderer/src/hooks/useLayoutState.ts`
+- GitHub label colors come WITHOUT `#` prefix — add `#` when mapping
+- GitHub issues endpoint returns PRs too — filter with `!item.pull_request`
+- Use `npm run typecheck` (not bare `tsc --noEmit`) for project typecheck
+- Tests: `npm test` runs vitest
+
+## 2026-04-13 21:31 - US-IS-001
+- Implemented github:listIssues and github:getIssue IPC handlers
+- Added preload exposure and type definitions
+- Files changed: src/main/index.ts, src/preload/index.ts, src/renderer/src/hooks/useLayoutState.ts
+- **Learnings for future iterations:**
+  - Follow existing PR handler patterns exactly — same error handling, same githubApiRequest helper
+  - GitHub issues API returns PRs in results — must filter with `!item.pull_request`
+  - Label color from GitHub has no `#` prefix — prepend it when mapping
+  - getIssue fetches issue + comments in parallel with Promise.all
 ---
 
-## 04/13/2026 20:23 - US-DS-001
-- Replaced dual-pane JS scroll sync with single scrollable container in FullDiffView
-- Removed leftPaneRef, rightPaneRef, syncingRef, handleScrollSync
-- Added containerRef for single scroll container
-- Each row renders as flex row with 50/50 left/right cells
-- Sticky headers at top of container
-- Unified scrollbar markers (merged left+right into single marker array)
-- Binary/large file placeholders updated to use new layout
-- Files changed: DiffViewer.tsx, DiffViewer.module.css
+## 2026-04-13 21:35 - US-IS-002
+- Implemented gitlab:listIssues and gitlab:getIssue IPC handlers
+- Added preload exposure and type definitions
+- Files changed: src/main/index.ts, src/preload/index.ts, src/renderer/src/hooks/useLayoutState.ts
 - **Learnings for future iterations:**
-  - The FullDiffRow type already has aligned left/right data — no need to iterate twice
-  - fullDiffMarkers was computing separate left/right markers; unified into single `unifiedMarkers`
-  - CSS classes `.fullDiffContainer`, `.fullDiffRow`, `.fullDiffCellLeft`, `.fullDiffCellRight`, `.fullDiffStickyHeaders` are new
-  - renderCell helper inside FullDiffView handles selection, highlighting for either side
+  - GitLab issues follow same pattern as MR handlers — getGitLabConfig, gitlabApiRequest, same auth/error pattern
+  - GitLab state mapping for issues: 'open' -> 'opened', 'closed' -> 'closed' (simpler than MR which has 'merged')
+  - GitLab labels in list endpoint are plain strings (not objects) — map as { name: l }
+  - GitLab issue comments are "notes" — filter system notes with n.system check
+  - getIssue fetches issue + notes in parallel with Promise.all (same pattern as GitHub getIssue)
 ---
 
-## 04/13/2026 20:28 - US-DS-002
-- Replaced dual-pane JS scroll sync with single scrollable container in SideBySideDiffView
-- Removed leftPaneRef, rightPaneRef, syncingRef, handleScrollSync from DiffViewer component
-- Each pair now renders as a flex row with 50/50 left/right cells inside fullDiffContainer
-- Reused fullDiffContainer, fullDiffRow, fullDiffCellLeft, fullDiffCellRight, fullDiffStickyHeaders CSS classes
-- Unified scrollbar markers (merged left+right into single marker array)
-- Hunk headers span full width using fullHunkDivider style
-- Word-level diff highlighting still works in side-by-side mode
-- Files changed: DiffViewer.tsx
+## 2026-04-13 21:40 - US-IS-003
+- Implemented GitHubIssuesSection component in Sidebar.tsx, rendered below PullRequestsSection
+- Added interfaces: GitHubIssue, GitHubIssueDetail, GitHubIssuesSectionProps
+- Features: login check, GitHub remote detection, open/closed filter tabs, issue list with labels and comment count, detail overlay with author avatar, labels, body, comments, Open in GitHub button, close/backdrop dismiss, refresh button
+- Files changed: src/renderer/src/components/Sidebar.tsx (added MessageSquare import, ~270 lines of new component code)
 - **Learnings for future iterations:**
-  - SideBySideDiffView now shares the same CSS layout classes as FullDiffView (fullDiffContainer, fullDiffRow, etc.)
-  - The pairLinesForSideBySide() utility already handles padding shorter sides with null entries
-  - No CSS changes needed — existing fullDiff* classes worked perfectly for both views
+  - GitHub issue label colors from IPC handlers already include `#` prefix — use directly in CSS
+  - Reuse existing PR CSS classes (prFilterBtn, prItem, prDetailOverlay, etc.) for issue sections — no new CSS needed
+  - The ghInfo parsing pattern (parseRemote + isLoggedIn) is identical across PR and Issue sections
+  - Issue rows don't need branch info (unlike PRs) — simpler item layout
+  - Detail overlay for issues is simpler than PRs — no reviews, no files changed, no stats
 ---
 
-## 04/13/2026 20:35 - US-DS-003
-- Removed dead CSS classes: .sbsView, .sbsPane, .sbsPaneInner, .sbsLeft (old dual-pane container styles)
-- Verified all old scroll sync refs (leftPaneRef, rightPaneRef, syncingRef, handleScrollSync) already removed from TSX
-- Confirmed inline mode uses separate rendering path (inlineView/inlineViewInner) — completely unaffected
-- Confirmed mode toggle still switches between inline and side-by-side correctly
-- Typecheck passes (only TS6305 build artifact warnings), all 127 tests pass
-- Files changed: DiffViewer.module.css
+## 2026-04-13 21:45 - US-IS-004
+- Implemented GitLabIssuesSection component in Sidebar.tsx, rendered below MergeRequestsSection
+- Added interfaces: GitLabIssue, GitLabIssueDetail, GitLabIssuesSectionProps
+- Features: login check, GitLab remote detection, open/closed filter tabs, issue list with labels and comment count, detail overlay with author avatar, labels, body, notes (comments), Open in GitLab button, close/backdrop dismiss, refresh button
+- Also added to collapsed rail overlay under mergerequests section
+- Files changed: src/renderer/src/components/Sidebar.tsx (added ~274 lines of new component code)
 - **Learnings for future iterations:**
-  - The sbs* line-level CSS classes (sbsLine, sbsLineNum, etc.) are still actively used by both SideBySide and FullDiffView
-  - Only the container-level sbs classes (sbsView, sbsPane, sbsLeft, sbsPaneInner) were dead after the scroll sync refactor
-  - fullDiffContainer now handles all scrolling for both side-by-side and full diff views
+  - GitLab issue state is 'opened' (not 'open') — use 'opened' for state badge comparison
+  - GitLab labels may or may not have a color field — handle both cases with conditional styling
+  - GitLab issue URL pattern: {webUrl}/-/issues/{iid}
+  - GitLab issues section shares glInfo pattern identically with MergeRequestsSection
+  - For collapsed rail, GitLab issues section was bundled under the mergerequests rail icon since there's no separate issues icon in the rail
 ---
