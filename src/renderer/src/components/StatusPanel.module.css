@@ -318,7 +318,6 @@
   font-size: var(--font-sm);
   text-align: left;
   white-space: nowrap;
-  overflow: hidden;
 }
 
 .fileActions {
@@ -378,14 +377,12 @@
   cursor: default;
 }
 
-/* ─── File Icon ─────────────────────────────────────────────────────────── */
+/* ─── File Status Badge ────────────────────────────────────────────────── */
 
 .fileIcon {
-  font-family: var(--font-mono);
-  font-size: var(--font-xs);
-  font-weight: 700;
-  width: 14px;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -413,7 +410,7 @@
   color: var(--text-muted);
 }
 
-/* ─── File Name ─────────────────────────────────────────────────────────── */
+/* ─── File Name & Stats ────────────────────────────────────────────────── */
 
 .fileName {
   overflow: hidden;
@@ -422,8 +419,145 @@
   min-width: 0;
 }
 
+.fileStats {
+  display: flex;
+  gap: var(--space-xs);
+  font-size: var(--font-xs);
+  margin-left: auto;
+  flex-shrink: 0;
+  padding-right: 2px;
+}
+
+.statsAdded {
+  color: var(--success, #4ade80);
+}
+
+.statsRemoved {
+  color: var(--error, #f87171);
+}
+
+.folderStats {
+  font-size: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.folderStatsModified {
+  color: var(--yellow, #f9e2af);
+}
+
+.folderStatsAdded {
+  color: var(--green, #a6e3a1);
+}
+
+.folderStatsDeleted {
+  color: var(--error, #f87171);
+}
+
+.folderStatsUntracked {
+  color: var(--text-muted);
+}
+
+.folderStatsRenamed {
+  color: var(--accent, #60a5fa);
+}
+
 .fileDir {
-  display: none;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Tree View ────────────────────────────────────────────────────────── */
+
+.treeDir {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  padding: 3px 8px;
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+
+.treeDir:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.treeDirIcon {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.treeDirName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeChildren {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.treeFileItem {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0;
+  font-size: var(--font-sm);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast);
+}
+
+.treeFileItem:hover {
+  background: var(--bg-hover);
+}
+
+.treeFileItemSelected {
+  background: var(--bg-active);
+}
+
+.treeFileInfo {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 3px 4px;
+  text-align: left;
+}
+
+.treeFileActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding-right: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.treeFileItem:hover .treeFileActions {
+  opacity: 1;
 }
 
 /* ─── Commit Form ──────────────────────────────────────────────────────── */
