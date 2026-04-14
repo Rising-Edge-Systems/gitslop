@@ -494,8 +494,8 @@ const sbsLineTypeClass: Record<string, string> = {
   context: styles.sbsLineContext
 }
 
-const LARGE_FILE_LINE_LIMIT = 1000
-const INITIAL_DISPLAY_LIMIT = 2000
+const LARGE_FILE_LINE_LIMIT = 5000
+const INITIAL_DISPLAY_LIMIT = 10000
 
 // ─── Component Props ────────────────────────────────────────────────────────
 
