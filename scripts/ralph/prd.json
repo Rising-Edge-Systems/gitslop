@@ -1,100 +1,66 @@
 {
   "project": "GitSlop",
-  "branchName": "fix/in-app-updates",
-  "description": "In-App Updates — Add user-facing update notifications via electron-updater with status bar indicator, update dialog with release notes and download progress, and settings toggle for auto-check.",
+  "branchName": "fix/diff-scroll-sync",
+  "description": "Diff Viewer Scroll Sync Fix — Replace dual-pane JavaScript scroll synchronization with a single scrollable container so both sides scroll in perfect lockstep with no visual offset.",
   "userStories": [
     {
-      "id": "US-AU-001",
-      "title": "Main process update event handling",
-      "description": "As a developer, I need the main process to check for updates via electron-updater and expose update state to the renderer via IPC.",
+      "id": "US-DS-001",
+      "title": "Single-container scroll for FullDiffView",
+      "description": "As a user, I want the Full diff view's left and right panes to scroll perfectly in sync, so that I can compare old and new file content without visual jitter.",
       "acceptanceCriteria": [
-        "Main process uses autoUpdater from electron-updater to check for updates",
-        "autoUpdater.autoDownload is set to false (user must opt in to download)",
-        "autoUpdater.autoInstallOnAppQuit is set to true",
-        "IPC handler updates:checkForUpdates triggers a manual check and returns { available: boolean, version?: string, releaseNotes?: string }",
-        "IPC handler updates:downloadUpdate starts the download and returns immediately",
-        "IPC handler updates:installUpdate calls autoUpdater.quitAndInstall()",
-        "Main process forwards autoUpdater events to the renderer via webContents.send: update:available (with version + releaseNotes), update:download-progress (with percent, bytesPerSecond, transferred, total), update:downloaded (ready to install), update:error (with error message)",
-        "Auto-check runs 10 seconds after app launch (non-blocking), only if the autoCheckUpdates setting is enabled in electron-store (default true)",
-        "In dev mode (!app.isPackaged), skip update checks entirely to avoid errors",
+        "FullDiffView renders both left and right panes inside a single scrollable <div> container instead of two separate scrollable panes",
+        "Each row renders as a flex row with a left cell (50% width) and right cell (50% width) side-by-side",
+        "Scrolling is handled natively by the single container — no onScroll handler, no scrollTop sync, no syncingRef",
+        "Remove leftPaneRef, rightPaneRef, syncingRef, and handleScrollSync from FullDiffView",
+        "Pane headers (filename + line count) remain sticky at the top of each column using position: sticky",
+        "The vertical scrollbar is on the right edge of the combined container, not per-pane",
+        "Line numbers, syntax highlighting, diff coloring (added/removed/context lines), and hunk dividers all render correctly",
+        "Hunk action bars (stage/unstage/discard) span the full width of both columns",
+        "Line selection checkboxes for staging still work (left pane = removed lines, right pane = added lines)",
+        "Binary file and large file placeholders still render correctly",
+        "Renamed file header still renders above the panes",
+        "Scrollbar diff markers (ScrollbarMarkers component) track the single container's scroll position — update the ref it receives",
         "Typecheck passes, existing tests pass"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Import autoUpdater from 'electron-updater'. It's already in package.json dependencies. Use store.get('autoCheckUpdates', true) to read the setting. autoUpdater events: checking-for-update, update-available, update-not-available, download-progress, update-downloaded, error. The update-available event provides { version, releaseNotes } in its info object. Use BrowserWindow.getAllWindows()[0].webContents.send() to forward events to renderer."
+      "notes": "FullDiffView already computes aligned rows via buildFullDiffRows() which returns an array of { left, right, hunkIdx, leftLineIdx, rightLineIdx } objects. Currently these are iterated twice (once per pane). Instead, iterate once and render each row as a <div style={{display:'flex'}}><div style={{width:'50%'}}>{left cell}</div><div style={{width:'50%'}}>{right cell}</div></div>. The parent container gets overflow-y:auto. Each pane's inner div loses overflow-y:auto. The sticky headers need a wrapper row at the top with position:sticky;top:0;z-index:1. For ScrollbarMarkers, pass the single container ref instead of the left pane ref."
     },
     {
-      "id": "US-AU-002",
-      "title": "Preload and renderer type definitions",
-      "description": "As a developer, I need IPC bridge functions and event listeners in the preload script so the renderer can interact with the update system.",
+      "id": "US-DS-002",
+      "title": "Single-container scroll for side-by-side DiffViewer mode",
+      "description": "As a user, I want the side-by-side diff view to scroll perfectly in sync, matching the FullDiffView fix.",
       "acceptanceCriteria": [
-        "Preload exposes window.electronAPI.updates.checkForUpdates() wrapping ipcRenderer.invoke('updates:checkForUpdates')",
-        "Preload exposes window.electronAPI.updates.downloadUpdate() wrapping ipcRenderer.invoke('updates:downloadUpdate')",
-        "Preload exposes window.electronAPI.updates.installUpdate() wrapping ipcRenderer.invoke('updates:installUpdate')",
-        "Preload exposes window.electronAPI.updates.onUpdateAvailable(callback) using ipcRenderer.on('update:available', ...) and returning a cleanup function",
-        "Preload exposes window.electronAPI.updates.onDownloadProgress(callback) using ipcRenderer.on('update:download-progress', ...) and returning a cleanup function",
-        "Preload exposes window.electronAPI.updates.onUpdateDownloaded(callback) using ipcRenderer.on('update:downloaded', ...) and returning a cleanup function",
-        "Preload exposes window.electronAPI.updates.onUpdateError(callback) using ipcRenderer.on('update:error', ...) and returning a cleanup function",
-        "Type definitions added to useLayoutState.ts window.electronAPI block for the updates namespace",
-        "Typecheck passes"
+        "The side-by-side mode in DiffViewer renders both panes inside a single scrollable container",
+        "Each hunk renders its left and right sides as aligned row pairs — left line and right line on the same flex row",
+        "When one side of a hunk has more lines than the other (e.g. 3 removals, 5 additions), blank padding rows fill the shorter side so the next context lines align",
+        "Remove leftPaneRef, rightPaneRef, syncingRef, and handleScrollSync from the DiffViewer component",
+        "Hunk headers span the full width of both columns",
+        "Line numbers and syntax highlighting render correctly on both sides",
+        "Word-level diff highlighting still works in side-by-side mode",
+        "Scrollbar diff markers track the single container",
+        "Typecheck passes, existing tests pass"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Follow the same pattern as the existing onRepoChanged listener in preload: ipcRenderer.on('channel', handler) with a cleanup function that calls ipcRenderer.removeListener. The callback signatures: onUpdateAvailable receives { version: string, releaseNotes: string }, onDownloadProgress receives { percent: number, bytesPerSecond: number, transferred: number, total: number }, onUpdateDownloaded receives no args, onUpdateError receives { message: string }."
+      "notes": "The side-by-side DiffViewer currently renders each hunk twice (once in left pane, once in right pane). The new approach: for each hunk, pair up removed lines (left) with added lines (right). Context lines appear on both sides. When the counts differ, pad with empty rows. This is similar to what buildFullDiffRows does for FullDiffView — consider extracting a shared utility or adapting the existing one. The hunk header row should be a full-width flex row with colspan-like behavior."
     },
     {
-      "id": "US-AU-003",
-      "title": "Status bar update indicator",
-      "description": "As a user, I want to see a subtle indicator in the status bar when an update is available, so I know there's a new version without being interrupted.",
+      "id": "US-DS-003",
+      "title": "Cleanup and polish",
+      "description": "As a developer, I want to remove dead scroll sync code and verify no regressions.",
       "acceptanceCriteria": [
-        "StatusBar component listens for update:available events via window.electronAPI.updates.onUpdateAvailable",
-        "When an update is available, a clickable badge appears in the status bar showing the version (e.g. 'v1.2.0 available') with a download icon from Lucide",
-        "The badge uses accent color, small font size (var(--font-sm)), fits the existing status bar aesthetic",
-        "Clicking the badge dispatches window.dispatchEvent(new CustomEvent('updates:show-dialog', { detail: { version, releaseNotes } }))",
-        "The badge is hidden by default and only appears when an update is available",
-        "After update is downloaded, badge text changes to 'Restart to update'",
-        "Typecheck passes"
+        "All references to the old scroll sync mechanism are removed from both DiffViewer and FullDiffView",
+        "CSS updated: individual panes no longer have overflow-y:auto, the parent container handles scrolling",
+        "No visual regressions in inline mode (single column, should be completely unaffected)",
+        "File view mode unaffected",
+        "Large diff threshold and truncation still work correctly",
+        "The DiffViewer mode toggle (Inline / Side-by-side) still switches correctly",
+        "Typecheck passes, existing tests pass"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "StatusBar.tsx already has useEffect hooks for listening to events. Add the update listener alongside existing ones. Use the Download or ArrowDownToLine icon from lucide-react. Style the badge similar to the ahead/behind badges already in the status bar."
-    },
-    {
-      "id": "US-AU-004",
-      "title": "Update dialog",
-      "description": "As a user, I want to see what changed in the new version and download it with one click.",
-      "acceptanceCriteria": [
-        "AppLayout renders an UpdateDialog component when updates:show-dialog custom event fires",
-        "Dialog shows: current version, new version number, release notes as pre-formatted text, and action buttons",
-        "Initial state shows 'Download & Install' and 'Remind Me Later' buttons",
-        "Clicking 'Download & Install' calls window.electronAPI.updates.downloadUpdate(), shows a progress bar with percentage",
-        "Progress bar updates via onDownloadProgress listener showing percent and download speed (e.g. '45% — 2.3 MB/s')",
-        "When download completes (onUpdateDownloaded fires), button changes to 'Restart to Update'",
-        "Clicking 'Restart to Update' calls window.electronAPI.updates.installUpdate()",
-        "Clicking 'Remind Me Later' or the X close button closes the dialog (status bar badge remains)",
-        "If an error occurs during download, show error message with a 'Retry' button",
-        "Dialog is a modal overlay with backdrop click to dismiss, styled consistently with existing dialogs in the app",
-        "Typecheck passes"
-      ],
-      "priority": 4,
-      "passes": true,
-      "notes": "Create a new component src/renderer/src/components/UpdateDialog.tsx. Use the existing dialog overlay pattern from the app (e.g. KeyboardShortcutsPanel or the merge/rebase dialogs use .branch-dialog-overlay). The release notes string may contain markdown — render it as a <pre> block for simplicity (no need for a full markdown renderer). For download speed, format bytes: if > 1MB show as 'X.X MB/s', else 'X KB/s'."
-    },
-    {
-      "id": "US-AU-005",
-      "title": "Settings toggle for auto-check",
-      "description": "As a user, I want to enable or disable automatic update checks in Settings.",
-      "acceptanceCriteria": [
-        "Add autoCheckUpdates: boolean to AppSettings in useSettings.ts (default true)",
-        "Add a 'General' section at the top of SettingsPanel with a 'Check for updates automatically' toggle",
-        "Add a 'Check Now' button next to the toggle that calls window.electronAPI.updates.checkForUpdates() and shows inline result: 'Checking...' then 'Up to date!' or 'Update available: vX.Y.Z'",
-        "The setting is saved to localStorage via useSettings AND sent to the main process via a new IPC call updates:setAutoCheck so the main process can persist it to electron-store",
-        "IPC handler updates:setAutoCheck in main process stores the value in electron-store so it can be read on next startup before the renderer loads",
-        "Typecheck passes"
-      ],
-      "priority": 5,
-      "passes": true,
-      "notes": "Follow the existing pattern in useSettings.ts for adding new settings. The SettingsPanel already has styled toggle/checkbox components — reuse those. The 'Check Now' button should be small and inline, similar to the refresh buttons elsewhere in the app. For the IPC handler, just do store.set('autoCheckUpdates', value) in main."
+      "notes": "Check the CSS module file DiffViewer.module.css for .sbsPane styles that set overflow-y:auto — these should change to overflow:visible or be removed. Also check .sbsLeft and .sbsView styles. Make sure the parent .sbsView gets overflow-y:auto if it doesn't already. Verify that the inline mode rendering path is completely separate and untouched."
     }
   ]
 }

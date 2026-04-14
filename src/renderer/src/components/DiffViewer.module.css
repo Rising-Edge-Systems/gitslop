@@ -545,28 +545,6 @@
 
 /* ─── Side-by-Side Diff View ────────────────────────────────────────────── */
 
-.sbsView {
-  display: flex;
-  overflow: hidden;
-  flex: 1;
-  min-height: 0;
-}
-
-.sbsPane {
-  flex: 1;
-  overflow: auto;
-  min-width: 0;
-}
-
-.sbsPaneInner {
-  display: inline-block;
-  min-width: 100%;
-}
-
-.sbsLeft {
-  border-right: 1px solid var(--border);
-}
-
 .sbsPaneHeader {
   position: sticky;
   top: 0;

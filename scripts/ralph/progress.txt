@@ -1,103 +1,61 @@
 # Ralph Progress Log
-Started: 04/13/2026 14:02:59
+Started: 04/13/2026 20:17:53
 ---
 
 ## Codebase Patterns
-- Typecheck uses `npm run typecheck` (split into `typecheck:node` and `typecheck:web` via tsconfig.node.json / tsconfig.web.json)
-- Tests use `npm test` (vitest)
-- Main process is monolithic in `src/main/index.ts` with IPC handlers using `ipcMain.handle()`
-- electron-store schema defined in `StoreSchema` interface, defaults in `new Store<StoreSchema>({ defaults: {...} })`
-- Auto-updater already existed with basic setup; IPC channels now use `updates:*` prefix
-- BrowserWindow.getAllWindows()[0] pattern for sending events to renderer
-
-## 04/13/2026 - US-AU-001
-- Implemented main process update event handling via electron-updater
-- Modified `src/main/index.ts`:
-  - Changed autoDownload to false (user must opt in)
-  - Changed IPC channels from `updater:*` to `updates:*` prefix
-  - Added `download-progress` event forwarding to renderer
-  - Added `update:error` event forwarding to renderer
-  - Added `updates:downloadUpdate` IPC handler
-  - Added `updates:installUpdate` IPC handler  
-  - Added `updates:setAutoCheck` IPC handler with electron-store persistence
-  - Changed checkForUpdates return to `{ available, version?, releaseNotes? }`
-  - Added `autoCheckUpdates` to StoreSchema with default true
-  - Auto-check delay changed from 5s to 10s, gated by autoCheckUpdates setting
-  - releaseNotes included in update:available event
-- **Learnings for future iterations:**
-  - There was an existing auto-updater implementation that needed refactoring, not building from scratch
-  - The `releaseNotes` from electron-updater can be either a string or an array of objects — guard with typeof check
-  - `autoUpdater.downloadUpdate()` returns a promise but fires events for progress tracking
+- FullDiffView and DiffViewer are both in the same file: `src/renderer/src/components/DiffViewer.tsx`
+- CSS module: `src/renderer/src/components/DiffViewer.module.css`
+- Typecheck: `npx tsc --noEmit` (ignore TS6305 build artifact warnings)
+- Tests: `npx vitest run` (127 tests across 6 files)
+- Build: `npx electron-vite build`
+- No ESLint config in this project
+- `buildFullDiffRows()` produces aligned `FullDiffRow[]` with left/right/hunkIdx/lineIdx fields
+- ScrollbarMarkers component takes `markers` and `containerRef` props
+- `computeMarkers()` utility converts line type arrays to marker entries
+- Side-by-side uses `.sbsView`, `.sbsPane`, `.sbsLeft` CSS classes
+- Full diff view uses `.fullDiffContainer`, `.fullDiffRow`, `.fullDiffCellLeft`, `.fullDiffCellRight` (new)
 ---
 
-## 04/13/2026 - US-AU-002
-- Implemented preload bridge functions and renderer type definitions for the update system
-- Modified `src/preload/index.ts`:
-  - Added `updates` namespace with `checkForUpdates()`, `downloadUpdate()`, `installUpdate()` invoke wrappers
-  - Added `onUpdateAvailable`, `onDownloadProgress`, `onUpdateDownloaded`, `onUpdateError` event listeners with cleanup functions
-  - Follows exact same pattern as existing `onRepoChanged` and `onCloneProgress` listeners
-- Modified `src/renderer/src/hooks/useLayoutState.ts`:
-  - Added `updates` namespace to the `Window.electronAPI` type declaration with full type signatures
+## 04/13/2026 20:23 - US-DS-001
+- Replaced dual-pane JS scroll sync with single scrollable container in FullDiffView
+- Removed leftPaneRef, rightPaneRef, syncingRef, handleScrollSync
+- Added containerRef for single scroll container
+- Each row renders as flex row with 50/50 left/right cells
+- Sticky headers at top of container
+- Unified scrollbar markers (merged left+right into single marker array)
+- Binary/large file placeholders updated to use new layout
+- Files changed: DiffViewer.tsx, DiffViewer.module.css
 - **Learnings for future iterations:**
-  - The preload `electronAPI` object and the `declare global { interface Window }` block in useLayoutState.ts must stay in sync
-  - Event listener pattern: `ipcRenderer.on(channel, handler)` with cleanup via `ipcRenderer.removeListener(channel, handler)`
-  - Invoke pattern: `ipcRenderer.invoke(channel, ...args)` for request-response IPC
+  - The FullDiffRow type already has aligned left/right data — no need to iterate twice
+  - fullDiffMarkers was computing separate left/right markers; unified into single `unifiedMarkers`
+  - CSS classes `.fullDiffContainer`, `.fullDiffRow`, `.fullDiffCellLeft`, `.fullDiffCellRight`, `.fullDiffStickyHeaders` are new
+  - renderCell helper inside FullDiffView handles selection, highlighting for either side
 ---
 
-## 04/13/2026 - US-AU-003
-- Implemented status bar update indicator badge
-- Modified `src/renderer/src/components/StatusBar.tsx`:
-  - Added `updateAvailable` and `updateDownloaded` state
-  - Added useEffect listeners for `onUpdateAvailable` and `onUpdateDownloaded`
-  - Added clickable badge in left section showing "v{version} available" or "Restart to update"
-  - Badge dispatches `updates:show-dialog` CustomEvent with version + releaseNotes detail
-  - Uses Download icon from lucide-react, accent color styling
-- Modified `src/renderer/src/components/StatusBar.module.css`:
-  - Added `.updateBadge` styles with accent color, hover background, focus-visible outline
+## 04/13/2026 20:28 - US-DS-002
+- Replaced dual-pane JS scroll sync with single scrollable container in SideBySideDiffView
+- Removed leftPaneRef, rightPaneRef, syncingRef, handleScrollSync from DiffViewer component
+- Each pair now renders as a flex row with 50/50 left/right cells inside fullDiffContainer
+- Reused fullDiffContainer, fullDiffRow, fullDiffCellLeft, fullDiffCellRight, fullDiffStickyHeaders CSS classes
+- Unified scrollbar markers (merged left+right into single marker array)
+- Hunk headers span full width using fullHunkDivider style
+- Word-level diff highlighting still works in side-by-side mode
+- Files changed: DiffViewer.tsx
 - **Learnings for future iterations:**
-  - The "No repository open" text should not show when an update badge is visible (added condition)
-  - The update badge is in the left section alongside branch info, not in the right section
-  - CustomEvent detail pattern: `new CustomEvent('name', { detail: { ... } })`
+  - SideBySideDiffView now shares the same CSS layout classes as FullDiffView (fullDiffContainer, fullDiffRow, etc.)
+  - The pairLinesForSideBySide() utility already handles padding shorter sides with null entries
+  - No CSS changes needed — existing fullDiff* classes worked perfectly for both views
 ---
 
-## 04/13/2026 - US-AU-004
-- Implemented UpdateDialog component with full download lifecycle (idle → downloading → downloaded → error)
-- Created `src/renderer/src/components/UpdateDialog.tsx`:
-  - Shows current version → new version, release notes as pre-formatted text
-  - "Download & Install" button triggers download, shows progress bar with percentage and speed
-  - Progress bar updates via onDownloadProgress listener
-  - When download completes, button changes to "Restart to Update" (calls installUpdate)
-  - Error state with retry button
-  - Modal overlay with backdrop click to dismiss
-- Created `src/renderer/src/components/UpdateDialog.module.css`:
-  - Follows MergeDialog conventions (overlay, dialog, header/body/footer pattern)
-  - Progress bar track/fill with accent color
-  - All button variants (primary, secondary, success)
-- Modified `src/renderer/src/components/AppLayout.tsx`:
-  - Added updateDialogInfo state and CustomEvent listener for 'updates:show-dialog'
-  - Renders UpdateDialog conditionally when event fires
+## 04/13/2026 20:35 - US-DS-003
+- Removed dead CSS classes: .sbsView, .sbsPane, .sbsPaneInner, .sbsLeft (old dual-pane container styles)
+- Verified all old scroll sync refs (leftPaneRef, rightPaneRef, syncingRef, handleScrollSync) already removed from TSX
+- Confirmed inline mode uses separate rendering path (inlineView/inlineViewInner) — completely unaffected
+- Confirmed mode toggle still switches between inline and side-by-side correctly
+- Typecheck passes (only TS6305 build artifact warnings), all 127 tests pass
+- Files changed: DiffViewer.module.css
 - **Learnings for future iterations:**
-  - Dialogs are rendered at various levels — AppLayout for global dialogs triggered via CustomEvent, inline in components for context-specific dialogs
-  - The CustomEvent pattern (window.dispatchEvent/addEventListener) bridges components without prop drilling
-  - Download speed formatting: check if >= 1MB for MB/s, else KB/s
-  - navigator.userAgent contains the app name/version in Electron (e.g., "GitSlop/1.0.1")
----
-
-## 04/13/2026 - US-AU-005
-- Implemented settings toggle for automatic update checks with "Check Now" button
-- Modified `src/renderer/src/hooks/useSettings.ts`:
-  - Added `autoCheckUpdates: boolean` to AppSettings interface (default true)
-- Modified `src/renderer/src/components/SettingsPanel.tsx`:
-  - Added auto-check toggle with SettingsToggle component at top of General section
-  - Added "Check Now" button that calls checkForUpdates and shows inline result
-  - Shows "Checking...", "Up to date!", or "Update available: vX.Y.Z" status
-  - Toggle change calls both onUpdate (localStorage) and setAutoCheck IPC (electron-store)
-- Modified `src/preload/index.ts`:
-  - Added `setAutoCheck(enabled: boolean)` to updates namespace
-- Modified `src/renderer/src/hooks/useLayoutState.ts`:
-  - Added `setAutoCheck` type definition to updates namespace
-- **Learnings for future iterations:**
-  - SettingsToggle is a function declaration (hoisted) so can be referenced before its definition in the file
-  - The updates:setAutoCheck IPC handler was already implemented in US-AU-001 in main process
-  - Settings need dual persistence: localStorage (renderer via useSettings) AND electron-store (main process via IPC)
+  - The sbs* line-level CSS classes (sbsLine, sbsLineNum, etc.) are still actively used by both SideBySide and FullDiffView
+  - Only the container-level sbs classes (sbsView, sbsPane, sbsLeft, sbsPaneInner) were dead after the scroll sync refactor
+  - fullDiffContainer now handles all scrolling for both side-by-side and full diff views
 ---
