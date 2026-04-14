@@ -586,6 +586,19 @@ export function DiffViewer({
     setLargeDiffExpanded(false)
   }, [diffContent])
 
+  // Hunk-level staging actions — must be above early returns (React hooks rules)
+  const hunkActions: HunkActionsConfig | null = useMemo(() => {
+    if (!stagingMode || stagingMode === 'untracked') return null
+    if (!onStageHunk && !onUnstageHunk && !onDiscardHunk) return null
+    return {
+      stagingMode,
+      fileHeader: parsed.fileHeader,
+      onStagePatch: onStageHunk,
+      onUnstagePatch: onUnstageHunk,
+      onDiscardPatch: onDiscardHunk
+    }
+  }, [stagingMode, onStageHunk, onUnstageHunk, onDiscardHunk, parsed.fileHeader])
+
   // ─── Scroll Sync (side-by-side) ─────────────────────────────────────────
 
   const handleScrollSync = useCallback((source: 'left' | 'right') => {
@@ -730,20 +743,6 @@ export function DiffViewer({
     }
     displayHunks = truncated
   }
-
-  // Hunk-level staging actions — only wired when caller supplies callbacks
-  // and stagingMode indicates a working-tree diff.
-  const hunkActions: HunkActionsConfig | null = useMemo(() => {
-    if (!stagingMode || stagingMode === 'untracked') return null
-    if (!onStageHunk && !onUnstageHunk && !onDiscardHunk) return null
-    return {
-      stagingMode,
-      fileHeader: parsed.fileHeader,
-      onStagePatch: onStageHunk,
-      onUnstagePatch: onUnstageHunk,
-      onDiscardPatch: onDiscardHunk
-    }
-  }, [stagingMode, onStageHunk, onUnstageHunk, onDiscardHunk, parsed.fileHeader])
 
   return (
     <div className={`${styles.diffViewer} ${className}`}>
