@@ -495,9 +495,6 @@ const sbsLineTypeClass: Record<string, string> = {
   context: styles.sbsLineContext
 }
 
-const LARGE_FILE_LINE_LIMIT = 5000
-const INITIAL_DISPLAY_LIMIT = 10000
-
 // ─── Component Props ────────────────────────────────────────────────────────
 
 export interface DiffViewerProps {
@@ -565,24 +562,9 @@ export function DiffViewer({
   stagingMode
 }: DiffViewerProps): React.JSX.Element {
   const [mode, setMode] = useState<DiffViewMode>(initialMode)
-  const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT)
-  const [largeDiffExpanded, setLargeDiffExpanded] = useState(false)
 
   const parsed = useMemo(() => parseDiff(diffContent), [diffContent])
   const language = useMemo(() => detectLanguage(filePath), [filePath])
-
-  const totalLines = useMemo(
-    () => parsed.hunks.reduce((sum, h) => sum + h.lines.length, 0),
-    [parsed.hunks]
-  )
-  const isLargeFile = totalLines > LARGE_FILE_LINE_LIMIT
-  const isTruncated = isLargeFile && displayLimit < totalLines
-
-  // Reset display limit and collapse state on new diff
-  useEffect(() => {
-    setDisplayLimit(INITIAL_DISPLAY_LIMIT)
-    setLargeDiffExpanded(false)
-  }, [diffContent])
 
   // Hunk-level staging actions — must be above early returns (React hooks rules)
   const hunkActions: HunkActionsConfig | null = useMemo(() => {
@@ -678,86 +660,19 @@ export function DiffViewer({
     )
   }
 
-  // Large diff (1000+ lines): collapsed by default with placeholder
-  if (isLargeFile && !largeDiffExpanded) {
-    return (
-      <div className={`${styles.diffViewer} ${className}`}>
-        {toolbarContent}
-        <div className={styles.largeDiffPlaceholder}>
-          <span className={styles.largeDiffText}>
-            Large diff — {totalLines.toLocaleString()} lines
-          </span>
-          <button
-            className={styles.largeDiffExpandBtn}
-            onClick={() => setLargeDiffExpanded(true)}
-          >
-            Click to expand
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ─── Truncation ─────────────────────────────────────────────────────────
-
-  // Build truncated hunks if needed
-  let displayHunks = parsed.hunks
-  if (isLargeFile) {
-    let lineCount = 0
-    const truncated: DiffHunk[] = []
-    for (const hunk of parsed.hunks) {
-      if (lineCount >= displayLimit) break
-      if (lineCount + hunk.lines.length <= displayLimit) {
-        truncated.push(hunk)
-        lineCount += hunk.lines.length
-      } else {
-        // Partial hunk
-        const remaining = displayLimit - lineCount
-        truncated.push({
-          header: hunk.header,
-          headerSuffix: hunk.headerSuffix,
-          lines: hunk.lines.slice(0, remaining)
-        })
-        lineCount += remaining
-      }
-    }
-    displayHunks = truncated
-  }
-
   return (
     <div className={`${styles.diffViewer} ${className}`}>
       {toolbarContent}
 
       {/* Diff Content */}
       {mode === 'inline' ? (
-        <InlineDiffView hunks={displayHunks} language={language} hunkActions={hunkActions} />
+        <InlineDiffView hunks={parsed.hunks} language={language} hunkActions={hunkActions} />
       ) : (
         <SideBySideDiffView
-          hunks={displayHunks}
+          hunks={parsed.hunks}
           language={language}
           hunkActions={hunkActions}
         />
-      )}
-
-      {/* Show More button for large files */}
-      {isTruncated && (
-        <div className={styles.truncated}>
-          <span className={styles.truncatedInfo}>
-            Showing {displayLimit.toLocaleString()} of {totalLines.toLocaleString()} lines
-          </span>
-          <button
-            className={styles.showMore}
-            onClick={() => setDisplayLimit((prev) => Math.min(prev + 2000, totalLines))}
-          >
-            Show More ({Math.min(2000, totalLines - displayLimit).toLocaleString()} lines)
-          </button>
-          <button
-            className={styles.showAll}
-            onClick={() => setDisplayLimit(totalLines)}
-          >
-            Show All
-          </button>
-        </div>
       )}
     </div>
   )
@@ -1716,8 +1631,6 @@ function buildFullDiffRows(
   return rows
 }
 
-const LARGE_FILE_THRESHOLD = 5000
-
 // ─── Virtual list types for FullDiffView ──────────────────────────────────
 
 const FULL_DIFF_ROW_HEIGHT = 20
@@ -1861,7 +1774,6 @@ export function FullDiffView({
   onDiscardHunk
 }: FullDiffViewProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [loadLargeFile, setLoadLargeFile] = useState(false)
   const [listRef, setListRef] = useListCallbackRef()
   const listWrapperRef = useRef<HTMLDivElement>(null)
   const [containerHeight, setContainerHeight] = useState(400)
@@ -1931,8 +1843,6 @@ export function FullDiffView({
   const isBinaryOld = oldContent.includes('\0')
   const isBinaryNew = newContent.includes('\0')
   const isBinary = isBinaryOld || isBinaryNew
-  const isLargeFile = !loadLargeFile && (oldDisplay.length > LARGE_FILE_THRESHOLD || newDisplay.length > LARGE_FILE_THRESHOLD)
-
   // Derive pane header paths
   const leftPath = isRenamed && oldPath ? oldPath : filePath
   const rightPath = filePath
@@ -2017,35 +1927,6 @@ export function FullDiffView({
     )
   }
 
-  // Large file — show placeholder with click-to-load
-  if (isLargeFile) {
-    return (
-      <div className={`${styles.diffViewer} ${className}`}>
-        <div className={styles.fullDiffContainer}>
-          <div className={styles.fullDiffStickyHeaders}>
-            <div className={styles.sbsPaneHeader}>{leftPath} · {oldDisplay.length} lines</div>
-            <div className={styles.sbsPaneHeader}>{rightPath} · {newDisplay.length} lines</div>
-          </div>
-          <div className={styles.fullDiffRow}>
-            <div className={styles.fullDiffCellLeft}>
-              <div className={styles.fullDiffPlaceholder}>
-                <button className={styles.fullDiffLoadBtn} onClick={() => setLoadLargeFile(true)}>
-                  Large file — click to load
-                </button>
-              </div>
-            </div>
-            <div className={styles.fullDiffCellRight}>
-              <div className={styles.fullDiffPlaceholder}>
-                <button className={styles.fullDiffLoadBtn} onClick={() => setLoadLargeFile(true)}>
-                  Large file — click to load
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   // Empty file placeholder — no virtualization needed
   if (isNewFile && isDeletedFile) {

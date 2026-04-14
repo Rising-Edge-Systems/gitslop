@@ -208,40 +208,6 @@
   max-height: 400px;
 }
 
-/* ─── Large Diff Placeholder ───────────────────────────────────────────── */
-
-.largeDiffPlaceholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-md);
-  padding: 48px 20px;
-  font-family: var(--font-family);
-}
-
-.largeDiffText {
-  font-size: var(--font-md);
-  color: var(--text-muted);
-}
-
-.largeDiffExpandBtn {
-  padding: var(--space-xs) var(--space-lg);
-  background: var(--bg-primary);
-  color: var(--accent);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: var(--font-sm);
-  font-family: var(--font-family);
-  transition: all 0.15s ease;
-}
-
-.largeDiffExpandBtn:hover {
-  background: var(--accent);
-  color: var(--bg-tertiary);
-}
-
 /* ─── Inline Diff View ──────────────────────────────────────────────────── */
 
 .inlineView {
@@ -770,61 +736,6 @@
   color: var(--accent);
   background: rgba(137, 180, 250, 0.06);
   border-bottom: 1px solid var(--border);
-}
-
-.fullDiffLoadBtn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 8px 16px;
-  color: var(--text-muted);
-  font-family: var(--font-family);
-  font-size: var(--font-md);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.fullDiffLoadBtn:hover {
-  color: var(--text-primary);
-  border-color: var(--accent);
-  background: rgba(137, 180, 250, 0.08);
-}
-
-/* ─── Truncation / Show More ────────────────────────────────────────────── */
-
-.truncated {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-md);
-  padding: 10px var(--space-lg);
-  background: rgba(137, 180, 250, 0.05);
-  border-top: 1px solid var(--border);
-  font-family: var(--font-family);
-}
-
-.truncatedInfo {
-  font-size: var(--font-sm);
-  color: var(--text-muted);
-}
-
-.showMore,
-.showAll {
-  padding: var(--space-xs) var(--space-md);
-  background: var(--bg-primary);
-  color: var(--accent);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: var(--font-xs);
-  font-family: var(--font-family);
-  transition: all 0.15s ease;
-}
-
-.showMore:hover,
-.showAll:hover {
-  background: var(--accent);
-  color: var(--bg-tertiary);
 }
 
 /* ─── Scrollbar Change Markers ─────────────────────────────────────────── */
