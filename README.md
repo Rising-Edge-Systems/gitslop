@@ -6,7 +6,10 @@ A free, open-source, cross-platform GUI git client built with Electron + React +
 
 ### Core Git
 - Visual branch/commit graph with virtualized scrolling and lane compaction
+- Double-click branch/tag labels to checkout with loading overlay
+- Multi-commit diff comparison (select 2+ commits to see combined diff)
 - Side-by-side and inline diff viewer with syntax highlighting
+- Staging area with path and tree views, per-file insertion/deletion stats
 - Staging/unstaging with hunk and line-level precision
 - Merge, rebase (including interactive), cherry-pick, reset, and revert
 - 3-way merge conflict resolution tool
@@ -20,6 +23,7 @@ A free, open-source, cross-platform GUI git client built with Electron + React +
 - OAuth login for GitHub and GitLab (including self-hosted instances)
 - Multi-account support
 - View, create, and browse pull requests / merge requests in-app
+- Unified Issues sidebar section with auto-detection of GitHub/GitLab
 - Auto-refresh OAuth tokens
 
 ### Editor & Terminal
@@ -96,13 +100,25 @@ GitHub Actions workflow (`.github/workflows/build.yml`):
 - **On push/PR to main**: Runs typecheck and tests, builds for all platforms
 - **On version tags (`v*`)**: Creates a GitHub Release with platform artifacts
 
+The app uses `electron-updater` to check for updates from GitHub Releases.
+
+### Releasing
+
+Use annotated tags to include release notes in the GitHub Release:
+
 ```bash
-# Tag a new release
-git tag v1.1.0
-git push origin v1.1.0
+git tag -a v1.3.0 -m "## What's New
+
+- Feature one
+- Feature two
+
+### Bug Fixes
+- Fixed something"
+
+git push origin v1.3.0
 ```
 
-The app uses `electron-updater` to check for updates from GitHub Releases.
+The CI/CD pipeline extracts the annotated tag message and uses it as the release body. Lightweight tags (without `-a`) fall back to auto-generated notes from commit history.
 
 ## License
 

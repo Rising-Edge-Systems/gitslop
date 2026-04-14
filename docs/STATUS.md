@@ -1,38 +1,38 @@
-# GitSlop Project Status — April 13, 2026
+# GitSlop Project Status — April 14, 2026
 
 ## Current State
 
-**Active branch:** `fix/repo-loading-performance` (off `main`)
-**Version:** 1.0.1
+**Branch:** `main`
+**Version:** 1.2.2
 **App status:** Builds, launches, and runs on Windows/Linux/macOS. Typecheck passes, 127 tests pass.
 
-## Recent Work (April 2026)
+## Recent Work (v1.2.x — April 2026)
 
-### Repo Loading Performance Fix
-Resolved a critical freeze when opening repos with large gitignored directories (e.g. FPGA build outputs, Python `.venv`). Root causes:
-- **Chokidar file watcher** scanned the entire working tree including hundreds of thousands of gitignored files. Now uses `git ls-files` to watch only tracked directories.
-- **Serial command queue** blocked local operations behind slow network fetches. Replaced with request deduplication — identical concurrent git commands share one subprocess.
-- **Tooltip crash** caused infinite error storm from accessing `event.currentTarget` in a `setTimeout` after React nulled it.
-- **Loading overlay** could get stuck permanently if CommitGraph didn't mount. Added 15s safety-valve timeout.
-- **HEAD auto-select** — commit graph now auto-selects the HEAD commit on initial load.
+### v1.2.2 — Double-Click Checkout
+- Double-click any branch/tag label in the commit graph to checkout that branch
+- Loading overlay with spinner during checkout
+- CI/CD now uses annotated tag messages as GitHub Release notes
 
-### GitHub & GitLab Integration Fix
-- All GitHub API handlers were checking the legacy `githubToken` field while new logins use `githubAccounts[]`. Fixed with unified `getGitHubToken()` helper.
-- GitLab `parseRemote` only checked the first account's instance URL. Now iterates all accounts, enabling custom instances (e.g. `git.intrepidcs.net`).
-- GitLab MR state filter sent `'open'` instead of `'opened'` (the API-expected value).
+### v1.2.1 — Staging Improvements & Multi-Commit Diff
+- **Staging area**: Path/tree view toggle, per-file insertion/deletion stats (numstat), folder status counts (colored like WIP indicator)
+- **Unified file status icons**: Lucide icons (FilePlus/FileEdit/FileMinus) across both staging and commit details
+- **Multi-commit diff**: Select 2+ commits to see combined diff between oldest and newest, with all selected commits listed in detail panel
+- **Unified Issues sidebar**: Single auto-detecting Issues section replaces separate GitHub/GitLab sections
+- **Unified path/tree toggle**: Moved to right sidebar header, shared by both commit details and staging area
+- **Split diff fix**: Added background to both panels to prevent text bleed-through
+- **Graph line fix**: Lines no longer disappear when scrolling far in commit history
 
-### GitLab OAuth (April 2026)
-- Full OAuth 2.0 PKCE flow for GitLab login (browser-based)
-- Multi-account support with per-instance tokens
-- Auto-refresh for OAuth tokens
-- Settings UI with OAuth tab in Add GitLab Account form
+### v1.2.0 — Issues & Sidebar
+- GitHub Issues sidebar section
+- GitLab Issues sidebar section
 
-### Earlier (March-April 2026)
-- Graph refresh and scaling features (commit pagination, lane compaction, configurable history depth)
-- GitHub OAuth device flow login
-- Staging diff view overhaul with line/hunk staging in center panel
-- Working-tree file diffs routed to center viewer
-- CI/CD pipeline, auto-update infrastructure, v1.0.0 and v1.0.1 releases
+### Earlier (v1.0.x — v1.1.x)
+- Graph refresh and scaling (commit pagination, lane compaction, configurable depth)
+- GitHub/GitLab OAuth login with multi-account support
+- Staging diff overhaul with line/hunk staging in center panel
+- 3-way merge conflict resolution
+- Built-in Monaco editor and terminal
+- CI/CD pipeline and auto-update infrastructure
 
 ## Architecture
 
@@ -42,18 +42,18 @@ Resolved a critical freeze when opening repos with large gitignored directories 
 ├─ Toolbar (40px) — context-aware buttons ─────────────────────┤
 ├──────────────────────────────────────────────────────────────┤
 │ Sidebar    │ Center Panel          │ Right Panel (340px)     │
-│ (260px)    │                       │                         │
-│ CSS flex   │ Commit Graph          │ Detail Panel (top)      │
-│ div with   │ (full height)         │  - commit info          │
-│ drag       │                       │  - changed files        │
-│ handle     │ OR                    │                         │
-│            │                       │ Staging Area (bottom)   │
-│ Branches   │ Diff Viewer           │  - unstaged files       │
-│ Files      │ (when file selected)  │  - staged files         │
-│ Remotes    │                       │  - commit form          │
-│ Tags       │ OR                    │                         │
-│ Stashes    │                       │                         │
-│ PRs / MRs  │ Working Tree Diff     │                         │
+│ (260px)    │                       │ [path/tree] [position]  │
+│            │ Commit Graph          │                         │
+│ Branches   │ (full height)         │ Detail Panel (top)      │
+│ Files      │                       │  - commit info          │
+│ Remotes    │ OR                    │  - changed files        │
+│ Tags       │                       │  - multi-commit compare │
+│ Stashes    │ Diff Viewer           │                         │
+│ Submodules │ (when file selected)  │ Staging Area (bottom)   │
+│ PRs / MRs  │                       │  - path or tree view    │
+│ Issues     │ OR                    │  - staged/unstaged      │
+│            │                       │  - commit form          │
+│            │ Working Tree Diff     │                         │
 ├──────────────────────────────────────────────────────────────┤
 │ Terminal Panel (toggleable, xterm.js + node-pty)             │
 ├──────────────────────────────────────────────────────────────┤
@@ -61,13 +61,10 @@ Resolved a critical freeze when opening repos with large gitignored directories 
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Key patterns:**
-- Sidebar and detail panel use plain CSS flex divs (not react-resizable-panels)
-- Layout state persisted to localStorage via `useLayoutState()` hook
-- Per-tab state (selected commit, sidebar collapsed) via `useRepoTabs()` hook
-- Git command deduplication in main process via `DedupedExecutor`
-- File watcher scopes to tracked directories only (via `git ls-files`)
-- Network operations (fetch, push) bypass the command dedup
+## Open Task PRDs
+
+- `tasks/prd-diff-viewer-scroll.md` — Single-container scroll sync for side-by-side diff
+- `tasks/prd-diff-virtualization.md` — Virtualize diff rows with react-window for large diffs
 
 ## How to Run
 
