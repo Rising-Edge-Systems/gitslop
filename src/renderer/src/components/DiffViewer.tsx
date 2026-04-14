@@ -991,6 +991,118 @@ function HunkActions({
 
 // ─── Inline Diff View ───────────────────────────────────────────────────────
 
+// Flattened inline row — either a hunk header or a diff line
+interface InlineVirtualItem {
+  type: 'hunkHeader' | 'line'
+  hunkIdx: number
+  lineIdx: number // -1 for hunk headers
+  line: DiffLine | null
+  hunk: DiffHunk
+}
+
+interface InlineVirtualRowProps {
+  items: InlineVirtualItem[]
+  language: string | null
+  hunkActions: HunkActionsConfig | null
+  wordDiffCache: Map<string, { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] }>
+  getHunkSelection: (hunkIdx: number) => Set<number> | undefined
+  toggleLineSelection: (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void
+  clearHunkSelection: (hunkIdx: number) => void
+}
+
+function InlineVirtualRow(props: {
+  ariaAttributes: Record<string, unknown>
+  index: number
+  style: React.CSSProperties
+} & InlineVirtualRowProps): React.ReactElement {
+  const { index, style, items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection } = props
+  const item = items[index]
+  if (!item) return <div style={style} />
+
+  if (item.type === 'hunkHeader') {
+    const hunkSelection = getHunkSelection(item.hunkIdx)
+    return (
+      <div style={style} className={styles.hunk}>
+        <HunkActions
+          hunk={item.hunk}
+          actions={hunkActions}
+          variant="floating"
+          selectedLines={hunkSelection}
+          onClearSelection={() => clearHunkSelection(item.hunkIdx)}
+        />
+        <div className={styles.hunkHeader}>
+          <span className={styles.hunkHeaderText}>{item.hunk.header}</span>
+          {item.hunk.headerSuffix && (
+            <span className={styles.hunkHeaderSuffix}>{item.hunk.headerSuffix}</span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const { line, hunkIdx, lineIdx, hunk } = item
+  if (!line) return <div style={style} />
+
+  if (line.content.startsWith('\\')) {
+    return (
+      <div style={style} className={`${styles.line} ${styles.lineMeta}`}>
+        {hunkActions && <span className={styles.lineSelect} />}
+        <span className={styles.lineNum} />
+        <span className={styles.lineNum} />
+        <span className={styles.linePrefix} />
+        <span className={styles.lineContent}>{line.content}</span>
+      </div>
+    )
+  }
+
+  let wordDiffInfo: { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] } | undefined
+  if (line.type === 'removed' || line.type === 'added') {
+    const pairKey = line.type === 'removed'
+      ? findAddedPairKey(hunk, lineIdx)
+      : findRemovedPairKey(hunk, lineIdx)
+    if (pairKey) wordDiffInfo = wordDiffCache.get(pairKey)
+  }
+
+  const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '
+  const hunkSelection = getHunkSelection(hunkIdx)
+  const isLineSelected = hunkSelection?.has(lineIdx) ?? false
+  const canSelectLine = line.type !== 'context' && !!hunkActions
+
+  return (
+    <div
+      style={style}
+      className={`${styles.line} ${lineTypeClass[line.type] || ''} ${isLineSelected ? styles.lineSelected : ''}`}
+    >
+      {hunkActions && (
+        canSelectLine ? (
+          <span
+            className={`${styles.lineSelect} ${styles.lineSelectActive}`}
+            onClick={(e) => { e.stopPropagation(); toggleLineSelection(hunkIdx, lineIdx, e) }}
+            title="Click to select line (shift-click for range)"
+          >
+            {isLineSelected ? '●' : '○'}
+          </span>
+        ) : (
+          <span className={styles.lineSelect} />
+        )
+      )}
+      <span className={styles.lineNum}>{line.oldLineNum ?? ''}</span>
+      <span className={styles.lineNum}>{line.newLineNum ?? ''}</span>
+      <span className={styles.linePrefix}>{prefix}</span>
+      <span className={styles.lineContent}>
+        {wordDiffInfo ? (
+          <WordDiffContent
+            segments={line.type === 'removed' ? wordDiffInfo.oldSegments : wordDiffInfo.newSegments}
+            lineType={line.type}
+          />
+        ) : (
+          <SyntaxHighlightedContent text={line.content} language={language} />
+        )}
+      </span>
+    </div>
+  )
+}
+
 function InlineDiffView({
   hunks,
   language,
@@ -1000,14 +1112,14 @@ function InlineDiffView({
   language: string | null
   hunkActions: HunkActionsConfig | null
 }): React.JSX.Element {
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [listRef, setListRef] = useListCallbackRef()
+  const [containerHeight, setContainerHeight] = useState(400)
 
-  // Per-hunk line selection (Map<hunkIdx, Set<lineIdx>>) — used for
-  // line-level staging. Only populated when `hunkActions` is set.
   const getHunk = useCallback((hunkIdx: number) => hunks[hunkIdx], [hunks])
   const lineSel = useLineSelection(hunks, getHunk)
   const { getHunkSelection, toggle: toggleLineSelection, clearHunk: clearHunkSelection } = lineSel
-  // Build word-level diff cache for adjacent removed/added pairs
+
   const wordDiffCache = useMemo(() => {
     const cache = new Map<string, { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] }>()
     for (const hunk of hunks) {
@@ -1018,7 +1130,6 @@ function InlineDiffView({
           while (i < hunk.lines.length && hunk.lines[i].type === 'removed') i++
           const addedStart = i
           while (i < hunk.lines.length && hunk.lines[i].type === 'added') i++
-          // Pair up removed/added for word diff
           const removedLines = hunk.lines.slice(removedStart, addedStart)
           const addedLines = hunk.lines.slice(addedStart, i)
           const pairCount = Math.min(removedLines.length, addedLines.length)
@@ -1034,113 +1145,68 @@ function InlineDiffView({
     return cache
   }, [hunks])
 
-  // Compute scrollbar change markers
+  // Flatten hunks into a flat row array for virtualization
+  const items = useMemo(() => {
+    const flat: InlineVirtualItem[] = []
+    for (let hunkIdx = 0; hunkIdx < hunks.length; hunkIdx++) {
+      const hunk = hunks[hunkIdx]
+      flat.push({ type: 'hunkHeader', hunkIdx, lineIdx: -1, line: null, hunk })
+      for (let lineIdx = 0; lineIdx < hunk.lines.length; lineIdx++) {
+        flat.push({ type: 'line', hunkIdx, lineIdx, line: hunk.lines[lineIdx], hunk })
+      }
+    }
+    return flat
+  }, [hunks])
+
   const inlineMarkers = useMemo(() => {
     const lineTypes: Array<'added' | 'removed' | 'context' | null> = []
-    for (const hunk of hunks) {
-      // Account for hunk header line
-      lineTypes.push(null)
-      for (const line of hunk.lines) {
-        lineTypes.push(line.type === 'added' || line.type === 'removed' ? line.type : 'context')
+    for (const item of items) {
+      if (item.type === 'hunkHeader') {
+        lineTypes.push(null)
+      } else if (item.line) {
+        lineTypes.push(item.line.type === 'added' || item.line.type === 'removed' ? item.line.type : 'context')
       }
     }
     return computeMarkers(lineTypes, lineTypes.length)
-  }, [hunks])
+  }, [items])
+
+  // Track container height
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) setContainerHeight(entry.contentRect.height)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const rowProps: InlineVirtualRowProps = useMemo(() => ({
+    items,
+    language,
+    hunkActions,
+    wordDiffCache,
+    getHunkSelection,
+    toggleLineSelection,
+    clearHunkSelection
+  }), [items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection])
+
+  const ROW_HEIGHT = 20
 
   return (
     <div className={styles.diffWithMarkers}>
-    <div className={styles.scrollableWithMarkers} ref={scrollRef}>
-      <div className={styles.inlineViewInner}>
-      {hunks.map((hunk, hunkIdx) => {
-        const hunkSelection = getHunkSelection(hunkIdx)
-        return (
-        <div key={hunkIdx} className={styles.hunk}>
-          <HunkActions
-            hunk={hunk}
-            actions={hunkActions}
-            variant="floating"
-            selectedLines={hunkSelection}
-            onClearSelection={() => clearHunkSelection(hunkIdx)}
-          />
-          <div className={styles.hunkHeader}>
-            <span className={styles.hunkHeaderText}>{hunk.header}</span>
-            {hunk.headerSuffix && (
-              <span className={styles.hunkHeaderSuffix}>{hunk.headerSuffix}</span>
-            )}
-          </div>
-          {hunk.lines.map((line, lineIdx) => {
-            if (line.content.startsWith('\\')) {
-              return (
-                <div key={lineIdx} className={`${styles.line} ${styles.lineMeta}`}>
-                  {hunkActions && <span className={styles.lineSelect} />}
-                  <span className={styles.lineNum} />
-                  <span className={styles.lineNum} />
-                  <span className={styles.linePrefix} />
-                  <span className={styles.lineContent}>{line.content}</span>
-                </div>
-              )
-            }
-
-            // Word-level diff for paired removed/added lines
-            let wordDiffInfo: { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] } | undefined
-            if (line.type === 'removed' || line.type === 'added') {
-              // Find the paired line
-              const pairKey = line.type === 'removed'
-                ? findAddedPairKey(hunk, lineIdx)
-                : findRemovedPairKey(hunk, lineIdx)
-              if (pairKey) {
-                wordDiffInfo = wordDiffCache.get(pairKey)
-              }
-            }
-
-            const prefix = line.type === 'added' ? '+' : line.type === 'removed' ? '-' : ' '
-            const isLineSelected = hunkSelection?.has(lineIdx) ?? false
-            const canSelectLine = line.type !== 'context' && !!hunkActions
-
-            return (
-              <div
-                key={lineIdx}
-                className={`${styles.line} ${lineTypeClass[line.type] || ''} ${isLineSelected ? styles.lineSelected : ''}`}
-              >
-                {hunkActions && (
-                  canSelectLine ? (
-                    <span
-                      className={`${styles.lineSelect} ${styles.lineSelectActive}`}
-                      onClick={(e) => { e.stopPropagation(); toggleLineSelection(hunkIdx, lineIdx, e) }}
-                      title="Click to select line (shift-click for range)"
-                    >
-                      {isLineSelected ? '●' : '○'}
-                    </span>
-                  ) : (
-                    <span className={styles.lineSelect} />
-                  )
-                )}
-                <span className={styles.lineNum}>
-                  {line.oldLineNum ?? ''}
-                </span>
-                <span className={styles.lineNum}>
-                  {line.newLineNum ?? ''}
-                </span>
-                <span className={styles.linePrefix}>{prefix}</span>
-                <span className={styles.lineContent}>
-                  {wordDiffInfo ? (
-                    <WordDiffContent
-                      segments={line.type === 'removed' ? wordDiffInfo.oldSegments : wordDiffInfo.newSegments}
-                      lineType={line.type}
-                    />
-                  ) : (
-                    <SyntaxHighlightedContent text={line.content} language={language} />
-                  )}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-        )
-      })}
+      <div ref={containerRef} style={{ flex: 1, overflow: 'hidden' }}>
+        <List<InlineVirtualRowProps>
+          listRef={setListRef}
+          rowComponent={InlineVirtualRow}
+          rowCount={items.length}
+          rowHeight={ROW_HEIGHT}
+          rowProps={rowProps}
+          overscanCount={15}
+          style={{ height: containerHeight }}
+        />
       </div>
-    </div>
-    <ScrollbarMarkers markers={inlineMarkers} containerRef={scrollRef} />
+      <ScrollbarMarkers markers={inlineMarkers} containerRef={listRef ? { current: (listRef as unknown as { outerElement: HTMLElement }).outerElement } : containerRef} />
     </div>
   )
 }
