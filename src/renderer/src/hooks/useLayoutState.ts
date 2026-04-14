@@ -58,8 +58,11 @@ declare global {
         stashShow: (repoPath: string, index: number) => Promise<GitServiceResult>
         getStatus: (repoPath: string) => Promise<GitServiceResult>
         diff: (repoPath: string, filePath?: string, opts?: { staged?: boolean }) => Promise<GitServiceResult>
+        diffNumstat: (repoPath: string, opts?: { staged?: boolean }) => Promise<GitServiceResult>
         showCommit: (repoPath: string, hash: string) => Promise<GitServiceResult>
         showCommitFileDiff: (repoPath: string, hash: string, filePath: string, opts?: { isMerge?: boolean }) => Promise<GitServiceResult>
+        diffTwoCommits: (repoPath: string, hashFrom: string, hashTo: string) => Promise<GitServiceResult>
+        diffTwoCommitsFile: (repoPath: string, hashFrom: string, hashTo: string, filePath: string) => Promise<GitServiceResult>
         showFileAtCommit: (repoPath: string, hash: string, filePath: string) => Promise<GitServiceResult>
         showFileAtParent: (repoPath: string, hash: string, filePath: string) => Promise<GitServiceResult>
         listFilesAtCommit: (repoPath: string, hash: string) => Promise<GitServiceResult>

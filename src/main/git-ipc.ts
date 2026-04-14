@@ -330,6 +330,18 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  ipcMain.handle(
+    'git:diffNumstat',
+    async (_event, repoPath: string, opts?: { staged?: boolean }) => {
+      try {
+        const stats = await gitService.diffNumstat(repoPath, { staged: opts?.staged })
+        return { success: true, data: stats }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Show Commit ─────────────────────────────────────────────────────────
 
   ipcMain.handle('git:showCommit', async (_event, repoPath: string, hash: string) => {
@@ -376,6 +388,34 @@ export function registerGitIpcHandlers(): void {
     async (_event, repoPath: string, hash: string, filePath: string) => {
       try {
         const data = await gitService.showFileAtParent(repoPath, hash, filePath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Diff Two Commits ──────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:diffTwoCommits',
+    async (_event, repoPath: string, hashFrom: string, hashTo: string) => {
+      try {
+        const data = await gitService.diffTwoCommits(repoPath, hashFrom, hashTo)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Diff Two Commits File ────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:diffTwoCommitsFile',
+    async (_event, repoPath: string, hashFrom: string, hashTo: string, filePath: string) => {
+      try {
+        const data = await gitService.diffTwoCommitsFile(repoPath, hashFrom, hashTo, filePath)
         return { success: true, data }
       } catch (err) {
         return { success: false, ...formatError(err) }

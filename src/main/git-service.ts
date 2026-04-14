@@ -609,6 +609,39 @@ export class GitService {
   }
 
   /**
+   * Get numstat (insertions/deletions per file) for working tree changes.
+   * Returns a map from file path to { insertions, deletions }.
+   */
+  async diffNumstat(
+    repoPath: string,
+    options?: { staged?: boolean; signal?: AbortSignal }
+  ): Promise<Record<string, { insertions: number; deletions: number }>> {
+    const args = ['diff', '--numstat']
+    if (options?.staged) args.push('--cached')
+
+    const result = await this.exec(args, repoPath, { signal: options?.signal })
+    const stats: Record<string, { insertions: number; deletions: number }> = {}
+
+    for (const line of result.stdout.split('\n')) {
+      if (!line.trim()) continue
+      const match = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/)
+      if (match) {
+        const ins = match[1] === '-' ? 0 : parseInt(match[1], 10)
+        const del = match[2] === '-' ? 0 : parseInt(match[2], 10)
+        // Handle renames: "old => new" or "{old => new}/path"
+        let filePath = match[3]
+        const renameMatch = filePath.match(/^(.*)\\{(.+) => (.+)\\}(.*)$/)
+        if (renameMatch) {
+          filePath = renameMatch[1] + renameMatch[3] + renameMatch[4]
+        }
+        stats[filePath] = { insertions: ins, deletions: del }
+      }
+    }
+
+    return stats
+  }
+
+  /**
    * Get commit details including changed files with status and stats.
    */
   async showCommit(
@@ -759,6 +792,103 @@ export class GitService {
 
     const args = ['show', '--format=', '--patch', hash, '--', filePath]
     const result = await this.exec(args, repoPath, { signal: options?.signal })
+    return result.stdout
+  }
+
+  /**
+   * Diff two arbitrary commits (multi-select comparison).
+   * Returns changed file list with status and insertion/deletion counts.
+   */
+  async diffTwoCommits(
+    repoPath: string,
+    hashFrom: string,
+    hashTo: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{
+    fileDetails: Array<{ path: string; status: string; insertions: number; deletions: number; oldPath?: string }>
+    totalInsertions: number
+    totalDeletions: number
+  }> {
+    // Run --name-status and --numstat in parallel
+    const [statusResult, numstatResult] = await Promise.all([
+      this.exec(
+        ['diff', '--name-status', `${hashFrom}..${hashTo}`],
+        repoPath,
+        { signal: options?.signal }
+      ),
+      this.exec(
+        ['diff', '--numstat', `${hashFrom}..${hashTo}`],
+        repoPath,
+        { signal: options?.signal }
+      )
+    ])
+
+    // Parse name-status: "M\tfile.txt" or "R100\told.txt\tnew.txt"
+    const statusMap = new Map<string, { status: string; oldPath?: string }>()
+    for (const line of statusResult.stdout.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      const parts = trimmed.split('\t')
+      if (parts.length >= 2) {
+        const statusCode = parts[0].charAt(0) // M, A, D, R, C
+        if (statusCode === 'R' || statusCode === 'C') {
+          statusMap.set(parts[2], { status: statusCode, oldPath: parts[1] })
+        } else {
+          statusMap.set(parts[1], { status: statusCode })
+        }
+      }
+    }
+
+    // Parse numstat: "5\t3\tfile.txt" or "-\t-\tbinary.bin"
+    const numstatMap = new Map<string, { insertions: number; deletions: number }>()
+    let totalInsertions = 0
+    let totalDeletions = 0
+    for (const line of numstatResult.stdout.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      const parts = trimmed.split('\t')
+      if (parts.length >= 3) {
+        const ins = parts[0] === '-' ? 0 : parseInt(parts[0], 10) || 0
+        const del = parts[1] === '-' ? 0 : parseInt(parts[1], 10) || 0
+        const filePath = parts.slice(2).join('\t')
+        numstatMap.set(filePath, { insertions: ins, deletions: del })
+        totalInsertions += ins
+        totalDeletions += del
+      }
+    }
+
+    // Merge status and numstat data
+    const allPaths = new Set([...statusMap.keys(), ...numstatMap.keys()])
+    const fileDetails = Array.from(allPaths).map((filePath) => {
+      const statusInfo = statusMap.get(filePath)
+      const numstat = numstatMap.get(filePath)
+      return {
+        path: filePath,
+        status: statusInfo?.status || 'M',
+        insertions: numstat?.insertions || 0,
+        deletions: numstat?.deletions || 0,
+        oldPath: statusInfo?.oldPath
+      }
+    })
+
+    return { fileDetails, totalInsertions, totalDeletions }
+  }
+
+  /**
+   * Get the diff of a specific file between two arbitrary commits.
+   */
+  async diffTwoCommitsFile(
+    repoPath: string,
+    hashFrom: string,
+    hashTo: string,
+    filePath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<string> {
+    const result = await this.exec(
+      ['diff', `${hashFrom}..${hashTo}`, '--', filePath],
+      repoPath,
+      { signal: options?.signal }
+    )
     return result.stdout
   }
 
