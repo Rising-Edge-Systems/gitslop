@@ -30,7 +30,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   GitPullRequestArrow,
-  Gitlab
+  Gitlab,
+  MessageSquare
 } from 'lucide-react'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
@@ -2245,6 +2246,275 @@ function PullRequestsSection({ currentRepo }: PullRequestsSectionProps): React.J
   )
 }
 
+// ─── GitHubIssuesSection ────────────────────────────────────────────────────
+
+interface GitHubIssue {
+  number: number
+  title: string
+  state: string
+  author: string
+  authorAvatar: string
+  labels: { name: string; color: string }[]
+  assignees: string[]
+  createdAt: string
+  updatedAt: string
+  commentCount: number
+  htmlUrl: string
+  body: string
+}
+
+interface GitHubIssueDetail extends GitHubIssue {
+  comments: { id: number; author: string; authorAvatar: string; body: string; createdAt: string }[]
+}
+
+interface GitHubIssuesSectionProps {
+  currentRepo: string | null
+}
+
+function GitHubIssuesSection({ currentRepo }: GitHubIssuesSectionProps): React.JSX.Element | null {
+  const [issues, setIssues] = useState<GitHubIssue[]>([])
+  const [loading, setLoading] = useState(false)
+  const [ghInfo, setGhInfo] = useState<{ owner: string; repo: string } | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [selectedIssue, setSelectedIssue] = useState<GitHubIssueDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [filterState, setFilterState] = useState<'open' | 'closed'>('open')
+
+  // Check if repo is GitHub and user is logged in
+  useEffect(() => {
+    if (!currentRepo) {
+      setGhInfo(null)
+      setIssues([])
+      return
+    }
+    let cancelled = false
+    const check = async (): Promise<void> => {
+      const [loginRes, parseRes] = await Promise.all([
+        window.electronAPI.github.isLoggedIn(),
+        window.electronAPI.github.parseRemote(currentRepo)
+      ])
+      if (cancelled) return
+      setIsLoggedIn(!!loginRes.data)
+      if (parseRes.success && parseRes.data) {
+        setGhInfo(parseRes.data as { owner: string; repo: string })
+      } else {
+        setGhInfo(null)
+      }
+    }
+    check()
+    return () => { cancelled = true }
+  }, [currentRepo])
+
+  // Load issues when ghInfo available and logged in
+  const loadIssues = useCallback(async () => {
+    if (!ghInfo || !isLoggedIn) return
+    setLoading(true)
+    try {
+      const result = await window.electronAPI.github.listIssues(ghInfo.owner, ghInfo.repo, filterState)
+      if (result.success && Array.isArray(result.data)) {
+        setIssues(result.data as GitHubIssue[])
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
+    }
+  }, [ghInfo, isLoggedIn, filterState])
+
+  useEffect(() => {
+    loadIssues()
+  }, [loadIssues])
+
+  const handleIssueClick = useCallback(async (issue: GitHubIssue) => {
+    if (!ghInfo) return
+    if (selectedIssue?.number === issue.number) {
+      setSelectedIssue(null)
+      return
+    }
+    setDetailLoading(true)
+    setSelectedIssue(null)
+    try {
+      const result = await window.electronAPI.github.getIssue(ghInfo.owner, ghInfo.repo, issue.number)
+      if (result.success && result.data) {
+        setSelectedIssue(result.data as GitHubIssueDetail)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [ghInfo, selectedIssue])
+
+  const openInBrowser = useCallback((url: string) => {
+    window.open(url, '_blank')
+  }, [])
+
+  const timeAgo = (dateStr: string): string => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 60) return `${mins}m ago`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.floor(hours / 24)
+    if (days < 30) return `${days}d ago`
+    return new Date(dateStr).toLocaleDateString()
+  }
+
+  return (
+    <>
+      <SidebarSection
+        title="Issues"
+        icon={<CircleDot size={16} />}
+        defaultOpen={!!ghInfo}
+        count={ghInfo ? issues.length : undefined}
+      >
+        {!ghInfo ? (
+          <div className={styles.placeholder}>
+            {currentRepo ? 'Not a GitHub repository' : 'No repository open'}
+          </div>
+        ) : !isLoggedIn ? (
+          <div className={styles.prLoginHint}>
+            Log in to GitHub in Settings to view issues.
+          </div>
+        ) : (
+          <>
+            <div className={styles.prFilterRow}>
+              <button
+                className={`${styles.prFilterBtn} ${filterState === 'open' ? styles.prFilterBtnActive : ''}`}
+                onClick={() => setFilterState('open')}
+              >
+                <Circle size={12} /> Open
+              </button>
+              <button
+                className={`${styles.prFilterBtn} ${filterState === 'closed' ? styles.prFilterBtnActive : ''}`}
+                onClick={() => setFilterState('closed')}
+              >
+                <Check size={12} /> Closed
+              </button>
+              <button
+                className={styles.prRefreshBtn}
+                onClick={loadIssues}
+                disabled={loading}
+                title="Refresh"
+              >
+                <RefreshCw size={12} className={loading ? styles.prSpinning : ''} />
+              </button>
+            </div>
+            {loading && issues.length === 0 ? (
+              <SkeletonList count={3} />
+            ) : issues.length === 0 ? (
+              <div className={styles.prEmpty}>No {filterState} issues</div>
+            ) : (
+              <div className={styles.prList}>
+                {issues.map(issue => (
+                  <div
+                    key={issue.number}
+                    className={`${styles.prItem} ${selectedIssue?.number === issue.number ? styles.prItemSelected : ''}`}
+                    onClick={() => handleIssueClick(issue)}
+                    tabIndex={0}
+                    role="button"
+                  >
+                    <div className={styles.prItemHeader}>
+                      <span className={styles.prNumber}>#{issue.number}</span>
+                      <span className={styles.prTitle} title={issue.title}>{issue.title}</span>
+                    </div>
+                    <div className={styles.prItemMeta}>
+                      <span className={styles.prAuthor}>{issue.author}</span>
+                      <span className={styles.prTime}>{timeAgo(issue.updatedAt)}</span>
+                      {issue.commentCount > 0 && (
+                        <span className={styles.prTime}>
+                          <MessageSquare size={10} /> {issue.commentCount}
+                        </span>
+                      )}
+                      {issue.labels.slice(0, 3).map(l => (
+                        <span
+                          key={l.name}
+                          className={styles.prLabel}
+                          style={{ backgroundColor: `${l.color}20`, color: l.color, borderColor: `${l.color}40` }}
+                        >{l.name}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </SidebarSection>
+
+      {/* Issue Detail Overlay */}
+      {(selectedIssue || detailLoading) && (
+        <div className={styles.prDetailOverlay} onClick={() => { setSelectedIssue(null); setDetailLoading(false) }}>
+          <div className={styles.prDetailPanel} onClick={(e) => e.stopPropagation()}>
+            {detailLoading ? (
+              <div className={styles.prDetailLoading}>
+                <RefreshCw size={20} className={styles.prSpinning} />
+                <span>Loading issue details...</span>
+              </div>
+            ) : selectedIssue ? (
+              <>
+                <div className={styles.prDetailHeader}>
+                  <div className={styles.prDetailTitleRow}>
+                    <span className={styles.prDetailNumber}>#{selectedIssue.number}</span>
+                    <h3 className={styles.prDetailTitle}>{selectedIssue.title}</h3>
+                    <button className={styles.prDetailClose} onClick={() => setSelectedIssue(null)}><X size={16} /></button>
+                  </div>
+                  <div className={styles.prDetailMetaRow}>
+                    <span className={`${styles.prStateBadge} ${selectedIssue.state === 'open' ? styles.prStateBadgeOpen : styles.prStateBadgeClosed}`}>
+                      {selectedIssue.state === 'open' ? <Circle size={12} /> : <Check size={12} />} {selectedIssue.state}
+                    </span>
+                    {selectedIssue.authorAvatar && (
+                      <img
+                        src={selectedIssue.authorAvatar}
+                        alt={selectedIssue.author}
+                        style={{ width: 20, height: 20, borderRadius: '50%' }}
+                      />
+                    )}
+                    <span>{selectedIssue.author}</span>
+                    {selectedIssue.labels.length > 0 && selectedIssue.labels.map(l => (
+                      <span
+                        key={l.name}
+                        className={styles.prLabel}
+                        style={{ backgroundColor: `${l.color}20`, color: l.color, borderColor: `${l.color}40` }}
+                      >{l.name}</span>
+                    ))}
+                    <button className={styles.prOpenBrowser} onClick={() => openInBrowser(selectedIssue.htmlUrl)}>
+                      <ExternalLink size={12} /> Open in GitHub
+                    </button>
+                  </div>
+                </div>
+
+                {selectedIssue.body && (
+                  <div className={styles.prDetailBody}>
+                    <h4>Description</h4>
+                    <pre className={styles.prBodyText}>{selectedIssue.body}</pre>
+                  </div>
+                )}
+
+                {/* Comments */}
+                {selectedIssue.comments.length > 0 && (
+                  <div className={styles.prDetailSection}>
+                    <h4>Comments ({selectedIssue.comments.length})</h4>
+                    {selectedIssue.comments.map(c => (
+                      <div key={c.id} className={styles.prCommentItem}>
+                        <div className={styles.prCommentHeader}>
+                          <span className={styles.prCommentAuthor}>{c.author}</span>
+                          <span className={styles.prCommentTime}>{timeAgo(c.createdAt)}</span>
+                        </div>
+                        <p className={styles.prCommentBody}>{c.body}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ─── MergeRequestsSection (GitLab) ─────────────────────────────────────────
 
 interface GitLabMR {
@@ -3359,6 +3629,8 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
       <SubmodulesSection currentRepo={currentRepo} />
 
       <PullRequestsSection currentRepo={currentRepo} />
+
+      <GitHubIssuesSection currentRepo={currentRepo} />
 
       <MergeRequestsSection currentRepo={currentRepo} />
       </>
