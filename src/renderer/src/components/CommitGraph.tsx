@@ -100,6 +100,7 @@ interface CommitGraphProps {
   repoPath: string
   onRefresh?: () => void
   onCommitSelect?: (detail: CommitDetail | null) => void
+  onTwoCommitSelect?: (data: { hashFrom: string; hashTo: string; selectedCommits: Array<{ hash: string; shortHash: string; subject: string; authorName: string; authorDate: string }> } | null) => void
   onLoadComplete?: () => void
   filters?: CommitLogFilters
   showBranchLabels?: boolean
@@ -274,10 +275,13 @@ const GraphSVG = React.memo(function GraphSVG({
     return lanes
   }, [nodes])
 
-  // Two render buffers: large for lines (keeps connections visible when
-  // source commits scroll off-screen), smaller for nodes/circles
-  const lineStart = Math.max(0, visibleStartIndex - 100)
-  const lineStop = Math.min(nodes.length - 1, visibleStopIndex + 100)
+  // Line buffer: iterate all commits but only emit lines whose vertical span
+  // overlaps the visible viewport (with padding). This ensures long-spanning
+  // lines through the viewport are always drawn without rendering off-screen lines.
+  const lineStart = 0
+  const lineStop = nodes.length - 1
+  const viewTop = visibleStartIndex - 5
+  const viewBottom = visibleStopIndex + 5
   const renderStart = Math.max(0, visibleStartIndex - 15)
   const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 15)
 
@@ -345,6 +349,13 @@ const GraphSVG = React.memo(function GraphSVG({
       const toX = GRAPH_LEFT_PAD + conn.toLane * GRAPH_COL_WIDTH
       const parentIdx = hashIndex.get(conn.parentHash)
       const lineColor = p > 0 ? (laneColorMap.get(conn.toLane) || node.color) : node.color
+
+      // Skip lines entirely outside the viewport: a line spans from index i
+      // to parentIdx (or to the bottom if parent is unknown). Only render if
+      // this range overlaps the visible region.
+      const lineEndIdx = parentIdx ?? nodes.length
+      if (i > viewBottom && lineEndIdx > viewBottom) continue
+      if (i < viewTop && lineEndIdx < viewTop) continue
 
       if (parentIdx === undefined) {
         const endY = height + ROW_HEIGHT - scrollOffset
@@ -491,9 +502,12 @@ const GraphCanvas = React.memo(function GraphCanvas({
 
   const hashIndex = useMemo(() => buildHashIndex(nodes), [nodes])
 
-  // Render a buffer around visible range — generous buffer prevents gaps during fast scrolling
+  // Render a buffer around visible range for nodes; lines iterate all commits
+  // but skip those entirely outside the viewport
   const renderStart = Math.max(0, visibleStartIndex - 15)
   const renderStop = Math.min(nodes.length - 1, visibleStopIndex + 15)
+  const viewTop = visibleStartIndex - 5
+  const viewBottom = visibleStopIndex + 5
 
   // Build lane→color map for merge line coloring (source branch color)
   // Resolve CSS variables (e.g., var(--accent)) to actual colors for Canvas rendering
@@ -575,17 +589,23 @@ const GraphCanvas = React.memo(function GraphCanvas({
       ctx.setLineDash([])
     }
 
-    // Draw lines first (below nodes)
-    for (let i = renderStart; i <= renderStop; i++) {
+    // Draw lines first (below nodes) — iterate all commits so long-spanning
+    // lines through the viewport are never missed
+    for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i]
       if (!node) continue
       const y = (i + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
 
       for (let p = 0; p < node.parentConnections.length; p++) {
         const conn = node.parentConnections[p]
+        const parentIdx = hashIndex.get(conn.parentHash)
+        // Skip lines entirely outside the viewport
+        const lineEndIdx = parentIdx ?? nodes.length
+        if (i > viewBottom && lineEndIdx > viewBottom) continue
+        if (i < viewTop && lineEndIdx < viewTop) continue
+
         const fromX = GRAPH_LEFT_PAD + conn.fromLane * GRAPH_COL_WIDTH
         const toX = GRAPH_LEFT_PAD + conn.toLane * GRAPH_COL_WIDTH
-        const parentIdx = hashIndex.get(conn.parentHash)
         // For merge connections (p > 0), use the source branch color
         const lineColor = p > 0 ? (laneColorMap.get(conn.toLane) || node.color) : node.color
 
@@ -1133,7 +1153,7 @@ function getFileIcon(filePath: string): React.ReactNode {
 
 // ─── Main CommitGraph Component ───────────────────────────────────────────────
 
-export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplete, filters, showBranchLabels = true, maxCommits }: CommitGraphProps): React.JSX.Element {
+export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSelect, onLoadComplete, filters, showBranchLabels = true, maxCommits }: CommitGraphProps): React.JSX.Element {
   const pageSize = maxCommits ?? DEFAULT_PAGE_SIZE
   const [commits, setCommits] = useState<GitCommit[]>([])
   const [totalCommitCount, setTotalCommitCount] = useState<number | null>(null)
@@ -1342,8 +1362,9 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
       setWipStatusLoaded(false)
       initialAutoSelectDone.current = false
       onCommitSelect?.(null)
+      onTwoCommitSelect?.(null)
     }
-  }, [repoPath, onCommitSelect])
+  }, [repoPath, onCommitSelect, onTwoCommitSelect])
 
   useEffect(() => {
     // Reset initial load flag when repo/filters change
@@ -1397,6 +1418,31 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onLoadComplet
   const nodes = graphLayout.nodes
   const collapsedLaneCount = graphLayout.collapsedCount
   const collapsedBranches = graphLayout.collapsedBranches
+
+  // Notify parent when 2+ commits are selected (multi-commit diff)
+  // Uses the oldest and newest selected commits as the diff range
+  useEffect(() => {
+    if (selectedHashes.size >= 2) {
+      const hashes = Array.from(selectedHashes)
+      // Find commits in nodes to sort by date (oldest first)
+      const withDates = hashes.map((h) => {
+        const commit = nodes.find((n) => n.commit.hash === h)?.commit
+        return { hash: h, commit, date: commit ? new Date(commit.authorDate).getTime() : 0 }
+      }).sort((a, b) => a.date - b.date)
+      const hashFrom = withDates[0].hash
+      const hashTo = withDates[withDates.length - 1].hash
+      const selectedCommits = withDates.map((w) => ({
+        hash: w.commit?.hash ?? w.hash,
+        shortHash: w.commit?.shortHash ?? w.hash.slice(0, 7),
+        subject: w.commit?.subject ?? '',
+        authorName: w.commit?.authorName ?? '',
+        authorDate: w.commit?.authorDate ?? ''
+      }))
+      onTwoCommitSelect?.({ hashFrom, hashTo, selectedCommits })
+    } else {
+      onTwoCommitSelect?.(null)
+    }
+  }, [selectedHashes, nodes, onTwoCommitSelect])
 
   const maxColumns = useMemo(() => {
     if (nodes.length === 0) return 1
