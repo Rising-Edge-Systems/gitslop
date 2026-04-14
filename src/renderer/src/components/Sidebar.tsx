@@ -3239,11 +3239,82 @@ function GitLabIssuesSection({ currentRepo }: GitLabIssuesSectionProps): React.J
   )
 }
 
+// ─── Unified IssuesSection (auto-detects GitHub or GitLab) ─────────────────
+
+type IssuesProvider = 'github' | 'gitlab' | 'none'
+
+interface IssuesSectionProps {
+  currentRepo: string | null
+}
+
+function IssuesSection({ currentRepo }: IssuesSectionProps): React.JSX.Element | null {
+  const [provider, setProvider] = useState<IssuesProvider | null>(null)
+
+  useEffect(() => {
+    if (!currentRepo) {
+      setProvider('none')
+      return
+    }
+    let cancelled = false
+    const detect = async (): Promise<void> => {
+      const [ghRes, glRes] = await Promise.all([
+        window.electronAPI.github.parseRemote(currentRepo),
+        window.electronAPI.gitlab.parseRemote(currentRepo)
+      ])
+      if (cancelled) return
+      if (ghRes.success && ghRes.data) {
+        setProvider('github')
+      } else if (glRes.success && glRes.data) {
+        setProvider('gitlab')
+      } else {
+        setProvider('none')
+      }
+    }
+    setProvider(null) // reset while detecting
+    detect()
+    return () => { cancelled = true }
+  }, [currentRepo])
+
+  // Still detecting
+  if (provider === null) {
+    return (
+      <SidebarSection
+        title="Issues"
+        icon={<CircleDot size={16} />}
+        defaultOpen={false}
+      >
+        <SkeletonList count={2} />
+      </SidebarSection>
+    )
+  }
+
+  if (provider === 'github') {
+    return <GitHubIssuesSection currentRepo={currentRepo} />
+  }
+
+  if (provider === 'gitlab') {
+    return <GitLabIssuesSection currentRepo={currentRepo} />
+  }
+
+  // No provider detected
+  return (
+    <SidebarSection
+      title="Issues"
+      icon={<CircleDot size={16} />}
+      defaultOpen={false}
+    >
+      <div className={styles.placeholder}>
+        {currentRepo ? 'No issue provider detected' : 'No repository open'}
+      </div>
+    </SidebarSection>
+  )
+}
+
 // ─── Sidebar (main export) ──────────────────────────────────────────────────
 
 // ─── Icon Rail Section Definitions ──────────────────────────────────────────
 
-type RailSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'submodules' | 'files' | 'pullrequests' | 'mergerequests'
+type RailSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'submodules' | 'files' | 'pullrequests' | 'mergerequests' | 'issues'
 
 interface RailSectionDef {
   id: RailSection
@@ -3259,7 +3330,8 @@ const RAIL_SECTIONS: RailSectionDef[] = [
   { id: 'stashes', label: 'Stashes', icon: <Archive size={20} /> },
   { id: 'submodules', label: 'Submodules', icon: <Package size={20} /> },
   { id: 'pullrequests', label: 'Pull Requests', icon: <GitPullRequestArrow size={20} /> },
-  { id: 'mergerequests', label: 'Merge Requests', icon: <Gitlab size={20} /> }
+  { id: 'mergerequests', label: 'Merge Requests', icon: <Gitlab size={20} /> },
+  { id: 'issues', label: 'Issues', icon: <CircleDot size={20} /> }
 ]
 
 export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarProps): React.JSX.Element {
@@ -3669,10 +3741,10 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
                 <PullRequestsSection currentRepo={currentRepo} />
               )}
               {railOverlaySection === 'mergerequests' && (
-                <>
-                  <MergeRequestsSection currentRepo={currentRepo} />
-                  <GitLabIssuesSection currentRepo={currentRepo} />
-                </>
+                <MergeRequestsSection currentRepo={currentRepo} />
+              )}
+              {railOverlaySection === 'issues' && (
+                <IssuesSection currentRepo={currentRepo} />
               )}
               {railOverlaySection === 'files' && (
                 <FileTree
@@ -3901,11 +3973,9 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
 
       <PullRequestsSection currentRepo={currentRepo} />
 
-      <GitHubIssuesSection currentRepo={currentRepo} />
-
       <MergeRequestsSection currentRepo={currentRepo} />
 
-      <GitLabIssuesSection currentRepo={currentRepo} />
+      <IssuesSection currentRepo={currentRepo} />
       </>
       )}
       </div>{/* end sidebarScrollArea */}
