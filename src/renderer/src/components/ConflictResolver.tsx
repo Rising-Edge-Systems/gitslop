@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { AlertTriangle, X, Check, Circle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlertTriangle, X, Check, Circle, ChevronDown, ChevronUp } from 'lucide-react'
 import styles from './ConflictResolver.module.css'
 
 interface ConflictResolverProps {
@@ -16,6 +16,7 @@ interface ConflictFile {
 interface ConflictBlock {
   id: number
   oursStart: number
+  endIdx: number
   oursLines: string[]
   theirsLines: string[]
   baseLines: string[]
@@ -30,11 +31,8 @@ export function ConflictResolver({
 }: ConflictResolverProps): React.JSX.Element {
   const [files, setFiles] = useState<ConflictFile[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [oursContent, setOursContent] = useState<string | null>(null)
-  const [theirsContent, setTheirsContent] = useState<string | null>(null)
   const [resultContent, setResultContent] = useState<string>('')
   const [conflicts, setConflicts] = useState<ConflictBlock[]>([])
-  const [currentConflictIndex, setCurrentConflictIndex] = useState<number>(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeOp, setActiveOp] = useState<ActiveOperation>(null)
@@ -108,7 +106,7 @@ export function ConflictResolver({
           i++
         }
 
-        blocks.push({ id: id++, oursStart, oursLines, theirsLines, baseLines })
+        blocks.push({ id: id++, oursStart, endIdx: i, oursLines, theirsLines, baseLines })
       } else {
         i++
       }
@@ -127,11 +125,8 @@ export function ConflictResolver({
       try {
         const result = await window.electronAPI.git.getConflictContent(repoPath, selectedFile)
         if (result.success && result.data) {
-          setOursContent(result.data.ours)
-          setTheirsContent(result.data.theirs)
           setResultContent(result.data.merged)
           setConflicts(parseConflicts(result.data.merged))
-          setCurrentConflictIndex(0)
         } else {
           setError(result.error || 'Failed to load conflict content')
         }
@@ -204,46 +199,10 @@ export function ConflictResolver({
 
       const newContent = newLines.join('\n')
       setResultContent(newContent)
-      const newConflicts = parseConflicts(newContent)
-      setConflicts(newConflicts)
-      if (currentConflictIndex >= newConflicts.length && newConflicts.length > 0) {
-        setCurrentConflictIndex(newConflicts.length - 1)
-      }
+      setConflicts(parseConflicts(newContent))
     },
-    [resultContent, parseConflicts, currentConflictIndex]
+    [resultContent, parseConflicts]
   )
-
-  // Navigate to next/prev conflict
-  const goToConflict = useCallback(
-    (direction: 'next' | 'prev') => {
-      if (conflicts.length === 0) return
-      if (direction === 'next') {
-        setCurrentConflictIndex((i) => Math.min(i + 1, conflicts.length - 1))
-      } else {
-        setCurrentConflictIndex((i) => Math.max(i - 1, 0))
-      }
-    },
-    [conflicts.length]
-  )
-
-  // Scroll result textarea to current conflict
-  useEffect(() => {
-    if (!resultTextareaRef.current || conflicts.length === 0) return
-    const textarea = resultTextareaRef.current
-    const lines = resultContent.split('\n')
-    const conflict = conflicts[currentConflictIndex]
-    if (!conflict) return
-
-    // Find the position of the conflict in the text
-    let charPos = 0
-    for (let i = 0; i < Math.min(conflict.oursStart, lines.length); i++) {
-      charPos += lines[i].length + 1
-    }
-
-    // Approximate scroll position
-    const lineHeight = textarea.scrollHeight / Math.max(lines.length, 1)
-    textarea.scrollTop = Math.max(0, conflict.oursStart * lineHeight - textarea.clientHeight / 3)
-  }, [currentConflictIndex, conflicts, resultContent])
 
   // Mark file as resolved
   const markFileResolved = useCallback(async () => {
@@ -372,12 +331,7 @@ export function ConflictResolver({
   const unresolvedCount = files.filter((f) => !f.resolved).length
   const hasConflictMarkers = resultContent.includes('<<<<<<<')
 
-  // Return the CSS module class for a line's highlight type
-  const highlightLine = (line: string, type: 'ours' | 'theirs' | 'base' | 'result'): string => {
-    if (type === 'ours') return styles.conflictLineOurs
-    if (type === 'theirs') return styles.conflictLineTheirs
-    return ''
-  }
+  const [resultExpanded, setResultExpanded] = useState(false)
 
   const opLabel = activeOp
     ? activeOp.charAt(0).toUpperCase() + activeOp.slice(1)
@@ -445,144 +399,149 @@ export function ConflictResolver({
           {/* Main Content Area */}
           {selectedFile && !loading && (
             <div className={styles.conflictResolverContent}>
-              {/* Conflict Navigation Bar */}
+              {/* Summary Bar */}
               <div className={styles.conflictResolverNav}>
                 <span className={styles.conflictNavInfo}>
-                  {conflicts.length > 0
-                    ? `Conflict ${currentConflictIndex + 1} of ${conflicts.length}`
-                    : 'No conflict markers remaining'}
+                  {conflicts.length === 0
+                    ? 'All conflicts resolved — review the Result and mark as resolved.'
+                    : `${conflicts.length} conflict hunk${conflicts.length === 1 ? '' : 's'} to resolve`}
                 </span>
-                <div className={styles.conflictNavButtons}>
+                <div className={styles.conflictNavResolveBtns}>
                   <button
-                    className={styles.conflictNavBtn}
-                    onClick={() => goToConflict('prev')}
-                    disabled={conflicts.length === 0 || currentConflictIndex === 0}
+                    className={styles.conflictPaneAction}
+                    onClick={() => resolveFileWith('ours')}
+                    title="Accept entire ours version for this file"
+                    disabled={resolving}
                   >
-                    <ChevronLeft size={14} /> Prev
+                    Accept All Ours
                   </button>
                   <button
-                    className={styles.conflictNavBtn}
-                    onClick={() => goToConflict('next')}
-                    disabled={
-                      conflicts.length === 0 || currentConflictIndex >= conflicts.length - 1
-                    }
+                    className={styles.conflictPaneAction}
+                    onClick={() => resolveFileWith('theirs')}
+                    title="Accept entire theirs version for this file"
+                    disabled={resolving}
                   >
-                    Next <ChevronRight size={14} />
+                    Accept All Theirs
                   </button>
                 </div>
-                {conflicts.length > 0 && (
-                  <div className={styles.conflictNavResolveBtns}>
-                    <button
-                      className={`${styles.conflictNavBtn} ${styles.conflictAcceptOurs}`}
-                      onClick={() => resolveConflictBlock(currentConflictIndex, 'ours')}
-                      title="Accept Ours for this conflict"
-                    >
-                      Accept Ours
-                    </button>
-                    <button
-                      className={`${styles.conflictNavBtn} ${styles.conflictAcceptTheirs}`}
-                      onClick={() => resolveConflictBlock(currentConflictIndex, 'theirs')}
-                      title="Accept Theirs for this conflict"
-                    >
-                      Accept Theirs
-                    </button>
-                    <button
-                      className={`${styles.conflictNavBtn} ${styles.conflictAcceptBoth}`}
-                      onClick={() => resolveConflictBlock(currentConflictIndex, 'both')}
-                      title="Accept Both for this conflict"
-                    >
-                      Accept Both
-                    </button>
+              </div>
+
+              {/* Hunk Cards */}
+              <div className={styles.conflictHunks}>
+                {conflicts.map((conflict, idx) => {
+                  const resultLines = resultContent.split('\n')
+                  const CTX = 3
+                  const ctxBefore = resultLines.slice(Math.max(0, conflict.oursStart - CTX), conflict.oursStart)
+                  const ctxAfter = resultLines.slice(conflict.endIdx, conflict.endIdx + CTX)
+                  const ctxBeforeStart = Math.max(0, conflict.oursStart - CTX) + 1
+                  return (
+                    <div key={conflict.id} className={styles.conflictHunk}>
+                      <div className={styles.conflictHunkHeader}>
+                        <span className={styles.conflictHunkTitle}>
+                          Hunk {idx + 1} of {conflicts.length}
+                          <span className={styles.conflictHunkLine}>
+                            · line {conflict.oursStart + 1}
+                          </span>
+                        </span>
+                        <div className={styles.conflictHunkActions}>
+                          <button
+                            className={`${styles.conflictNavBtn} ${styles.conflictAcceptOurs}`}
+                            onClick={() => resolveConflictBlock(idx, 'ours')}
+                            title="Accept ours for this hunk"
+                          >
+                            Accept Ours
+                          </button>
+                          <button
+                            className={`${styles.conflictNavBtn} ${styles.conflictAcceptTheirs}`}
+                            onClick={() => resolveConflictBlock(idx, 'theirs')}
+                            title="Accept theirs for this hunk"
+                          >
+                            Accept Theirs
+                          </button>
+                          <button
+                            className={`${styles.conflictNavBtn} ${styles.conflictAcceptBoth}`}
+                            onClick={() => resolveConflictBlock(idx, 'both')}
+                            title="Accept both for this hunk (ours then theirs)"
+                          >
+                            Accept Both
+                          </button>
+                        </div>
+                      </div>
+                      <div className={styles.conflictHunkBody}>
+                        {ctxBefore.map((line, i) => (
+                          <div key={`cb-${i}`} className={`${styles.conflictHunkLineRow} ${styles.conflictHunkLineContext}`}>
+                            <span className={styles.conflictHunkLineNum}>{ctxBeforeStart + i}</span>
+                            <span className={styles.conflictHunkMark}> </span>
+                            <span className={styles.conflictHunkText}>{line}</span>
+                          </div>
+                        ))}
+                        <div className={styles.conflictHunkChangeGroup}>
+                          <div className={styles.conflictHunkChangeLabel}>Ours (Current)</div>
+                          {conflict.oursLines.length === 0 ? (
+                            <div className={styles.conflictHunkEmpty}>(empty)</div>
+                          ) : (
+                            conflict.oursLines.map((line, lineIdx) => (
+                              <div key={`o-${lineIdx}`} className={`${styles.conflictHunkLineRow} ${styles.conflictHunkLineOurs}`}>
+                                <span className={styles.conflictHunkLineNum}></span>
+                                <span className={styles.conflictHunkMark}>−</span>
+                                <span className={styles.conflictHunkText}>{line}</span>
+                              </div>
+                            ))
+                          )}
+                          <div className={`${styles.conflictHunkChangeLabel} ${styles.conflictHunkChangeLabelTheirs}`}>Theirs (Incoming)</div>
+                          {conflict.theirsLines.length === 0 ? (
+                            <div className={styles.conflictHunkEmpty}>(empty)</div>
+                          ) : (
+                            conflict.theirsLines.map((line, lineIdx) => (
+                              <div key={`t-${lineIdx}`} className={`${styles.conflictHunkLineRow} ${styles.conflictHunkLineTheirs}`}>
+                                <span className={styles.conflictHunkLineNum}></span>
+                                <span className={styles.conflictHunkMark}>+</span>
+                                <span className={styles.conflictHunkText}>{line}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        {ctxAfter.map((line, i) => (
+                          <div key={`ca-${i}`} className={`${styles.conflictHunkLineRow} ${styles.conflictHunkLineContext}`}>
+                            <span className={styles.conflictHunkLineNum}>{conflict.endIdx + 1 + i}</span>
+                            <span className={styles.conflictHunkMark}> </span>
+                            <span className={styles.conflictHunkText}>{line}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+                {conflicts.length === 0 && (
+                  <div className={styles.conflictPaneEmpty}>
+                    No remaining conflict hunks.
                   </div>
                 )}
               </div>
 
-              {/* 3-Pane View */}
-              <div className={styles.conflictPanes}>
-                {/* Ours Pane (left) */}
-                <div className={`${styles.conflictPane} ${styles.conflictPaneOurs}`}>
-                  <div className={styles.conflictPaneHeader}>
-                    <span className={styles.conflictPaneLabel}>Ours (Current)</span>
-                    <button
-                      className={styles.conflictPaneAction}
-                      onClick={() => resolveFileWith('ours')}
-                      title="Accept entire ours version"
-                    >
-                      Accept All Ours
-                    </button>
-                  </div>
-                  <div className={styles.conflictPaneContent}>
-                    <pre className={styles.conflictPaneCode}>
-                      {oursContent !== null ? (
-                        oursContent.split('\n').map((line, idx) => (
-                          <div key={idx} className={`${styles.conflictCodeLine} ${highlightLine(line, 'ours')}`}>
-                            <span className={styles.conflictLineNum}>{idx + 1}</span>
-                            <span className={styles.conflictLineText}>{line}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className={styles.conflictPaneEmpty}>File not available on ours side</div>
-                      )}
-                    </pre>
-                  </div>
-                </div>
-
-                {/* Theirs Pane (right) */}
-                <div className={`${styles.conflictPane} ${styles.conflictPaneTheirs}`}>
-                  <div className={styles.conflictPaneHeader}>
-                    <span className={styles.conflictPaneLabel}>Theirs (Incoming)</span>
-                    <button
-                      className={styles.conflictPaneAction}
-                      onClick={() => resolveFileWith('theirs')}
-                      title="Accept entire theirs version"
-                    >
-                      Accept All Theirs
-                    </button>
-                  </div>
-                  <div className={styles.conflictPaneContent}>
-                    <pre className={styles.conflictPaneCode}>
-                      {theirsContent !== null ? (
-                        theirsContent.split('\n').map((line, idx) => (
-                          <div key={idx} className={`${styles.conflictCodeLine} ${highlightLine(line, 'theirs')}`}>
-                            <span className={styles.conflictLineNum}>{idx + 1}</span>
-                            <span className={styles.conflictLineText}>{line}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className={styles.conflictPaneEmpty}>
-                          File not available on theirs side
-                        </div>
-                      )}
-                    </pre>
-                  </div>
-                </div>
+              {/* Result editor (collapsible) */}
+              <div className={styles.conflictResultSection}>
+                <button
+                  className={styles.conflictResultToggle}
+                  onClick={() => setResultExpanded((v) => !v)}
+                >
+                  {resultExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  <span>Result (full file{hasConflictMarkers ? ', has conflict markers' : ''})</span>
+                </button>
+                <button
+                  className={`${styles.conflictPaneAction} ${styles.conflictMarkResolved}`}
+                  onClick={markFileResolved}
+                  disabled={resolving || hasConflictMarkers}
+                  title={
+                    hasConflictMarkers
+                      ? 'Resolve all hunks before marking as resolved'
+                      : 'Mark this file as resolved'
+                  }
+                >
+                  {resolving ? 'Resolving...' : <><Check size={14} /> Mark as Resolved</>}
+                </button>
               </div>
-
-              {/* Result Pane (bottom) */}
-              <div className={`${styles.conflictPane} ${styles.conflictPaneResult}`}>
-                <div className={styles.conflictPaneHeader}>
-                  <span className={styles.conflictPaneLabel}>
-                    Result
-                    {hasConflictMarkers && (
-                      <span className={styles.conflictMarkersWarning}>
-                        {' '}
-                        <AlertTriangle size={12} /> Contains conflict markers
-                      </span>
-                    )}
-                  </span>
-                  <button
-                    className={`${styles.conflictPaneAction} ${styles.conflictMarkResolved}`}
-                    onClick={markFileResolved}
-                    disabled={resolving || hasConflictMarkers}
-                    title={
-                      hasConflictMarkers
-                        ? 'Resolve all conflicts before marking as resolved'
-                        : 'Mark this file as resolved'
-                    }
-                  >
-                    {resolving ? 'Resolving...' : <><Check size={14} /> Mark as Resolved</>}
-                  </button>
-                </div>
+              {resultExpanded && (
                 <textarea
                   ref={resultTextareaRef}
                   className={styles.conflictResultEditor}
@@ -593,7 +552,7 @@ export function ConflictResolver({
                   }}
                   spellCheck={false}
                 />
-              </div>
+              )}
             </div>
           )}
 

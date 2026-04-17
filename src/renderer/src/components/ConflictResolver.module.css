@@ -484,6 +484,289 @@
   font-size: var(--font-sm);
 }
 
+/* ─── Per-conflict diff view ─────────────────────────────────────────── */
+
+.conflictDiff {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.conflictDiffHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+/* ─── Conflict hunk cards ─────────────────────────────────────────────── */
+
+.conflictHunks {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.conflictHunk {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.conflictHunkHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.conflictHunkTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.conflictHunkLine {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: var(--font-xs);
+}
+
+.conflictHunkActions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.conflictHunkBody {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  padding: var(--space-xs) 0;
+}
+
+.conflictHunkChangeGroup {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin: 2px 0;
+}
+
+.conflictHunkChangeLabel {
+  padding: 2px var(--space-sm);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: rgb(243, 139, 168);
+  background: rgba(243, 139, 168, 0.08);
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.conflictHunkChangeLabelTheirs {
+  color: rgb(166, 227, 161);
+  background: rgba(166, 227, 161, 0.08);
+  border-top: 1px dashed var(--border);
+}
+
+.conflictHunkLineRow {
+  display: flex;
+  padding: 0 var(--space-xs);
+  white-space: pre;
+}
+
+.conflictHunkLineContext {
+  color: var(--text-muted);
+}
+
+.conflictHunkLineOurs {
+  background: rgba(243, 139, 168, 0.18);
+}
+
+.conflictHunkLineTheirs {
+  background: rgba(166, 227, 161, 0.18);
+}
+
+.conflictHunkLineNum {
+  flex: 0 0 44px;
+  text-align: right;
+  padding-right: var(--space-xs);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  user-select: none;
+  align-self: center;
+}
+
+.conflictHunkMark {
+  flex: 0 0 14px;
+  text-align: center;
+  user-select: none;
+  color: var(--text-muted);
+}
+
+.conflictHunkLineOurs .conflictHunkMark {
+  color: rgb(243, 139, 168);
+}
+
+.conflictHunkLineTheirs .conflictHunkMark {
+  color: rgb(166, 227, 161);
+}
+
+.conflictHunkText {
+  flex: 1;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conflictHunkEmpty {
+  padding: var(--space-xs) var(--space-sm);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ─── Collapsible result section ──────────────────────────────────────── */
+
+.conflictResultSection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.conflictResultToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 2px var(--space-xs);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+}
+
+.conflictResultToggle:hover {
+  color: var(--text-primary);
+}
+
+.conflictDiffTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.conflictDiffArrow {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.conflictDiffFileActions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.conflictDiffSideOurs {
+  color: rgb(243, 139, 168);
+}
+
+.conflictDiffSideTheirs {
+  color: rgb(166, 227, 161);
+}
+
+.conflictDiffBody {
+  flex: 1;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+}
+
+.conflictDiffRow {
+  display: flex;
+  min-height: 18px;
+}
+
+.conflictDiffCell {
+  flex: 1;
+  display: flex;
+  padding: 0 var(--space-xs);
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conflictDiffCell + .conflictDiffCell {
+  border-left: 1px solid var(--border);
+}
+
+.conflictDiffMark {
+  flex: 0 0 14px;
+  color: var(--text-muted);
+  user-select: none;
+  text-align: center;
+}
+
+.conflictDiffText {
+  flex: 1;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conflictDiffEqual {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.conflictDiffRemoved {
+  background: rgba(243, 139, 168, 0.18);
+  color: var(--text-primary);
+}
+
+.conflictDiffRemoved .conflictDiffMark {
+  color: rgb(243, 139, 168);
+}
+
+.conflictDiffAdded {
+  background: rgba(166, 227, 161, 0.18);
+  color: var(--text-primary);
+}
+
+.conflictDiffAdded .conflictDiffMark {
+  color: rgb(166, 227, 161);
+}
+
+.conflictDiffEmpty {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.02) 0,
+      rgba(255, 255, 255, 0.02) 6px,
+      transparent 6px,
+      transparent 12px
+    );
+}
+
 /* ─── Result Editor ─────────────────────────────────────────────────── */
 
 .conflictResultEditor {
