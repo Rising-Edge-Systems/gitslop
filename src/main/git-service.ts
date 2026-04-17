@@ -657,11 +657,12 @@ export class GitService {
     totalDeletions: number
   }> {
     const SEPARATOR = '<<<SEP>>>'
+    const RECORD_END = '<<<RECORD_END>>>'
     const format = [
       '%H', '%h', '%P', '%an', '%ae', '%aI',
       '%cn', '%ce', '%cI', '%s', '%b', '%D',
       '%G?', '%GS', '%GK'
-    ].join(SEPARATOR)
+    ].join(SEPARATOR) + RECORD_END
 
     // Check if this is a merge commit (has a second parent)
     const isMerge = await this.exec(
@@ -680,15 +681,16 @@ export class GitService {
       { signal: options?.signal }
     )
 
-    // The output has the formatted commit info first, then a blank line, then stat output
-    const lines = result.stdout.split('\n')
-    const commitLine = lines[0]
-    const commit = this.parseLogOutput(commitLine, SEPARATOR, '')[0] || this.emptyCommit()
+    // The output is: <formatted commit info><RECORD_END>\n<stat output>
+    // The formatted info contains \n inside %b (the body), so we split on
+    // RECORD_END instead of newlines to keep the body intact.
+    const [commitChunk, statChunk = ''] = result.stdout.split(RECORD_END)
+    const commit = this.parseLogOutput(commitChunk, SEPARATOR, '')[0] || this.emptyCommit()
 
     // Parse stat lines for file list
     const files: string[] = []
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim()
+    for (const rawLine of statChunk.split('\n')) {
+      const line = rawLine.trim()
       if (!line || line.startsWith('---')) continue
       // stat lines look like: "filename | 5 ++-"
       const statMatch = line.match(/^\s*(.+?)\s+\|\s+\d+/)

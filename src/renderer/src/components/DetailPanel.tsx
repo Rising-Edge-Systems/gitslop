@@ -610,6 +610,8 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
           minHeight: 60,
           maxHeight: isComparisonMode ? '33%' : undefined,
           overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
           transition: isDraggingInternalSplit ? 'none' : undefined
         }}>
           {isComparisonMode ? (
@@ -636,7 +638,7 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
               ))}
             </div>
           ) : (
-          <div className={styles.content}>
+          <div className={styles.content} style={{ minHeight: 0 }}>
             {/* Commit subject */}
             <h3 className={styles.subject}>{commit!.subject}</h3>
 
