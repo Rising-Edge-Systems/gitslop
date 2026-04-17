@@ -1042,12 +1042,10 @@ export class GitService {
     target?: string,
     options?: { message?: string; signal?: AbortSignal }
   ): Promise<void> {
-    const args = ['tag']
-    if (options?.message) {
-      args.push('-a', name, '-m', options.message)
-    } else {
-      args.push(name)
-    }
+    // Always create annotated tags so they are pushed by --follow-tags.
+    // Lightweight tags are silently skipped by `git push --follow-tags`,
+    // which leads to confusing "tag not pushed" behavior.
+    const args = ['tag', '-a', name, '-m', options?.message || name]
     if (target) args.push(target)
     await this.exec(args, repoPath, { signal: options?.signal })
   }
