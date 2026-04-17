@@ -24,8 +24,14 @@
 - [x] **Double-Click Checkout** — Double-click branch/tag labels to checkout with loading overlay
 - [x] **Graph Line Fix** — Lines no longer disappear when scrolling far in history
 - [x] **CI/CD Release Notes** — Annotated tag messages used as GitHub Release notes
+- [x] **Staging Auto-Refresh** — File watcher updates staging on external changes; Stage All / Unstage All on folders
+- [x] **Credentialed Git Network Ops** — push/pull/fetch/clone use stored OAuth/PAT tokens via GIT_ASKPASS
+- [x] **Help Menu** — Report Bug, Suggest Feature, Check for Updates
+- [x] **Auto-Stash on Pull** — Pull over a dirty tree by stashing, pulling, popping. Opt-out in settings.
+- [x] **Hunk-Based Merge Conflict Resolver** — Per-hunk accept buttons with surrounding context
+- [x] **Reactive Conflict Banner** — Banner + resolver auto-dismiss when conflicts cleared externally
 
-All above on `main` as of April 14, 2026 (v1.2.2).
+All above on `main` as of April 17, 2026 (v1.2.4).
 
 ## Next Up
 

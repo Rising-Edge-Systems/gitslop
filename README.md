@@ -12,7 +12,8 @@ A free, open-source, cross-platform GUI git client built with Electron + React +
 - Staging area with path and tree views, per-file insertion/deletion stats
 - Staging/unstaging with hunk and line-level precision
 - Merge, rebase (including interactive), cherry-pick, reset, and revert
-- 3-way merge conflict resolution tool
+- 3-way merge conflict resolution with per-hunk accept buttons and surrounding context
+- Auto-stash on pull (opt-out) so a dirty working tree never blocks a pull
 - Branch, remote, tag, and stash management
 - Git blame view
 - Commit history filtering (author, date, message, path)
