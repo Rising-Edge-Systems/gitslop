@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, HelpCircle, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2, Folder, FolderOpen, Copy, Loader } from 'lucide-react'
+import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2, Folder, FolderOpen, Copy, Loader } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { openFileInEditor } from './CodeEditor'
@@ -88,7 +88,7 @@ const iconClassMap: Record<string, string> = {
   deleted: styles.iconDeleted,
   renamed: styles.iconRenamed,
   copied: styles.iconCopied,
-  untracked: styles.iconUntracked
+  untracked: styles.iconAdded
 }
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
@@ -97,7 +97,7 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
   deleted: <FileMinus size={14} />,
   renamed: <ArrowRightLeft size={14} />,
   copied: <Copy size={14} />,
-  untracked: <HelpCircle size={14} />
+  untracked: <FilePlus size={14} />
 }
 
 /** Lucide icon status indicator for a changed file */
@@ -311,9 +311,8 @@ function StatusTreeNodeComponent({
           ) && (
             <span className={styles.folderStats}>
               {node.statusCounts.modified > 0 && <span className={styles.folderStatsModified}>~{node.statusCounts.modified}</span>}
-              {node.statusCounts.added > 0 && <span className={styles.folderStatsAdded}>+{node.statusCounts.added}</span>}
+              {(node.statusCounts.added + node.statusCounts.untracked) > 0 && <span className={styles.folderStatsAdded}>+{node.statusCounts.added + node.statusCounts.untracked}</span>}
               {node.statusCounts.deleted > 0 && <span className={styles.folderStatsDeleted}>&minus;{node.statusCounts.deleted}</span>}
-              {node.statusCounts.untracked > 0 && <span className={styles.folderStatsUntracked}>?{node.statusCounts.untracked}</span>}
               {node.statusCounts.renamed > 0 && <span className={styles.folderStatsRenamed}>R{node.statusCounts.renamed}</span>}
             </span>
           )}

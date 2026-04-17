@@ -471,6 +471,19 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
     }
   }, [loadRepoData, repoPath])
 
+  useEffect(() => {
+    const cleanup = window.electronAPI.onRepoChanged?.(() => {
+      window.electronAPI.git.getConflictedFiles(repoPath).then((result) => {
+        if (result.success && Array.isArray(result.data)) {
+          const nowHasConflicts = result.data.length > 0
+          setHasConflicts(nowHasConflicts)
+          if (!nowHasConflicts) setShowConflictResolver(false)
+        }
+      })
+    })
+    return () => { cleanup?.() }
+  }, [repoPath])
+
   // Handlers for hunk-level staging from the center DiffViewer. Each receives
   // a ready-to-apply git patch built by DiffViewer itself.
   const handleStageHunk = useCallback(async (patch: string) => {

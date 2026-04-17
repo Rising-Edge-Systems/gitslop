@@ -55,6 +55,11 @@ export function useAutoFetch({ repoPath, intervalMinutes, onNotify }: UseAutoFet
           lastError: null
         }))
 
+        // Refresh the graph after fetch so new remote commits are visible
+        if (behind !== prevIncoming) {
+          window.dispatchEvent(new CustomEvent('graph:force-refresh'))
+        }
+
         // Notify if new incoming changes detected
         if (behind > 0 && behind !== prevIncoming && onNotify) {
           onNotify('info', `${behind} incoming commit${behind > 1 ? 's' : ''} available`)
@@ -100,12 +105,8 @@ export function useAutoFetch({ repoPath, intervalMinutes, onNotify }: UseAutoFet
 
     const intervalMs = intervalMinutes * 60 * 1000
 
-    // Do initial fetch after a short delay (don't fetch immediately on mount)
-    const initialTimer = setTimeout(() => {
-      if (isMountedRef.current) {
-        doAutoFetch()
-      }
-    }, 5000) // 5s delay before first auto-fetch
+    // Fetch immediately on repo open so the graph shows remote state
+    doAutoFetch()
 
     // Set up recurring interval
     intervalRef.current = setInterval(() => {
@@ -116,13 +117,29 @@ export function useAutoFetch({ repoPath, intervalMinutes, onNotify }: UseAutoFet
 
     return () => {
       isMountedRef.current = false
-      clearTimeout(initialTimer)
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
         intervalRef.current = null
       }
     }
   }, [repoPath, intervalMinutes, doAutoFetch])
+
+  // After pull/push/fetch, re-check ahead/behind to clear stale "incoming" count
+  useEffect(() => {
+    if (!repoPath) return
+    const handler = async (): Promise<void> => {
+      try {
+        const result = await window.electronAPI.git.getBranches(repoPath)
+        if (result.success && Array.isArray(result.data)) {
+          const current = result.data.find((b: { current?: boolean; isCurrent?: boolean }) => b.current || b.isCurrent)
+          const behind = current?.behind || 0
+          setState((prev) => ({ ...prev, incomingChanges: behind }))
+        }
+      } catch { /* ignore */ }
+    }
+    window.addEventListener('graph:force-refresh', handler)
+    return () => window.removeEventListener('graph:force-refresh', handler)
+  }, [repoPath])
 
   return {
     ...state,

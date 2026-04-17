@@ -1283,8 +1283,8 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
   }, [repoPath, buildFilterOpts])
 
   const loadCommits = useCallback(async (forceRefresh = false) => {
-    // Prevent overlapping refresh calls
-    if (refreshInFlightRef.current && initialCommitLoadDone.current) return
+    // Prevent overlapping refresh calls (but never skip force-refresh)
+    if (refreshInFlightRef.current && initialCommitLoadDone.current && !forceRefresh) return
     refreshInFlightRef.current = true
 
     if (!initialCommitLoadDone.current) {
@@ -1302,7 +1302,6 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
       if (result.success && Array.isArray(result.data)) {
         setCommits((prev) => {
           const newData = result.data as GitCommit[]
-          // When force-refreshing (after push/fetch/pull), always update — refs may have changed
           if (forceRefresh) {
             return newData
           }
