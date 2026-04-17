@@ -96,8 +96,20 @@ export function useKeyboardShortcuts(shortcuts: ShortcutDefinition[]): void {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
+      // Never consume keystrokes when focus is in a text entry field unless
+      // the shortcut requires a modifier — otherwise plain-letter shortcuts
+      // (e.g. 's' for stage) steal characters from commit messages.
+      const target = document.activeElement as HTMLElement | null
+      const typingInField =
+        !!target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+
       for (const s of shortcutsRef.current) {
         if (s.enabled === false) continue
+        if (typingInField && !s.ctrl && !s.alt) continue
 
         const ctrlMatch = s.ctrl ? (e.ctrlKey || e.metaKey) : !(e.ctrlKey || e.metaKey)
         const shiftMatch = s.shift ? e.shiftKey : !e.shiftKey

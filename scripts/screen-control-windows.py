@@ -22,6 +22,13 @@ import sys
 import time
 import ctypes
 
+# Force UTF-8 on stdout so window titles with non-cp1252 glyphs don't crash
+# the script on Windows console.
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 # Must set DPI awareness BEFORE pyautogui imports, otherwise mouse/screenshot
 # coordinates get silently downscaled on high-DPI displays.
 try:

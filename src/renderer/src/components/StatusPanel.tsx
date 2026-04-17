@@ -492,6 +492,17 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
   const internalSplitContainerRef = useRef<HTMLDivElement>(null)
   const [isDraggingInternalSplit, setIsDraggingInternalSplit] = useState(false)
 
+  // Unstaged↔staged column split (% height given to unstaged). Persisted to
+  // localStorage so it survives restarts.
+  const [columnSplit, setColumnSplit] = useState<number>(() => {
+    const raw = localStorage.getItem('gitslop-staging-column-split')
+    const n = raw ? Number(raw) : NaN
+    return Number.isFinite(n) && n >= 10 && n <= 90 ? n : 50
+  })
+  const isDraggingColumnSplitRef = useRef(false)
+  const [isDraggingColumnSplit, setIsDraggingColumnSplit] = useState(false)
+  const columnSplitContainerRef = useRef<HTMLDivElement>(null)
+
   // Per-section collapse state (independent of the overall panel collapse)
   const [unstagedCollapsed, setUnstagedCollapsed] = useState(false)
   const [stagedCollapsed, setStagedCollapsed] = useState(false)
@@ -614,6 +625,13 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
       if (!panelRef.current?.contains(document.activeElement) && document.activeElement !== panelRef.current) return
       if (operationInProgress) return
 
+      // Don't hijack typing in text inputs, textareas, or contenteditable elements.
+      const t = document.activeElement as HTMLElement | null
+      if (t) {
+        const tag = t.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return
+      }
+
       // S key to stage selected file(s)
       if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         if (selectedFiles.size > 0 || selectedFile) {
@@ -669,6 +687,45 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
   const handleInternalSplitDoubleClick = useCallback(() => {
     onStagingInternalSplitChange(65) // reset to default
   }, [onStagingInternalSplitChange])
+
+  const setColumnSplitClamped = useCallback((pct: number) => {
+    const clamped = Math.max(10, Math.min(90, pct))
+    setColumnSplit(clamped)
+    localStorage.setItem('gitslop-staging-column-split', String(clamped))
+  }, [])
+
+  const handleColumnSplitDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDraggingColumnSplitRef.current = true
+    setIsDraggingColumnSplit(true)
+    document.body.classList.add('sidebar-dragging')
+    const startY = e.clientY
+    const startSplit = columnSplit
+
+    const onMouseMove = (ev: MouseEvent): void => {
+      if (!isDraggingColumnSplitRef.current || !columnSplitContainerRef.current) return
+      const containerHeight = columnSplitContainerRef.current.getBoundingClientRect().height
+      if (containerHeight <= 0) return
+      const deltaY = ev.clientY - startY
+      const deltaPct = (deltaY / containerHeight) * 100
+      setColumnSplitClamped(startSplit + deltaPct)
+    }
+
+    const onMouseUp = (): void => {
+      isDraggingColumnSplitRef.current = false
+      setIsDraggingColumnSplit(false)
+      document.body.classList.remove('sidebar-dragging')
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+  }, [columnSplit, setColumnSplitClamped])
+
+  const handleColumnSplitDoubleClick = useCallback(() => {
+    setColumnSplitClamped(50)
+  }, [setColumnSplitClamped])
 
   // ─── Stage/Unstage Operations ─────────────────────────────────────────────
 
@@ -1284,10 +1341,15 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
               <span>Working directory clean — nothing to commit</span>
             </div>
           ) : (
-            <div className={styles.twoColumnLayout}>
+            <div ref={columnSplitContainerRef} className={styles.twoColumnLayout}>
               {/* ─── Left Column: Unstaged Changes ─── */}
               <div
                 className={`${styles.column} ${styles.columnUnstaged} ${isDropTargetUnstaged ? styles.dropTarget : ''}`}
+                style={{
+                  height: `calc(${columnSplit}% - 2px)`,
+                  minHeight: 60,
+                  transition: isDraggingColumnSplit ? 'none' : undefined
+                }}
                 onDragOver={(e) => handleDragOver('unstaged', e)}
                 onDrop={(e) => handleDrop('unstaged', e)}
               >
@@ -1424,9 +1486,30 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
                 </div>}
               </div>
 
+              {/* ─── Column split drag handle ─── */}
+              <div
+                style={{
+                  height: 5,
+                  flexShrink: 0,
+                  cursor: 'row-resize',
+                  background: isDraggingColumnSplit ? 'var(--border)' : 'transparent',
+                  borderTop: '1px solid var(--border)',
+                  borderBottom: '1px solid var(--border)',
+                  transition: 'background 0.15s ease'
+                }}
+                onMouseDown={handleColumnSplitDragStart}
+                onDoubleClick={handleColumnSplitDoubleClick}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border)' }}
+                onMouseLeave={(e) => { if (!isDraggingColumnSplit) (e.currentTarget as HTMLDivElement).style.background = 'transparent' }}
+              />
               {/* ─── Right Column: Staged Changes ─── */}
               <div
                 className={`${styles.column} ${styles.columnStaged} ${isDropTargetStaged ? styles.dropTarget : ''}`}
+                style={{
+                  height: `calc(${100 - columnSplit}% - 3px)`,
+                  minHeight: 60,
+                  transition: isDraggingColumnSplit ? 'none' : undefined
+                }}
                 onDragOver={(e) => handleDragOver('staged', e)}
                 onDrop={(e) => handleDrop('staged', e)}
               >

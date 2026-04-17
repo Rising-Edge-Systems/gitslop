@@ -131,7 +131,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .column {
@@ -142,7 +142,7 @@
 }
 
 .columnUnstaged {
-  border-bottom: 1px solid var(--border);
+  /* Bottom border provided by the resize handle below this column */
 }
 
 .columnHeader {
