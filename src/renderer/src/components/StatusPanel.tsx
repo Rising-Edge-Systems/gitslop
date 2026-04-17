@@ -475,7 +475,6 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
     return () => window.removeEventListener('wip:subject-change', handler)
   }, [])
   const [commitBody, setCommitBody] = useState('')
-  const [commitBodyExpanded, setCommitBodyExpanded] = useState(false)
   const [amend, setAmend] = useState(false)
   const [signoff, setSignoff] = useState(false)
   const [gpgSign, setGpgSign] = useState(() => getAppSettings().signCommits)
@@ -605,7 +604,6 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
           }
           const bodyText = bodyLines.join('\n').trim()
           setCommitBody(bodyText)
-          if (bodyText) setCommitBodyExpanded(true)
         }
       })
     }
@@ -1193,7 +1191,6 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
       if (result.success) {
         setCommitSubject('')
         setCommitBody('')
-        setCommitBodyExpanded(false)
         setAmend(false)
         setCommitError(null)
 
@@ -1711,24 +1708,14 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
             {subjectLength}/{SUBJECT_WARN_LENGTH}
           </span>
         </div>
-        {!commitBodyExpanded ? (
-          <button
-            className={styles.expandBody}
-            onClick={() => setCommitBodyExpanded(true)}
-            disabled={committing}
-          >
-            + Description
-          </button>
-        ) : (
-          <textarea
-            className={styles.commitBody}
-            value={commitBody}
-            onChange={(e) => setCommitBody(e.target.value)}
-            placeholder="Extended description (optional)..."
-            rows={3}
-            disabled={committing}
-          />
-        )}
+        <textarea
+          className={styles.commitBody}
+          value={commitBody}
+          onChange={(e) => setCommitBody(e.target.value)}
+          placeholder="Extended description (optional)..."
+          rows={3}
+          disabled={committing}
+        />
         <div className={styles.commitOptions}>
           <label className={styles.commitOption}>
             <input

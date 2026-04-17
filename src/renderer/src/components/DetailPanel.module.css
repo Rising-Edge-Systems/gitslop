@@ -291,8 +291,10 @@
   word-break: break-word;
   font-family: var(--font-mono, monospace);
   line-height: 1.5;
-  max-height: 200px;
-  overflow-y: auto;
+  /* No max-height/overflow: body flows inline and the outer .content
+     container scrolls. Nested scroll containers were unreliable — the
+     body scrollbar showed briefly then wheel events were consumed by
+     the outer panel. */
 }
 
 /* ===== Files wrapper (scrollable container for split layout) ===== */
