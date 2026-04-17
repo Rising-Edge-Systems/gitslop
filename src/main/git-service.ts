@@ -1447,20 +1447,64 @@ export class GitService {
 
   /**
    * Pull from remote with configurable strategy (merge or rebase).
+   *
+   * When `autoStash` is enabled, stashes local changes (including untracked
+   * files) before pulling and pops the stash afterwards so a dirty working
+   * tree doesn't block the pull. If the pop produces conflicts, the stash is
+   * left in place for the user to resolve manually.
    */
   async pull(
     repoPath: string,
     options?: {
       signal?: AbortSignal
       rebase?: boolean
+      autoStash?: boolean
       onProgress?: (progress: GitOperationProgress) => void
       env?: Record<string, string>
     }
-  ): Promise<void> {
+  ): Promise<{ autoStashed: boolean; stashPopConflict: boolean }> {
+    const signal = options?.signal
+
+    let autoStashed = false
+    if (options?.autoStash) {
+      const statusResult = await this.exec(['status', '--porcelain'], repoPath, { signal })
+      const isDirty = statusResult.stdout.trim().length > 0
+      if (isDirty) {
+        await this.exec(
+          ['stash', 'push', '--include-untracked', '-m', 'gitslop: auto-stash before pull'],
+          repoPath,
+          { signal }
+        )
+        autoStashed = true
+      }
+    }
+
     const args = ['pull', '--progress']
     if (options?.rebase) args.push('--rebase')
 
-    return this.execWithProgress(repoPath, args, options)
+    try {
+      await this.execWithProgress(repoPath, args, options)
+    } catch (pullErr) {
+      if (autoStashed) {
+        const baseMsg = pullErr instanceof Error ? pullErr.message : String(pullErr)
+        const wrapped = new Error(
+          `${baseMsg}\n\nYour local changes were auto-stashed as "gitslop: auto-stash before pull". Resolve the pull issue, then pop the stash from the Stashes panel.`
+        )
+        throw wrapped
+      }
+      throw pullErr
+    }
+
+    let stashPopConflict = false
+    if (autoStashed) {
+      try {
+        await this.exec(['stash', 'pop'], repoPath, { signal })
+      } catch {
+        stashPopConflict = true
+      }
+    }
+
+    return { autoStashed, stashPopConflict }
   }
 
   /**

@@ -50,7 +50,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultPullStrategy: 'merge',
   signCommits: false,
   gpgKeyId: '',
-  autoStashOnPull: false,
+  autoStashOnPull: true,
   defaultBranchName: 'main',
   commitHistoryDepth: 500,
 

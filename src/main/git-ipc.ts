@@ -823,17 +823,18 @@ export function registerGitIpcHandlers(): void {
 
   ipcMain.handle(
     'git:pull',
-    async (_event, repoPath: string, opts?: { rebase?: boolean }) => {
+    async (_event, repoPath: string, opts?: { rebase?: boolean; autoStash?: boolean }) => {
       const opId = createOperationId()
       const controller = new AbortController()
       activeControllers.set(opId, controller)
       const credEnv = await getCredentialEnv(repoPath)
 
       try {
-        await withWatcherSuppression(() => gitService.pull(repoPath, {
+        const result = await withWatcherSuppression(() => gitService.pull(repoPath, {
           signal: controller.signal,
           rebase: opts?.rebase,
           env: credEnv,
+          autoStash: opts?.autoStash,
           onProgress: (progress) => {
             const win = BrowserWindow.getAllWindows()[0]
             if (win && !win.isDestroyed()) {
@@ -841,7 +842,7 @@ export function registerGitIpcHandlers(): void {
             }
           }
         }))
-        return { success: true, operationId: opId }
+        return { success: true, operationId: opId, data: result }
       } catch (err) {
         return { success: false, ...formatError(err), operationId: opId }
       } finally {

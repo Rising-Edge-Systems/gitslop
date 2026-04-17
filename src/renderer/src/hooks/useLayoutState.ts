@@ -109,7 +109,7 @@ declare global {
           repoPath: string,
           opts?: { force?: boolean; setUpstream?: { remote: string; branch: string } }
         ) => Promise<GitServiceResult>
-        pull: (repoPath: string, opts?: { rebase?: boolean }) => Promise<GitServiceResult>
+        pull: (repoPath: string, opts?: { rebase?: boolean; autoStash?: boolean }) => Promise<GitServiceResult>
         fetchWithProgress: (repoPath: string, remoteName?: string) => Promise<GitServiceResult>
         hasUpstream: (repoPath: string) => Promise<GitServiceResult>
         getCurrentBranch: (repoPath: string) => Promise<GitServiceResult>

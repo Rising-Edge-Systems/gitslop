@@ -219,7 +219,7 @@ const electronAPI = {
       opts?: { force?: boolean; setUpstream?: { remote: string; branch: string } }
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:push', repoPath, opts),
-    pull: (repoPath: string, opts?: { rebase?: boolean }): Promise<GitServiceResult> =>
+    pull: (repoPath: string, opts?: { rebase?: boolean; autoStash?: boolean }): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:pull', repoPath, opts),
     fetchWithProgress: (repoPath: string, remoteName?: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:fetchWithProgress', repoPath, remoteName),

@@ -23,7 +23,16 @@ import {
   defineShortcut,
   type ShortcutDefinition
 } from '../hooks/useKeyboardShortcuts'
+import { DEFAULT_SETTINGS, type AppSettings } from '../hooks/useSettings'
 import styles from './Toolbar.module.css'
+
+function getAppSettings(): AppSettings {
+  try {
+    const stored = localStorage.getItem('gitslop-settings')
+    if (stored) return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
+  } catch { /* ignore */ }
+  return { ...DEFAULT_SETTINGS }
+}
 
 interface StashDialogState {
   open: boolean
@@ -330,9 +339,18 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
     if (!currentRepo || activeOp) return
     setActiveOp({ type: 'pull', operationId: null, phase: 'Pulling...', percent: null })
     try {
-      const result = await window.electronAPI.git.pull(currentRepo)
+      const result = await window.electronAPI.git.pull(currentRepo, {
+        autoStash: getAppSettings().autoStashOnPull
+      })
       if (result.success) {
-        showNotification('success', 'Pull completed successfully')
+        const data = result.data as { autoStashed?: boolean; stashPopConflict?: boolean } | undefined
+        if (data?.stashPopConflict) {
+          showNotification('error', 'Pull completed, but reapplying your local changes caused conflicts. Resolve them in the working tree and drop the auto-stash manually.')
+        } else if (data?.autoStashed) {
+          showNotification('success', 'Pull completed. Local changes were auto-stashed and reapplied.')
+        } else {
+          showNotification('success', 'Pull completed successfully')
+        }
         window.dispatchEvent(new CustomEvent('graph:force-refresh'))
       } else {
         showNotification('error', result.error || 'Pull failed')
@@ -354,9 +372,20 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
     setPullDialog((prev) => ({ ...prev, loading: true, error: null }))
     setActiveOp({ type: 'pull', operationId: null, phase: 'Pulling...', percent: null })
     try {
-      const result = await window.electronAPI.git.pull(currentRepo, { rebase: pullDialog.useRebase })
+      const result = await window.electronAPI.git.pull(currentRepo, {
+        rebase: pullDialog.useRebase,
+        autoStash: getAppSettings().autoStashOnPull
+      })
       if (result.success) {
-        showNotification('success', `Pull (${pullDialog.useRebase ? 'rebase' : 'merge'}) completed successfully`)
+        const data = result.data as { autoStashed?: boolean; stashPopConflict?: boolean } | undefined
+        const mode = pullDialog.useRebase ? 'rebase' : 'merge'
+        if (data?.stashPopConflict) {
+          showNotification('error', `Pull (${mode}) completed, but reapplying your local changes caused conflicts. Resolve them in the working tree and drop the auto-stash manually.`)
+        } else if (data?.autoStashed) {
+          showNotification('success', `Pull (${mode}) completed. Local changes were auto-stashed and reapplied.`)
+        } else {
+          showNotification('success', `Pull (${mode}) completed successfully`)
+        }
         setPullDialog((prev) => ({ ...prev, open: false }))
         window.dispatchEvent(new CustomEvent('graph:force-refresh'))
       } else {
