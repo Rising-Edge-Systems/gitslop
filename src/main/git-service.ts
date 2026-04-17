@@ -197,7 +197,7 @@ export class GitService {
   async exec(
     args: string[],
     repoPath: string,
-    options?: { signal?: AbortSignal; noQueue?: boolean }
+    options?: { signal?: AbortSignal; noQueue?: boolean; env?: Record<string, string> }
   ): Promise<GitExecResult> {
     const signal = options?.signal
 
@@ -210,7 +210,8 @@ export class GitService {
         const execOpts: ExecFileOptions = {
           cwd: repoPath,
           maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large repos
-          timeout: 120_000 // 2 minute timeout
+          timeout: 120_000, // 2 minute timeout
+          ...(options?.env ? { env: { ...process.env, ...options.env } } : {})
         }
 
         const child = execFile('git', args, execOpts, (error, stdout, stderr) => {
@@ -965,6 +966,7 @@ export class GitService {
     options?: {
       signal?: AbortSignal
       onProgress?: (progress: CloneProgress) => void
+      env?: Record<string, string>
     }
   ): Promise<void> {
     const signal = options?.signal
@@ -975,7 +977,8 @@ export class GitService {
 
     return new Promise<void>((resolve, reject) => {
       const child = spawn('git', ['clone', '--progress', url, destPath], {
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        ...(options?.env ? { env: { ...process.env, ...options.env } } : {})
       })
 
       let stderrOutput = ''
@@ -1067,10 +1070,10 @@ export class GitService {
     repoPath: string,
     tagName: string,
     remoteName?: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; env?: Record<string, string> }
   ): Promise<void> {
     const remote = remoteName || 'origin'
-    await this.exec(['push', remote, `refs/tags/${tagName}`], repoPath, { signal: options?.signal, noQueue: true })
+    await this.exec(['push', remote, `refs/tags/${tagName}`], repoPath, { signal: options?.signal, noQueue: true, env: options?.env })
   }
 
   /**
@@ -1260,7 +1263,7 @@ export class GitService {
   async fetch(
     repoPath: string,
     remoteName?: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; env?: Record<string, string> }
   ): Promise<void> {
     const args = ['fetch']
     if (remoteName) {
@@ -1270,7 +1273,7 @@ export class GitService {
     }
     // Network operations bypass the queue so they can't block local reads
     // (status, log, branch) that the UI depends on for initial load.
-    await this.exec(args, repoPath, { signal: options?.signal, noQueue: true })
+    await this.exec(args, repoPath, { signal: options?.signal, noQueue: true, env: options?.env })
   }
 
   /**
@@ -1280,9 +1283,9 @@ export class GitService {
     repoPath: string,
     remoteName: string,
     branchName: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; env?: Record<string, string> }
   ): Promise<void> {
-    await this.exec(['push', remoteName, '--delete', branchName], repoPath, { signal: options?.signal })
+    await this.exec(['push', remoteName, '--delete', branchName], repoPath, { signal: options?.signal, env: options?.env })
   }
 
   /**
@@ -1430,6 +1433,7 @@ export class GitService {
       setUpstream?: { remote: string; branch: string }
       followTags?: boolean
       onProgress?: (progress: GitOperationProgress) => void
+      env?: Record<string, string>
     }
   ): Promise<void> {
     const args = ['push', '--progress']
@@ -1452,6 +1456,7 @@ export class GitService {
       signal?: AbortSignal
       rebase?: boolean
       onProgress?: (progress: GitOperationProgress) => void
+      env?: Record<string, string>
     }
   ): Promise<void> {
     const args = ['pull', '--progress']
@@ -1469,6 +1474,7 @@ export class GitService {
     options?: {
       signal?: AbortSignal
       onProgress?: (progress: GitOperationProgress) => void
+      env?: Record<string, string>
     }
   ): Promise<void> {
     const args = ['fetch', '--progress']
@@ -2096,6 +2102,7 @@ export class GitService {
     options?: {
       signal?: AbortSignal
       onProgress?: (progress: GitOperationProgress) => void
+      env?: Record<string, string>
     }
   ): Promise<void> {
     const signal = options?.signal
@@ -2107,7 +2114,8 @@ export class GitService {
     return new Promise<void>((resolve, reject) => {
       const child = spawn('git', args, {
         cwd: repoPath,
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        ...(options?.env ? { env: { ...process.env, ...options.env } } : {})
       })
 
       let stderrOutput = ''

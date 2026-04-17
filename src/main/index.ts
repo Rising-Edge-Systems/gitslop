@@ -71,7 +71,7 @@ interface StoreSchema {
   gitlabInstanceUrl?: string
 }
 
-const store = new Store<StoreSchema>({
+export const store = new Store<StoreSchema>({
   defaults: {
     recentRepos: [],
     profiles: [],

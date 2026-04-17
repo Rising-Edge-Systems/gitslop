@@ -5,7 +5,8 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { gitService, GitErrorCode } from './git-service'
 import type { GitError } from './git-service'
-import { gitOperationStarted, gitOperationFinished, sendRepoChangedForced } from './index'
+import { gitOperationStarted, gitOperationFinished, sendRepoChangedForced, store } from './index'
+import { buildCredentialEnv } from './git-credential'
 
 /**
  * Wrap a git operation that modifies .git/ directory (commits, checkouts, merges, etc.)
@@ -40,6 +41,45 @@ function formatError(err: unknown): { error: string; code: string } {
     error: err instanceof Error ? err.message : 'Unknown error',
     code: GitErrorCode.UnknownError
   }
+}
+
+/**
+ * Resolve credential environment variables for a repo's push remote.
+ * Returns env vars to inject into git commands, or undefined if no
+ * stored account matches the remote.
+ */
+async function getCredentialEnv(repoPath: string): Promise<Record<string, string> | undefined> {
+  try {
+    const remotes = await gitService.getRemotes(repoPath)
+    const origin = remotes.find(r => r.name === 'origin') || remotes[0]
+    if (!origin) return undefined
+
+    const remoteUrl = origin.pushUrl || origin.fetchUrl
+    if (!remoteUrl) return undefined
+
+    interface StoredAccount { username: string; token: string; instanceUrl?: string }
+    const env = buildCredentialEnv(
+      remoteUrl,
+      () => store.get('githubAccounts', []) as StoredAccount[],
+      () => store.get('gitlabAccounts', []) as StoredAccount[]
+    )
+    return env ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Resolve credential environment for a clone URL (no repo exists yet).
+ */
+function getCredentialEnvForUrl(url: string): Record<string, string> | undefined {
+  interface StoredAccount { username: string; token: string; instanceUrl?: string }
+  const env = buildCredentialEnv(
+    url,
+    () => store.get('githubAccounts', []) as StoredAccount[],
+    () => store.get('gitlabAccounts', []) as StoredAccount[]
+  )
+  return env ?? undefined
 }
 
 export function registerGitIpcHandlers(): void {
@@ -208,8 +248,9 @@ export function registerGitIpcHandlers(): void {
   ipcMain.handle(
     'git:pushTag',
     async (_event, repoPath: string, tagName: string, remoteName?: string) => {
+      const credEnv = await getCredentialEnv(repoPath)
       try {
-        await withWatcherSuppression(() => gitService.pushTag(repoPath, tagName, remoteName))
+        await withWatcherSuppression(() => gitService.pushTag(repoPath, tagName, remoteName, { env: credEnv }))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -445,10 +486,12 @@ export function registerGitIpcHandlers(): void {
       const opId = createOperationId()
       const controller = new AbortController()
       activeControllers.set(opId, controller)
+      const credEnv = getCredentialEnvForUrl(url)
 
       try {
         await withWatcherSuppression(() => gitService.clone(url, destPath, {
           signal: controller.signal,
+          env: credEnv,
           onProgress: (progress) => {
             // Send progress to renderer via the window that initiated the clone
             const win = BrowserWindow.getAllWindows()[0]
@@ -585,8 +628,9 @@ export function registerGitIpcHandlers(): void {
   ipcMain.handle(
     'git:fetch',
     async (_event, repoPath: string, remoteName?: string) => {
+      const credEnv = await getCredentialEnv(repoPath)
       try {
-        await withWatcherSuppression(() => gitService.fetch(repoPath, remoteName))
+        await withWatcherSuppression(() => gitService.fetch(repoPath, remoteName, { env: credEnv }))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -599,8 +643,9 @@ export function registerGitIpcHandlers(): void {
   ipcMain.handle(
     'git:deleteRemoteBranch',
     async (_event, repoPath: string, remoteName: string, branchName: string) => {
+      const credEnv = await getCredentialEnv(repoPath)
       try {
-        await withWatcherSuppression(() => gitService.deleteRemoteBranch(repoPath, remoteName, branchName))
+        await withWatcherSuppression(() => gitService.deleteRemoteBranch(repoPath, remoteName, branchName, { env: credEnv }))
         return { success: true }
       } catch (err) {
         return { success: false, ...formatError(err) }
@@ -750,12 +795,14 @@ export function registerGitIpcHandlers(): void {
       const opId = createOperationId()
       const controller = new AbortController()
       activeControllers.set(opId, controller)
+      const credEnv = await getCredentialEnv(repoPath)
 
       try {
         await withWatcherSuppression(() => gitService.push(repoPath, {
           signal: controller.signal,
           force: opts?.force,
           setUpstream: opts?.setUpstream,
+          env: credEnv,
           onProgress: (progress) => {
             const win = BrowserWindow.getAllWindows()[0]
             if (win && !win.isDestroyed()) {
@@ -780,11 +827,13 @@ export function registerGitIpcHandlers(): void {
       const opId = createOperationId()
       const controller = new AbortController()
       activeControllers.set(opId, controller)
+      const credEnv = await getCredentialEnv(repoPath)
 
       try {
         await withWatcherSuppression(() => gitService.pull(repoPath, {
           signal: controller.signal,
           rebase: opts?.rebase,
+          env: credEnv,
           onProgress: (progress) => {
             const win = BrowserWindow.getAllWindows()[0]
             if (win && !win.isDestroyed()) {
@@ -809,10 +858,12 @@ export function registerGitIpcHandlers(): void {
       const opId = createOperationId()
       const controller = new AbortController()
       activeControllers.set(opId, controller)
+      const credEnv = await getCredentialEnv(repoPath)
 
       try {
         await withWatcherSuppression(() => gitService.fetchWithProgress(repoPath, remoteName, {
           signal: controller.signal,
+          env: credEnv,
           onProgress: (progress) => {
             const win = BrowserWindow.getAllWindows()[0]
             if (win && !win.isDestroyed()) {
