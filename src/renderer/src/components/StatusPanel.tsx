@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, HelpCircle, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2, Folder, FolderOpen, Copy } from 'lucide-react'
+import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, HelpCircle, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2, Folder, FolderOpen, Copy, Loader } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { openFileInEditor } from './CodeEditor'
@@ -237,6 +237,16 @@ function buildStatusFileTree(files: FileStatus[]): StatusTreeNode[] {
   return root.children
 }
 
+/** Recursively collect all file paths from a tree node */
+function collectTreeFilePaths(node: StatusTreeNode): string[] {
+  if (!node.isDir && node.file) return [node.file.path]
+  const paths: string[] = []
+  for (const child of node.children) {
+    paths.push(...collectTreeFilePaths(child))
+  }
+  return paths
+}
+
 const SUBJECT_WARN_LENGTH = 72
 
 /** Recursive tree node renderer for staging area tree view */
@@ -252,6 +262,7 @@ function StatusTreeNodeComponent({
   onDragStart,
   onDragEnd,
   onContextMenu,
+  onDirContextMenu,
   stageFiles,
   unstageFiles,
   discardFile,
@@ -269,6 +280,7 @@ function StatusTreeNodeComponent({
   onDragStart: (file: FileStatus, source: 'staged' | 'unstaged' | 'untracked', e: React.DragEvent) => void
   onDragEnd: () => void
   onContextMenu: (file: FileStatus, x: number, y: number) => void
+  onDirContextMenu: (node: StatusTreeNode, x: number, y: number) => void
   stageFiles?: (paths: string[]) => void
   unstageFiles?: (paths: string[]) => void
   discardFile?: (file: FileStatus) => void
@@ -283,6 +295,11 @@ function StatusTreeNodeComponent({
           className={styles.treeDir}
           style={{ paddingLeft: depth * 16 + 8 }}
           onClick={() => onToggleDir(node.fullPath)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onDirContextMenu(node, e.clientX, e.clientY)
+          }}
           title={node.name}
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -317,6 +334,7 @@ function StatusTreeNodeComponent({
                 onDragStart={onDragStart}
                 onDragEnd={onDragEnd}
                 onContextMenu={onContextMenu}
+                onDirContextMenu={onDirContextMenu}
                 stageFiles={stageFiles}
                 unstageFiles={unstageFiles}
                 discardFile={discardFile}
@@ -427,6 +445,12 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
     x: number
     y: number
     file: FileStatus
+  } | null>(null)
+  const [dirContextMenu, setDirContextMenu] = useState<{
+    x: number
+    y: number
+    node: StatusTreeNode
+    section: 'staged' | 'unstaged'
   } | null>(null)
 
   // Numstat data for insertion/deletion counts per file
@@ -846,6 +870,56 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
     [repoPath, stageFiles, unstageFiles, discardFile]
   )
 
+  // ─── Directory Context Menu (tree view folders) ─────────────────────────────
+  const handleDirContextMenuUnstaged = useCallback(
+    (node: StatusTreeNode, x: number, y: number) => {
+      setDirContextMenu({ x, y, node, section: 'unstaged' })
+    },
+    []
+  )
+
+  const handleDirContextMenuStaged = useCallback(
+    (node: StatusTreeNode, x: number, y: number) => {
+      setDirContextMenu({ x, y, node, section: 'staged' })
+    },
+    []
+  )
+
+  const buildDirContextMenuItems = useCallback(
+    (node: StatusTreeNode, section: 'staged' | 'unstaged'): ContextMenuEntry[] => {
+      const paths = collectTreeFilePaths(node)
+      const items: ContextMenuEntry[] = []
+
+      if (section === 'unstaged') {
+        items.push({
+          key: 'stageAll',
+          label: `Stage All (${paths.length})`,
+          icon: <Plus size={14} />,
+          onClick: () => stageFiles(paths)
+        })
+      } else {
+        items.push({
+          key: 'unstageAll',
+          label: `Unstage All (${paths.length})`,
+          icon: <Minus size={14} />,
+          onClick: () => unstageFiles(paths)
+        })
+      }
+
+      items.push({
+        key: 'copyPath',
+        label: 'Copy Path',
+        icon: <Copy size={14} />,
+        onClick: () => {
+          navigator.clipboard.writeText(node.fullPath)
+        }
+      })
+
+      return items
+    },
+    [stageFiles, unstageFiles]
+  )
+
   // Handle stage/unstage from keyboard shortcut based on selected files
   const handleStageSelected = useCallback(() => {
     if (!status) return
@@ -1172,6 +1246,12 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
 
   return (
     <div className={styles.panel} ref={panelRef} tabIndex={-1}>
+      {operationInProgress && (
+        <div className={styles.stagingOverlay}>
+          <Loader size={16} className={styles.stagingSpinner} />
+          <span>Staging...</span>
+        </div>
+      )}
       {/* Panel header (non-collapsible — sections collapse individually) */}
       <div className={styles.panelHeader}>
         <span className={styles.panelHeaderLeft}>
@@ -1268,6 +1348,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           onContextMenu={handleFileContextMenu}
+                          onDirContextMenu={handleDirContextMenuUnstaged}
                           stageFiles={stageFiles}
                           discardFile={discardFile}
                           operationInProgress={operationInProgress}
@@ -1396,6 +1477,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           onContextMenu={handleFileContextMenu}
+                          onDirContextMenu={handleDirContextMenuStaged}
                           unstageFiles={unstageFiles}
                           operationInProgress={operationInProgress}
                           numstat={stagedNumstat}
@@ -1628,6 +1710,14 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
           y={fileContextMenu.y}
           items={buildFileContextMenuItems(fileContextMenu.file)}
           onClose={() => setFileContextMenu(null)}
+        />
+      )}
+      {dirContextMenu && (
+        <ContextMenu
+          x={dirContextMenu.x}
+          y={dirContextMenu.y}
+          items={buildDirContextMenuItems(dirContextMenu.node, dirContextMenu.section)}
+          onClose={() => setDirContextMenu(null)}
         />
       )}
     </div>

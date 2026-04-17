@@ -3,6 +3,7 @@
 /* ─── Panel Container ──────────────────────────────────────────────────── */
 
 .panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   background: var(--bg-secondary);
@@ -1038,4 +1039,28 @@
 .diffEnhanced :global(.diff-inline-view),
 .diffEnhanced :global(.diff-sbs-view) {
   max-height: 500px;
+}
+
+/* ─── Staging operation overlay ──────────────────────────────────────── */
+
+.stagingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--bg-secondary-alpha, rgba(0, 0, 0, 0.45));
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  z-index: 10;
+  pointer-events: all;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.stagingSpinner {
+  animation: spin 1s linear infinite;
 }

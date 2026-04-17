@@ -2005,7 +2005,9 @@ ipcMain.handle('file:write', async (_event, filePath: string, content: string) =
 // ─── File Watcher for repo changes (chokidar) ──────────────────────────────
 
 let activeWatcher: FSWatcher | null = null
+let rootWatcher: FSWatcher | null = null
 let gitRefWatcher: FSWatcher | null = null
+let watchedRepoPath: string | null = null
 const watcherState = createWatcherState()
 
 /**
@@ -2065,11 +2067,15 @@ function sendRepoChanged(): void {
   }, 500)
 }
 
-ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
-  // Stop previous watcher if any
+async function startWatcher(repoPath: string): Promise<{ success: boolean; error?: string }> {
+  // Stop previous watchers if any
   if (activeWatcher) {
     await activeWatcher.close()
     activeWatcher = null
+  }
+  if (rootWatcher) {
+    await rootWatcher.close()
+    rootWatcher = null
   }
 
   try {
@@ -2136,6 +2142,45 @@ ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
       console.warn('[watcher] non-fatal error:', err instanceof Error ? err.message : err)
     })
 
+    // Always watch repo root at depth 0 so we detect new top-level files,
+    // directory additions/removals, and .gitignore changes even when the
+    // main watcher only covers tracked subdirectories.
+    if (trackedDirs.length > 0) {
+      rootWatcher = chokidarWatch(repoPath, {
+        ignored: (path: string) => shouldIgnorePath(path),
+        ignoreInitial: true,
+        persistent: true,
+        depth: 1,
+        awaitWriteFinish: {
+          stabilityThreshold: 300,
+          pollInterval: 100
+        }
+      })
+
+      const handleRootEvent = (changedPath: string): void => {
+        sendRepoChanged()
+        // When .gitignore changes, restart the watcher so the set of
+        // watched directories is recalculated to include newly-relevant paths.
+        const base = changedPath.split('/').pop() || changedPath.split('\\').pop() || ''
+        if (base === '.gitignore') {
+          setTimeout(() => {
+            if (watchedRepoPath) {
+              startWatcher(watchedRepoPath)
+            }
+          }, 500)
+        }
+      }
+
+      rootWatcher.on('add', handleRootEvent)
+      rootWatcher.on('change', handleRootEvent)
+      rootWatcher.on('unlink', handleRootEvent)
+      rootWatcher.on('addDir', () => sendRepoChanged())
+      rootWatcher.on('unlinkDir', () => sendRepoChanged())
+      rootWatcher.on('error', (err) => {
+        console.warn('[root watcher] non-fatal error:', err instanceof Error ? err.message : err)
+      })
+    }
+
     // Watch .git/refs and .git/HEAD for external changes (CLI commits, other tools).
     // This watcher uses the suppression-aware sendRepoChanged() so it won't double-fire
     // with sendRepoChangedForced() from our own IPC git operations.
@@ -2159,10 +2204,15 @@ ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
       console.warn('[git-ref watcher] non-fatal error:', err instanceof Error ? err.message : err)
     })
 
+    watchedRepoPath = repoPath
     return { success: true }
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Watch failed' }
   }
+}
+
+ipcMain.handle('watcher:start', async (_event, repoPath: string) => {
+  return startWatcher(repoPath)
 })
 
 ipcMain.handle('watcher:stop', async () => {
@@ -2170,10 +2220,15 @@ ipcMain.handle('watcher:stop', async () => {
     await activeWatcher.close()
     activeWatcher = null
   }
+  if (rootWatcher) {
+    await rootWatcher.close()
+    rootWatcher = null
+  }
   if (gitRefWatcher) {
     await gitRefWatcher.close()
     gitRefWatcher = null
   }
+  watchedRepoPath = null
   return { success: true }
 })
 

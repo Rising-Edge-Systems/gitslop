@@ -122,6 +122,13 @@ export function MenuBar({ repoPath, theme, onToggleTheme, onCloseTab, onOpenSett
       items: [
         { label: 'Keyboard Shortcuts', accelerator: 'Ctrl+?', onClick: () => window.dispatchEvent(new CustomEvent('menu:keyboard-shortcuts')) },
         { separator: true, label: '' },
+        { label: 'Report a Bug', onClick: () => {
+          window.open('https://github.com/Rising-Edge-Systems/gitslop/issues/new?labels=bug&template=bug_report.md')
+        }},
+        { label: 'Suggest a Feature', onClick: () => {
+          window.open('https://github.com/Rising-Edge-Systems/gitslop/issues/new?labels=enhancement&template=feature_request.md')
+        }},
+        { separator: true, label: '' },
         { label: 'About GitSlop', onClick: () => {
           window.electronAPI.window.about?.()
         }}
