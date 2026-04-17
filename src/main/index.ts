@@ -172,6 +172,19 @@ ipcMain.handle('menu:about', async () => {
   }
 })
 
+ipcMain.handle('window:showMessage', async (_event, title: string, message: string) => {
+  const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+  if (win && !win.isDestroyed()) {
+    await dialog.showMessageBox(win, {
+      type: 'info',
+      title,
+      message: title,
+      detail: message,
+      buttons: ['OK']
+    })
+  }
+})
+
 ipcMain.handle('window:isMaximized', () => {
   return mainWindow?.isMaximized() ?? false
 })

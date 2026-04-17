@@ -23,6 +23,7 @@ declare global {
         maximize: () => Promise<void>
         close: () => Promise<void>
         about?: () => Promise<void>
+        showMessage?: (title: string, message: string) => Promise<void>
         isMaximized: () => Promise<boolean>
         onMaximizeChange: (callback: (isMaximized: boolean) => void) => () => void
       }

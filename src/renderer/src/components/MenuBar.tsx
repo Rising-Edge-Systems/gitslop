@@ -129,6 +129,20 @@ export function MenuBar({ repoPath, theme, onToggleTheme, onCloseTab, onOpenSett
           window.open('https://github.com/Rising-Edge-Systems/gitslop/issues/new?labels=enhancement&template=feature_request.md')
         }},
         { separator: true, label: '' },
+        { label: 'Check for Updates', onClick: async () => {
+          try {
+            const result = await window.electronAPI.updates.checkForUpdates()
+            if (result.available && result.version) {
+              window.dispatchEvent(new CustomEvent('updates:show-dialog', {
+                detail: { version: result.version, releaseNotes: result.releaseNotes || '' }
+              }))
+            } else {
+              window.electronAPI.window.showMessage?.('Up to Date', 'You are running the latest version of GitSlop.')
+            }
+          } catch {
+            window.electronAPI.window.showMessage?.('Update Check Failed', 'Could not check for updates. Please try again later.')
+          }
+        }},
         { label: 'About GitSlop', onClick: () => {
           window.electronAPI.window.about?.()
         }}
