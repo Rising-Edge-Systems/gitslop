@@ -69,6 +69,13 @@
   overflow: hidden;
 }
 
+.graphBranch {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 /* Summary card and branch list styles removed — no longer used in center panel */
 
 /* =============================================================================

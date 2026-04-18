@@ -45,6 +45,38 @@ interface RepoStatus {
   untracked: number
 }
 
+/**
+ * Build a unified-diff string for an untracked file, framed as `/dev/null` →
+ * `b/<path>` with every line marked `+`. Mirrors what `git diff` would emit
+ * for a newly-added file so the regular diff parser renders it correctly.
+ */
+function synthesizeNewFileDiff(path: string, content: string): string {
+  const header = [
+    `diff --git a/${path} b/${path}`,
+    'new file mode 100644',
+    'index 0000000..1111111',
+    '--- /dev/null',
+    `+++ b/${path}`
+  ]
+  if (content.includes('\0')) {
+    return [...header, `Binary files /dev/null and b/${path} differ`, ''].join('\n')
+  }
+  if (content.length === 0) {
+    return header.slice(0, 3).concat('').join('\n')
+  }
+  const hasTrailingNewline = content.endsWith('\n')
+  const rawLines = content.split('\n')
+  const bodyLines = hasTrailingNewline ? rawLines.slice(0, -1) : rawLines
+  const plusLines = bodyLines.map((l) => '+' + l)
+  if (!hasTrailingNewline) plusLines.push('\\ No newline at end of file')
+  return [
+    ...header,
+    `@@ -0,0 +1,${bodyLines.length} @@`,
+    ...plusLines,
+    ''
+  ].join('\n')
+}
+
 export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels, commitHistoryDepth, workingTreeFile, onCloseWorkingTreeFile }: RepoViewProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
@@ -62,22 +94,11 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   const [diffError, setDiffError] = useState<string | null>(null)
 
   // ─── Full File View ─────────────────────────────────────────────────────
-  // Derive centerViewMode from persisted diffViewMode, but force File view
-  // for files that have no diff to show:
-  //   - status 'A' (newly added) — there's no parent version to diff against
-  //     so the Diff and Full views would render blank. The actual content
-  //     only exists in File view.
-  //   - working-tree untracked files — same reason.
-  // This override is DERIVED, not persisted — the user's saved view-mode
-  // preference is untouched, so the next click on a modified file returns
-  // to whatever mode they last selected.
-  const currentFileDetail = selectedCommit?.fileDetails?.find((f) => f.path === diffFile)
-  const noDiffForCurrentFile =
-    currentFileDetail?.status === 'A' ||
-    (workingTreeFile?.isUntracked ?? false)
-  const persistedCenterView: 'diff' | 'full' | 'file' =
+  // New/untracked files produce a valid diff with `--- /dev/null` and every
+  // line marked added, so the user's persisted choice is honored for every
+  // file regardless of status.
+  const centerViewMode: 'diff' | 'full' | 'file' =
     diffViewMode === 'full' ? 'full' : diffViewMode === 'file' ? 'file' : 'diff'
-  const centerViewMode: 'diff' | 'full' | 'file' = noDiffForCurrentFile ? 'file' : persistedCenterView
   // Track last-used diff sub-mode (inline/side-by-side) so we can restore it when switching back to diff
   const lastDiffSubMode = useRef<'inline' | 'side-by-side'>((diffViewMode === 'inline' || diffViewMode === 'side-by-side') ? diffViewMode : 'inline')
   // Keep lastDiffSubMode up to date
@@ -118,18 +139,25 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
     let cancelled = false
     setWorkingTreeDiffLoading(true)
     setWorkingTreeDiffError(null)
-    window.electronAPI.git
-      .diff(repoPath, workingTreeFile.path, { staged: workingTreeFile.staged })
+
+    // Untracked files aren't tracked by git yet, so `git diff` returns nothing.
+    // Synthesize a "new file" unified diff from disk content so every view
+    // (Diff / Full / File) can render every line as added.
+    const loader: Promise<{ success: boolean; data?: unknown; error?: string }> =
+      workingTreeFile.isUntracked
+        ? window.electronAPI.file.read(`${repoPath}/${workingTreeFile.path}`).then((r) => {
+            if (!r.success || typeof r.data !== 'string') return r
+            return { success: true, data: synthesizeNewFileDiff(workingTreeFile.path, r.data) }
+          })
+        : window.electronAPI.git.diff(repoPath, workingTreeFile.path, { staged: workingTreeFile.staged })
+
+    loader
       .then((result) => {
         if (cancelled) return
         if (result.success && typeof result.data === 'string' && result.data.length > 0) {
           setWorkingTreeDiff(result.data as string)
         } else if (result.success) {
-          setWorkingTreeDiff(
-            workingTreeFile.isUntracked
-              ? `(New untracked file: ${workingTreeFile.path})`
-              : '(No changes to display)'
-          )
+          setWorkingTreeDiff('(No changes to display)')
         } else {
           setWorkingTreeDiffError(result.error || 'Failed to load diff')
         }
@@ -480,6 +508,11 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
           if (!nowHasConflicts) setShowConflictResolver(false)
         }
       })
+      // Reload the working-tree diff/full/file panes on external file changes
+      // (user edited the file in another editor). Bumping the key re-runs all
+      // three working-tree loaders — cheap no-op when no workingTreeFile is
+      // selected or we're viewing a historical commit.
+      setWorkingTreeRefreshKey((k) => k + 1)
     })
     return () => { cleanup?.() }
   }, [repoPath])
@@ -591,7 +624,28 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
             />
           )}
 
-          {/* Center-Stage Diff View OR Working-Tree Diff OR Commit Graph */}
+          {/* Commit Graph — always mounted so scroll position, selection, and
+              other view state are preserved when the user opens a diff and
+              clicks back. Hidden via display:none (not unmounted) whenever a
+              diff view is active. */}
+          <div
+            className={styles.graphBranch}
+            style={{
+              display:
+                workingTreeFile || (viewingDiff && diffFile && diffCommitHash)
+                  ? 'none'
+                  : undefined
+            }}
+          >
+            <CommitFilterBar
+              filters={commitFilters}
+              onFiltersChange={setCommitFilters}
+              filePath={fileHistoryPath}
+            />
+            <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} onTwoCommitSelect={onTwoCommitSelect} onLoadComplete={onRepoLoaded} filters={graphFilters} showBranchLabels={showBranchLabels} maxCommits={commitHistoryDepth} />
+          </div>
+
+          {/* Center-Stage Diff View OR Working-Tree Diff */}
           {workingTreeFile ? (
             <>
               <div className={styles.diffBackBar}>
@@ -611,8 +665,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                   <button
                     className={`${styles.viewModeBtn} ${centerViewMode === 'diff' ? styles.viewModeBtnActive : ''}`}
                     onClick={() => setCenterViewMode('diff')}
-                    disabled={noDiffForCurrentFile}
-                    title={noDiffForCurrentFile ? 'No diff available for this file' : 'View diff'}
+                    title="View diff"
                   >
                     <GitCompare size={13} />
                     Diff
@@ -620,8 +673,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                   <button
                     className={`${styles.viewModeBtn} ${centerViewMode === 'full' ? styles.viewModeBtnActive : ''}`}
                     onClick={() => setCenterViewMode('full')}
-                    disabled={noDiffForCurrentFile}
-                    title={noDiffForCurrentFile ? 'No diff available for this file' : 'View full files side-by-side with diff highlights'}
+                    title="View full files side-by-side with diff highlights"
                   >
                     <Columns size={13} />
                     Full
@@ -752,8 +804,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                   <button
                     className={`${styles.viewModeBtn} ${centerViewMode === 'diff' ? styles.viewModeBtnActive : ''}`}
                     onClick={() => setCenterViewMode('diff')}
-                    disabled={noDiffForCurrentFile}
-                    title={noDiffForCurrentFile ? 'No diff available for this file' : 'View diff'}
+                    title="View diff"
                   >
                     <GitCompare size={13} />
                     Diff
@@ -761,8 +812,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                   <button
                     className={`${styles.viewModeBtn} ${centerViewMode === 'full' ? styles.viewModeBtnActive : ''}`}
                     onClick={() => setCenterViewMode('full')}
-                    disabled={noDiffForCurrentFile}
-                    title={noDiffForCurrentFile ? 'No diff available for this file' : 'View full files side-by-side with diff highlights'}
+                    title="View full files side-by-side with diff highlights"
                   >
                     <Columns size={13} />
                     Full
@@ -871,21 +921,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
 
               {/* Staging Area moved to right panel in AppLayout */}
             </>
-          ) : (
-            <>
-              {/* Commit History Filters */}
-              <CommitFilterBar
-                filters={commitFilters}
-                onFiltersChange={setCommitFilters}
-                filePath={fileHistoryPath}
-              />
-
-              {/* Commit Graph */}
-              <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} onTwoCommitSelect={onTwoCommitSelect} onLoadComplete={onRepoLoaded} filters={graphFilters} showBranchLabels={showBranchLabels} maxCommits={commitHistoryDepth} />
-
-              {/* Staging Area moved to right panel in AppLayout */}
-            </>
-          )}
+          ) : null}
 
           {/* Blame View */}
           {blameFilePath && (
