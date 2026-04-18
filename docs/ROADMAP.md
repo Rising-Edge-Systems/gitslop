@@ -34,8 +34,12 @@
 - [x] **Always-Visible Commit Description** — Removed "+ Description" toggle so the body field is always present
 - [x] **Resizable Staging Columns** — Drag handle between Unstaged and Staged sections, double-click to reset
 - [x] **Typing-Safe Hotkeys** — `s`/`u` (and any plain-letter shortcut) no longer steal chars from text inputs
+- [x] **No Ligatures in Code** — `<=` / `!=` / `->` stay as typed (was being substituted by JetBrains Mono / Fira Code)
+- [x] **Functional Branch Toolbar Button** — opens new-branch dialog instead of doing nothing
+- [x] **Resizable Branch Dialogs** — grow up to 720px / 90vw to fit long remote URLs
+- [x] **WIP Row Resets After Commit** — placeholder returns instead of keeping the previous subject
 
-All above on `main` as of April 17, 2026 (v1.2.5).
+All above on `main` as of April 18, 2026 (v1.2.6).
 
 ## Next Up
 

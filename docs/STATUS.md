@@ -1,12 +1,18 @@
-# GitSlop Project Status — April 17, 2026
+# GitSlop Project Status — April 18, 2026
 
 ## Current State
 
 **Branch:** `main`
-**Version:** 1.2.5
+**Version:** 1.2.6
 **App status:** Builds, launches, and runs on Windows/Linux/macOS. Typecheck passes.
 
 ## Recent Work (v1.2.x — April 2026)
+
+### v1.2.6 — Bug-Fix Round
+- **No more ligatures.** Disabled programming ligatures globally (and in Monaco) so `<=`, `!=`, `->` stay as typed instead of becoming `≤`, `≠`, `→` — VHDL and other code now reads correctly.
+- **Branch toolbar button works.** Was a no-op; now opens the new-branch dialog and is disabled when no repo is open.
+- **Branch dialogs grow to fit content.** Long remote URLs (Set Upstream & Push, etc.) no longer overflow the fixed 420px width — dialogs now expand up to 720px / 90vw.
+- **WIP row resets after commit.** The `// WIP` placeholder returns once a commit succeeds (instead of keeping the previous subject text).
 
 ### v1.2.5 — Commit Detail & Staging Polish
 - **Full commit message visible in detail panel**: `git show` output was being split by `\n` and only the first line kept, so the body got truncated at the first newline. Now uses a record-end marker and the full body comes through.
