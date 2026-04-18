@@ -26,6 +26,16 @@ import {
 import styles from './DetailPanel.module.css'
 import type { CommitDetail, CommitFileDetail } from './CommitGraph'
 import type { FileListView } from '../hooks/useLayoutState'
+import { DEFAULT_SETTINGS, type AppSettings } from '../hooks/useSettings'
+
+/** Read app settings from localStorage (mirrors CommitDialog's helper). */
+function readAppSettings(): AppSettings {
+  try {
+    const stored = localStorage.getItem('gitslop-settings')
+    if (stored) return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
+  } catch { /* ignore */ }
+  return { ...DEFAULT_SETTINGS }
+}
 
 /** Tree node for directory tree view of changed files */
 interface FileTreeNode {
@@ -336,6 +346,12 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
   const [branchesContaining, setBranchesContaining] = useState<{ local: string[]; remote: string[] } | null>(null)
   const [branchesLoading, setBranchesLoading] = useState(false)
 
+  // ─── Commit message edit (HEAD only, uses `git commit --amend`) ────────────
+  const [editingMessage, setEditingMessage] = useState<string | null>(null)
+  const [amendSaving, setAmendSaving] = useState(false)
+  const [amendError, setAmendError] = useState<string | null>(null)
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null)
+
   // Internal split drag handlers
   const handleInternalSplitDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -418,6 +434,92 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
   const totalInsertions = detail?.totalInsertions ?? 0
   const totalDeletions = detail?.totalDeletions ?? 0
   const refs = detail?.refs ?? []
+  const isHead = refs.some((r) => r.type === 'head')
+
+  // Combined subject+body as git stores it: "subject\n\nbody"
+  const fullMessage = useMemo(() => {
+    if (!commit) return ''
+    return commit.body ? `${commit.subject}\n\n${commit.body}` : commit.subject
+  }, [commit])
+
+  // Exit edit mode whenever the selected commit changes (e.g. user clicked
+  // another commit while editing, or the amend succeeded and we re-selected
+  // the new HEAD under a different hash).
+  useEffect(() => {
+    setEditingMessage(null)
+    setAmendError(null)
+    setAmendSaving(false)
+  }, [commit?.hash])
+
+  const beginEditMessage = useCallback(() => {
+    if (!isHead || amendSaving) return
+    setEditingMessage(fullMessage)
+    setAmendError(null)
+    // Focus after the textarea mounts
+    requestAnimationFrame(() => {
+      const el = editTextareaRef.current
+      if (el) {
+        el.focus()
+        el.setSelectionRange(el.value.length, el.value.length)
+      }
+    })
+  }, [isHead, amendSaving, fullMessage])
+
+  const cancelEditMessage = useCallback(() => {
+    setEditingMessage(null)
+    setAmendError(null)
+  }, [])
+
+  const saveEditMessage = useCallback(async () => {
+    if (!repoPath || editingMessage === null) return
+    const trimmed = editingMessage.trim()
+    if (!trimmed) {
+      setAmendError('Commit message cannot be empty')
+      return
+    }
+    if (trimmed === fullMessage.trim()) {
+      setEditingMessage(null)
+      return
+    }
+    setAmendSaving(true)
+    setAmendError(null)
+    try {
+      const settings = readAppSettings()
+      const result = await window.electronAPI.git.commit(repoPath, trimmed, {
+        amend: true,
+        gpgSign: settings.signCommits,
+        gpgKeyId: settings.signCommits && settings.gpgKeyId ? settings.gpgKeyId : undefined
+      })
+      if (!result.success) {
+        setAmendError(result.error || 'Failed to amend commit')
+        setAmendSaving(false)
+        return
+      }
+      const newHash = (result.data as { hash?: string } | undefined)?.hash
+      setEditingMessage(null)
+      setAmendSaving(false)
+      // Refresh the graph and ask it to re-select the amended commit. The
+      // graph's scroll-to-commit handler queues unknown hashes and flushes
+      // them as soon as the log reload lands, so no timeout dance is needed.
+      window.dispatchEvent(new CustomEvent('graph:force-refresh'))
+      if (newHash) {
+        window.dispatchEvent(new CustomEvent('graph:scroll-to-commit', { detail: { hash: newHash } }))
+      }
+    } catch (err) {
+      setAmendError(err instanceof Error ? err.message : 'Failed to amend commit')
+      setAmendSaving(false)
+    }
+  }, [repoPath, editingMessage, fullMessage])
+
+  const handleEditKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      cancelEditMessage()
+    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      saveEditMessage()
+    }
+  }, [cancelEditMessage, saveEditMessage])
 
   // ─── All-files-at-commit fetch ────────────────────────────────────────────
   // When showAllFiles is toggled on, fetch `git ls-tree -r <hash>` to get every
@@ -639,8 +741,58 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
             </div>
           ) : (
           <div className={styles.content} style={{ minHeight: 0 }}>
-            {/* Commit subject */}
-            <h3 className={styles.subject}>{commit!.subject}</h3>
+            {/* Commit subject (double-click to edit on HEAD) */}
+            {editingMessage !== null ? (
+              <div className={styles.messageEdit}>
+                <textarea
+                  ref={editTextareaRef}
+                  className={styles.messageEditArea}
+                  value={editingMessage}
+                  onChange={(e) => setEditingMessage(e.target.value)}
+                  onKeyDown={handleEditKeyDown}
+                  disabled={amendSaving}
+                  rows={Math.min(12, Math.max(3, editingMessage.split('\n').length + 1))}
+                  placeholder="Subject line&#10;&#10;Longer description (optional)"
+                  spellCheck={false}
+                />
+                {amendError && (
+                  <div className={styles.messageEditError}>{amendError}</div>
+                )}
+                <div className={styles.messageEditActions}>
+                  <span className={styles.messageEditHint}>
+                    Ctrl+Enter to save · Esc to cancel · amends HEAD
+                  </span>
+                  <div className={styles.messageEditButtons}>
+                    <button
+                      type="button"
+                      className={styles.messageEditCancel}
+                      onClick={cancelEditMessage}
+                      disabled={amendSaving}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.messageEditSave}
+                      onClick={saveEditMessage}
+                      disabled={amendSaving}
+                    >
+                      {amendSaving ? 'Saving…' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <h3
+                className={`${styles.subject} ${isHead ? styles.subjectEditable : ''}`}
+                onDoubleClick={beginEditMessage}
+                title={isHead
+                  ? 'Double-click to edit commit message (amends HEAD)'
+                  : 'Only the HEAD commit message can be edited inline'}
+              >
+                {commit!.subject}
+              </h3>
+            )}
 
             {/* Refs (branches, tags) */}
             {refs.length > 0 && (
@@ -692,9 +844,13 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
               )}
             </div>
 
-            {/* Body */}
-            {commit!.body && (
-              <pre className={styles.body}>{commit!.body}</pre>
+            {/* Body (hidden while editing — the textarea owns the full message) */}
+            {commit!.body && editingMessage === null && (
+              <pre
+                className={`${styles.body} ${isHead ? styles.subjectEditable : ''}`}
+                onDoubleClick={beginEditMessage}
+                title={isHead ? 'Double-click to edit commit message (amends HEAD)' : undefined}
+              >{commit!.body}</pre>
             )}
 
             {/* Branches containing this commit */}
