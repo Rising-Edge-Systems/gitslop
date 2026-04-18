@@ -29,6 +29,14 @@
   box-sizing: border-box;
 }
 
+/* Disable programming ligatures globally. JetBrains Mono / Fira Code render
+   "<=" as ≤, "!=" as ≠, "->" as →, etc. — fine for prose, lethal for code
+   where those sequences are operators (VHDL, JS, etc.). */
+html {
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'calt' 0;
+}
+
 html,
 body,
 #root {

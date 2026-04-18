@@ -350,6 +350,7 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
               wordWrap,
               lineNumbers: 'on',
               fontSize: 13,
+              fontLigatures: false,
               scrollBeyondLastLine: false,
               automaticLayout: true,
               tabSize: 2,
