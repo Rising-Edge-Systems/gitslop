@@ -3521,6 +3521,12 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
     })
   }, [])
 
+  useEffect(() => {
+    const handler = (): void => openNewBranchDialog()
+    window.addEventListener('branch:open-create-dialog', handler)
+    return () => window.removeEventListener('branch:open-create-dialog', handler)
+  }, [openNewBranchDialog])
+
   const closeNewBranchDialog = useCallback(() => {
     setNewBranchDialog((prev) => ({ ...prev, open: false }))
   }, [])

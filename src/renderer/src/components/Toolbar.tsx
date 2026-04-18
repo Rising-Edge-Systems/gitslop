@@ -563,9 +563,11 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
         id: 'branch',
         icon: <GitBranch size={18} className="lucide-icon" />,
         label: 'Branch',
-        title: 'Branch',
-        onClick: () => {},
-        disabled: false,
+        title: 'Create new branch',
+        onClick: () => {
+          if (currentRepo) window.dispatchEvent(new CustomEvent('branch:open-create-dialog'))
+        },
+        disabled: !currentRepo,
         active: false,
         group: 'branch'
       },
