@@ -1193,6 +1193,9 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
         setCommitBody('')
         setAmend(false)
         setCommitError(null)
+        // Sync the WIP row's uncontrolled input back to empty so the
+        // placeholder ("// WIP") shows again.
+        window.dispatchEvent(new CustomEvent('wip:subject-sync', { detail: { value: '' } }))
 
         if (andPush) {
           const pushResult = await window.electronAPI.git.push(repoPath)
