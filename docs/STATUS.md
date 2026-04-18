@@ -3,10 +3,23 @@
 ## Current State
 
 **Branch:** `main`
-**Version:** 1.2.6
+**Version:** 1.2.7
 **App status:** Builds, launches, and runs on Windows/Linux/macOS. Typecheck passes.
 
 ## Recent Work (v1.2.x — April 2026)
+
+### v1.2.7 — Diff Viewer, Graph, and Stash Overhaul
+- **New/untracked files render in every diff view.** Previously the Diff and Full views were blank for added files and the UI forced File view. The renderer now synthesizes a proper `/dev/null` → `b/<path>` unified diff so every line shows as added in Diff, Full, and File.
+- **Working-tree diff auto-refreshes on disk changes.** Edit a file in another editor while its diff is open — the pane updates on its own now, wired through the existing `repo:changed` watcher.
+- **Commit graph preserves scroll + selection after a diff.** Opening a diff used to unmount the graph; coming back dropped you to the top. The graph stays mounted (hidden via CSS) so state survives.
+- **Commit graph dots stay pixel-synced while scrolling.** The overlay's scroll offset was derived from the visible row index — snapped to row boundaries, so mid-row scrolls desynced dots from rows. Now read directly from the list's `scrollTop`.
+- **Double-click a commit body to check it out.** Previously double-click only worked on branch/tag ref labels. Context-menu Checkout also now force-refreshes so the HEAD move actually lands in the UI.
+- **Stashes are first-class.**
+  - Light-gray rounded square + `STASH@{N}` chip instead of being miscategorized as remote refs.
+  - The entire stash stack is visible — `git log --all` only walks `stash@{0}`, so older stashes used to disappear whenever a new one was pushed; now every stash hash is passed as an explicit rev.
+  - Synthetic "index on …" / "untracked files on …" parents are filtered out so the graph doesn't show phantom commits.
+  - Right-click a stash → Apply / Pop / Drop / Copy menu.
+- **Edit the HEAD commit message inline.** Double-click the subject in the detail panel, type, Ctrl+Enter to save. Runs `git commit --amend` with your configured GPG signing, then auto-reselects the amended commit.
 
 ### v1.2.6 — Bug-Fix Round
 - **No more ligatures.** Disabled programming ligatures globally (and in Monaco) so `<=`, `!=`, `->` stay as typed instead of becoming `≤`, `≠`, `→` — VHDL and other code now reads correctly.

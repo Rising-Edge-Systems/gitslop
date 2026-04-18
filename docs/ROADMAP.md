@@ -38,8 +38,15 @@
 - [x] **Functional Branch Toolbar Button** — opens new-branch dialog instead of doing nothing
 - [x] **Resizable Branch Dialogs** — grow up to 720px / 90vw to fit long remote URLs
 - [x] **WIP Row Resets After Commit** — placeholder returns instead of keeping the previous subject
+- [x] **New/Untracked File Diffs** — Diff and Full views render added files with every line highlighted (was forced to File-only)
+- [x] **Working-Tree Diff Auto-Refresh** — external edits to a file open in the diff viewer now update the view
+- [x] **Preserved Graph State After Diff** — scroll position and selection survive opening/closing a diff
+- [x] **Pixel-Synced Graph Dots** — mid-row scrolls no longer desync dots from rows
+- [x] **Commit Checkout** — double-click any commit body to check it out; context-menu Checkout refreshes the UI
+- [x] **Stash Handling** — distinct styling, full stash stack visible, synthetic stash parents hidden, apply/pop/drop menu
+- [x] **Inline Commit Message Edit (HEAD)** — double-click the subject to amend the HEAD message in place
 
-All above on `main` as of April 18, 2026 (v1.2.6).
+All above on `main` as of April 18, 2026 (v1.2.7).
 
 ## Next Up
 
