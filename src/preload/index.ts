@@ -62,7 +62,7 @@ const electronAPI = {
     getVersion: (): Promise<GitServiceResult> => ipcRenderer.invoke('git:getVersion'),
     log: (
       repoPath: string,
-      opts?: { maxCount?: number; skip?: number; all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string }
+      opts?: { maxCount?: number; skip?: number; all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string; includeHashes?: string[] }
     ): Promise<GitServiceResult> => ipcRenderer.invoke('git:log', repoPath, opts),
     commitCount: (
       repoPath: string,

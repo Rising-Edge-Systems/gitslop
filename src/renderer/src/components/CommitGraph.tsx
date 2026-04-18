@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
-import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine, ArrowUp, ArrowDown, CheckCircle2, MessageSquare, GitPullRequestArrow, RotateCcw } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine, ArrowUp, ArrowDown, CheckCircle2, MessageSquare, GitPullRequestArrow, RotateCcw, Archive } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
@@ -135,6 +135,7 @@ const GRAPH_LEFT_PAD = 12
 const NODE_RADIUS = 4
 const GRAPH_MIN_WIDTH = 40
 const CANVAS_THRESHOLD = 50000 // Switch from SVG to Canvas above this commit count
+const STASH_COLOR = '#9ca3af' // light gray — stash commits stand out against the colored branch lanes
 
 // ─── Graph Layout: uses assignLanes from laneAssignment.ts ───────────────────
 
@@ -145,11 +146,74 @@ interface GraphLayoutResult {
   totalLanes: number
 }
 
+/** Every `git stash` creates a merge commit with extra parents holding the
+ *  index tree (subject `index on BRANCH: ...`) and, when `--include-untracked`
+ *  is used, the untracked tree (subject `untracked files on BRANCH: ...`).
+ *  These are implementation details — not commits the user made — so we drop
+ *  them before layout and strip their hashes from the remaining commits'
+ *  parent lists so no dangling lines are drawn. */
+function isSyntheticStashParent(subject: string): boolean {
+  return subject.startsWith('index on ') || subject.startsWith('untracked files on ')
+}
+
+interface StashEntry {
+  index: number
+  hash: string
+  message: string
+}
+
+/** Resolve every stash (stash@{0}, stash@{1}, ...). The hashes are passed as
+ *  explicit revs to `git log` so older stashes aren't hidden by `--all` only
+ *  walking the top of the stash ref; the indexes let the context menu run
+ *  apply/pop/drop against the right slot. Swallows errors and returns [] on
+ *  repos without stashes or when the call fails. */
+async function fetchStashes(repoPath: string): Promise<StashEntry[]> {
+  try {
+    const result = await window.electronAPI.git.getStashes(repoPath)
+    if (result.success && Array.isArray(result.data)) {
+      return (result.data as StashEntry[]).filter((s) => s.hash)
+    }
+  } catch {
+    // fall through
+  }
+  return []
+}
+
+/** Inject `stash@{N}` into each stash commit's raw refs string so it parses as
+ *  a stash ref + carries the index. Without this, stashes other than stash@{0}
+ *  have no git-log ref attached and would look like regular commits. */
+function tagStashCommits(commits: GitCommit[], stashes: StashEntry[]): GitCommit[] {
+  if (stashes.length === 0) return commits
+  const indexByHash = new Map<string, number>()
+  for (const s of stashes) indexByHash.set(s.hash, s.index)
+  return commits.map((c) => {
+    const idx = indexByHash.get(c.hash)
+    if (idx === undefined) return c
+    const tag = `stash@{${idx}}`
+    if (c.refs && c.refs.includes(tag)) return c
+    const refs = c.refs ? `${c.refs}, ${tag}` : tag
+    return { ...c, refs }
+  })
+}
+
 function computeGraphLayout(commits: GitCommit[], expandedLanes: boolean): GraphLayoutResult {
   if (commits.length === 0) return { nodes: [], collapsedCount: 0, collapsedBranches: [], totalLanes: 0 }
 
+  const syntheticHashes = new Set<string>()
+  for (const c of commits) {
+    if (isSyntheticStashParent(c.subject)) syntheticHashes.add(c.hash)
+  }
+  const realCommits = syntheticHashes.size > 0
+    ? commits
+        .filter((c) => !syntheticHashes.has(c.hash))
+        .map((c) => ({
+          ...c,
+          parentHashes: c.parentHashes.filter((h) => !syntheticHashes.has(h))
+        }))
+    : commits
+
   // Map full GitCommit to minimal LaneCommit for algorithm
-  const laneCommits = commits.map((c) => ({
+  const laneCommits = realCommits.map((c) => ({
     hash: c.hash,
     parentHashes: c.parentHashes,
     refs: c.refs
@@ -163,7 +227,7 @@ function computeGraphLayout(commits: GitCommit[], expandedLanes: boolean): Graph
 
   // Join results back with full GitCommit data
   const nodes = compacted.nodes.map((result, i) => ({
-    commit: commits[i],
+    commit: realCommits[i],
     lane: result.lane,
     color: result.color,
     parentConnections: result.parentConnections,
@@ -406,6 +470,21 @@ const GraphSVG = React.memo(function GraphSVG({
     const y = (i + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
     const x = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
     const hasHead = node.refs.some((r) => r.type === 'head')
+    const hasStash = node.refs.some((r) => r.type === 'stash')
+
+    // Stash: rounded light-gray square — distinct from the colored branch circles
+    if (hasStash) {
+      const size = NODE_RADIUS * 2
+      circles.push(
+        <rect
+          key={`n-${i}`}
+          x={x - NODE_RADIUS} y={y - NODE_RADIUS}
+          width={size} height={size} rx={1.5} ry={1.5}
+          fill={STASH_COLOR}
+        />
+      )
+      continue
+    }
 
     // Draw node circle
     if (hasHead) {
@@ -651,8 +730,31 @@ const GraphCanvas = React.memo(function GraphCanvas({
       const y = (i + wipOffset) * ROW_HEIGHT + ROW_HEIGHT / 2 - scrollOffset
       const x = GRAPH_LEFT_PAD + node.lane * GRAPH_COL_WIDTH
       const hasHead = node.refs.some((r) => r.type === 'head')
+      const hasStash = node.refs.some((r) => r.type === 'stash')
       // Resolve CSS variables for Canvas (which can't use var())
       const nodeColor = laneColorMap.get(node.lane) || node.color
+
+      if (hasStash) {
+        // Stash: rounded light-gray square
+        const size = NODE_RADIUS * 2
+        ctx.beginPath()
+        const rx = x - NODE_RADIUS
+        const ry = y - NODE_RADIUS
+        const r = 1.5
+        ctx.moveTo(rx + r, ry)
+        ctx.lineTo(rx + size - r, ry)
+        ctx.quadraticCurveTo(rx + size, ry, rx + size, ry + r)
+        ctx.lineTo(rx + size, ry + size - r)
+        ctx.quadraticCurveTo(rx + size, ry + size, rx + size - r, ry + size)
+        ctx.lineTo(rx + r, ry + size)
+        ctx.quadraticCurveTo(rx, ry + size, rx, ry + size - r)
+        ctx.lineTo(rx, ry + r)
+        ctx.quadraticCurveTo(rx, ry, rx + r, ry)
+        ctx.closePath()
+        ctx.fillStyle = STASH_COLOR
+        ctx.fill()
+        continue
+      }
 
       if (hasHead) {
         // HEAD: glow ring
@@ -761,7 +863,8 @@ const refTypeClass: Record<string, string> = {
   head: styles.refHead,
   branch: styles.refBranch,
   remote: styles.refRemote,
-  tag: styles.refTag
+  tag: styles.refTag,
+  stash: styles.refStash
 }
 
 const signatureClass: Record<string, string> = {
@@ -802,6 +905,7 @@ interface CommitRowProps {
   onRowContextMenu: (index: number, event: React.MouseEvent) => void
   onRefContextMenu: (ref: ParsedRef, commitHash: string, event: React.MouseEvent) => void
   onRefDoubleClick: (ref: ParsedRef) => void
+  onCommitDoubleClick: (commit: GitCommit) => void
   onRowMouseEnter: (index: number, event: React.MouseEvent) => void
   onRowMouseLeave: () => void
 }
@@ -811,7 +915,7 @@ function CommitRowComponent(props: {
   index: number
   style: React.CSSProperties
 } & CommitRowProps): React.ReactElement {
-  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, onRowClick, onRowContextMenu, onRefContextMenu, onRefDoubleClick, onRowMouseEnter, onRowMouseLeave } = props
+  const { index, style, nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, onRowClick, onRowContextMenu, onRefContextMenu, onRefDoubleClick, onCommitDoubleClick, onRowMouseEnter, onRowMouseLeave } = props
 
   // WIP row — sync commit subject from StatusPanel (hooks must be unconditional)
   const wipInputRef = useRef<HTMLInputElement>(null)
@@ -850,8 +954,13 @@ function CommitRowComponent(props: {
       const refName = refEl.getAttribute('data-ref-name')!
       const refType = refEl.getAttribute('data-ref-type') as ParsedRef['type']
       onRefDoubleClick({ name: refName, type: refType })
+      return
     }
-  }, [nodeIndex, nodes, onRefDoubleClick])
+    // Double-click on the commit body (not a ref label) → checkout that commit
+    if (nodeIndex >= 0 && nodes[nodeIndex]) {
+      onCommitDoubleClick(nodes[nodeIndex].commit)
+    }
+  }, [nodeIndex, nodes, onRefDoubleClick, onCommitDoubleClick])
 
   const handleMouseEnter = useCallback((e: React.MouseEvent) => {
     onRowMouseEnter(index, e)
@@ -936,18 +1045,24 @@ function CommitRowComponent(props: {
                 borderColor: `color-mix(in srgb, ${node.color} 30%, transparent)`,
                 color: node.color
               } : undefined
+              const isStash = ref.type === 'stash'
+              const displayLabel = isStash ? 'stash' : ref.name
+              const title = isStash
+                ? `Stashed changes (${ref.name})`
+                : `Double-click to checkout ${ref.name}`
               return (
                 <span
                   key={idx}
                   className={`${styles.ref} ${refTypeClass[ref.type] || ''}`}
                   style={laneColorStyle}
-                  title={`Double-click to checkout ${ref.name}`}
+                  title={title}
                   data-ref-name={ref.name}
                   data-ref-type={ref.type}
                   onContextMenu={(e) => handleRefContextMenu(ref, e)}
                 >
                   {ref.type === 'head' && <span className={styles.refHeadIcon}><CircleDot size={12} /> </span>}
-                  {ref.name}
+                  {isStash && <span className={styles.refStashIcon}><Archive size={11} /> </span>}
+                  {displayLabel}
                 </span>
               )
             })}
@@ -990,6 +1105,17 @@ function CommitRowComponent(props: {
 
 // ─── Context Menu Component ──────────────────────────────────────────────────
 
+/** Extract the stash index from a commit's refs (e.g. `stash@{2}` → 2). Returns
+ *  null when the commit isn't a stash. */
+function stashIndexFromRefs(refs: ParsedRef[]): number | null {
+  for (const r of refs) {
+    if (r.type !== 'stash') continue
+    const m = r.name.match(/stash@\{(\d+)\}/)
+    if (m) return parseInt(m[1], 10)
+  }
+  return null
+}
+
 function buildCommitContextMenuItems(
   commit: GitCommit,
   multiSelectCount: number,
@@ -997,6 +1123,25 @@ function buildCommitContextMenuItems(
   refs: ParsedRef[],
   currentBranch: string | null
 ): ContextMenuEntry[] {
+  // Stash commits get a focused menu of stash-native actions. Apply/pop/drop
+  // all take the stash index as `extra` so the handler can invoke
+  // `stash apply/pop/drop stash@{N}` — important because the *same* commit
+  // hash can live at stash@{0} or stash@{7}, and the index is what the git
+  // plumbing needs.
+  const stashIdx = stashIndexFromRefs(refs)
+  if (stashIdx !== null) {
+    const idxStr = String(stashIdx)
+    return [
+      { key: 'stash-apply', label: 'Apply stash', icon: <ArrowUpFromLine size={14} />, onClick: () => onAction('stash-apply', commit, idxStr) },
+      { key: 'stash-pop', label: 'Pop stash (apply + drop)', icon: <ArrowUp size={14} />, onClick: () => onAction('stash-pop', commit, idxStr) },
+      { key: 'sep-stash', separator: true as const },
+      { key: 'stash-drop', label: 'Drop stash', icon: <Trash2 size={14} />, onClick: () => onAction('stash-drop', commit, idxStr), danger: true },
+      { key: 'sep-stash2', separator: true as const },
+      { key: 'copy-sha', label: 'Copy SHA', icon: <Clipboard size={14} />, shortcut: 'Ctrl+C', onClick: () => onAction('copy-sha', commit) },
+      { key: 'copy-message', label: 'Copy stash message', icon: <MessageSquare size={14} />, onClick: () => onAction('copy-message', commit) }
+    ]
+  }
+
   const cherryPickLabel = multiSelectCount > 1
     ? `Cherry-pick ${multiSelectCount} commits`
     : 'Cherry-pick'
@@ -1176,11 +1321,12 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
   const [checkoutInProgress, setCheckoutInProgress] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [visibleRange, setVisibleRange] = useState({ start: 0, stop: 0 })
-  // Derive scrollOffset from visibleRange to stay in sync with react-window's
-  // internal scroll position. Previously, scrollOffset was tracked via a separate
-  // onScroll handler on the viewport div (which has overflow:hidden and never
-  // actually scrolls), causing it to desync from react-window's onRowsRendered.
-  const scrollOffset = visibleRange.start * ROW_HEIGHT
+  // Actual pixel scroll position of the List's internal scroller. Tracked via
+  // a DOM scroll listener on `listRef.element` (see useEffect below) so the
+  // overlay canvas stays pixel-synced with rows mid-scroll. `visibleRange`
+  // only updates at row-index granularity and would snap the graph by up to a
+  // full row when the user scrolls mid-row (trackpad, momentum, etc.).
+  const [scrollOffset, setScrollOffset] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const [listRef, setListRef] = useListCallbackRef()
   const [containerHeight, setContainerHeight] = useState(400)
@@ -1292,16 +1438,23 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
     }
     setError(null)
     try {
-      const logOpts: { all: boolean; maxCount?: number; author?: string; since?: string; until?: string; grep?: string; path?: string } = buildFilterOpts()
+      // `git log --all` walks branches, tags, and remotes but NOT the stash
+      // reflog, so only stash@{0} is reachable. Pass every stash hash
+      // explicitly so the entire stash stack shows up in the graph.
+      const stashes = await fetchStashes(repoPath)
+      const stashHashes = stashes.map((s) => s.hash).filter(Boolean)
+
+      const logOpts: { all: boolean; maxCount?: number; author?: string; since?: string; until?: string; grep?: string; path?: string; includeHashes?: string[] } = buildFilterOpts()
       // Apply pagination — load pageSize commits initially
       if (pageSize > 0) {
         logOpts.maxCount = pageSize
       }
+      if (stashHashes.length > 0) logOpts.includeHashes = stashHashes
 
       const result = await window.electronAPI.git.log(repoPath, logOpts)
       if (result.success && Array.isArray(result.data)) {
         setCommits((prev) => {
-          const newData = result.data as GitCommit[]
+          const newData = tagStashCommits(result.data as GitCommit[], stashes)
           if (forceRefresh) {
             return newData
           }
@@ -1343,13 +1496,16 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
     if (loadingMore || pageSize === 0) return
     setLoadingMore(true)
     try {
-      const logOpts: { all: boolean; maxCount?: number; skip?: number; author?: string; since?: string; until?: string; grep?: string; path?: string } = buildFilterOpts()
+      const stashes = await fetchStashes(repoPath)
+      const stashHashes = stashes.map((s) => s.hash).filter(Boolean)
+      const logOpts: { all: boolean; maxCount?: number; skip?: number; author?: string; since?: string; until?: string; grep?: string; path?: string; includeHashes?: string[] } = buildFilterOpts()
       logOpts.maxCount = pageSize
       logOpts.skip = commits.length
+      if (stashHashes.length > 0) logOpts.includeHashes = stashHashes
 
       const result = await window.electronAPI.git.log(repoPath, logOpts)
       if (result.success && Array.isArray(result.data)) {
-        const moreCommits = result.data as GitCommit[]
+        const moreCommits = tagStashCommits(result.data as GitCommit[], stashes)
         if (moreCommits.length > 0) {
           setCommits((prev) => [...prev, ...moreCommits])
         }
@@ -1553,6 +1709,12 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wipStatusLoaded, commits])
 
+  // Scroll-to-commit events race with graph refresh: after `git commit --amend`
+  // the new hash may not be in `nodes` yet when the event fires. Queue unknown
+  // hashes in state; the flush effect below picks them up as soon as the next
+  // log reload lands. Cleared on manual selection and after a short TTL.
+  const [pendingSelectHash, setPendingSelectHash] = useState<string | null>(null)
+
   // Listen for scroll-to-commit events (from sidebar tag/branch clicks, blame view, etc.)
   useEffect(() => {
     const handler = (e: Event): void => {
@@ -1564,11 +1726,32 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
         setSelectedHash(nodes[index].commit.hash)
         loadCommitDetail(nodes[index].commit.hash, nodes[index].refs, nodes[index].commit)
         listRef?.scrollToRow({ index, align: 'center' })
+        setPendingSelectHash(null)
+      } else {
+        // Not in the log yet — wait for the next `commits` update.
+        setPendingSelectHash(hash)
       }
     }
     window.addEventListener('graph:scroll-to-commit', handler)
     return () => window.removeEventListener('graph:scroll-to-commit', handler)
   }, [nodes, loadCommitDetail, listRef])
+
+  // Flush a pending select whenever new commits arrive. Also stops retrying
+  // after ~3s to avoid a stuck pending state if the hash never shows up.
+  useEffect(() => {
+    if (!pendingSelectHash) return
+    const idx = nodes.findIndex((n) => n.commit.hash === pendingSelectHash || n.commit.hash.startsWith(pendingSelectHash))
+    if (idx >= 0) {
+      setSelectedIndex(idx)
+      setSelectedHash(nodes[idx].commit.hash)
+      loadCommitDetail(nodes[idx].commit.hash, nodes[idx].refs, nodes[idx].commit)
+      listRef?.scrollToRow({ index: idx, align: 'center' })
+      setPendingSelectHash(null)
+      return
+    }
+    const timer = setTimeout(() => setPendingSelectHash(null), 3000)
+    return () => clearTimeout(timer)
+  }, [pendingSelectHash, nodes, loadCommitDetail, listRef])
 
   // Handle row click (select commit, Ctrl+click for multi-select)
   const handleRowClick = useCallback((index: number, event: React.MouseEvent) => {
@@ -1907,17 +2090,51 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
     }
   }, [repoPath, loadCommits])
 
+  // Shared commit-checkout flow used by the context menu and the row
+  // double-click handler. Wraps the git call in the loading overlay and
+  // force-refreshes the graph afterward — without `forceRefresh`, the
+  // skip-if-unchanged guard in loadCommits can swallow the HEAD-pointer move
+  // and leave the UI looking like nothing happened.
+  const handleCheckoutCommit = useCallback(async (commit: GitCommit) => {
+    if (!repoPath) return
+    const label = commit.shortHash || commit.hash.substring(0, 7)
+    setCheckoutInProgress(label)
+    try {
+      await window.electronAPI.git.checkout(repoPath, commit.hash)
+      await loadCommits(true)
+      fetchAheadBehind()
+      loadWipStatus()
+      onRefresh?.()
+    } catch (err) {
+      console.error('Checkout failed:', err)
+    } finally {
+      setCheckoutInProgress(null)
+    }
+  }, [repoPath, loadCommits, fetchAheadBehind, loadWipStatus, onRefresh])
+
   // Handle context menu actions
   const handleContextAction = useCallback(async (action: string, commit: GitCommit, extra?: string) => {
     switch (action) {
       case 'checkout':
+        await handleCheckoutCommit(commit)
+        break
+      case 'stash-apply':
+      case 'stash-pop':
+      case 'stash-drop': {
+        const idx = extra !== undefined ? parseInt(extra, 10) : NaN
+        if (Number.isNaN(idx)) break
         try {
-          await window.electronAPI.git.checkout(repoPath, commit.hash)
-          loadCommits()
+          if (action === 'stash-apply') await window.electronAPI.git.stashApply(repoPath, idx)
+          else if (action === 'stash-pop') await window.electronAPI.git.stashPop(repoPath, idx)
+          else await window.electronAPI.git.stashDrop(repoPath, idx)
+          await loadCommits(true)
+          loadWipStatus()
+          onRefresh?.()
         } catch (err) {
-          console.error('Checkout failed:', err)
+          console.error(`${action} failed:`, err)
         }
         break
+      }
       case 'copy-sha':
         navigator.clipboard.writeText(commit.hash).catch(() => {
           // Clipboard write failed silently
@@ -1967,7 +2184,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
         setTagTarget(commit.hash)
         break
     }
-  }, [repoPath, selectedHashes, handleCherryPick, handleRevert, loadCommits])
+  }, [repoPath, selectedHashes, handleCherryPick, handleRevert, loadCommits, handleCheckoutCommit, loadWipStatus, onRefresh])
 
   // Keyboard navigation
   useEffect(() => {
@@ -2045,12 +2262,21 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
     return () => container.removeEventListener('keydown', handleKeyDown)
   }, [nodes, selectedIndex, isWipSelected, wipOffset, listRef, loadCommitDetail, onCommitSelect])
 
-  const handleScroll = useCallback(() => {
-    // Close menus on scroll
-    setContextMenu(null)
-    setBranchContextMenu(null)
-    setTooltip(null)
-  }, [])
+  // Track the List's real pixel scrollTop so the overlay graph canvas stays
+  // pixel-synced with rows. `scroll` events don't bubble, so we attach
+  // directly to the List's root element (exposed via its imperative API).
+  useEffect(() => {
+    const el = listRef?.element
+    if (!el) return
+    const handler = (): void => {
+      setScrollOffset(el.scrollTop)
+      setContextMenu(null)
+      setBranchContextMenu(null)
+      setTooltip(null)
+    }
+    el.addEventListener('scroll', handler, { passive: true })
+    return () => el.removeEventListener('scroll', handler)
+  }, [listRef])
 
   const handleRowsRendered = useCallback((
     visibleRows: { startIndex: number; stopIndex: number }
@@ -2067,6 +2293,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
   // Handle double-click on branch/tag ref label → checkout
   const handleRefDoubleClick = useCallback(async (ref: ParsedRef) => {
     if (!repoPath) return
+    // Stash refs aren't checked out — double-click just lands on the stash row
+    // selection (handled by the row click). Silently ignore here so we don't
+    // try to `git checkout refs/stash` and error.
+    if (ref.type === 'stash') return
     const displayName = ref.type === 'remote' ? ref.name.split('/').slice(1).join('/') : ref.name
     setCheckoutInProgress(displayName)
     try {
@@ -2113,9 +2343,10 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
     onRowContextMenu: handleRowContextMenu,
     onRefContextMenu: handleRefContextMenu,
     onRefDoubleClick: handleRefDoubleClick,
+    onCommitDoubleClick: handleCheckoutCommit,
     onRowMouseEnter: handleRowMouseEnter,
     onRowMouseLeave: handleRowMouseLeave
-  }), [nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, handleRowClick, handleRowContextMenu, handleRefContextMenu, handleRefDoubleClick, handleRowMouseEnter, handleRowMouseLeave])
+  }), [nodes, graphWidth, selectedHash, selectedHashes, showBranchLabels, wipStatus, wipOffset, isWipSelected, handleRowClick, handleRowContextMenu, handleRefContextMenu, handleRefDoubleClick, handleCheckoutCommit, handleRowMouseEnter, handleRowMouseLeave])
 
   if (loading && commits.length === 0) {
     return (
@@ -2234,7 +2465,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
           </button>
         </div>
 
-        <div className={styles.viewport} onScroll={handleScroll} style={canvasHoverIndex !== null ? { cursor: 'pointer' } : undefined}>
+        <div className={styles.viewport} style={canvasHoverIndex !== null ? { cursor: 'pointer' } : undefined}>
           {useCanvas ? (
             <GraphCanvas
               nodes={nodes}

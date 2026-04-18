@@ -20,7 +20,7 @@ export interface LaneCommit {
 /** A parsed ref attached to a commit */
 export interface ParsedRef {
   name: string
-  type: 'head' | 'branch' | 'remote' | 'tag'
+  type: 'head' | 'branch' | 'remote' | 'tag' | 'stash'
 }
 
 /** Connection line from a commit to one of its parents */
@@ -75,6 +75,11 @@ export function parseRefs(refString: string): ParsedRef[] {
       }
       if (ref.startsWith('tag: ')) {
         return { name: ref.replace('tag: ', ''), type: 'tag' as const }
+      }
+      // Stashes appear as `refs/stash` (sometimes with a `stash@{N}` suffix
+      // from git reflog). Match before the generic `/` remote check.
+      if (ref === 'refs/stash' || ref === 'stash' || ref.startsWith('stash@')) {
+        return { name: ref, type: 'stash' as const }
       }
       if (ref.includes('/')) {
         return { name: ref, type: 'remote' as const }

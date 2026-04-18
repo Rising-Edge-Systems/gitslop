@@ -115,7 +115,7 @@ export function registerGitIpcHandlers(): void {
 
   ipcMain.handle(
     'git:log',
-    async (_event, repoPath: string, opts?: { maxCount?: number; skip?: number; all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string }) => {
+    async (_event, repoPath: string, opts?: { maxCount?: number; skip?: number; all?: boolean; author?: string; since?: string; until?: string; grep?: string; path?: string; includeHashes?: string[] }) => {
       const opId = createOperationId()
       const controller = new AbortController()
       activeControllers.set(opId, controller)
@@ -130,6 +130,7 @@ export function registerGitIpcHandlers(): void {
           until: opts?.until,
           grep: opts?.grep,
           path: opts?.path,
+          includeHashes: opts?.includeHashes,
           signal: controller.signal
         })
         return { success: true, data: commits, operationId: opId }

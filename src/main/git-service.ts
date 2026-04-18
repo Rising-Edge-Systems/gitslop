@@ -330,6 +330,10 @@ export class GitService {
       until?: string
       grep?: string
       path?: string
+      /** Extra commit hashes to include as revs (used to surface old stashes
+       *  that `--all` doesn't walk — stashes other than stash@{0} are only
+       *  reachable via the reflog). */
+      includeHashes?: string[]
     }
   ): Promise<GitCommit[]> {
     const SEPARATOR = '<<<SEP>>>'
@@ -360,6 +364,8 @@ export class GitService {
     if (options?.since) args.push(`--since=${options.since}`)
     if (options?.until) args.push(`--until=${options.until}`)
     if (options?.grep) args.push(`--grep=${options.grep}`, '--regexp-ignore-case')
+    // Explicit revs (e.g. stash hashes not reachable via --all) go before `--`.
+    if (options?.includeHashes?.length) args.push(...options.includeHashes)
     // -- <path> must come last
     if (options?.path) args.push('--', options.path)
 

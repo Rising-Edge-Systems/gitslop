@@ -426,6 +426,23 @@
   border: 1px solid rgba(249, 226, 175, 0.3);
 }
 
+.refStash {
+  background-color: rgba(156, 163, 175, 0.18);
+  color: #c6c7c9;
+  border: 1px solid rgba(156, 163, 175, 0.35);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 10px;
+}
+
+.refStashIcon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 2px;
+  vertical-align: middle;
+}
+
 /* ─── Signature ─────────────────────────────────────────────────────────── */
 
 .signature {
