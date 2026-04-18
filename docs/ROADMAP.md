@@ -30,8 +30,12 @@
 - [x] **Auto-Stash on Pull** — Pull over a dirty tree by stashing, pulling, popping. Opt-out in settings.
 - [x] **Hunk-Based Merge Conflict Resolver** — Per-hunk accept buttons with surrounding context
 - [x] **Reactive Conflict Banner** — Banner + resolver auto-dismiss when conflicts cleared externally
+- [x] **Full Commit Body in Detail Panel** — Fixed body truncation at first newline in `showCommit`
+- [x] **Always-Visible Commit Description** — Removed "+ Description" toggle so the body field is always present
+- [x] **Resizable Staging Columns** — Drag handle between Unstaged and Staged sections, double-click to reset
+- [x] **Typing-Safe Hotkeys** — `s`/`u` (and any plain-letter shortcut) no longer steal chars from text inputs
 
-All above on `main` as of April 17, 2026 (v1.2.4).
+All above on `main` as of April 17, 2026 (v1.2.5).
 
 ## Next Up
 

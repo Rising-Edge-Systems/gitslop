@@ -3,10 +3,16 @@
 ## Current State
 
 **Branch:** `main`
-**Version:** 1.2.4
+**Version:** 1.2.5
 **App status:** Builds, launches, and runs on Windows/Linux/macOS. Typecheck passes.
 
 ## Recent Work (v1.2.x — April 2026)
+
+### v1.2.5 — Commit Detail & Staging Polish
+- **Full commit message visible in detail panel**: `git show` output was being split by `\n` and only the first line kept, so the body got truncated at the first newline. Now uses a record-end marker and the full body comes through.
+- **Commit description always visible**: replaced the "+ Description" toggle with an always-rendered textarea, with 8px breathing room between the subject and description.
+- **Resizable staging columns**: drag handle between Unstaged and Staged sections, double-click to reset to 50/50, split persists in localStorage.
+- **No more typing hijack**: `s`/`u` (and any future plain-letter shortcut) no longer steal characters from commit message and other text inputs.
 
 ### v1.2.4 — Auto-Stash on Pull & Hunk-Based Conflict Resolver
 - **Auto-stash on pull** (default on, opt-out in Settings → Git): dirty working tree no longer blocks a pull. Local changes (including untracked files) are stashed, pull runs, then the stash pops. If the pop conflicts, the stash is preserved with a hint in the error.
