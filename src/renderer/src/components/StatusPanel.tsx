@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2, Folder, FolderOpen, Copy, Loader } from 'lucide-react'
+import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2, Folder, FolderOpen, Copy, Loader, Ban } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { openFileInEditor } from './CodeEditor'
@@ -789,6 +789,24 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
     }
   }, [repoPath, loadStatus, onRefresh, operationInProgress])
 
+  // ─── Add to .gitignore ────────────────────────────────────────────────────
+  const ignorePaths = useCallback(
+    async (entries: string[]) => {
+      if (entries.length === 0 || operationInProgress) return
+      setOperationInProgress(true)
+      try {
+        const result = await window.electronAPI.git.appendGitignore(repoPath, entries)
+        if (result.success) {
+          await loadStatus()
+          onRefresh?.()
+        }
+      } finally {
+        setOperationInProgress(false)
+      }
+    },
+    [repoPath, loadStatus, onRefresh, operationInProgress]
+  )
+
   // ─── Discard changes ────────────────────────────────────────────────────────
   const discardFile = useCallback(
     async (file: FileStatus) => {
@@ -809,6 +827,42 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
           await loadStatus()
           onRefresh?.()
         }
+      } finally {
+        setOperationInProgress(false)
+      }
+    },
+    [repoPath, loadStatus, onRefresh, operationInProgress]
+  )
+
+  // Discard a selection of files (multi-select). Splits paths into tracked
+  // vs untracked groups since the underlying git invocation differs
+  // (`checkout --` vs `clean -f`).
+  const discardFiles = useCallback(
+    async (files: FileStatus[]) => {
+      if (operationInProgress || files.length === 0) return
+      const trackedPaths = files.filter((f) => f.status !== 'untracked').map((f) => f.path)
+      const untrackedPaths = files.filter((f) => f.status === 'untracked').map((f) => f.path)
+      const total = trackedPaths.length + untrackedPaths.length
+
+      const summary =
+        untrackedPaths.length === 0
+          ? `Discard changes to ${total} file(s)?\n\nThis action is irreversible — all modifications will be lost.`
+          : trackedPaths.length === 0
+            ? `Delete ${total} untracked file(s)?\n\nThis action is irreversible.`
+            : `Discard changes to ${total} file(s)?\n\nThis action is irreversible — modifications will be lost and ${untrackedPaths.length} untracked file(s) will be deleted.`
+      const confirmed = window.confirm(summary)
+      if (!confirmed) return
+
+      setOperationInProgress(true)
+      try {
+        if (trackedPaths.length > 0) {
+          await window.electronAPI.git.discardFiles(repoPath, trackedPaths)
+        }
+        if (untrackedPaths.length > 0) {
+          await window.electronAPI.git.discardFiles(repoPath, untrackedPaths, { untracked: true })
+        }
+        await loadStatus()
+        onRefresh?.()
       } finally {
         setOperationInProgress(false)
       }
@@ -856,36 +910,95 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
       const isUntracked = file.status === 'untracked'
       const items: ContextMenuEntry[] = []
 
+      // If the right-clicked file is part of a multi-selection, the stage /
+      // unstage / ignore actions apply to every selected file in the same
+      // logical group (staged, or unstaged+untracked). Otherwise just the
+      // right-clicked file.
+      const fileSection: 'staged' | 'unstaged' | 'untracked' = isStaged
+        ? 'staged'
+        : isUntracked
+          ? 'untracked'
+          : 'unstaged'
+      const fileKey = `${fileSection}:${file.path}`
+      const targetPaths: string[] = (() => {
+        if (selectedFiles.size > 0 && selectedFiles.has(fileKey)) {
+          const out: string[] = []
+          for (const key of selectedFiles) {
+            if (isStaged) {
+              if (key.startsWith('staged:')) out.push(key.slice('staged:'.length))
+            } else {
+              if (key.startsWith('unstaged:')) out.push(key.slice('unstaged:'.length))
+              else if (key.startsWith('untracked:')) out.push(key.slice('untracked:'.length))
+            }
+          }
+          if (out.length > 0) return out
+        }
+        return [file.path]
+      })()
+      const targetCount = targetPaths.length
+
       if (isStaged) {
         items.push({
           key: 'unstage',
-          label: 'Unstage',
+          label: targetCount > 1 ? `Unstage (${targetCount})` : 'Unstage',
           icon: <Minus size={14} />,
           shortcut: 'U',
-          onClick: () => unstageFiles([file.path])
+          onClick: () => unstageFiles(targetPaths)
         })
       } else {
         items.push({
           key: 'stage',
-          label: 'Stage',
+          label: targetCount > 1 ? `Stage (${targetCount})` : 'Stage',
           icon: <Plus size={14} />,
           shortcut: 'S',
-          onClick: () => stageFiles([file.path])
+          onClick: () => stageFiles(targetPaths)
         })
       }
 
       items.push({ key: 'sep1', separator: true })
 
       if (!isStaged) {
+        // For multi-select discard, look up each path in the working-tree
+        // status so we can split tracked vs untracked.
+        const targetFiles: FileStatus[] = (() => {
+          if (targetCount <= 1 || !status) return [file]
+          const lookup = new Map<string, FileStatus>()
+          for (const f of status.unstaged) lookup.set(f.path, f)
+          for (const f of status.untracked) lookup.set(f.path, f)
+          const out: FileStatus[] = []
+          for (const p of targetPaths) {
+            const f = lookup.get(p)
+            if (f) out.push(f)
+          }
+          return out.length > 0 ? out : [file]
+        })()
+        const allUntracked = targetFiles.every((f) => f.status === 'untracked')
+        const baseLabel = allUntracked ? 'Delete File' : 'Discard Changes'
         items.push({
           key: 'discard',
-          label: isUntracked ? 'Delete File' : 'Discard Changes',
+          label: targetFiles.length > 1 ? `${baseLabel} (${targetFiles.length})` : baseLabel,
           icon: <Trash2 size={14} />,
           danger: true,
-          onClick: () => discardFile(file)
+          onClick: () => {
+            if (targetFiles.length > 1) {
+              discardFiles(targetFiles)
+            } else {
+              discardFile(file)
+            }
+          }
         })
         items.push({ key: 'sep2', separator: true })
       }
+
+      // Ignore: append the file path(s) to .gitignore. Most useful for
+      // untracked files; for already-tracked files we still allow it (matches
+      // GitKraken) but the user must un-track separately for it to take effect.
+      items.push({
+        key: 'ignore',
+        label: targetCount > 1 ? `Ignore (${targetCount})` : 'Ignore',
+        icon: <Ban size={14} />,
+        onClick: () => ignorePaths(targetPaths.map((p) => `/${p}`))
+      })
 
       items.push({
         key: 'openInEditor',
@@ -921,7 +1034,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
 
       return items
     },
-    [repoPath, stageFiles, unstageFiles, discardFile]
+    [repoPath, selectedFiles, status, stageFiles, unstageFiles, ignorePaths, discardFile, discardFiles]
   )
 
   // ─── Directory Context Menu (tree view folders) ─────────────────────────────
@@ -961,6 +1074,13 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
       }
 
       items.push({
+        key: 'ignoreFolder',
+        label: 'Ignore Folder',
+        icon: <Ban size={14} />,
+        onClick: () => ignorePaths([`/${node.fullPath}/`])
+      })
+
+      items.push({
         key: 'copyPath',
         label: 'Copy Path',
         icon: <Copy size={14} />,
@@ -971,7 +1091,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
 
       return items
     },
-    [stageFiles, unstageFiles]
+    [stageFiles, unstageFiles, ignorePaths]
   )
 
   // Handle stage/unstage from keyboard shortcut based on selected files

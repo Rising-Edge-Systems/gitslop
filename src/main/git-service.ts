@@ -1354,6 +1354,37 @@ export class GitService {
   }
 
   /**
+   * Append entries to the repo's .gitignore. Creates the file if it doesn't exist.
+   * Skips entries that already appear (line-equal, trimmed). Ensures the file
+   * ends with a trailing newline after writing.
+   */
+  async appendGitignore(repoPath: string, entries: string[]): Promise<void> {
+    if (entries.length === 0) return
+    const { readFileSync, writeFileSync, existsSync } = await import('fs')
+    const { join } = await import('path')
+    const gitignorePath = join(repoPath, '.gitignore')
+
+    let existing = ''
+    if (existsSync(gitignorePath)) {
+      try {
+        existing = readFileSync(gitignorePath, 'utf-8')
+      } catch {
+        existing = ''
+      }
+    }
+
+    const existingLines = new Set(
+      existing.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0)
+    )
+    const toAdd = entries.filter((e) => e.trim().length > 0 && !existingLines.has(e.trim()))
+    if (toAdd.length === 0) return
+
+    const prefix = existing.length > 0 && !existing.endsWith('\n') ? '\n' : ''
+    const addition = prefix + toAdd.join('\n') + '\n'
+    writeFileSync(gitignorePath, existing + addition, 'utf-8')
+  }
+
+  /**
    * Stage a hunk by applying a patch to the index.
    * The patch must be a valid unified diff patch string.
    */

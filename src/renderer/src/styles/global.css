@@ -399,8 +399,8 @@ body.sidebar-dragging * {
 }
 
 .main-content.main-content--centered {
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
 }
 
 /* Welcome Screen styles extracted to WelcomeScreen.module.css */

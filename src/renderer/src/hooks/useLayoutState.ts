@@ -97,6 +97,7 @@ declare global {
         unstageFiles: (repoPath: string, filePaths: string[]) => Promise<GitServiceResult>
         stageAll: (repoPath: string) => Promise<GitServiceResult>
         unstageAll: (repoPath: string) => Promise<GitServiceResult>
+        appendGitignore: (repoPath: string, entries: string[]) => Promise<GitServiceResult>
         stageHunk: (repoPath: string, patch: string) => Promise<GitServiceResult>
         unstageHunk: (repoPath: string, patch: string) => Promise<GitServiceResult>
         commit: (

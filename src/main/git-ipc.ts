@@ -718,6 +718,20 @@ export function registerGitIpcHandlers(): void {
     }
   })
 
+  // ─── Append to .gitignore ─────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:appendGitignore',
+    async (_event, repoPath: string, entries: string[]) => {
+      try {
+        await withWatcherSuppression(() => gitService.appendGitignore(repoPath, entries))
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Stage Hunk (partial staging) ──────────────────────────────────────────
 
   ipcMain.handle(
