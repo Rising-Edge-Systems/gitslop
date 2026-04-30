@@ -45,8 +45,11 @@
 - [x] **Commit Checkout** — double-click any commit body to check it out; context-menu Checkout refreshes the UI
 - [x] **Stash Handling** — distinct styling, full stash stack visible, synthetic stash parents hidden, apply/pop/drop menu
 - [x] **Inline Commit Message Edit (HEAD)** — double-click the subject to amend the HEAD message in place
+- [x] **Multi-Select Stage/Unstage/Discard in Context Menu** — right-clicking a file inside a multi-selection now acts on every selected file in the same group, with counts in the labels
+- [x] **Right-Click → Ignore** — appends files (`/path`) and folders (`/folder/`) to `.gitignore`, creating it if missing and skipping duplicates
+- [x] **Welcome Screen Scroll Fix** — `safe center` keeps the GS logo from being clipped above the scroll area when the recent-repos list overflows
 
-All above on `main` as of April 18, 2026 (v1.2.7).
+All above on `main` as of April 30, 2026 (v1.2.8).
 
 ## Next Up
 

@@ -1,12 +1,17 @@
-# GitSlop Project Status — April 18, 2026
+# GitSlop Project Status — April 30, 2026
 
 ## Current State
 
 **Branch:** `main`
-**Version:** 1.2.7
+**Version:** 1.2.8
 **App status:** Builds, launches, and runs on Windows/Linux/macOS. Typecheck passes.
 
 ## Recent Work (v1.2.x — April 2026)
+
+### v1.2.8 — Multi-Select Staging Actions & Ignore
+- **Multi-file stage / unstage / discard from the right-click menu.** Right-clicking a file that's part of a multi-selection now operates on every selected file in the same group (staged, or unstaged + untracked) instead of just the right-clicked one. Labels show a count, e.g. *Stage (3)* / *Discard Changes (3)*. Discard prompts once with a summary that splits modifications-discarded vs untracked-deleted.
+- **Right-click → Ignore (matches GitKraken).** New *Ignore* entry on files appends an anchored `/path` to `.gitignore`; *Ignore Folder* on tree-view directories appends `/folder/`. Creates `.gitignore` if it doesn't exist and dedupes against existing trimmed lines.
+- **Welcome screen no longer clips with many recent repos.** The flex-centered container used `align-items: center`, which pushed the GitSlop logo above the scroll area when the recent list was long. Switched to `safe center` so it stays centered when content fits and falls back to top-aligned + scrollable when it doesn't.
 
 ### v1.2.7 — Diff Viewer, Graph, and Stash Overhaul
 - **New/untracked files render in every diff view.** Previously the Diff and Full views were blank for added files and the UI forced File view. The renderer now synthesizes a proper `/dev/null` → `b/<path>` unified diff so every line shows as added in Diff, Full, and File.
