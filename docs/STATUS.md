@@ -1,12 +1,18 @@
-# GitSlop Project Status — April 30, 2026
+# GitSlop Project Status — May 4, 2026
 
 ## Current State
 
 **Branch:** `main`
-**Version:** 1.2.8
+**Version:** 1.2.9
 **App status:** Builds, launches, and runs on Windows/Linux/macOS. Typecheck passes.
 
-## Recent Work (v1.2.x — April 2026)
+## Recent Work (v1.2.x — April–May 2026)
+
+### v1.2.9 — Inline File Editor & Search Palette Wiring
+- **Edit working-tree files inside GitSlop.** New *Edit this file* button in the working-tree diff breadcrumb swaps the diff for an inline Monaco editor on the same file. Ctrl+S writes through and refreshes the diff. *Back to Diff* returns to the diff view; if you have unsaved edits, the button shows a `•` indicator and the click prompts before discarding.
+- **Search palette → graph scroll wired.** `Ctrl+K` → pick a commit now scrolls the graph to that row, selects it, and loads the detail (uses the existing `graph:scroll-to-commit` event the graph already exposed). The previous `// TODO: scroll graph to commit` is gone.
+- **Search palette → file opens in editor.** `Ctrl+K` → pick a file now opens it in the inline editor via a new queued `working-tree:enter-edit-mode` request that waits one render for the working-tree state to propagate before triggering. Replaces the second `// TODO` no-op.
+- **Monaco bundled-loader fix.** `@monaco-editor/react` was defaulting to a CDN fetch from `unpkg.com`, which stalled forever in Electron's renderer (showed as an infinite Loading screen the first time the editor mounted). Pointed `loader.config({ monaco })` at the locally-bundled `monaco-editor` package and supplied a Vite `?worker`-built editor worker via `MonacoEnvironment.getWorker`, so the editor renders offline.
 
 ### v1.2.8 — Multi-Select Staging Actions & Ignore
 - **Multi-file stage / unstage / discard from the right-click menu.** Right-clicking a file that's part of a multi-selection now operates on every selected file in the same group (staged, or unstaged + untracked) instead of just the right-clicked one. Labels show a count, e.g. *Stage (3)* / *Discard Changes (3)*. Discard prompts once with a summary that splits modifications-discarded vs untracked-deleted.

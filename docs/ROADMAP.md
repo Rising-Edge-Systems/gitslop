@@ -48,8 +48,12 @@
 - [x] **Multi-Select Stage/Unstage/Discard in Context Menu** — right-clicking a file inside a multi-selection now acts on every selected file in the same group, with counts in the labels
 - [x] **Right-Click → Ignore** — appends files (`/path`) and folders (`/folder/`) to `.gitignore`, creating it if missing and skipping duplicates
 - [x] **Welcome Screen Scroll Fix** — `safe center` keeps the GS logo from being clipped above the scroll area when the recent-repos list overflows
+- [x] **Inline File Editor (Working-Tree)** — *Edit this file* button in the diff breadcrumb swaps the viewer for Monaco; Ctrl+S saves; unsaved-edit guard on *Back to Diff*
+- [x] **Search Palette → Graph Scroll** — `Ctrl+K` commit selection now scrolls/selects in the graph; previous TODO resolved
+- [x] **Search Palette → File Open in Editor** — `Ctrl+K` file selection now opens the file in the inline editor via a queued enter-edit-mode request
+- [x] **Monaco Bundled Loader** — replaced the default unpkg CDN fetch (which stalled in Electron) with a local `loader.config({ monaco })` + Vite `?worker` editor worker
 
-All above on `main` as of April 30, 2026 (v1.2.8).
+All above on `main` as of May 4, 2026 (v1.2.9).
 
 ## Next Up
 
