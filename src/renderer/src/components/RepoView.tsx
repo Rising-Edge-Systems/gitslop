@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertTriangle, ArrowLeft, FileCode, GitCompare } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, FileCode, GitCompare, Pencil } from 'lucide-react'
 import styles from './RepoView.module.css'
 import { RepoViewSkeleton } from './Skeleton'
 import blameStyles from './BlameView.module.css'
@@ -11,6 +11,7 @@ import { ConflictResolver } from './ConflictResolver'
 // StatusPanel moved to right panel in AppLayout
 import { DiffViewer, FullDiffView, type DiffViewMode } from './DiffViewer'
 import { Columns } from 'lucide-react'
+import { CodeEditor, openFileInEditor } from './CodeEditor'
 
 interface RepoViewProps {
   repoPath: string
@@ -129,6 +130,67 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   const [workingTreeDiffLoading, setWorkingTreeDiffLoading] = useState(false)
   const [workingTreeDiffError, setWorkingTreeDiffError] = useState<string | null>(null)
   const [workingTreeRefreshKey, setWorkingTreeRefreshKey] = useState(0)
+  // Inline editor toggle — swaps the working-tree diff viewer for the Monaco
+  // editor on the same file. Reset whenever the selected file changes so
+  // switching files always lands you on the diff first.
+  const [editingWorkingTree, setEditingWorkingTree] = useState(false)
+  const [editorDirty, setEditorDirty] = useState(false)
+  // Honors `working-tree:enter-edit-mode` requests (e.g. from the search
+  // palette). The request is queued because workingTreeFile is set in the
+  // same tick — we wait a render until the path catches up, then trigger.
+  const [editRequestPath, setEditRequestPath] = useState<string | null>(null)
+  // Tracks the last path we asked CodeEditor to open. Lets us dispatch
+  // editor:open-file from a post-commit effect (so the listener exists)
+  // without redispatching on every unrelated re-render.
+  const lastOpenedEditorPathRef = useRef<string | null>(null)
+  useEffect(() => {
+    setEditingWorkingTree(false)
+  }, [workingTreeFile?.path])
+  const enterEditMode = useCallback(() => {
+    if (!workingTreeFile) return
+    setEditingWorkingTree(true)
+  }, [workingTreeFile])
+  // Open the file once CodeEditor is actually mounted. Dispatching the event
+  // synchronously alongside setEditingWorkingTree(true) loses it because the
+  // listener doesn't register until after React commits.
+  useEffect(() => {
+    if (editingWorkingTree && workingTreeFile) {
+      const fullPath = `${repoPath}/${workingTreeFile.path}`
+      if (lastOpenedEditorPathRef.current !== fullPath) {
+        lastOpenedEditorPathRef.current = fullPath
+        openFileInEditor(fullPath)
+      }
+    } else if (!editingWorkingTree) {
+      lastOpenedEditorPathRef.current = null
+    }
+  }, [editingWorkingTree, workingTreeFile, repoPath])
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const path = (e as CustomEvent<{ path: string }>).detail?.path
+      if (path) setEditRequestPath(path)
+    }
+    window.addEventListener('working-tree:enter-edit-mode', handler)
+    return () => window.removeEventListener('working-tree:enter-edit-mode', handler)
+  }, [])
+  useEffect(() => {
+    if (editRequestPath && workingTreeFile?.path === editRequestPath) {
+      enterEditMode()
+      setEditRequestPath(null)
+    }
+  }, [editRequestPath, workingTreeFile, enterEditMode])
+  // Guard exit from edit mode if there are unsaved edits.
+  const exitEditMode = useCallback(() => {
+    if (editorDirty) {
+      const ok = window.confirm(
+        'You have unsaved changes in the editor. Discard them and return to the diff view?'
+      )
+      if (!ok) return
+    }
+    setEditingWorkingTree(false)
+  }, [editorDirty])
+  const handleEditorFileSaved = useCallback(() => {
+    setWorkingTreeRefreshKey((k) => k + 1)
+  }, [])
 
   useEffect(() => {
     if (!workingTreeFile) {
@@ -661,36 +723,68 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                   {' / '}
                   {workingTreeFile.path}
                 </span>
-                <div className={styles.viewModeToggle}>
+                {editingWorkingTree ? (
                   <button
-                    className={`${styles.viewModeBtn} ${centerViewMode === 'diff' ? styles.viewModeBtnActive : ''}`}
-                    onClick={() => setCenterViewMode('diff')}
-                    title="View diff"
+                    className={styles.editFileBtn}
+                    onClick={exitEditMode}
+                    title={editorDirty ? 'Unsaved changes — confirm before leaving' : 'Return to diff view'}
                   >
-                    <GitCompare size={13} />
-                    Diff
+                    <ArrowLeft size={13} />
+                    {editorDirty ? 'Back to Diff •' : 'Back to Diff'}
                   </button>
-                  <button
-                    className={`${styles.viewModeBtn} ${centerViewMode === 'full' ? styles.viewModeBtnActive : ''}`}
-                    onClick={() => setCenterViewMode('full')}
-                    title="View full files side-by-side with diff highlights"
-                  >
-                    <Columns size={13} />
-                    Full
-                  </button>
-                  <button
-                    className={`${styles.viewModeBtn} ${centerViewMode === 'file' ? styles.viewModeBtnActive : ''}`}
-                    onClick={() => setCenterViewMode('file')}
-                    title="View full file"
-                  >
-                    <FileCode size={13} />
-                    File
-                  </button>
-                </div>
+                ) : (
+                  <>
+                    <button
+                      className={styles.editFileBtn}
+                      onClick={enterEditMode}
+                      title="Edit this file in GitSlop"
+                    >
+                      <Pencil size={13} />
+                      Edit this file
+                    </button>
+                    <div className={styles.viewModeToggle}>
+                      <button
+                        className={`${styles.viewModeBtn} ${centerViewMode === 'diff' ? styles.viewModeBtnActive : ''}`}
+                        onClick={() => setCenterViewMode('diff')}
+                        title="View diff"
+                      >
+                        <GitCompare size={13} />
+                        Diff
+                      </button>
+                      <button
+                        className={`${styles.viewModeBtn} ${centerViewMode === 'full' ? styles.viewModeBtnActive : ''}`}
+                        onClick={() => setCenterViewMode('full')}
+                        title="View full files side-by-side with diff highlights"
+                      >
+                        <Columns size={13} />
+                        Full
+                      </button>
+                      <button
+                        className={`${styles.viewModeBtn} ${centerViewMode === 'file' ? styles.viewModeBtnActive : ''}`}
+                        onClick={() => setCenterViewMode('file')}
+                        title="View full file"
+                      >
+                        <FileCode size={13} />
+                        File
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
+              {/* Inline editor (working-tree only) */}
+              {editingWorkingTree && (
+                <div className={styles.centerDiffContainer}>
+                  <CodeEditor
+                    repoPath={repoPath}
+                    onFileSaved={handleEditorFileSaved}
+                    onDirtyChange={setEditorDirty}
+                  />
+                </div>
+              )}
+
               {/* Diff view */}
-              {centerViewMode === 'diff' && (
+              {!editingWorkingTree && centerViewMode === 'diff' && (
                 <div className={styles.centerDiffContainer}>
                   {workingTreeDiffLoading && (
                     <div className={styles.diffLoadingState}>Loading diff…</div>
@@ -723,7 +817,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
               )}
 
               {/* Full diff view (old + new side-by-side with highlights) */}
-              {centerViewMode === 'full' && (
+              {!editingWorkingTree && centerViewMode === 'full' && (
                 <div className={styles.centerDiffContainer}>
                   {fullLoading && (
                     <div className={styles.diffLoadingState}>Loading full file comparison…</div>
@@ -757,7 +851,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
               )}
 
               {/* Full file content */}
-              {centerViewMode === 'file' && (
+              {!editingWorkingTree && centerViewMode === 'file' && (
                 <div className={styles.centerDiffContainer}>
                   {fileLoading && (
                     <div className={styles.diffLoadingState}>Loading file…</div>

@@ -475,11 +475,23 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
         <SearchPalette
           currentRepo={currentRepo}
           onClose={() => setSearchOpen(false)}
-          onSelectCommit={(_hash) => {
-            // TODO: scroll graph to commit — will be wired once graph exposes scroll API
+          onSelectCommit={(hash) => {
+            // CommitGraph already listens for this event — it selects the
+            // commit, loads its detail, and scrolls the row into view (with
+            // a short retry if the hash isn't in the loaded log yet).
+            window.dispatchEvent(
+              new CustomEvent('graph:scroll-to-commit', { detail: { hash } })
+            )
           }}
-          onSelectFile={(_filePath) => {
-            // TODO: open file in editor — will be wired once editor supports programmatic open
+          onSelectFile={(filePath) => {
+            // Open the file in the working-tree center pane and request the
+            // inline editor to take over. Status flags are best-effort: if
+            // the file is actually staged or untracked the brief diff view
+            // would be inaccurate, but the editor takes over immediately.
+            handleWorkingTreeFileSelect({ path: filePath, staged: false, isUntracked: false })
+            window.dispatchEvent(
+              new CustomEvent('working-tree:enter-edit-mode', { detail: { path: filePath } })
+            )
           }}
           onCheckoutBranch={() => {
             // Branch was checked out — status will auto-refresh via file watcher

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FileText, X, WrapText, ArrowRight, LayoutGrid, AlertTriangle } from 'lucide-react'
-import Editor, { type OnMount } from '@monaco-editor/react'
+import Editor, { loader, type OnMount } from '@monaco-editor/react'
+import * as monaco from 'monaco-editor'
 import type { editor as monacoEditor } from 'monaco-editor'
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import {
   useKeyboardShortcuts,
   useShortcutHandler,
@@ -9,6 +11,18 @@ import {
   type ShortcutDefinition
 } from '../hooks/useKeyboardShortcuts'
 import styles from './CodeEditor.module.css'
+
+// ─── Monaco bundled-loader setup ─────────────────────────────────────────
+// `@monaco-editor/react` defaults to fetching the Monaco runtime from
+// unpkg.com, which stalls forever inside Electron's renderer. Point it at
+// the locally-bundled `monaco-editor` package and supply the editor worker
+// via Vite's ?worker import so syntax highlighting works offline.
+;(self as unknown as { MonacoEnvironment?: { getWorker: () => Worker } }).MonacoEnvironment = {
+  getWorker(): Worker {
+    return new EditorWorker()
+  }
+}
+loader.config({ monaco })
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -25,6 +39,9 @@ interface CodeEditorProps {
   repoPath: string
   /** Called when the editor saves a file — parent should refresh status */
   onFileSaved?: () => void
+  /** Called whenever any open tab transitions between modified/unmodified.
+   *  Lets parents guard navigation away from unsaved edits. */
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 // ─── Language detection ────────────────────────────────────────────────────
@@ -96,7 +113,7 @@ function getFileName(filePath: string): string {
 
 // ─── Component ─────────────────────────────────────────────────────────────
 
-export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JSX.Element {
+export function CodeEditor({ repoPath, onFileSaved, onDirtyChange }: CodeEditorProps): React.JSX.Element {
   const [tabs, setTabs] = useState<EditorTab[]>([])
   const [activeTabIndex, setActiveTabIndex] = useState<number>(-1)
   const [showMinimap, setShowMinimap] = useState(true)
@@ -265,6 +282,16 @@ export function CodeEditor({ repoPath, onFileSaved }: CodeEditorProps): React.JS
       setActiveTabIndex(tabs.length - 1)
     }
   }, [tabs.length, activeTabIndex])
+
+  // ─── Report dirty state to parent ────────────────────────────────────────
+  const anyDirty = tabs.some((t) => t.modified)
+  useEffect(() => {
+    onDirtyChange?.(anyDirty)
+  }, [anyDirty, onDirtyChange])
+  // Reset dirty flag on unmount so the parent doesn't keep stale state.
+  useEffect(() => {
+    return () => onDirtyChange?.(false)
+  }, [onDirtyChange])
 
   // ─── Empty state ─────────────────────────────────────────────────────────
 
