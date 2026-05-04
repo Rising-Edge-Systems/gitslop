@@ -65,7 +65,7 @@ jobs:
             release/*.dmg
             release/*.exe
             release/*.msi
-            release/*.yml
+            release/latest*.yml
           if-no-files-found: ignore
 
   release:
