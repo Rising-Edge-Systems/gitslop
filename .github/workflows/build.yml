@@ -63,6 +63,7 @@ jobs:
             release/*.deb
             release/*.AppImage
             release/*.dmg
+            release/*.zip
             release/*.exe
             release/*.msi
             release/latest*.yml

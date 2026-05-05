@@ -52,8 +52,9 @@
 - [x] **Search Palette → Graph Scroll** — `Ctrl+K` commit selection now scrolls/selects in the graph; previous TODO resolved
 - [x] **Search Palette → File Open in Editor** — `Ctrl+K` file selection now opens the file in the inline editor via a queued enter-edit-mode request
 - [x] **Monaco Bundled Loader** — replaced the default unpkg CDN fetch (which stalled in Electron) with a local `loader.config({ monaco })` + Vite `?worker` editor worker
+- [x] **macOS Auto-Update ZIP Target** — `electron-updater` requires a `.zip` to apply Mac updates; build now emits both `.dmg` (distribution) and `.zip` (auto-update) so `latest-mac.yml` references the ZIP and the in-app updater works
 
-All above on `main` as of May 4, 2026 (v1.2.9).
+All above on `main` as of May 5, 2026 (v1.2.10).
 
 ## Next Up
 

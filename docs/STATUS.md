@@ -1,12 +1,15 @@
-# GitSlop Project Status — May 4, 2026
+# GitSlop Project Status — May 5, 2026
 
 ## Current State
 
 **Branch:** `main`
-**Version:** 1.2.9
+**Version:** 1.2.10
 **App status:** Builds, launches, and runs on Windows/Linux/macOS. Typecheck passes.
 
 ## Recent Work (v1.2.x — April–May 2026)
+
+### v1.2.10 — macOS Auto-Update Fix
+- **macOS auto-updater no longer fails with "ZIP file not provided".** `electron-updater` on macOS requires a `.zip` artifact to apply updates (it can't auto-apply a DMG), but the build only emitted a DMG. Added `zip` alongside `dmg` in the mac `target` array so each release publishes both, and updated the GitHub Actions upload glob to include `release/*.zip`. `latest-mac.yml` now lists the ZIP, and the in-app updater can complete the install. Existing 1.2.9 macOS users need to install 1.2.10 manually once; auto-updates resume from there.
 
 ### v1.2.9 — Inline File Editor & Search Palette Wiring
 - **Edit working-tree files inside GitSlop.** New *Edit this file* button in the working-tree diff breadcrumb swaps the diff for an inline Monaco editor on the same file. Ctrl+S writes through and refreshes the diff. *Back to Diff* returns to the diff view; if you have unsaved edits, the button shows a `•` indicator and the click prompts before discarding.

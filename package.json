@@ -1,6 +1,6 @@
 {
   "name": "gitslop",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "description": "A free, open-source, cross-platform GUI git client",
   "main": "./out/main/index.js",
   "scripts": {
@@ -83,6 +83,13 @@
       "target": [
         {
           "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "x64",
             "arm64"
