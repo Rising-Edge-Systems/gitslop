@@ -54,8 +54,9 @@
 - [x] **Monaco Bundled Loader** — replaced the default unpkg CDN fetch (which stalled in Electron) with a local `loader.config({ monaco })` + Vite `?worker` editor worker
 - [x] **macOS Auto-Update ZIP Target** — `electron-updater` requires a `.zip` to apply Mac updates; build now emits both `.dmg` (distribution) and `.zip` (auto-update) so `latest-mac.yml` references the ZIP and the in-app updater works
 - [x] **Custom macOS Installer (Bypass Squirrel.Mac)** — Squirrel.Mac silently rejects updates for unsigned bundles, which made *Restart to Update* a no-op. Replaced with a detached install script that extracts the cached ZIP, strips quarantine, swaps `/Applications/GitSlop.app`, and relaunches; non-admin users get the standard `osascript`/admin password prompt
+- [x] **macOS Title Bar Layout** — wordmark and menus no longer overlap the native traffic-light buttons (added 80px left inset on macOS); removed the duplicate minimize/maximize/close icons that aped the system controls
 
-All above on `main` as of May 5, 2026 (v1.2.11).
+All above on `main` as of May 5, 2026 (v1.2.12).
 
 ## Next Up
 

@@ -9,6 +9,13 @@
   user-select: none;
 }
 
+/* macOS reserves the top-left for native traffic-light buttons (close/minimize/
+   maximize). Inset by their footprint so the wordmark and menus don't sit
+   under them. */
+.menuBar.mac {
+  padding-left: 80px;
+}
+
 .dragRegion {
   display: flex;
   align-items: center;

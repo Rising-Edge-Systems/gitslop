@@ -28,6 +28,7 @@ export function MenuBar({ repoPath, theme, onToggleTheme, onCloseTab, onOpenSett
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [isMaximized, setIsMaximized] = useState(false)
   const menuBarRef = useRef<HTMLDivElement>(null)
+  const isMac = window.electronAPI.platform === 'darwin'
 
   useEffect(() => {
     window.electronAPI.window.isMaximized().then(setIsMaximized)
@@ -151,7 +152,7 @@ export function MenuBar({ repoPath, theme, onToggleTheme, onCloseTab, onOpenSett
   ]
 
   return (
-    <div className={styles.menuBar} ref={menuBarRef}>
+    <div className={`${styles.menuBar} ${isMac ? styles.mac : ''}`} ref={menuBarRef}>
       <div className={styles.dragRegion}>
         <span className={styles.appTitle}>GitSlop</span>
         <div className={styles.menus}>
@@ -193,15 +194,19 @@ export function MenuBar({ repoPath, theme, onToggleTheme, onCloseTab, onOpenSett
         <button className={styles.themeBtn} onClick={onToggleTheme} title="Toggle theme">
           {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
         </button>
-        <button className={styles.controlBtn} onClick={() => window.electronAPI.window.minimize()} title="Minimize">
-          <Minus size={14} />
-        </button>
-        <button className={styles.controlBtn} onClick={() => window.electronAPI.window.maximize()} title={isMaximized ? 'Restore' : 'Maximize'}>
-          {isMaximized ? <Copy size={14} /> : <Square size={14} />}
-        </button>
-        <button className={`${styles.controlBtn} ${styles.closeBtn}`} onClick={() => window.electronAPI.window.close()} title="Close">
-          <X size={14} />
-        </button>
+        {!isMac && (
+          <>
+            <button className={styles.controlBtn} onClick={() => window.electronAPI.window.minimize()} title="Minimize">
+              <Minus size={14} />
+            </button>
+            <button className={styles.controlBtn} onClick={() => window.electronAPI.window.maximize()} title={isMaximized ? 'Restore' : 'Maximize'}>
+              {isMaximized ? <Copy size={14} /> : <Square size={14} />}
+            </button>
+            <button className={`${styles.controlBtn} ${styles.closeBtn}`} onClick={() => window.electronAPI.window.close()} title="Close">
+              <X size={14} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

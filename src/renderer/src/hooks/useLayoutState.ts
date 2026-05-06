@@ -18,6 +18,7 @@ interface GitServiceResult {
 declare global {
   interface Window {
     electronAPI: {
+      platform: 'darwin' | 'linux' | 'win32' | 'aix' | 'android' | 'freebsd' | 'haiku' | 'openbsd' | 'sunos' | 'cygwin' | 'netbsd'
       window: {
         minimize: () => Promise<void>
         maximize: () => Promise<void>

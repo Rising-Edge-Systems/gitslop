@@ -570,6 +570,7 @@ ipcRenderer.on('cli:open-repo', (_event, repoPath: string) => {
 
 const extendedElectronAPI = {
   ...electronAPI,
+  platform: process.platform as NodeJS.Platform,
   onCliOpenRepo: (callback: (repoPath: string) => void): (() => void) => {
     cliOpenRepoListeners.push(callback)
     return () => {

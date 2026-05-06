@@ -3,10 +3,15 @@
 ## Current State
 
 **Branch:** `main`
-**Version:** 1.2.11
+**Version:** 1.2.12
 **App status:** Builds, launches, and runs on Windows/Linux/macOS. Typecheck passes.
 
 ## Recent Work (v1.2.x — April–May 2026)
+
+### v1.2.12 — macOS Title Bar Layout
+- **GitSlop wordmark and menus no longer sit under the macOS traffic lights.** With `frame: false` + `titleBarStyle: 'hidden'`, the native close/minimize/maximize buttons are still drawn in the top-left and were overlapping the wordmark and *File* menu trigger. Added an 80px left inset to `MenuBar` on macOS so they clear the buttons.
+- **Removed redundant minimize/maximize/close buttons on macOS.** The custom Lucide-icon window controls duplicated the native traffic lights. They now render only on Linux/Windows. Theme toggle stays cross-platform.
+- **`window.electronAPI.platform` exposed.** New preload field for renderer-side platform branching; future macOS-only tweaks no longer need ad-hoc UA sniffing.
 
 ### v1.2.11 — Custom macOS Installer (Bypass Squirrel.Mac)
 - **Auto-update on macOS now works for unsigned builds.** `electron-updater` proxies the install through Squirrel.Mac, which silently rejects updates for any bundle without a Developer ID signature — that's why 1.2.9 → 1.2.10 went "successfully downloaded, Restart to Update does nothing." Replaced the install path with a detached shell script that extracts the cached ZIP, strips quarantine xattrs, swaps `/Applications/GitSlop.app`, and `open`s the new bundle. Squirrel is no longer involved on macOS.
