@@ -1,10 +1,10 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, shell } from 'electron'
 import { join } from 'path'
-import { readFile, writeFile, readdir, stat } from 'fs'
+import { readFile, writeFile, readdir, stat, accessSync, constants as fsConstants, existsSync, readFileSync, writeFileSync } from 'fs'
 import * as https from 'https'
-import { exec } from 'child_process'
+import { exec, spawn } from 'child_process'
 import { promisify } from 'util'
-import { homedir } from 'os'
+import { homedir, tmpdir } from 'os'
 import { watch as chokidarWatch, type FSWatcher } from 'chokidar'
 import Store from 'electron-store'
 import { autoUpdater } from 'electron-updater'
@@ -1927,7 +1927,10 @@ app.whenReady().then(async () => {
   // ─── Auto-Updater Setup ──────────────────────────────────────────────────
   if (!isDev) {
     autoUpdater.autoDownload = false
-    autoUpdater.autoInstallOnAppQuit = true
+    // On macOS we install via a custom detached script (see updates:installUpdate) because
+    // Squirrel.Mac silently rejects updates for unsigned bundles. Disabling autoInstallOnAppQuit
+    // keeps Squirrel from being kicked off behind our back during shutdown.
+    autoUpdater.autoInstallOnAppQuit = process.platform !== 'darwin'
     autoUpdater.logger = {
       info: (msg: unknown) => console.log('[AutoUpdater]', msg),
       warn: (msg: unknown) => console.warn('[AutoUpdater]', msg),
@@ -2275,8 +2278,88 @@ ipcMain.handle('updates:downloadUpdate', async () => {
   })
 })
 
-ipcMain.handle('updates:installUpdate', () => {
-  autoUpdater.quitAndInstall()
+ipcMain.handle('updates:installUpdate', async () => {
+  // On Linux/Windows electron-updater handles install fine.
+  if (process.platform !== 'darwin') {
+    autoUpdater.quitAndInstall()
+    return
+  }
+
+  // On macOS we bypass Squirrel.Mac (which requires a Developer ID signature) and run our
+  // own swap script. Squirrel silently no-ops on unsigned bundles; this path works for any
+  // build, signed or not, by extracting the cached ZIP and replacing the running .app.
+  const updaterCacheDirName = 'gitslop-updater'
+  const cacheDir = join(homedir(), 'Library', 'Caches', updaterCacheDirName, 'pending')
+  const infoPath = join(cacheDir, 'update-info.json')
+  if (!existsSync(infoPath)) {
+    throw new Error(`Update info not found at ${infoPath}`)
+  }
+  const info = JSON.parse(readFileSync(infoPath, 'utf8')) as { fileName: string }
+  const zipPath = join(cacheDir, info.fileName)
+  if (!existsSync(zipPath)) {
+    throw new Error(`Update ZIP not found at ${zipPath}`)
+  }
+
+  // app.getPath('exe') = /Applications/GitSlop.app/Contents/MacOS/GitSlop
+  const exePath = app.getPath('exe')
+  const appPath = join(exePath, '..', '..', '..')
+  if (!appPath.endsWith('.app')) {
+    throw new Error(`Refusing to install: app path is not a bundle: ${appPath}`)
+  }
+  const appParent = join(appPath, '..')
+
+  const stamp = Date.now()
+  const stagingDir = join(tmpdir(), `gitslop-install-${stamp}`)
+  const scriptPath = join(tmpdir(), `gitslop-install-${stamp}.sh`)
+  const logPath = join(tmpdir(), 'gitslop-install.log')
+
+  const sh = (s: string): string => "'" + s.replace(/'/g, "'\\''") + "'"
+  const script = `#!/bin/bash
+set -e
+exec >> ${sh(logPath)} 2>&1
+echo "[$(date)] gitslop installer starting (parent pid=${process.pid})"
+
+# Wait for parent (running GitSlop main process) to exit so we can replace the bundle
+for i in $(seq 1 100); do
+  if ! /bin/kill -0 ${process.pid} 2>/dev/null; then break; fi
+  /bin/sleep 0.1
+done
+
+ZIP=${sh(zipPath)}
+STAGING=${sh(stagingDir)}
+APP=${sh(appPath)}
+
+/bin/mkdir -p "$STAGING"
+/usr/bin/ditto -xk "$ZIP" "$STAGING"
+/usr/bin/xattr -cr "$STAGING/GitSlop.app"
+/bin/rm -rf "$APP"
+/bin/mv "$STAGING/GitSlop.app" "$APP"
+/bin/rm -rf "$STAGING"
+/usr/bin/open "$APP"
+echo "[$(date)] gitslop installer done"
+`
+  writeFileSync(scriptPath, script, { mode: 0o755 })
+
+  // Branch on whether the user can write to /Applications. Admin users hit the fast path
+  // (no password prompt). Non-admin users get the macOS authorization dialog.
+  let needsAdmin = false
+  try {
+    accessSync(appParent, fsConstants.W_OK)
+  } catch {
+    needsAdmin = true
+  }
+
+  console.log('[AutoUpdater] Custom install starting', { zipPath, appPath, needsAdmin })
+
+  if (needsAdmin) {
+    const osa = `do shell script "/bin/bash " & quoted form of "${scriptPath}" with administrator privileges`
+    spawn('/usr/bin/osascript', ['-e', osa], { detached: true, stdio: 'ignore' }).unref()
+  } else {
+    spawn('/bin/bash', [scriptPath], { detached: true, stdio: 'ignore' }).unref()
+  }
+
+  // Give the spawn a tick to detach, then quit so the script can replace the bundle.
+  setTimeout(() => app.quit(), 200)
 })
 
 ipcMain.handle('updates:setAutoCheck', (_event, enabled: boolean) => {

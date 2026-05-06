@@ -3,10 +3,16 @@
 ## Current State
 
 **Branch:** `main`
-**Version:** 1.2.10
+**Version:** 1.2.11
 **App status:** Builds, launches, and runs on Windows/Linux/macOS. Typecheck passes.
 
 ## Recent Work (v1.2.x — April–May 2026)
+
+### v1.2.11 — Custom macOS Installer (Bypass Squirrel.Mac)
+- **Auto-update on macOS now works for unsigned builds.** `electron-updater` proxies the install through Squirrel.Mac, which silently rejects updates for any bundle without a Developer ID signature — that's why 1.2.9 → 1.2.10 went "successfully downloaded, Restart to Update does nothing." Replaced the install path with a detached shell script that extracts the cached ZIP, strips quarantine xattrs, swaps `/Applications/GitSlop.app`, and `open`s the new bundle. Squirrel is no longer involved on macOS.
+- **Non-admin users supported.** The installer detects whether `/Applications` is writable. Admin accounts run silently; non-admin accounts get the standard macOS "type your password to authorize" dialog via `osascript ... with administrator privileges`. Either way, no Apple Developer ID needed.
+- **Linux/Windows unchanged** — they still use `autoUpdater.quitAndInstall()` because their installers don't have the Squirrel.Mac signing requirement.
+- **One-time bootstrap required.** Existing 1.2.9/1.2.10 macOS users need to install 1.2.11 manually once (download the DMG, drag onto `/Applications`, replace). After that, every future release auto-updates through the new path.
 
 ### v1.2.10 — macOS Auto-Update Fix
 - **macOS auto-updater no longer fails with "ZIP file not provided".** `electron-updater` on macOS requires a `.zip` artifact to apply updates (it can't auto-apply a DMG), but the build only emitted a DMG. Added `zip` alongside `dmg` in the mac `target` array so each release publishes both, and updated the GitHub Actions upload glob to include `release/*.zip`. `latest-mac.yml` now lists the ZIP, and the in-app updater can complete the install. Existing 1.2.9 macOS users need to install 1.2.10 manually once; auto-updates resume from there.
