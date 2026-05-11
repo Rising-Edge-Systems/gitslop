@@ -347,7 +347,8 @@
   transition: opacity var(--transition-fast);
 }
 
-.fileItem:hover .stageBtn {
+.fileItem:hover .stageBtn,
+.treeFileItem:hover .stageBtn {
   opacity: 1;
 }
 
