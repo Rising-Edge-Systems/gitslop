@@ -58,6 +58,8 @@ declare global {
         stashPop: (repoPath: string, index: number) => Promise<GitServiceResult>
         stashDrop: (repoPath: string, index: number) => Promise<GitServiceResult>
         stashShow: (repoPath: string, index: number) => Promise<GitServiceResult>
+        stashFiles: (repoPath: string, index: number) => Promise<GitServiceResult>
+        stashApplyFiles: (repoPath: string, index: number, paths: string[]) => Promise<GitServiceResult>
         getStatus: (repoPath: string) => Promise<GitServiceResult>
         diff: (repoPath: string, filePath?: string, opts?: { staged?: boolean }) => Promise<GitServiceResult>
         diffNumstat: (repoPath: string, opts?: { staged?: boolean }) => Promise<GitServiceResult>

@@ -190,8 +190,17 @@ function tagStashCommits(commits: GitCommit[], stashes: StashEntry[]): GitCommit
     const idx = indexByHash.get(c.hash)
     if (idx === undefined) return c
     const tag = `stash@{${idx}}`
-    if (c.refs && c.refs.includes(tag)) return c
-    const refs = c.refs ? `${c.refs}, ${tag}` : tag
+    // Strip any existing stash refs (git emits `refs/stash` for stash@{0} via
+    // %D — keeping it alongside our indexed tag would render a duplicate
+    // label) and replace with the indexed form.
+    const others = c.refs
+      ? c.refs
+          .split(',')
+          .map((r) => r.trim())
+          .filter(Boolean)
+          .filter((r) => r !== 'refs/stash' && r !== 'stash' && !r.startsWith('stash@'))
+      : []
+    const refs = [...others, tag].join(', ')
     return { ...c, refs }
   })
 }
@@ -1107,7 +1116,7 @@ function CommitRowComponent(props: {
 
 /** Extract the stash index from a commit's refs (e.g. `stash@{2}` → 2). Returns
  *  null when the commit isn't a stash. */
-function stashIndexFromRefs(refs: ParsedRef[]): number | null {
+export function stashIndexFromRefs(refs: ParsedRef[]): number | null {
   for (const r of refs) {
     if (r.type !== 'stash') continue
     const m = r.name.match(/stash@\{(\d+)\}/)
@@ -2304,9 +2313,11 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
         const parts = ref.name.split('/')
         const remoteName = parts[0]
         const branchName = parts.slice(1).join('/')
-        try {
-          await window.electronAPI.git.checkout(repoPath, branchName)
-        } catch {
+        // git:checkout resolves with {success:false} rather than throwing, so
+        // we must inspect the result to know whether to fall back to creating
+        // a tracking branch from the remote.
+        const result = await window.electronAPI.git.checkout(repoPath, branchName)
+        if (!result.success) {
           await window.electronAPI.git.checkoutRemoteBranch(repoPath, remoteName, branchName)
         }
       } else {

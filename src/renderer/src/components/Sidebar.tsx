@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react'
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   ChevronRight,
   GitBranch,
@@ -16,6 +16,9 @@ import {
   X,
   AlertTriangle,
   RefreshCw,
+  Folder,
+  File,
+  CornerDownRight,
   Check,
   Circle,
   CircleDot,
@@ -1247,11 +1250,55 @@ interface StashDialogState {
   error: string | null
 }
 
+type StashFileNode =
+  | { kind: 'file'; path: string; name: string }
+  | { kind: 'folder'; folder: string; children: StashFileNode[] }
+
+function renderStashTree(
+  nodes: StashFileNode[],
+  depth: number,
+  onContext: (e: React.MouseEvent, node: StashFileNode) => void
+): React.ReactNode {
+  // Native `title` tooltips would overlap (and visually hide) our React
+  // context menu — keep paths inline-visible via the row instead.
+  return nodes.map((node) => {
+    if (node.kind === 'folder') {
+      return (
+        <React.Fragment key={`folder:${node.folder}`}>
+          <div
+            className={styles.stashFileRow}
+            style={{ paddingLeft: 8 + depth * 14 }}
+            onContextMenu={(e) => onContext(e, node)}
+          >
+            <Folder size={12} style={{ marginRight: 6, flexShrink: 0 }} />
+            <span className={styles.stashFilePath}>
+              {node.folder.split('/').pop() || node.folder}/
+            </span>
+          </div>
+          {renderStashTree(node.children, depth + 1, onContext)}
+        </React.Fragment>
+      )
+    }
+    return (
+      <div
+        key={`file:${node.path}`}
+        className={styles.stashFileRow}
+        style={{ paddingLeft: 8 + depth * 14 }}
+        onContextMenu={(e) => onContext(e, node)}
+      >
+        <File size={12} style={{ marginRight: 6, flexShrink: 0 }} />
+        <span className={styles.stashFilePath}>{node.name}</span>
+      </div>
+    )
+  })
+}
+
 function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element {
   const [stashes, setStashes] = useState<GitStash[]>([])
   const [contextMenu, setContextMenu] = useState<StashContextMenuState | null>(null)
   const [selectedStash, setSelectedStash] = useState<GitStash | null>(null)
   const [stashDiff, setStashDiff] = useState<string | null>(null)
+  const [stashFiles, setStashFiles] = useState<string[]>([])
   const [stashDialog, setStashDialog] = useState<StashDialogState>({
     open: false,
     message: '',
@@ -1297,12 +1344,19 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
       if (!currentRepo) return
       setSelectedStash(stash)
       setStashDiff(null)
+      setStashFiles([])
       try {
-        const result = await window.electronAPI.git.stashShow(currentRepo, stash.index)
-        if (result.success && result.data) {
-          setStashDiff(result.data)
+        const [diffResult, filesResult] = await Promise.all([
+          window.electronAPI.git.stashShow(currentRepo, stash.index),
+          window.electronAPI.git.stashFiles(currentRepo, stash.index)
+        ])
+        if (diffResult.success && diffResult.data) {
+          setStashDiff(diffResult.data)
         } else {
           setStashDiff('Failed to load stash diff')
+        }
+        if (filesResult.success && Array.isArray(filesResult.data)) {
+          setStashFiles(filesResult.data as string[])
         }
       } catch {
         setStashDiff('Failed to load stash diff')
@@ -1360,6 +1414,81 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
     },
     [currentRepo, loadStashes, selectedStash]
   )
+
+  const applyStashPaths = useCallback(
+    async (index: number, paths: string[], label: string) => {
+      if (!currentRepo || paths.length === 0) return
+      const result = await window.electronAPI.git.stashApplyFiles(currentRepo, index, paths)
+      if (!result.success) {
+        alert(`Failed to apply ${label}: ${result.error}`)
+        return
+      }
+      const data = result.data as { conflicted?: boolean } | undefined
+      if (data?.conflicted) {
+        alert(
+          `${label} applied with conflicts. Conflicted files now have <<<<<<< markers in the working tree — resolve them in the staging area.`
+        )
+      }
+    },
+    [currentRepo]
+  )
+
+  const handleApplyStashFile = useCallback(
+    (index: number, path: string) => applyStashPaths(index, [path], path),
+    [applyStashPaths]
+  )
+
+  // Files come from `git diff --name-only stash@{N}^1 stash@{N}` via IPC
+  // (more reliable than parsing the diff text on Windows).
+  const stashFilePaths = stashFiles
+
+  // Group files by folder for tree-like rendering with folder-level actions.
+  const stashFileTree = useMemo<StashFileNode[]>(() => {
+    type FolderNode = { kind: 'folder'; folder: string; children: StashFileNode[] }
+    const root: FolderNode = { kind: 'folder', folder: '', children: [] }
+    const folderByPath = new Map<string, FolderNode>([['', root]])
+    for (const path of stashFilePaths) {
+      const parts = path.split('/').filter(Boolean)
+      let prefix = ''
+      let parent: FolderNode = root
+      for (let i = 0; i < parts.length - 1; i++) {
+        prefix = prefix ? `${prefix}/${parts[i]}` : parts[i]
+        let folder = folderByPath.get(prefix)
+        if (!folder) {
+          folder = { kind: 'folder', folder: prefix, children: [] }
+          folderByPath.set(prefix, folder)
+          parent.children.push(folder)
+        }
+        parent = folder
+      }
+      parent.children.push({ kind: 'file', path, name: parts[parts.length - 1] || path })
+    }
+    const sort = (nodes: StashFileNode[]): void => {
+      nodes.sort((a, b) => {
+        if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1
+        return (a.kind === 'folder' ? a.folder : a.path).localeCompare(
+          b.kind === 'folder' ? b.folder : b.path
+        )
+      })
+      for (const n of nodes) if (n.kind === 'folder') sort(n.children)
+    }
+    sort(root.children)
+    return root.children
+  }, [stashFilePaths])
+
+  const collectFolderFiles = useCallback(
+    (folder: string): string[] => {
+      const prefix = folder + '/'
+      return stashFilePaths.filter((p) => p === folder || p.startsWith(prefix))
+    },
+    [stashFilePaths]
+  )
+
+  const [stashFileMenu, setStashFileMenu] = useState<
+    | { x: number; y: number; kind: 'file'; path: string }
+    | { x: number; y: number; kind: 'folder'; folder: string }
+    | null
+  >(null)
 
   const openStashDialog = useCallback(() => {
     setStashDialog({
@@ -1467,15 +1596,64 @@ function StashesSection({ currentRepo }: StashesSectionProps): React.JSX.Element
 
       {/* Stash Diff Viewer */}
       {selectedStash && stashDiff !== null && (
-        <div className={styles.stashDiffOverlay} onClick={() => { setSelectedStash(null); setStashDiff(null) }}>
+        <div className={styles.stashDiffOverlay} onClick={() => { setSelectedStash(null); setStashDiff(null); setStashFiles([]); setStashFileMenu(null) }}>
           <div className={styles.stashDiffPanel} onClick={(e) => e.stopPropagation()}>
             <div className={styles.stashDiffHeader}>
               <span>stash@&#123;{selectedStash.index}&#125;: {selectedStash.message}</span>
-              <button className={styles.stashDiffClose} onClick={() => { setSelectedStash(null); setStashDiff(null) }}><X size={14} /></button>
+              <button className={styles.stashDiffClose} onClick={() => { setSelectedStash(null); setStashDiff(null); setStashFiles([]); setStashFileMenu(null) }}><X size={14} /></button>
             </div>
+            {stashFilePaths.length > 0 && (
+              <div className={styles.stashFileList}>
+                <div className={styles.stashFileHint}>
+                  Right-click a file or folder to apply just that subset (3-way merge).
+                </div>
+                {renderStashTree(stashFileTree, 0, (e, node) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  if (node.kind === 'file') {
+                    setStashFileMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: node.path })
+                  } else {
+                    setStashFileMenu({ x: e.clientX, y: e.clientY, kind: 'folder', folder: node.folder })
+                  }
+                })}
+              </div>
+            )}
             <pre className={styles.stashDiffContent}>{stashDiff}</pre>
           </div>
         </div>
+      )}
+
+      {/* Stash File/Folder Context Menu */}
+      {stashFileMenu && selectedStash && (
+        <ContextMenu
+          x={stashFileMenu.x}
+          y={stashFileMenu.y}
+          items={
+            stashFileMenu.kind === 'file'
+              ? [
+                  {
+                    key: 'applyFile',
+                    label: `Apply "${stashFileMenu.path.split('/').pop()}"`,
+                    icon: <CornerDownRight size={14} />,
+                    onClick: () => handleApplyStashFile(selectedStash.index, stashFileMenu.path)
+                  }
+                ]
+              : [
+                  {
+                    key: 'applyFolder',
+                    label: `Apply all in ${stashFileMenu.folder || '/'} (${collectFolderFiles(stashFileMenu.folder).length})`,
+                    icon: <CornerDownRight size={14} />,
+                    onClick: () =>
+                      applyStashPaths(
+                        selectedStash.index,
+                        collectFolderFiles(stashFileMenu.folder),
+                        stashFileMenu.folder + '/'
+                      )
+                  }
+                ]
+          }
+          onClose={() => setStashFileMenu(null)}
+        />
       )}
 
       {/* Stash Context Menu */}

@@ -25,6 +25,9 @@ import {
 } from 'lucide-react'
 import styles from './DetailPanel.module.css'
 import type { CommitDetail, CommitFileDetail } from './CommitGraph'
+import { stashIndexFromRefs } from './CommitGraph'
+import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
+import { CornerDownRight } from 'lucide-react'
 import type { FileListView } from '../hooks/useLayoutState'
 import { DEFAULT_SETTINGS, type AppSettings } from '../hooks/useSettings'
 
@@ -161,7 +164,9 @@ function FileTreeNodeComponent({
   onFileClick,
   selectedFilePath,
   collapsedDirs,
-  onToggleDir
+  onToggleDir,
+  onFileContextMenu,
+  onFolderContextMenu
 }: {
   node: FileTreeNode
   depth: number
@@ -169,6 +174,8 @@ function FileTreeNodeComponent({
   selectedFilePath?: string | null
   collapsedDirs: Set<string>
   onToggleDir: (fullPath: string) => void
+  onFileContextMenu?: (e: React.MouseEvent, file: CommitFileDetail) => void
+  onFolderContextMenu?: (e: React.MouseEvent, folderPath: string) => void
 }): React.JSX.Element {
   if (node.isDir) {
     const expanded = !collapsedDirs.has(node.fullPath)
@@ -179,7 +186,7 @@ function FileTreeNodeComponent({
           className={`${styles.treeDir} ${hasChanges ? styles.treeDirChanged : ''}`}
           style={{ paddingLeft: depth * 16 + 8 }}
           onClick={() => onToggleDir(node.fullPath)}
-          title={hasChanges ? `${node.name} (contains changes)` : node.name}
+          onContextMenu={onFolderContextMenu ? (e) => onFolderContextMenu(e, node.fullPath) : undefined}
         >
           {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           {expanded ? <FolderOpen size={12} className={styles.treeDirIcon} /> : <Folder size={12} className={styles.treeDirIcon} />}
@@ -197,6 +204,8 @@ function FileTreeNodeComponent({
                 selectedFilePath={selectedFilePath}
                 collapsedDirs={collapsedDirs}
                 onToggleDir={onToggleDir}
+                onFileContextMenu={onFileContextMenu}
+                onFolderContextMenu={onFolderContextMenu}
               />
             ))}
           </ul>
@@ -215,7 +224,7 @@ function FileTreeNodeComponent({
         className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''} ${isUnchanged ? styles.fileItemUnchanged : ''}`}
         style={{ paddingLeft: depth * 16 + 8 }}
         onClick={() => onFileClick(file)}
-        title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
+        onContextMenu={onFileContextMenu ? (e) => onFileContextMenu(e, file) : undefined}
       >
         <FileStatusIcon status={file.status} />
         <span className={styles.fileName}>{node.name}</span>
@@ -570,6 +579,57 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
   useEffect(() => {
     setCollapsedDirs(new Set())
   }, [commit?.hash])
+
+  // Stash detection — when the selected commit is a stash, file/folder rows
+  // expose a right-click "Apply" context menu wired to the 3-way merge IPC.
+  const stashIndex = useMemo(
+    () => (detail ? stashIndexFromRefs(detail.refs) : null),
+    [detail]
+  )
+  const [stashCtxMenu, setStashCtxMenu] = useState<
+    | { x: number; y: number; kind: 'file'; path: string }
+    | { x: number; y: number; kind: 'folder'; folder: string }
+    | null
+  >(null)
+  const applyStashSubset = useCallback(
+    async (paths: string[], label: string) => {
+      if (!repoPath || stashIndex === null || paths.length === 0) return
+      const result = await window.electronAPI.git.stashApplyFiles(repoPath, stashIndex, paths)
+      if (!result.success) {
+        alert(`Failed to apply ${label}: ${result.error}`)
+        return
+      }
+      const data = result.data as { conflicted?: boolean } | undefined
+      if (data?.conflicted) {
+        alert(
+          `${label} applied with conflicts. Conflicted files now have <<<<<<< markers in the working tree — resolve them in the staging area.`
+        )
+      }
+    },
+    [repoPath, stashIndex]
+  )
+  const handleFileContext = useMemo(
+    () =>
+      stashIndex !== null
+        ? (e: React.MouseEvent, file: CommitFileDetail): void => {
+            e.preventDefault()
+            e.stopPropagation()
+            setStashCtxMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: file.path })
+          }
+        : undefined,
+    [stashIndex]
+  )
+  const handleFolderContext = useMemo(
+    () =>
+      stashIndex !== null
+        ? (e: React.MouseEvent, folderPath: string): void => {
+            e.preventDefault()
+            e.stopPropagation()
+            setStashCtxMenu({ x: e.clientX, y: e.clientY, kind: 'folder', folder: folderPath })
+          }
+        : undefined,
+    [stashIndex]
+  )
 
   const toggleDir = useCallback((fullPath: string) => {
     setCollapsedDirs((prev) => {
@@ -1003,7 +1063,9 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
                         <button
                           className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''} ${isUnchanged ? styles.fileItemUnchanged : ''}`}
                           onClick={() => handleFileClick(file)}
-                          title={file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
+                          onContextMenu={
+                            handleFileContext ? (e) => handleFileContext(e, file) : undefined
+                          }
                         >
                           <FileStatusIcon status={file.status} />
                           <span className={styles.fileName}>
@@ -1034,6 +1096,8 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
                       selectedFilePath={selectedFilePath}
                       collapsedDirs={collapsedDirs}
                       onToggleDir={toggleDir}
+                      onFileContextMenu={handleFileContext}
+                      onFolderContextMenu={handleFolderContext}
                     />
                   ))}
                 </ul>
@@ -1043,6 +1107,45 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
           </div>
         </div>
       </div>}
+      {stashCtxMenu && stashIndex !== null && (() => {
+        const items: ContextMenuEntry[] =
+          stashCtxMenu.kind === 'file'
+            ? [
+                {
+                  key: 'applyFile',
+                  label: `Apply "${stashCtxMenu.path.split('/').pop()}"`,
+                  icon: <CornerDownRight size={14} />,
+                  onClick: () =>
+                    applyStashSubset([stashCtxMenu.path], stashCtxMenu.path)
+                }
+              ]
+            : (() => {
+                const prefix = stashCtxMenu.folder + '/'
+                const paths = (effectiveFileDetails as CommitFileDetail[])
+                  .filter((f) => f.status !== 'unchanged')
+                  .map((f) => f.path)
+                  .filter(
+                    (p) => p === stashCtxMenu.folder || p.startsWith(prefix)
+                  )
+                return [
+                  {
+                    key: 'applyFolder',
+                    label: `Apply all in ${stashCtxMenu.folder || '/'} (${paths.length})`,
+                    icon: <CornerDownRight size={14} />,
+                    onClick: () =>
+                      applyStashSubset(paths, stashCtxMenu.folder + '/')
+                  }
+                ]
+              })()
+        return (
+          <ContextMenu
+            x={stashCtxMenu.x}
+            y={stashCtxMenu.y}
+            items={items}
+            onClose={() => setStashCtxMenu(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

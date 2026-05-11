@@ -347,6 +347,36 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Stash Files (list) ─────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:stashFiles',
+    async (_event, repoPath: string, index: number) => {
+      try {
+        const paths = await gitService.stashFiles(repoPath, index)
+        return { success: true, data: paths }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  // ─── Stash Apply Files (partial) ────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:stashApplyFiles',
+    async (_event, repoPath: string, index: number, paths: string[]) => {
+      try {
+        const result = await withWatcherSuppression(() =>
+          gitService.stashApplyFiles(repoPath, index, paths)
+        )
+        return { success: true, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Status ──────────────────────────────────────────────────────────────
 
   ipcMain.handle('git:getStatus', async (_event, repoPath: string) => {

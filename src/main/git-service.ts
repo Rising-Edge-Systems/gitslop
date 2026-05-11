@@ -107,6 +107,10 @@ export interface GitFileStatus {
   staged: boolean
   indexStatus: string
   workTreeStatus: string
+  /** Nested git repo (own .git/) that isn't a registered submodule. Git
+   * surfaces these with a trailing-slash path; we set this flag so the UI
+   * can render them distinctly and skip the file-diff code path. */
+  isEmbeddedRepo?: boolean
 }
 
 export interface GitRepoStatus {
@@ -1142,6 +1146,112 @@ export class GitService {
       { signal: options?.signal }
     )
     return result.stdout
+  }
+
+  /**
+   * List file paths changed in a stash, via `git diff --name-only` against
+   * the stash's first parent.
+   */
+  async stashFiles(
+    repoPath: string,
+    index: number,
+    options?: { signal?: AbortSignal }
+  ): Promise<string[]> {
+    const result = await this.exec(
+      ['diff', '--name-only', `stash@{${index}}^1`, `stash@{${index}}`],
+      repoPath,
+      { signal: options?.signal }
+    )
+    return result.stdout
+      .split('\n')
+      .map((l) => l.replace(/\r$/, '').trim())
+      .filter(Boolean)
+  }
+
+  /**
+   * Apply a subset of files from a stash to the working tree using a 3-way
+   * merge. We export the stash's diff for just these files and pipe it to
+   * `git apply --3way`, which preserves the user's existing working-tree
+   * changes and leaves standard conflict markers in any file where the
+   * stashed change and the local change overlap. Conflicted files appear
+   * in `git status` as unmerged so the existing conflict resolver UI can
+   * handle them.
+   *
+   * Returns `{ conflicted: true }` if any file ended with conflict markers.
+   */
+  async stashApplyFiles(
+    repoPath: string,
+    index: number,
+    paths: string[],
+    options?: { signal?: AbortSignal }
+  ): Promise<{ conflicted: boolean }> {
+    if (paths.length === 0) return { conflicted: false }
+
+    // 1. Generate the diff for just these paths.
+    const diffResult = await this.exec(
+      ['diff', '--binary', `stash@{${index}}^1`, `stash@{${index}}`, '--', ...paths],
+      repoPath,
+      { signal: options?.signal }
+    )
+    const patch = diffResult.stdout
+    if (!patch.trim()) return { conflicted: false }
+
+    // 2. Pipe it to `git apply --3way`. Non-zero exit with conflicts in the
+    //    output means git wrote conflict markers — surface that as a
+    //    soft-failure ({conflicted: true}) rather than throwing.
+    return new Promise<{ conflicted: boolean }>((resolve, reject) => {
+      const signal = options?.signal
+      if (signal?.aborted) {
+        reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+        return
+      }
+
+      const child = spawn('git', ['apply', '--3way', '--whitespace=nowarn', '-'], {
+        cwd: repoPath,
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+
+      let stderr = ''
+      child.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString()
+      })
+
+      child.on('close', (code) => {
+        if (signal?.aborted) {
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+          return
+        }
+        if (code === 0) {
+          resolve({ conflicted: false })
+        } else if (/conflict|fallback|U /i.test(stderr)) {
+          // 3-way fallback produced conflict markers — not a fatal error.
+          resolve({ conflicted: true })
+        } else {
+          reject(this.createError(
+            stderr || 'Failed to apply stash files',
+            GitErrorCode.CommandFailed,
+            stderr
+          ))
+        }
+      })
+
+      child.on('error', (err) => {
+        reject(this.classifyError(
+          err as Error & { code?: string | number | null },
+          stderr
+        ))
+      })
+
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          child.kill('SIGTERM')
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+        }, { once: true })
+      }
+
+      child.stdin?.write(patch)
+      child.stdin?.end()
+    })
   }
 
   /**
@@ -2413,14 +2523,19 @@ export class GitService {
         // Changed entries (1 = ordinary, 2 = rename/copy)
         this.parseChangedEntry(line, status)
       } else if (line.startsWith('? ')) {
-        // Untracked
-        const path = line.substring(2)
+        // Untracked. Git appends `/` to the path for embedded git repos
+        // (nested .git dirs not registered as submodules) — strip the slash
+        // and flag the entry so the UI can render it as a repo, not a file.
+        const raw = line.substring(2)
+        const isEmbeddedRepo = raw.endsWith('/')
+        const path = isEmbeddedRepo ? raw.slice(0, -1) : raw
         status.untracked.push({
           path,
           status: 'untracked',
           staged: false,
           indexStatus: '?',
-          workTreeStatus: '?'
+          workTreeStatus: '?',
+          isEmbeddedRepo: isEmbeddedRepo || undefined
         })
       }
     }
@@ -2452,6 +2567,12 @@ export class GitService {
       path = parts[parts.length - 1]
     }
 
+    // Embedded git repos (gitlinks) sometimes surface with a trailing slash
+    // in the path field. Strip it and flag so the UI can render distinctly.
+    const isEmbeddedRepo = path.endsWith('/')
+    if (isEmbeddedRepo) path = path.slice(0, -1)
+    if (oldPath?.endsWith('/')) oldPath = oldPath.slice(0, -1)
+
     const statusMap: Record<string, GitFileStatus['status']> = {
       'A': 'added',
       'M': 'modified',
@@ -2468,7 +2589,8 @@ export class GitService {
         status: statusMap[indexStatus] || 'modified',
         staged: true,
         indexStatus,
-        workTreeStatus
+        workTreeStatus,
+        isEmbeddedRepo: isEmbeddedRepo || undefined
       })
     }
 
@@ -2480,7 +2602,8 @@ export class GitService {
         status: statusMap[workTreeStatus] || 'modified',
         staged: false,
         indexStatus,
-        workTreeStatus
+        workTreeStatus,
+        isEmbeddedRepo: isEmbeddedRepo || undefined
       })
     }
   }

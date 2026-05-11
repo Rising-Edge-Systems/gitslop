@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2, Folder, FolderOpen, Copy, Loader, Ban } from 'lucide-react'
+import { FilePlus, FileEdit, FileMinus, ArrowRightLeft, X, Pencil, Clock, Plus, Minus, RefreshCw, Check, AlertTriangle, ChevronRight, ChevronDown, Trash2, Folder, FolderOpen, FolderGit2, Copy, Loader, Ban } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { openFileInEditor } from './CodeEditor'
@@ -20,6 +20,8 @@ interface FileStatus {
   staged: boolean
   indexStatus: string
   workTreeStatus: string
+  /** Nested git repo (own .git/) not registered as a submodule. */
+  isEmbeddedRepo?: boolean
 }
 
 interface RepoStatus {
@@ -101,7 +103,17 @@ const STATUS_ICONS: Record<string, React.ReactNode> = {
 }
 
 /** Lucide icon status indicator for a changed file */
-function FileStatusBadge({ status }: { status: string }): React.JSX.Element {
+function FileStatusBadge({ status, isEmbeddedRepo }: { status: string; isEmbeddedRepo?: boolean }): React.JSX.Element {
+  if (isEmbeddedRepo) {
+    return (
+      <span
+        className={`${styles.fileIcon} ${styles.fileIconEmbeddedRepo}`}
+        title="Embedded git repository (nested .git not registered as a submodule)"
+      >
+        <FolderGit2 size={12} />
+      </span>
+    )
+  }
   const icon = STATUS_ICONS[status] || '?'
   const cls = iconClassMap[status] || ''
   return (
@@ -170,7 +182,8 @@ function buildStatusFileTree(files: FileStatus[]): StatusTreeNode[] {
   const root: StatusTreeNode = { name: '', fullPath: '', isDir: true, children: [] }
 
   for (const file of files) {
-    const parts = file.path.split('/')
+    const parts = file.path.split('/').filter(Boolean)
+    if (parts.length === 0) continue
     let current = root
 
     for (let i = 0; i < parts.length; i++) {
@@ -245,6 +258,15 @@ function collectTreeFilePaths(node: StatusTreeNode): string[] {
     paths.push(...collectTreeFilePaths(child))
   }
   return paths
+}
+
+function collectTreeFiles(node: StatusTreeNode): FileStatus[] {
+  if (!node.isDir && node.file) return [node.file]
+  const files: FileStatus[] = []
+  for (const child of node.children) {
+    files.push(...collectTreeFiles(child))
+  }
+  return files
 }
 
 const SUBJECT_WARN_LENGTH = 72
@@ -376,11 +398,16 @@ function StatusTreeNodeComponent({
         <button
           className={styles.treeFileInfo}
           onClick={(e) => onFileClick(file, isUntracked, fileSection, e)}
-          title={`${file.path} (${STATUS_LABELS[file.status] || file.status})`}
+          title={
+            file.isEmbeddedRepo
+              ? `${file.path} (embedded git repository)`
+              : `${file.path} (${STATUS_LABELS[file.status] || file.status})`
+          }
         >
-          <FileStatusBadge status={file.status} />
+          <FileStatusBadge status={file.status} isEmbeddedRepo={file.isEmbeddedRepo} />
           <span className={styles.fileName}>{node.name}</span>
-          {stats && <FileStatsBadge insertions={stats.insertions} deletions={stats.deletions} />}
+          {file.isEmbeddedRepo && <span className={styles.embeddedRepoLabel}>embedded repo</span>}
+          {stats && !file.isEmbeddedRepo && <FileStatsBadge insertions={stats.insertions} deletions={stats.deletions} />}
         </button>
         <div className={styles.treeFileActions}>
           {section === 'unstaged' && stageFiles && (
@@ -439,6 +466,29 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
   const [diffContent, setDiffContent] = useState<string | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
   const [operationInProgress, setOperationInProgress] = useState(false)
+  // Native window.confirm() in Electron on Windows can leave the renderer's
+  // keyboard event delivery broken for the focused input until the user
+  // clicks a fresh DOM element, so we use an in-app React dialog instead.
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string
+    message: string
+    danger?: boolean
+    resolve: (ok: boolean) => void
+  } | null>(null)
+  const showConfirm = useCallback(
+    (title: string, message: string, opts?: { danger?: boolean }): Promise<boolean> => {
+      return new Promise((resolve) => {
+        setConfirmDialog({ title, message, danger: opts?.danger, resolve })
+      })
+    },
+    []
+  )
+  const closeConfirm = useCallback((ok: boolean) => {
+    setConfirmDialog((prev) => {
+      if (prev) prev.resolve(ok)
+      return null
+    })
+  }, [])
   const [dragSource, setDragSource] = useState<'staged' | 'unstaged' | 'untracked' | null>(null)
   const [fileContextMenu, setFileContextMenu] = useState<{
     x: number
@@ -812,8 +862,10 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
     async (file: FileStatus) => {
       if (operationInProgress) return
       const isUntracked = file.status === 'untracked'
-      const confirmed = window.confirm(
-        `Discard changes to "${file.path}"?\n\nThis action is irreversible${isUntracked ? ' — the file will be deleted' : ''}.`
+      const confirmed = await showConfirm(
+        isUntracked ? 'Delete File' : 'Discard Changes',
+        `Discard changes to "${file.path}"?\n\nThis action is irreversible${isUntracked ? ' — the file will be deleted' : ''}.`,
+        { danger: true }
       )
       if (!confirmed) return
       setOperationInProgress(true)
@@ -831,7 +883,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
         setOperationInProgress(false)
       }
     },
-    [repoPath, loadStatus, onRefresh, operationInProgress]
+    [repoPath, loadStatus, onRefresh, operationInProgress, showConfirm]
   )
 
   // Discard a selection of files (multi-select). Splits paths into tracked
@@ -850,7 +902,8 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
           : trackedPaths.length === 0
             ? `Delete ${total} untracked file(s)?\n\nThis action is irreversible.`
             : `Discard changes to ${total} file(s)?\n\nThis action is irreversible — modifications will be lost and ${untrackedPaths.length} untracked file(s) will be deleted.`
-      const confirmed = window.confirm(summary)
+      const title = trackedPaths.length === 0 ? 'Delete Files' : 'Discard Changes'
+      const confirmed = await showConfirm(title, summary, { danger: true })
       if (!confirmed) return
 
       setOperationInProgress(true)
@@ -867,7 +920,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
         setOperationInProgress(false)
       }
     },
-    [repoPath, loadStatus, onRefresh, operationInProgress]
+    [repoPath, loadStatus, onRefresh, operationInProgress, showConfirm]
   )
 
   // ─── Discard All Changes ──────────────────────────────────────────────────
@@ -875,8 +928,10 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
     if (operationInProgress || !status) return
     const totalFiles = status.unstaged.length + status.untracked.length
     if (totalFiles === 0) return
-    const confirmed = window.confirm(
-      `Discard ALL changes to ${totalFiles} file(s)?\n\nThis action is irreversible — all unstaged modifications will be lost and untracked files will be deleted.`
+    const confirmed = await showConfirm(
+      'Discard All Changes',
+      `Discard ALL changes to ${totalFiles} file(s)?\n\nThis action is irreversible — all unstaged modifications will be lost and untracked files will be deleted.`,
+      { danger: true }
     )
     if (!confirmed) return
     setOperationInProgress(true)
@@ -894,7 +949,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
     } finally {
       setOperationInProgress(false)
     }
-  }, [operationInProgress, status, repoPath, loadStatus, onRefresh])
+  }, [operationInProgress, status, repoPath, loadStatus, onRefresh, showConfirm])
 
   // ─── File Context Menu ──────────────────────────────────────────────────────
   const handleFileContextMenu = useCallback(
@@ -1064,6 +1119,12 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
           icon: <Plus size={14} />,
           onClick: () => stageFiles(paths)
         })
+        items.push({
+          key: 'discardAll',
+          label: `Discard All Changes (${paths.length})`,
+          icon: <Trash2 size={14} />,
+          onClick: () => discardFiles(collectTreeFiles(node))
+        })
       } else {
         items.push({
           key: 'unstageAll',
@@ -1091,7 +1152,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
 
       return items
     },
-    [stageFiles, unstageFiles, ignorePaths]
+    [stageFiles, unstageFiles, ignorePaths, discardFiles]
   )
 
   // Handle stage/unstage from keyboard shortcut based on selected files
@@ -1177,6 +1238,14 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
       setSelectedFiles(new Set())
       const fileInfo = { path: file.path, staged: file.staged, isUntracked }
       setSelectedFile(fileInfo)
+
+      // Embedded git repos are directories with their own `.git/` — there's
+      // no normal file diff to show. Select for context-menu actions only.
+      if (file.isEmbeddedRepo) {
+        if (onFileSelect) onFileSelect(null)
+        setDiffContent(null)
+        return
+      }
 
       // If a parent handler is supplied, delegate diff display to the main
       // center viewer rather than the embedded panel.
@@ -1422,12 +1491,6 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
 
   return (
     <div className={styles.panel} ref={panelRef} tabIndex={-1}>
-      {operationInProgress && (
-        <div className={styles.stagingOverlay}>
-          <Loader size={16} className={styles.stagingSpinner} />
-          <span>Staging...</span>
-        </div>
-      )}
       {/* Panel header (non-collapsible — sections collapse individually) */}
       <div className={styles.panelHeader}>
         <span className={styles.panelHeaderLeft}>
@@ -1448,6 +1511,7 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
 
         <div ref={internalSplitContainerRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <div style={{
+            position: 'relative',
             height: `calc(${stagingInternalSplit}% - 2px)`,
             minHeight: 80,
             overflow: 'hidden',
@@ -1455,6 +1519,12 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
             flexDirection: 'column',
             transition: isDraggingInternalSplit ? 'none' : undefined
           }}>
+          {operationInProgress && (
+            <div className={styles.stagingOverlay}>
+              <Loader size={16} className={styles.stagingSpinner} />
+              <span>Staging...</span>
+            </div>
+          )}
           {isClean ? (
             <div className={styles.panelClean}>
               <span className={styles.panelCleanIcon}><Check size={16} /></span>
@@ -1564,12 +1634,17 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
                           <button
                             className={styles.fileInfo}
                             onClick={(e) => handleFileClick(file, isUntracked, section, e)}
-                            title={`${file.path} (${STATUS_LABELS[file.status] || file.status})`}
+                            title={
+                              file.isEmbeddedRepo
+                                ? `${file.path} (embedded git repository)`
+                                : `${file.path} (${STATUS_LABELS[file.status] || file.status})`
+                            }
                           >
-                            <FileStatusBadge status={file.status} />
+                            <FileStatusBadge status={file.status} isEmbeddedRepo={file.isEmbeddedRepo} />
                             <span className={styles.fileName}>
                               {fileDir(file.path) && <span className={styles.fileDir}>{fileDir(file.path)}/</span>}
                               {fileName(file.path)}
+                              {file.isEmbeddedRepo && <span className={styles.embeddedRepoLabel}>embedded repo</span>}
                             </span>
                             {unstagedNumstat[file.path] && (
                               <FileStatsBadge insertions={unstagedNumstat[file.path].insertions} deletions={unstagedNumstat[file.path].deletions} />
@@ -1711,14 +1786,19 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
                           <button
                             className={styles.fileInfo}
                             onClick={(e) => handleFileClick(file, false, 'staged', e)}
-                            title={`${file.path} (${STATUS_LABELS[file.status] || file.status})`}
+                            title={
+                              file.isEmbeddedRepo
+                                ? `${file.path} (embedded git repository)`
+                                : `${file.path} (${STATUS_LABELS[file.status] || file.status})`
+                            }
                           >
-                            <FileStatusBadge status={file.status} />
+                            <FileStatusBadge status={file.status} isEmbeddedRepo={file.isEmbeddedRepo} />
                             <span className={styles.fileName}>
                               {fileDir(file.path) && <span className={styles.fileDir}>{fileDir(file.path)}/</span>}
                               {fileName(file.path)}
+                              {file.isEmbeddedRepo && <span className={styles.embeddedRepoLabel}>embedded repo</span>}
                             </span>
-                            {stagedNumstat[file.path] && (
+                            {!file.isEmbeddedRepo && stagedNumstat[file.path] && (
                               <FileStatsBadge insertions={stagedNumstat[file.path].insertions} deletions={stagedNumstat[file.path].deletions} />
                             )}
                           </button>
@@ -1911,6 +1991,31 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
           items={buildDirContextMenuItems(dirContextMenu.node, dirContextMenu.section)}
           onClose={() => setDirContextMenu(null)}
         />
+      )}
+      {confirmDialog && (
+        <div className="branch-dialog-overlay" onClick={() => closeConfirm(false)}>
+          <div className="branch-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="branch-dialog-title">{confirmDialog.title}</div>
+            <div style={{ whiteSpace: 'pre-line', fontSize: 13, color: 'var(--text-secondary)' }}>
+              {confirmDialog.message}
+            </div>
+            <div className="branch-dialog-actions">
+              <button
+                className="branch-dialog-btn branch-dialog-btn-secondary"
+                onClick={() => closeConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className={`branch-dialog-btn ${confirmDialog.danger ? 'branch-dialog-btn-danger' : 'branch-dialog-btn-primary'}`}
+                onClick={() => closeConfirm(true)}
+                autoFocus
+              >
+                {confirmDialog.danger ? 'Discard' : 'OK'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

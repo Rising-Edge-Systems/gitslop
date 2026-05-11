@@ -390,6 +390,32 @@ body.sidebar-dragging * {
   background: var(--btn-danger-hover) !important;
 }
 
+/* Flat-structure dialogs (Stash, Force Push, Pull, Set Upstream, New Tag, etc.)
+   that use .branch-dialog-actions instead of nested header/body/footer wrappers.
+   Without this, content is flush against the dialog edges with no spacing. */
+.branch-dialog:has(> .branch-dialog-actions) {
+  padding: 20px;
+  gap: 12px;
+}
+
+.branch-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* When a <label class="branch-dialog-label"> wraps the input itself
+   (flat-structure dialogs), stack them so the label text sits above the
+   input instead of overlapping the input's focus border. */
+.branch-dialog-label:has(> input),
+.branch-dialog-label:has(> select),
+.branch-dialog-label:has(> textarea) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* Main Content */
 .main-content {
   height: 100%;

@@ -105,6 +105,10 @@ const electronAPI = {
       ipcRenderer.invoke('git:stashDrop', repoPath, index),
     stashShow: (repoPath: string, index: number): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:stashShow', repoPath, index),
+    stashFiles: (repoPath: string, index: number): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stashFiles', repoPath, index),
+    stashApplyFiles: (repoPath: string, index: number, paths: string[]): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stashApplyFiles', repoPath, index, paths),
     getStatus: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getStatus', repoPath),
     diff: (
