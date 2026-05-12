@@ -34,15 +34,17 @@ export function TabBar({ tabs, activeIndex, onSwitchTab, onCloseTab, onReorderTa
             showClose={!isSingleTab}
           />
         ))}
+        {/* Browser-style: '+' button sits immediately after the rightmost
+            tab rather than being pushed to the far right of the bar. */}
+        <button
+          className={styles.addTabButton}
+          onClick={onAddTab}
+          aria-label="Open another repository"
+          title="Open another repository"
+        >
+          <Plus size={16} />
+        </button>
       </div>
-      <button
-        className={styles.addTabButton}
-        onClick={onAddTab}
-        aria-label="Open another repository"
-        title="Open another repository"
-      >
-        <Plus size={16} />
-      </button>
     </div>
   )
 }
