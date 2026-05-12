@@ -323,6 +323,21 @@ function parseDiff(diffText: string): ParsedDiff {
     }
   }
 
+  // `diff.split('\n')` adds a spurious empty entry when the diff text ends
+  // with '\n', which is the common case. Without trimming, the last hunk
+  // gets a phantom empty context line that throws off buildLinesPatch's
+  // recomputed pre/post counts (buildHunkPatch dodges this because it
+  // reuses the original header verbatim).
+  for (const h of hunks) {
+    while (
+      h.lines.length > 0 &&
+      h.lines[h.lines.length - 1].type === 'context' &&
+      h.lines[h.lines.length - 1].rawContent === ''
+    ) {
+      h.lines.pop()
+    }
+  }
+
   return {
     fileHeader: { lines: fileHeaderLines, oldFile, newFile, isBinary },
     hunks
@@ -353,7 +368,12 @@ function buildHunkPatch(fileHeader: FileHeader, hunk: DiffHunk): string {
 function buildLinesPatch(
   fileHeader: FileHeader,
   hunk: DiffHunk,
-  selectedLineIndices: Set<number>
+  selectedLineIndices: Set<number>,
+  // Pass `true` when the patch will be applied with --reverse (i.e. unstage
+  // or discard). In that mode the patch's POST side must match the live
+  // index / working tree, which has the unselected -/+ changes already
+  // applied — so we drop those lines instead of converting them to context.
+  forApplyReverse = false
 ): string {
   const newHunkLines: string[] = []
   let oldCount = 0
@@ -387,19 +407,30 @@ function buildLinesPatch(
         newHunkLines.push(line.rawContent)
         newCount++
         hasChange = true
+      } else if (forApplyReverse) {
+        // Reverse apply: unselected added lines are present in the live
+        // index/worktree, so they must appear as context in both pre and
+        // post sides for the patch to match.
+        newHunkLines.push(' ' + line.content)
+        oldCount++
+        newCount++
       }
-      // Unselected added lines are dropped (they won't exist in the target)
+      // Forward apply (stage): drop unselected added — they're worktree
+      // only and we're not bringing them into the index.
     } else if (line.type === 'removed') {
       if (isSelected) {
         newHunkLines.push(line.rawContent)
         oldCount++
         hasChange = true
-      } else {
-        // Convert to context — keep the line in both old and new
+      } else if (!forApplyReverse) {
+        // Forward apply (stage): unselected removed lines are still present
+        // in the live state, keep as context.
         newHunkLines.push(' ' + line.content)
         oldCount++
         newCount++
       }
+      // Reverse apply (unstage/discard): the line was already removed
+      // from the live state, so it's not in pre or post. Drop entirely.
     }
   }
 
@@ -825,6 +856,62 @@ interface LineSelectionApi {
   clearAll: () => void
 }
 
+/** Drives a single per-file horizontal scrollbar that's shared by both
+ * panes of a side-by-side diff. The scrollbar strip is the source of truth
+ * for `--diff-scroll-x`, which every line's translateX consumes via CSS
+ * variable inheritance (so no React re-render on scroll). Wheel events on
+ * the diff body are forwarded to the strip's scrollLeft. */
+function useDiffHorizontalScroll(): {
+  containerRef: React.RefObject<HTMLDivElement | null>
+  hScrollRef: React.RefObject<HTMLDivElement | null>
+  onHScroll: () => void
+} {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const hScrollRef = useRef<HTMLDivElement | null>(null)
+
+  const onHScroll = useCallback(() => {
+    const x = hScrollRef.current?.scrollLeft ?? 0
+    containerRef.current?.style.setProperty('--diff-scroll-x', `${x}px`)
+  }, [])
+
+  // Forward wheel deltaX (trackpad horizontal + shift+wheel) from the diff
+  // body into the strip's scrollLeft so the user doesn't have to drag the
+  // scrollbar manually.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent): void => {
+      const strip = hScrollRef.current
+      if (!strip) return
+      const dx = e.deltaX !== 0 ? e.deltaX : (e.shiftKey ? e.deltaY : 0)
+      if (dx === 0) return
+      const before = strip.scrollLeft
+      const max = strip.scrollWidth - strip.clientWidth
+      const next = Math.max(0, Math.min(max, before + dx))
+      if (next === before) return
+      strip.scrollLeft = next
+      e.preventDefault()
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
+  return { containerRef, hScrollRef, onHScroll }
+}
+
+/** Pixel width to size the scrollbar's inner spacer. Two panes side-by-side,
+ * each with line-num/line-select gutters plus the longest line's content. */
+function diffContentPixelWidth(maxChars: number): number {
+  if (maxChars <= 0) return 0
+  const CHAR_PX = 8
+  const LINE_SELECT_GUTTER = 18
+  const LINE_NUM_GUTTER = 56
+  const PANE_PADDING = 32
+  const cellWidth = LINE_SELECT_GUTTER + LINE_NUM_GUTTER + maxChars * CHAR_PX + PANE_PADDING
+  return cellWidth * 2
+}
+
+
 function useLineSelection(resetKey: unknown, getHunk: (hunkIdx: number) => DiffHunk | undefined): LineSelectionApi {
   const [selection, setSelection] = useState<Map<number, Set<number>>>(new Map())
   const lastClickedRef = useRef<{ hunkIdx: number; lineIdx: number } | null>(null)
@@ -929,8 +1016,9 @@ function HunkActions({
   const hasSelection = selectionCount > 0
 
   const runAction = async (kind: 'stage' | 'unstage' | 'discard'): Promise<void> => {
+    const forApplyReverse = kind !== 'stage'
     const patch = hasSelection
-      ? buildLinesPatch(fileHeader, hunk, selectedLines!)
+      ? buildLinesPatch(fileHeader, hunk, selectedLines!, forApplyReverse)
       : buildHunkPatch(fileHeader, hunk)
     if (!patch) return
     if (kind === 'stage') await onStagePatch?.(patch)
@@ -1023,18 +1111,18 @@ function InlineVirtualRow(props: {
     const hunkSelection = getHunkSelection(item.hunkIdx)
     return (
       <div style={style} className={styles.hunk}>
-        <HunkActions
-          hunk={item.hunk}
-          actions={hunkActions}
-          variant="floating"
-          selectedLines={hunkSelection}
-          onClearSelection={() => clearHunkSelection(item.hunkIdx)}
-        />
         <div className={styles.hunkHeader}>
           <span className={styles.hunkHeaderText}>{item.hunk.header}</span>
           {item.hunk.headerSuffix && (
             <span className={styles.hunkHeaderSuffix}>{item.hunk.headerSuffix}</span>
           )}
+          <HunkActions
+            hunk={item.hunk}
+            actions={hunkActions}
+            variant="inline"
+            selectedLines={hunkSelection}
+            onClearSelection={() => clearHunkSelection(item.hunkIdx)}
+          />
         </div>
       </div>
     )
@@ -1352,13 +1440,15 @@ function SbsVirtualRow(props: {
             {pair.left?.oldLineNum ?? pair.left?.newLineNum ?? ''}
           </span>
           <span className={styles.sbsLineContent}>
-            {pair.left ? (
-              wordDiff ? (
-                <WordDiffContent segments={wordDiff.oldSegments} lineType="removed" />
-              ) : (
-                <SyntaxHighlightedContent text={pair.left.content} language={language} />
-              )
-            ) : ''}
+            <span className={styles.sbsLineContentInner}>
+              {pair.left ? (
+                wordDiff ? (
+                  <WordDiffContent segments={wordDiff.oldSegments} lineType="removed" />
+                ) : (
+                  <SyntaxHighlightedContent text={pair.left.content} language={language} />
+                )
+              ) : ''}
+            </span>
           </span>
         </div>
       </div>
@@ -1385,13 +1475,15 @@ function SbsVirtualRow(props: {
             {pair.right?.newLineNum ?? pair.right?.oldLineNum ?? ''}
           </span>
           <span className={styles.sbsLineContent}>
-            {pair.right ? (
-              wordDiff ? (
-                <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
-              ) : (
-                <SyntaxHighlightedContent text={pair.right.content} language={language} />
-              )
-            ) : ''}
+            <span className={styles.sbsLineContentInner}>
+              {pair.right ? (
+                wordDiff ? (
+                  <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
+                ) : (
+                  <SyntaxHighlightedContent text={pair.right.content} language={language} />
+                )
+              ) : ''}
+            </span>
           </span>
         </div>
       </div>
@@ -1432,6 +1524,20 @@ function SideBySideDiffView({
   }, [])
 
   const { pairs, pairMeta, hunkHeaders } = useMemo(() => pairLinesForSideBySide(hunks), [hunks])
+
+  // Widest line across both panes — drives the scrollbar's inner spacer.
+  const maxRowCharWidth = useMemo(() => {
+    let max = 0
+    for (const p of pairs) {
+      if (p.left && p.left.content.length > max) max = p.left.content.length
+      if (p.right && p.right.content.length > max) max = p.right.content.length
+    }
+    return max
+  }, [pairs])
+  const scrollInnerWidth = diffContentPixelWidth(maxRowCharWidth)
+
+  // Per-file horizontal scroll plumbing (CSS var + wheel forwarding).
+  const { containerRef: hScrollContainerRef, hScrollRef, onHScroll } = useDiffHorizontalScroll()
 
   // Shared line-selection hook (same UX as inline view)
   const getHunk = useCallback((hunkIdx: number) => hunks[hunkIdx], [hunks])
@@ -1512,7 +1618,7 @@ function SideBySideDiffView({
 
   return (
     <div className={styles.diffWithMarkers}>
-      <div className={styles.fullDiffVirtualContainer}>
+      <div className={styles.fullDiffVirtualContainer} ref={hScrollContainerRef}>
         {/* Sticky column headers */}
         <div className={styles.fullDiffStickyHeaders}>
           <div className={styles.sbsPaneHeader}>Old</div>
@@ -1531,6 +1637,21 @@ function SideBySideDiffView({
             style={{ height: containerHeight }}
           />
         </div>
+
+        {/* Single per-file horizontal scrollbar at the bottom. Its
+            scrollLeft drives --diff-scroll-x for every line in both panes. */}
+        {scrollInnerWidth > 0 && (
+          <div
+            ref={hScrollRef}
+            className={styles.fullDiffHScrollStrip}
+            onScroll={onHScroll}
+          >
+            <div
+              className={styles.fullDiffHScrollInner}
+              style={{ width: scrollInnerWidth }}
+            />
+          </div>
+        )}
       </div>
       <ScrollbarMarkers markers={unifiedMarkers} containerRef={scrollContainerRef as React.RefObject<HTMLElement | null>} />
     </div>
@@ -1811,7 +1932,9 @@ function FullDiffVirtualRow(props: {
           )}
           <span className={styles.sbsLineNum}>{side?.lineNum ?? ''}</span>
           <span className={styles.sbsLineContent}>
-            {side ? <SyntaxHighlightedContent text={side.content} language={language} /> : ''}
+            <span className={styles.sbsLineContentInner}>
+              {side ? <SyntaxHighlightedContent text={side.content} language={language} /> : ''}
+            </span>
           </span>
         </div>
       </div>
@@ -1839,7 +1962,6 @@ export function FullDiffView({
   onUnstageHunk,
   onDiscardHunk
 }: FullDiffViewProps): React.JSX.Element {
-  const containerRef = useRef<HTMLDivElement>(null)
   const [listRef, setListRef] = useListCallbackRef()
   const listWrapperRef = useRef<HTMLDivElement>(null)
   const [containerHeight, setContainerHeight] = useState(400)
@@ -1902,6 +2024,19 @@ export function FullDiffView({
     () => buildFullDiffRows(oldDisplay, newDisplay, parsed.hunks),
     [oldDisplay, newDisplay, parsed.hunks]
   )
+
+  // Widest line — drives the per-file horizontal scrollbar's inner spacer.
+  const maxRowCharWidth = useMemo(() => {
+    let max = 0
+    for (const r of fullRows) {
+      if (r.left && r.left.content.length > max) max = r.left.content.length
+      if (r.right && r.right.content.length > max) max = r.right.content.length
+    }
+    return max
+  }, [fullRows])
+  const scrollInnerWidth = diffContentPixelWidth(maxRowCharWidth)
+
+  const { containerRef: hScrollContainerRef, hScrollRef, onHScroll } = useDiffHorizontalScroll()
 
   const isNewFile = fileStatus === 'A' || (oldContent === '' && newContent !== '')
   const isDeletedFile = fileStatus === 'D' || (newContent === '' && oldContent !== '')
@@ -2018,7 +2153,7 @@ export function FullDiffView({
         </div>
       )}
       <div className={styles.diffWithMarkers}>
-        <div className={styles.fullDiffVirtualContainer} ref={containerRef}>
+        <div className={styles.fullDiffVirtualContainer} ref={hScrollContainerRef}>
           {/* Column headers — fixed above the virtual list */}
           <div className={styles.fullDiffStickyHeaders}>
             <div className={styles.sbsPaneHeader}>
@@ -2041,6 +2176,20 @@ export function FullDiffView({
               style={{ height: containerHeight }}
             />
           </div>
+
+          {/* Single per-file horizontal scrollbar driving --diff-scroll-x. */}
+          {scrollInnerWidth > 0 && (
+            <div
+              ref={hScrollRef}
+              className={styles.fullDiffHScrollStrip}
+              onScroll={onHScroll}
+            >
+              <div
+                className={styles.fullDiffHScrollInner}
+                style={{ width: scrollInnerWidth }}
+              />
+            </div>
+          )}
         </div>
         <ScrollbarMarkers markers={unifiedMarkers} containerRef={scrollContainerRef as React.RefObject<HTMLElement | null>} />
       </div>

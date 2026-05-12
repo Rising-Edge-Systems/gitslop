@@ -2088,7 +2088,7 @@ function buildLinesPatch(
   fileHeader: FileHeader,
   hunk: DiffHunk,
   selectedLineIndices: Set<number>,
-  _forStaging: boolean
+  forStaging: boolean
 ): string {
   const newHunkLines: string[] = []
   let oldCount = 0
@@ -2116,16 +2116,27 @@ function buildLinesPatch(
       if (isSelected) {
         newHunkLines.push(line.content)
         newCount++
-      }
-    } else if (line.type === 'removed') {
-      if (isSelected) {
-        newHunkLines.push(line.content)
-        oldCount++
-      } else {
+      } else if (!forStaging) {
+        // Reverse apply (unstage): unselected added lines exist in the
+        // live index, so keep them as context to match.
         newHunkLines.push(' ' + line.content.substring(1))
         oldCount++
         newCount++
       }
+      // Forward apply (stage): drop unselected added.
+    } else if (line.type === 'removed') {
+      if (isSelected) {
+        newHunkLines.push(line.content)
+        oldCount++
+      } else if (forStaging) {
+        // Forward apply: unselected removed lines still present in the
+        // live working tree, keep as context.
+        newHunkLines.push(' ' + line.content.substring(1))
+        oldCount++
+        newCount++
+      }
+      // Reverse apply (unstage): drop unselected removed lines — they
+      // already happened, not in pre or post.
     }
   }
 

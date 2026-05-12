@@ -587,6 +587,8 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
     if (result.success) {
       setWorkingTreeRefreshKey((k) => k + 1)
       loadRepoData()
+    } else {
+      alert(`Stage failed: ${result.error}`)
     }
   }, [repoPath, workingTreeFile, loadRepoData])
 
@@ -596,6 +598,8 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
     if (result.success) {
       setWorkingTreeRefreshKey((k) => k + 1)
       loadRepoData()
+    } else {
+      alert(`Unstage failed: ${result.error}`)
     }
   }, [repoPath, workingTreeFile, loadRepoData])
 
@@ -605,6 +609,8 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
     if (result.success) {
       setWorkingTreeRefreshKey((k) => k + 1)
       loadRepoData()
+    } else {
+      alert(`Discard failed: ${result.error}`)
     }
   }, [repoPath, workingTreeFile, loadRepoData])
 

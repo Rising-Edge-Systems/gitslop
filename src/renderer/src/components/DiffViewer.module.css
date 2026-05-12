@@ -337,15 +337,15 @@
   font-weight: 700;
 }
 
-/* Inline variant used by split-view hunk header — simple sticky-right bar */
+/* Inline variant used in the hunk header. Plain flex layout — no sticky
+   positioning, because the parent (a virtualized row) is only one row
+   tall, so sticky has nowhere to actually stick and confuses hit-testing. */
 .hunkInlineActions {
-  position: sticky;
-  right: var(--space-sm);
   margin-left: auto;
   display: flex;
   gap: var(--space-xs);
   align-items: center;
-  z-index: 3;
+  flex-shrink: 0;
 }
 
 .hunkActionBtn {
@@ -573,11 +573,25 @@
   background: var(--bg-secondary);
 }
 
+/* Visible "viewport" for the line text. Fills the rest of the row after
+   the line-select/line-num gutters, clips overflow horizontally, and lets
+   the inner span slide via translateX based on the shared --diff-scroll-x. */
 .sbsLineContent {
   flex: 1;
   min-width: 0;
   padding: 0 var(--space-sm);
   tab-size: 4;
+  overflow: hidden;
+}
+
+/* Inner span sized to the line's natural (intrinsic) width. The shared
+   CSS variable --diff-scroll-x on an ancestor drives the translateX so
+   every line in every row shifts in lockstep — no React re-renders. */
+.sbsLineContentInner {
+  display: inline-block;
+  white-space: pre;
+  transform: translateX(calc(0px - var(--diff-scroll-x, 0px)));
+  will-change: transform;
 }
 
 .sbsLineAdded {
@@ -658,13 +672,31 @@
   min-height: 0;
 }
 
-/* Virtualized variant: flex column, no overflow (List handles scrolling) */
+/* Virtualized variant: flex column, no overflow (List handles vertical
+   scrolling; the .fullDiffHScrollStrip at the bottom handles horizontal). */
 .fullDiffVirtualContainer {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+}
+
+/* Thin horizontal-scrollbar strip pinned at the bottom of the diff. Its
+   inner spacer is sized to (max line content width × 2) so the native
+   scrollbar gives the user a single, file-wide horizontal scroll. The
+   strip's scrollLeft is the source of truth for --diff-scroll-x. */
+.fullDiffHScrollStrip {
+  flex-shrink: 0;
+  height: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Hide the wider inner from vertical scrolling */
+}
+
+.fullDiffHScrollInner {
+  height: 1px;
+  pointer-events: none;
 }
 
 /* Hunk divider styled for fixed-height virtual rows */
@@ -688,18 +720,23 @@
   display: flex;
 }
 
-/* Left/right cells each take 50% of the row */
+/* Left/right cells each take 50% of the row. overflow:hidden so long
+   lines clip at the pane border (without this, .sbsLine's white-space:pre
+   content extends visually into the other pane and looks "tucked under"
+   it). True per-file synced horizontal scroll is tracked separately. */
 .fullDiffCellLeft {
   width: 50%;
   min-width: 0;
   border-right: 1px solid var(--border);
   background: var(--bg-secondary);
+  overflow: hidden;
 }
 
 .fullDiffCellRight {
   width: 50%;
   min-width: 0;
   background: var(--bg-secondary);
+  overflow: hidden;
 }
 
 /* Sticky header row that sits at the top of the single container */
