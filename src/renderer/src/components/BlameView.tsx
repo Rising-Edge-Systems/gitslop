@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import styles from './BlameView.module.css'
+import { renderTextWithWhitespace } from '../utils/whitespaceMarkers'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -256,7 +257,7 @@ export function BlameView({
                 <span className={styles.lineNumber}>{line.lineNumber}</span>
 
                 {/* Content */}
-                <pre className={styles.lineContent}>{line.content || ' '}</pre>
+                <pre className={styles.lineContent}>{line.content ? renderTextWithWhitespace(line.content, `b${idx}-`) : ' '}</pre>
               </div>
             )
           })}

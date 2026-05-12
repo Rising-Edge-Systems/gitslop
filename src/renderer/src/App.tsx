@@ -12,8 +12,10 @@ import {
   defineShortcut,
   type ShortcutDefinition
 } from './hooks/useKeyboardShortcuts'
+import { useWhitespaceSelectionMarkers } from './utils/whitespaceMarkers'
 
 function App(): React.JSX.Element {
+  useWhitespaceSelectionMarkers()
   const {
     settings,
     updateSettings,

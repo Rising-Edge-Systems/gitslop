@@ -12,6 +12,7 @@ import { ConflictResolver } from './ConflictResolver'
 import { DiffViewer, FullDiffView, type DiffViewMode } from './DiffViewer'
 import { Columns } from 'lucide-react'
 import { CodeEditor, openFileInEditor } from './CodeEditor'
+import { renderTextWithWhitespace } from '../utils/whitespaceMarkers'
 
 interface RepoViewProps {
   repoPath: string
@@ -873,7 +874,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                         <code>{fileContent.split('\n').map((line, i) => (
                           <div key={i} className={styles.fullFileLine}>
                             <span className={styles.fullFileLineNum}>{i + 1}</span>
-                            <span className={styles.fullFileLineContent}>{line}</span>
+                            <span className={styles.fullFileLineContent}>{renderTextWithWhitespace(line, `l${i}-`)}</span>
                           </div>
                         ))}</code>
                       </pre>
@@ -1007,7 +1008,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                         <code>{fileContent.split('\n').map((line, i) => (
                           <div key={i} className={styles.fullFileLine}>
                             <span className={styles.fullFileLineNum}>{i + 1}</span>
-                            <span className={styles.fullFileLineContent}>{line}</span>
+                            <span className={styles.fullFileLineContent}>{renderTextWithWhitespace(line, `l${i}-`)}</span>
                           </div>
                         ))}</code>
                       </pre>

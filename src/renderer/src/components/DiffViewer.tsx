@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
 import { Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import styles from './DiffViewer.module.css'
+import { renderTextWithWhitespace } from '../utils/whitespaceMarkers'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1700,7 +1701,7 @@ interface FullDiffRow {
  * added blocks using the same pairing strategy as SideBySideDiffView, so
  * blank slots on either side preserve alignment between the two panes.
  */
-function buildFullDiffRows(
+export function buildFullDiffRows(
   oldLines: string[],
   newLines: string[],
   hunks: DiffHunk[]
@@ -1723,8 +1724,11 @@ function buildFullDiffRows(
     const hunk = hunks[hunkIdx]
     const m = hunk.header.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
     if (!m) continue
-    const hunkOldStart = parseInt(m[1], 10) - 1
-    const hunkNewStart = parseInt(m[2], 10) - 1
+    // Pure-add hunks use `@@ -0,0 +N,M @@` and pure-delete use `@@ -N,M +0,0 @@`.
+    // The 0 means "no lines on this side" — subtracting 1 would produce -1 and
+    // trip the final cleanup loop into reading oldLines[-1] / newLines[-1].
+    const hunkOldStart = Math.max(0, parseInt(m[1], 10) - 1)
+    const hunkNewStart = Math.max(0, parseInt(m[2], 10) - 1)
 
     // Emit context between previous cursor and this hunk. Both files are
     // identical in this gap, so the number of lines to walk is the same.
@@ -2204,14 +2208,14 @@ function WordDiffContent({ segments, lineType }: { segments: WordDiffSegment[]; 
     <>
       {segments.map((seg, i) => {
         if (seg.type === 'common') {
-          return <span key={i}>{seg.text}</span>
+          return <span key={i}>{renderTextWithWhitespace(seg.text, `c${i}-`)}</span>
         }
         const cls = lineType === 'removed'
           ? styles.wordRemoved
           : styles.wordAdded
         return (
           <span key={i} className={cls}>
-            {seg.text}
+            {renderTextWithWhitespace(seg.text, `s${i}-`)}
           </span>
         )
       })}
@@ -2225,9 +2229,9 @@ function SyntaxHighlightedContent({ text, language }: { text: string; language: 
     <>
       {tokens.map((token, i) =>
         token.className ? (
-          <span key={i} className={token.className}>{token.text}</span>
+          <span key={i} className={token.className}>{renderTextWithWhitespace(token.text, `t${i}-`)}</span>
         ) : (
-          <span key={i}>{token.text}</span>
+          <span key={i}>{renderTextWithWhitespace(token.text, `t${i}-`)}</span>
         )
       )}
     </>

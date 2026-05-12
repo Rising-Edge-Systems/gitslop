@@ -545,3 +545,34 @@ body.sidebar-dragging * {
 .panel-animate-terminal {
   animation: slideInFromBottom 200ms ease-out;
 }
+
+/* ─── Whitespace markers (selection-driven) ───────────────────────────────
+   Spaces and tabs in the diff, file viewer and blame views are wrapped in
+   .ws-space / .ws-tab spans. A global selectionchange listener toggles
+   .ws-active on the spans the user has highlighted; CSS then overlays
+   "·" / "→" onto the character without affecting layout. Mirrors Monaco's
+   renderWhitespace: 'selection'. */
+.ws-space,
+.ws-tab {
+  position: relative;
+}
+
+.ws-space.ws-active::before,
+.ws-tab.ws-active::before {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  pointer-events: none;
+  user-select: none;
+  color: rgba(150, 150, 150, 0.7);
+}
+
+.ws-space.ws-active::before {
+  content: '·';
+}
+
+.ws-tab.ws-active::before {
+  content: '→';
+}
