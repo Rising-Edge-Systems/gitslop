@@ -28,6 +28,18 @@ function formatSpeed(bytesPerSecond: number): string {
   return `${Math.round(bytesPerSecond / 1024)} KB/s`
 }
 
+/** Strip the Co-Authored-By trailer (git commit plumbing) from release
+ * notes before showing them to end users. Accepts both the raw markdown
+ * form and the HTML form electron-updater hands us from GitHub. */
+function cleanReleaseNotes(notes: string): string {
+  return notes
+    // HTML form: a trailing <p>Co-Authored-By: …</p>
+    .replace(/<p>\s*Co-Authored-By:[\s\S]*?<\/p>\s*$/i, '')
+    // Markdown / plaintext form: trailing "Co-Authored-By: …" line(s)
+    .replace(/(^|\n)\s*Co-Authored-By:[^\n]*(\n|$)/gi, '\n')
+    .trim()
+}
+
 function getCurrentVersion(): string {
   try {
     // electron exposes app version via navigator.userAgent or we can read from package
@@ -116,11 +128,17 @@ export function UpdateDialog({
             <span className={styles.versionNew}>v{version}</span>
           </div>
 
-          {/* Release notes */}
+          {/* Release notes — electron-updater's GitHub provider returns
+              the release body pre-rendered as HTML, so we render it as such
+              and strip the trailing Co-Authored-By line (git plumbing the
+              end user doesn't need to see). */}
           {releaseNotes && (
             <>
               <div className={styles.releaseNotesLabel}>Release Notes</div>
-              <pre className={styles.releaseNotes}>{releaseNotes}</pre>
+              <div
+                className={styles.releaseNotes}
+                dangerouslySetInnerHTML={{ __html: cleanReleaseNotes(releaseNotes) }}
+              />
             </>
           )}
 
