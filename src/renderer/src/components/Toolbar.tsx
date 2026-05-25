@@ -46,6 +46,7 @@ interface ForcePushDialogState {
   open: boolean
   loading: boolean
   error: string | null
+  reason: 'manual' | 'rejection'
 }
 
 interface SetUpstreamDialogState {
@@ -105,7 +106,8 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
   const [forcePushDialog, setForcePushDialog] = useState<ForcePushDialogState>({
     open: false,
     loading: false,
-    error: null
+    error: null,
+    reason: 'manual'
   })
 
   const [upstreamDialog, setUpstreamDialog] = useState<SetUpstreamDialogState>({
@@ -271,10 +273,13 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
         showNotification('success', 'Push completed successfully')
         window.dispatchEvent(new CustomEvent('graph:force-refresh'))
       } else {
-        // Check for rejected push (non-fast-forward)
+        // Check for rejected push (non-fast-forward) — usually means the branch
+        // has diverged from the remote (commonly after an amend or rebase).
+        // Open the force-push dialog so the user can resolve in one step,
+        // matching GitKraken's behavior.
         const errorMsg = result.error || 'Push failed'
         if (errorMsg.includes('rejected') || errorMsg.includes('non-fast-forward') || errorMsg.includes('fetch first')) {
-          showNotification('error', 'Push rejected — remote has new changes. Pull first or force push.', errorMsg)
+          setForcePushDialog({ open: true, loading: false, error: null, reason: 'rejection' })
         } else {
           showNotification('error', errorMsg, result.error)
         }
@@ -288,7 +293,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
 
   const handleForcePushOpen = useCallback(() => {
     if (!currentRepo || activeOp) return
-    setForcePushDialog({ open: true, loading: false, error: null })
+    setForcePushDialog({ open: true, loading: false, error: null, reason: 'manual' })
   }, [currentRepo, activeOp])
 
   const handleForcePush = useCallback(async () => {
@@ -299,7 +304,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
       const result = await window.electronAPI.git.push(currentRepo, { force: true })
       if (result.success) {
         showNotification('success', 'Force push completed successfully')
-        setForcePushDialog({ open: false, loading: false, error: null })
+        setForcePushDialog({ open: false, loading: false, error: null, reason: 'manual' })
         window.dispatchEvent(new CustomEvent('graph:force-refresh'))
       } else {
         setForcePushDialog((prev) => ({ ...prev, loading: false, error: result.error || 'Force push failed' }))
@@ -835,15 +840,25 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
 
       {/* Force Push Confirmation Dialog */}
       {forcePushDialog.open && (
-        <div className="branch-dialog-overlay" onClick={() => setForcePushDialog({ open: false, loading: false, error: null })}>
+        <div className="branch-dialog-overlay" onClick={() => setForcePushDialog({ open: false, loading: false, error: null, reason: 'manual' })}>
           <div className="branch-dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="branch-dialog-title">Force Push</div>
+            <div className="branch-dialog-title">
+              {forcePushDialog.reason === 'rejection' ? 'Push Rejected' : 'Force Push'}
+            </div>
+
+            {forcePushDialog.reason === 'rejection' && (
+              <p className={styles.upstreamDialogDesc}>
+                Your branch has diverged from the remote. This usually happens after amending
+                a commit or rebasing. Force push will overwrite the remote with your local history.
+              </p>
+            )}
 
             <div className={styles.forcePushWarning}>
               <span className={styles.forcePushWarningIcon}><AlertTriangle size={18} className="lucide-icon" /></span>
               <p>
                 <strong>Warning:</strong> Force push will overwrite the remote branch history.
-                This can cause data loss for other collaborators.
+                This can cause data loss for other collaborators. Uses <code>--force-with-lease</code>,
+                which will refuse if someone else has pushed since your last fetch.
               </p>
             </div>
 
@@ -854,7 +869,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
             <div className="branch-dialog-actions">
               <button
                 className="branch-dialog-btn branch-dialog-btn-secondary"
-                onClick={() => setForcePushDialog({ open: false, loading: false, error: null })}
+                onClick={() => setForcePushDialog({ open: false, loading: false, error: null, reason: 'manual' })}
               >
                 Cancel
               </button>

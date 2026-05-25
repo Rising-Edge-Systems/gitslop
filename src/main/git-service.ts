@@ -1586,7 +1586,7 @@ export class GitService {
     const args = ['push', '--progress']
     // Default to true — explicit `false` opt-out is supported for scripting.
     if (options?.followTags !== false) args.push('--follow-tags')
-    if (options?.force) args.push('--force')
+    if (options?.force) args.push('--force-with-lease')
     if (options?.setUpstream) {
       args.push('-u', options.setUpstream.remote, options.setUpstream.branch)
     }
@@ -2550,21 +2550,28 @@ export class GitService {
     const indexStatus = xy[0]
     const workTreeStatus = xy[1]
 
-    // For renames, path is at end after a tab
+    // Porcelain v2 format (no -z):
+    //   Type 1 (ordinary):  1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
+    //   Type 2 (rename):    2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path>\t<origPath>
+    // The path field is the last field on the line, but `split(' ')` will
+    // shred any path containing spaces — so we slice past the metadata fields
+    // and rejoin. For renames, <path> and <origPath> are tab-separated.
     let path: string
     let oldPath: string | undefined
 
     if (isRename) {
-      const tabIndex = line.indexOf('\t')
+      // 9 metadata tokens (indices 0–8) precede the path/origPath pair.
+      const pathPart = parts.slice(9).join(' ')
+      const tabIndex = pathPart.indexOf('\t')
       if (tabIndex >= 0) {
-        const paths = line.substring(tabIndex + 1).split('\t')
-        path = paths[1] || paths[0]
-        oldPath = paths[0]
+        path = pathPart.substring(0, tabIndex)
+        oldPath = pathPart.substring(tabIndex + 1)
       } else {
-        path = parts[parts.length - 1]
+        path = pathPart
       }
     } else {
-      path = parts[parts.length - 1]
+      // 8 metadata tokens (indices 0–7) precede the path.
+      path = parts.slice(8).join(' ')
     }
 
     // Embedded git repos (gitlinks) sometimes surface with a trailing slash

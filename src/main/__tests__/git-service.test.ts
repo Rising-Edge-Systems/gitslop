@@ -233,6 +233,48 @@ describe('GitService', () => {
         const status = await service.getStatus(repoDir)
         expect(status.branch).toBeTruthy()
       })
+
+      it('should preserve spaces in staged file paths', async () => {
+        // Regression: porcelain v2 path field is at the end of a space-separated
+        // line. Naively splitting on spaces and taking the last token truncated
+        // paths like "Datasheets/...BGA Packages.pdf" down to "Packages.pdf".
+        const noisyPath = 'BGA Packages.pdf'
+        writeFileSync(join(repoDir, noisyPath), 'content')
+        execFileSync('git', ['add', '--', noisyPath], { cwd: repoDir })
+
+        const status = await service.getStatus(repoDir)
+        const staged = status.staged.find((f) => f.path === noisyPath)
+        expect(staged, `expected staged entry for "${noisyPath}" but got ${JSON.stringify(status.staged)}`).toBeTruthy()
+        expect(staged!.path).toBe(noisyPath)
+      })
+
+      it('should preserve spaces in modified file paths', async () => {
+        const noisyPath = 'file with spaces.txt'
+        writeFileSync(join(repoDir, noisyPath), 'v1')
+        execFileSync('git', ['add', '--', noisyPath], { cwd: repoDir })
+        execFileSync('git', ['commit', '-m', 'add noisy'], { cwd: repoDir })
+        writeFileSync(join(repoDir, noisyPath), 'v2')
+
+        const status = await service.getStatus(repoDir)
+        const modified = status.unstaged.find((f) => f.path === noisyPath)
+        expect(modified, `expected unstaged entry for "${noisyPath}" but got ${JSON.stringify(status.unstaged)}`).toBeTruthy()
+        expect(modified!.status).toBe('modified')
+      })
+
+      it('should preserve spaces in renamed file paths', async () => {
+        const oldName = 'old name.txt'
+        const newName = 'new name.txt'
+        writeFileSync(join(repoDir, oldName), 'same content goes here for rename detection')
+        execFileSync('git', ['add', '--', oldName], { cwd: repoDir })
+        execFileSync('git', ['commit', '-m', 'add'], { cwd: repoDir })
+        execFileSync('git', ['mv', oldName, newName], { cwd: repoDir })
+
+        const status = await service.getStatus(repoDir)
+        const renamed = status.staged.find((f) => f.path === newName)
+        expect(renamed, `expected renamed entry "${newName}" but got ${JSON.stringify(status.staged)}`).toBeTruthy()
+        expect(renamed!.status).toBe('renamed')
+        expect(renamed!.oldPath).toBe(oldName)
+      })
     })
 
     describe('diff', () => {
