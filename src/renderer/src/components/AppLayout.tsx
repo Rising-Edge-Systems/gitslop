@@ -552,7 +552,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
             borderRight: '1px solid var(--border)',
             transition: isDragging ? 'none' : 'width 200ms ease-out'
           }}>
-            <Sidebar currentRepo={currentRepo} collapsed={layout.sidebarCollapsed} onToggleCollapse={toggleSidebarCollapse} />
+            <Sidebar currentRepo={currentRepo} collapsed={layout.sidebarCollapsed} onToggleCollapse={toggleSidebarCollapse} onNotify={addNotification} />
           </div>
         )}
         {appSettings.sidebarPosition === 'left' && dragHandle}
@@ -936,7 +936,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
             borderLeft: '1px solid var(--border)',
             transition: isDragging ? 'none' : 'width 200ms ease-out'
           }}>
-            <Sidebar currentRepo={currentRepo} collapsed={layout.sidebarCollapsed} onToggleCollapse={toggleSidebarCollapse} />
+            <Sidebar currentRepo={currentRepo} collapsed={layout.sidebarCollapsed} onToggleCollapse={toggleSidebarCollapse} onNotify={addNotification} />
           </div>
         )}
       </div>

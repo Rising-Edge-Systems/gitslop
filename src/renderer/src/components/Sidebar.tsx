@@ -56,10 +56,14 @@ interface GitBranch {
   hash: string
 }
 
+type NotifyType = 'success' | 'error' | 'warning' | 'info'
+type NotifyFn = (type: NotifyType, message: string, details?: string) => void
+
 interface SidebarProps {
   currentRepo: string | null
   collapsed: boolean
   onToggleCollapse: () => void
+  onNotify: NotifyFn
 }
 
 interface ContextMenuState {
@@ -75,6 +79,17 @@ interface NewBranchDialogState {
   checkout: boolean
   error: string | null
   loading: boolean
+}
+
+// Git refuses to checkout when uncommitted changes or untracked files would
+// be clobbered. Detect those cases so we can auto-stash and retry.
+function needsStashForCheckout(errorText: string | undefined): boolean {
+  if (!errorText) return false
+  return (
+    /would be overwritten by checkout/i.test(errorText) ||
+    /untracked working tree files would be overwritten/i.test(errorText) ||
+    /please commit your changes or stash them/i.test(errorText)
+  )
 }
 
 // ─── SidebarSection ──────────────────────────────────────────────────────────
@@ -432,9 +447,10 @@ interface EditRemoteDialogState {
 interface RemotesSectionProps {
   currentRepo: string | null
   onBranchesChanged: () => void
+  onNotify: NotifyFn
 }
 
-function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps): React.JSX.Element {
+function RemotesSection({ currentRepo, onBranchesChanged, onNotify }: RemotesSectionProps): React.JSX.Element {
   const [remotes, setRemotes] = useState<GitRemote[]>([])
   const [remoteBranches, setRemoteBranches] = useState<RemoteBranch[]>([])
   const [expandedRemotes, setExpandedRemotes] = useState<Set<string>>(new Set())
@@ -508,12 +524,44 @@ function RemotesSection({ currentRepo, onBranchesChanged }: RemotesSectionProps)
   const handleCheckoutRemoteBranch = useCallback(
     async (remoteName: string, branchName: string) => {
       if (!currentRepo) return
-      const result = await window.electronAPI.git.checkoutRemoteBranch(currentRepo, remoteName, branchName)
-      if (result.success) {
-        onBranchesChanged()
+      const rb = remoteBranches.find((b) => b.remote === remoteName && b.branch === branchName)
+      let result = await window.electronAPI.git.checkoutRemoteBranch(currentRepo, remoteName, branchName)
+      let stashed = false
+
+      if (!result.success && needsStashForCheckout(result.error)) {
+        const includeUntracked = /untracked/i.test(result.error || '')
+        const ts = new Date().toISOString().replace('T', ' ').slice(0, 19)
+        const stashRes = await window.electronAPI.git.stashSave(currentRepo, {
+          message: `Auto-stash before checkout to ${remoteName}/${branchName} (${ts})`,
+          includeUntracked
+        })
+        if (!stashRes.success) {
+          onNotify('error', 'Failed to stash changes', stashRes.error)
+          return
+        }
+        stashed = true
+        result = await window.electronAPI.git.checkoutRemoteBranch(currentRepo, remoteName, branchName)
+      }
+
+      if (!result.success) {
+        onNotify('error', `Failed to checkout ${remoteName}/${branchName}`, result.error)
+        return
+      }
+
+      onNotify(
+        'success',
+        stashed
+          ? `Stashed changes and checked out ${branchName}`
+          : `Checked out ${branchName}`
+      )
+      onBranchesChanged()
+      if (rb?.hash) {
+        window.dispatchEvent(
+          new CustomEvent('graph:scroll-to-commit', { detail: { hash: rb.hash } })
+        )
       }
     },
-    [currentRepo, onBranchesChanged]
+    [currentRepo, remoteBranches, onBranchesChanged, onNotify]
   )
 
   const handleDeleteRemoteBranch = useCallback(
@@ -3512,7 +3560,7 @@ const RAIL_SECTIONS: RailSectionDef[] = [
   { id: 'issues', label: 'Issues', icon: <CircleDot size={20} /> }
 ]
 
-export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarProps): React.JSX.Element {
+export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: SidebarProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<SidebarTab>(() => {
     const stored = localStorage.getItem('gitslop-sidebar-tab')
     return (stored === 'git' || stored === 'files') ? stored : 'git'
@@ -3608,12 +3656,45 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
   const handleCheckout = useCallback(
     async (branchName: string) => {
       if (!currentRepo) return
-      const result = await window.electronAPI.git.checkout(currentRepo, branchName)
-      if (result.success) {
-        await loadBranches()
+      const branch = branches.find((b) => b.name === branchName)
+      let result = await window.electronAPI.git.checkout(currentRepo, branchName)
+      let stashed = false
+
+      // Auto-stash and retry if checkout was blocked by uncommitted changes.
+      if (!result.success && needsStashForCheckout(result.error)) {
+        const includeUntracked = /untracked/i.test(result.error || '')
+        const ts = new Date().toISOString().replace('T', ' ').slice(0, 19)
+        const stashRes = await window.electronAPI.git.stashSave(currentRepo, {
+          message: `Auto-stash before checkout to ${branchName} (${ts})`,
+          includeUntracked
+        })
+        if (!stashRes.success) {
+          onNotify('error', `Failed to stash changes`, stashRes.error)
+          return
+        }
+        stashed = true
+        result = await window.electronAPI.git.checkout(currentRepo, branchName)
+      }
+
+      if (!result.success) {
+        onNotify('error', `Failed to checkout ${branchName}`, result.error)
+        return
+      }
+
+      onNotify(
+        'success',
+        stashed
+          ? `Stashed changes and checked out ${branchName}`
+          : `Checked out ${branchName}`
+      )
+      await loadBranches()
+      if (branch?.hash) {
+        window.dispatchEvent(
+          new CustomEvent('graph:scroll-to-commit', { detail: { hash: branch.hash } })
+        )
       }
     },
-    [currentRepo, loadBranches]
+    [currentRepo, branches, loadBranches, onNotify]
   )
 
   const handleDoubleClick = useCallback(
@@ -3910,7 +3991,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
                 </SidebarSection>
               )}
               {railOverlaySection === 'remotes' && (
-                <RemotesSection currentRepo={currentRepo} onBranchesChanged={loadBranches} />
+                <RemotesSection currentRepo={currentRepo} onBranchesChanged={loadBranches} onNotify={onNotify} />
               )}
               {railOverlaySection === 'tags' && (
                 <TagsSection currentRepo={currentRepo} />
@@ -4147,7 +4228,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse }: SidebarPro
         )}
       </SidebarSection>
 
-      <RemotesSection currentRepo={currentRepo} onBranchesChanged={loadBranches} />
+      <RemotesSection currentRepo={currentRepo} onBranchesChanged={loadBranches} onNotify={onNotify} />
 
       <TagsSection currentRepo={currentRepo} />
 
