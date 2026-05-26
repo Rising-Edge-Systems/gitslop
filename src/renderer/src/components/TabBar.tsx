@@ -16,8 +16,6 @@ export function TabBar({ tabs, activeIndex, onSwitchTab, onCloseTab, onReorderTa
   // Hide tab bar when no repos are open (welcome screen with zero tabs)
   if (tabs.length === 0) return null
 
-  const isSingleTab = tabs.length === 1
-
   return (
     <div className={styles.tabBar}>
       <div className={styles.tabList}>
@@ -31,7 +29,6 @@ export function TabBar({ tabs, activeIndex, onSwitchTab, onCloseTab, onReorderTa
             onClose={onCloseTab}
             onReorder={onReorderTabs}
             totalTabs={tabs.length}
-            showClose={!isSingleTab}
           />
         ))}
         {/* Browser-style: '+' button sits immediately after the rightmost
@@ -57,10 +54,9 @@ interface TabItemProps {
   onClose: (index: number) => void
   onReorder: (fromIndex: number, toIndex: number) => void
   totalTabs: number
-  showClose: boolean
 }
 
-function TabItem({ tab, index, isActive, onSwitch, onClose, onReorder, totalTabs, showClose }: TabItemProps): React.JSX.Element {
+function TabItem({ tab, index, isActive, onSwitch, onClose, onReorder, totalTabs }: TabItemProps): React.JSX.Element {
   const [dragOver, setDragOver] = useState<'left' | 'right' | null>(null)
   const tabRef = useRef<HTMLDivElement>(null)
 
@@ -180,16 +176,14 @@ function TabItem({ tab, index, isActive, onSwitch, onClose, onReorder, totalTabs
     >
       <GitBranch size={13} className={styles.tabIcon} />
       <span className={styles.tabName}>{tab.name}</span>
-      {showClose && (
-        <button
-          className={styles.tabClose}
-          onClick={handleClose}
-          aria-label={`Close ${tab.name}`}
-          title={`Close ${tab.name}`}
-        >
-          <X size={12} />
-        </button>
-      )}
+      <button
+        className={styles.tabClose}
+        onClick={handleClose}
+        aria-label={`Close ${tab.name}`}
+        title={`Close ${tab.name}`}
+      >
+        <X size={12} />
+      </button>
     </div>
   )
 }
