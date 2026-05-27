@@ -174,7 +174,7 @@ const KEYWORDS: Record<string, Set<string>> = {
   cpp: new Set(['if', 'else', 'for', 'while', 'do', 'switch', 'case', 'break', 'continue', 'return', 'class', 'struct', 'union', 'enum', 'typedef', 'void', 'int', 'long', 'short', 'char', 'float', 'double', 'unsigned', 'signed', 'const', 'static', 'extern', 'volatile', 'register', 'sizeof', 'new', 'delete', 'this', 'true', 'false', 'nullptr', 'namespace', 'using', 'template', 'typename', 'virtual', 'override', 'public', 'private', 'protected', 'auto', 'constexpr', 'noexcept', 'throw', 'try', 'catch', 'include', 'define']),
 }
 
-function detectLanguage(filePath: string): string | null {
+export function detectLanguage(filePath: string): string | null {
   const ext = filePath.split('.').pop()?.toLowerCase()
   if (!ext) return null
   return LANG_EXTENSIONS[ext] || null
@@ -2223,7 +2223,7 @@ function WordDiffContent({ segments, lineType }: { segments: WordDiffSegment[]; 
   )
 }
 
-function SyntaxHighlightedContent({ text, language }: { text: string; language: string | null }): React.JSX.Element {
+export function SyntaxHighlightedContent({ text, language }: { text: string; language: string | null }): React.JSX.Element {
   const tokens = useMemo(() => highlightLine(text, language), [text, language])
   return (
     <>

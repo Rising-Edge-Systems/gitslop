@@ -3570,6 +3570,9 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
     localStorage.setItem('gitslop-sidebar-tab', tab)
   }, [])
   const [branches, setBranches] = useState<GitBranch[]>([])
+  // Loaded once so single-click on a local branch can resolve its upstream
+  // (e.g. "origin/main") to a commit hash and scroll the graph to it.
+  const [sidebarRemoteBranches, setSidebarRemoteBranches] = useState<RemoteBranch[]>([])
   const [searchFilter, setSearchFilter] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [newBranchDialog, setNewBranchDialog] = useState<NewBranchDialogState>({
@@ -3593,13 +3596,20 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
   const loadBranches = useCallback(async () => {
     if (!currentRepo) {
       setBranches([])
+      setSidebarRemoteBranches([])
       return
     }
     setLoading(true)
     try {
-      const result = await window.electronAPI.git.getBranches(currentRepo)
-      if (result.success && Array.isArray(result.data)) {
-        setBranches(result.data as GitBranch[])
+      const [branchRes, remoteBranchRes] = await Promise.all([
+        window.electronAPI.git.getBranches(currentRepo),
+        window.electronAPI.git.getRemoteBranches(currentRepo)
+      ])
+      if (branchRes.success && Array.isArray(branchRes.data)) {
+        setBranches(branchRes.data as GitBranch[])
+      }
+      if (remoteBranchRes.success && Array.isArray(remoteBranchRes.data)) {
+        setSidebarRemoteBranches(remoteBranchRes.data as RemoteBranch[])
       }
     } catch {
       // Ignore errors — branches stay empty
@@ -3703,6 +3713,33 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
       handleCheckout(branch.name)
     },
     [handleCheckout]
+  )
+
+  // Single-click: scroll the graph to where the branch's upstream tracking
+  // branch (e.g. origin/main) lives, or fall back to the local tip if there
+  // is no tracking branch / the remote tip isn't loaded.
+  const handleBranchSingleClick = useCallback(
+    (branch: GitBranch) => {
+      let targetHash: string | undefined
+      if (branch.upstream) {
+        const slash = branch.upstream.indexOf('/')
+        if (slash > 0) {
+          const remote = branch.upstream.slice(0, slash)
+          const remoteBranchName = branch.upstream.slice(slash + 1)
+          const match = sidebarRemoteBranches.find(
+            (rb) => rb.remote === remote && rb.branch === remoteBranchName
+          )
+          if (match?.hash) targetHash = match.hash
+        }
+      }
+      if (!targetHash) targetHash = branch.hash
+      if (targetHash) {
+        window.dispatchEvent(
+          new CustomEvent('graph:scroll-to-commit', { detail: { hash: targetHash } })
+        )
+      }
+    },
+    [sidebarRemoteBranches]
   )
 
   const handleContextMenu = useCallback((e: React.MouseEvent, branch: GitBranch) => {
@@ -3954,6 +3991,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
                             <div
                               key={branch.name}
                               className={`${styles.branchItem} ${branch.current ? styles.branchItemCurrent : ''}`}
+                              onClick={() => handleBranchSingleClick(branch)}
                               onDoubleClick={() => handleDoubleClick(branch)}
                               onContextMenu={(e) => handleContextMenu(e, branch)}
                               onKeyDown={(e) => {
@@ -4192,6 +4230,7 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
                   <div
                     key={branch.name}
                     className={`${styles.branchItem} ${branch.current ? styles.branchItemCurrent : ''}`}
+                    onClick={() => handleBranchSingleClick(branch)}
                     onDoubleClick={() => handleDoubleClick(branch)}
                     onContextMenu={(e) => handleContextMenu(e, branch)}
                     onKeyDown={(e) => {

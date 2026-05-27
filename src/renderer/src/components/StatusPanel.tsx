@@ -1386,15 +1386,11 @@ export function StatusPanel({ repoPath, onRefresh, stagingInternalSplit, onStagi
         // placeholder ("// WIP") shows again.
         window.dispatchEvent(new CustomEvent('wip:subject-sync', { detail: { value: '' } }))
 
+        setCommitSuccess('Committed successfully')
         if (andPush) {
-          const pushResult = await window.electronAPI.git.push(repoPath)
-          if (pushResult.success) {
-            setCommitSuccess('Committed and pushed successfully')
-          } else {
-            setCommitSuccess('Committed successfully, but push failed: ' + (pushResult.error || 'Unknown error'))
-          }
-        } else {
-          setCommitSuccess('Committed successfully')
+          // Delegate to the toolbar's push so the no-upstream / force-push
+          // dialogs open if needed, instead of silently failing here.
+          window.dispatchEvent(new CustomEvent('push:request'))
         }
 
         await loadStatus()

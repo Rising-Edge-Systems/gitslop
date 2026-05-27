@@ -1734,7 +1734,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
         setSelectedIndex(index)
         setSelectedHash(nodes[index].commit.hash)
         loadCommitDetail(nodes[index].commit.hash, nodes[index].refs, nodes[index].commit)
-        listRef?.scrollToRow({ index, align: 'center' })
+        listRef?.scrollToRow({ index, align: 'center', behavior: 'smooth' })
         setPendingSelectHash(null)
       } else {
         // Not in the log yet — wait for the next `commits` update.
@@ -1754,7 +1754,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
       setSelectedIndex(idx)
       setSelectedHash(nodes[idx].commit.hash)
       loadCommitDetail(nodes[idx].commit.hash, nodes[idx].refs, nodes[idx].commit)
-      listRef?.scrollToRow({ index: idx, align: 'center' })
+      listRef?.scrollToRow({ index: idx, align: 'center', behavior: 'smooth' })
       setPendingSelectHash(null)
       return
     }

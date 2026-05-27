@@ -291,6 +291,15 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
     }
   }, [currentRepo, activeOp, showNotification])
 
+  // Allow other components (CommitDialog / StatusPanel "Commit & Push") to
+  // route a push through the toolbar so the no-upstream and rejection dialogs
+  // open instead of failing silently with a notification.
+  useEffect(() => {
+    const handler = (): void => { handlePush() }
+    window.addEventListener('push:request', handler)
+    return () => window.removeEventListener('push:request', handler)
+  }, [handlePush])
+
   const handleForcePushOpen = useCallback(() => {
     if (!currentRepo || activeOp) return
     setForcePushDialog({ open: true, loading: false, error: null, reason: 'manual' })

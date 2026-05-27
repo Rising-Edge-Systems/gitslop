@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, FileCode, GitCompare, Pencil } from 'lucide-react'
 import styles from './RepoView.module.css'
 import { RepoViewSkeleton } from './Skeleton'
@@ -9,10 +9,9 @@ import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from 
 import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
 // StatusPanel moved to right panel in AppLayout
-import { DiffViewer, FullDiffView, type DiffViewMode } from './DiffViewer'
+import { DiffViewer, FullDiffView, SyntaxHighlightedContent, detectLanguage, type DiffViewMode } from './DiffViewer'
 import { Columns } from 'lucide-react'
 import { CodeEditor, openFileInEditor } from './CodeEditor'
-import { renderTextWithWhitespace } from '../utils/whitespaceMarkers'
 
 interface RepoViewProps {
   repoPath: string
@@ -119,6 +118,17 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   const [fileContent, setFileContent] = useState<string | null>(null)
   const [fileLoading, setFileLoading] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
+
+  // Syntax-highlighting language for the file view in either branch
+  // (working-tree file vs. commit-diff file).
+  const workingTreeFileLanguage = useMemo(
+    () => (workingTreeFile ? detectLanguage(workingTreeFile.path) : null),
+    [workingTreeFile]
+  )
+  const diffFileLanguage = useMemo(
+    () => (diffFile ? detectLanguage(diffFile) : null),
+    [diffFile]
+  )
 
   // ─── Full Diff View (old + new file content) ───────────────────────────
   const [fullOldContent, setFullOldContent] = useState<string | null>(null)
@@ -874,7 +884,9 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                         <code>{fileContent.split('\n').map((line, i) => (
                           <div key={i} className={styles.fullFileLine}>
                             <span className={styles.fullFileLineNum}>{i + 1}</span>
-                            <span className={styles.fullFileLineContent}>{renderTextWithWhitespace(line, `l${i}-`)}</span>
+                            <span className={styles.fullFileLineContent}>
+                              <SyntaxHighlightedContent text={line} language={workingTreeFileLanguage} />
+                            </span>
                           </div>
                         ))}</code>
                       </pre>
@@ -1008,7 +1020,9 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                         <code>{fileContent.split('\n').map((line, i) => (
                           <div key={i} className={styles.fullFileLine}>
                             <span className={styles.fullFileLineNum}>{i + 1}</span>
-                            <span className={styles.fullFileLineContent}>{renderTextWithWhitespace(line, `l${i}-`)}</span>
+                            <span className={styles.fullFileLineContent}>
+                              <SyntaxHighlightedContent text={line} language={diffFileLanguage} />
+                            </span>
                           </div>
                         ))}</code>
                       </pre>
