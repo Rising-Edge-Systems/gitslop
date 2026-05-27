@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
-import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine, ArrowUp, ArrowDown, CheckCircle2, MessageSquare, GitPullRequestArrow, RotateCcw, Archive } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, ShieldQuestion, CircleDot, Cherry, Undo2, SkipBack, GitBranch, GitMerge, Tag, Clipboard, X, RefreshCw, Loader2, Check, AlertTriangle, HelpCircle, FileText, FileCode, FileJson, Palette, Globe, FileType, File, LogOut, Pencil, Trash2, ArrowUpFromLine, ArrowUp, ArrowDown, CheckCircle2, MessageSquare, GitPullRequestArrow, RotateCcw, Archive, FileInput } from 'lucide-react'
 import { DiffViewer } from './DiffViewer'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
@@ -1164,6 +1164,7 @@ function buildCommitContextMenuItems(
     { key: 'checkout', label: 'Checkout', icon: <LogOut size={14} />, onClick: () => onAction('checkout', commit) },
     { key: 'sep1', separator: true as const },
     { key: 'cherry-pick', label: cherryPickLabel, icon: <Cherry size={14} />, onClick: () => onAction('cherry-pick', commit) },
+    { key: 'apply-to-wt', label: 'Apply to working tree', icon: <FileInput size={14} />, onClick: () => onAction('apply-to-wt', commit) },
     { key: 'revert', label: 'Revert', icon: <Undo2 size={14} />, onClick: () => onAction('revert', commit) },
     { key: 'sep-reset', separator: true as const },
     { key: 'reset-soft', label: 'Reset Soft to here', icon: <SkipBack size={14} />, onClick: () => onAction('reset', commit, 'soft') },
@@ -1976,6 +1977,40 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
     }
   }, [repoPath, loadCommits])
 
+  // Apply this commit's changes to the working tree without making a commit.
+  // No paths = cherry-pick -n the whole commit; with paths = checkout those
+  // paths from the commit. Refreshes graph + staging area on success; reuses
+  // the cherry-pick conflict banner when -n produces conflicts.
+  const handleApplyToWorkingTree = useCallback(
+    async (hash: string, paths?: string[]) => {
+      try {
+        const result = await window.electronAPI.git.applyCommitToWorkingTree(repoPath, hash, paths)
+        if (result.success) {
+          loadCommits()
+          onRefresh?.()
+          return
+        }
+        const data = result.data as { conflicts?: string[]; message?: string } | undefined
+        if (data?.conflicts && data.conflicts.length > 0) {
+          setCherryPickState({
+            status: 'conflict',
+            message: data.message || 'Apply produced conflicts. Resolve them in the staging area.',
+            conflicts: data.conflicts
+          })
+          loadCommits()
+          onRefresh?.()
+        } else {
+          // eslint-disable-next-line no-alert
+          alert(`Failed to apply ${hash.slice(0, 7)} to working tree:\n${result.error || data?.message || 'Unknown error'}`)
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-alert
+        alert(`Failed to apply ${hash.slice(0, 7)} to working tree:\n${err instanceof Error ? err.message : String(err)}`)
+      }
+    },
+    [repoPath, loadCommits, onRefresh]
+  )
+
   const handleCherryPickAbort = useCallback(async () => {
     try {
       await window.electronAPI.git.cherryPickAbort(repoPath)
@@ -2157,6 +2192,9 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
         handleCherryPick(hashes)
         break
       }
+      case 'apply-to-wt':
+        handleApplyToWorkingTree(commit.hash)
+        break
       case 'reset':
         setResetTarget({ hash: commit.hash, subject: commit.subject, defaultMode: (extra as 'soft' | 'mixed' | 'hard') || 'mixed' })
         break
@@ -2193,7 +2231,7 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
         setTagTarget(commit.hash)
         break
     }
-  }, [repoPath, selectedHashes, handleCherryPick, handleRevert, loadCommits, handleCheckoutCommit, loadWipStatus, onRefresh])
+  }, [repoPath, selectedHashes, handleCherryPick, handleApplyToWorkingTree, handleRevert, loadCommits, handleCheckoutCommit, loadWipStatus, onRefresh])
 
   // Keyboard navigation
   useEffect(() => {

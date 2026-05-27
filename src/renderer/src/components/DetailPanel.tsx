@@ -608,27 +608,38 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
     },
     [repoPath, stashIndex]
   )
-  const handleFileContext = useMemo(
-    () =>
-      stashIndex !== null
-        ? (e: React.MouseEvent, file: CommitFileDetail): void => {
-            e.preventDefault()
-            e.stopPropagation()
-            setStashCtxMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: file.path })
-          }
-        : undefined,
-    [stashIndex]
+  // Apply this commit's snapshot of the given path(s) to the working tree
+  // via `git checkout <hash> -- <paths...>`. Used by the file/folder right-
+  // click menu on non-stash commits.
+  const applyCommitSubset = useCallback(
+    async (paths: string[], label: string) => {
+      if (!repoPath || !commit || paths.length === 0) return
+      const result = await window.electronAPI.git.applyCommitToWorkingTree(repoPath, commit.hash, paths)
+      if (!result.success) {
+        // eslint-disable-next-line no-alert
+        alert(`Failed to apply ${label}: ${result.error}`)
+      }
+    },
+    [repoPath, commit?.hash]
   )
-  const handleFolderContext = useMemo(
-    () =>
-      stashIndex !== null
-        ? (e: React.MouseEvent, folderPath: string): void => {
-            e.preventDefault()
-            e.stopPropagation()
-            setStashCtxMenu({ x: e.clientX, y: e.clientY, kind: 'folder', folder: folderPath })
-          }
-        : undefined,
-    [stashIndex]
+
+  // File/folder right-click menus are always armed: stashes get the stash-
+  // apply entries, regular commits get the "Apply to working tree" entry.
+  const handleFileContext = useCallback(
+    (e: React.MouseEvent, file: CommitFileDetail): void => {
+      e.preventDefault()
+      e.stopPropagation()
+      setStashCtxMenu({ x: e.clientX, y: e.clientY, kind: 'file', path: file.path })
+    },
+    []
+  )
+  const handleFolderContext = useCallback(
+    (e: React.MouseEvent, folderPath: string): void => {
+      e.preventDefault()
+      e.stopPropagation()
+      setStashCtxMenu({ x: e.clientX, y: e.clientY, kind: 'folder', folder: folderPath })
+    },
+    []
   )
 
   const toggleDir = useCallback((fullPath: string) => {
@@ -1107,36 +1118,59 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
           </div>
         </div>
       </div>}
-      {stashCtxMenu && stashIndex !== null && (() => {
-        const items: ContextMenuEntry[] =
-          stashCtxMenu.kind === 'file'
-            ? [
-                {
-                  key: 'applyFile',
-                  label: `Apply "${stashCtxMenu.path.split('/').pop()}"`,
-                  icon: <CornerDownRight size={14} />,
-                  onClick: () =>
-                    applyStashSubset([stashCtxMenu.path], stashCtxMenu.path)
-                }
-              ]
-            : (() => {
-                const prefix = stashCtxMenu.folder + '/'
-                const paths = (effectiveFileDetails as CommitFileDetail[])
-                  .filter((f) => f.status !== 'unchanged')
-                  .map((f) => f.path)
-                  .filter(
-                    (p) => p === stashCtxMenu.folder || p.startsWith(prefix)
-                  )
-                return [
-                  {
-                    key: 'applyFolder',
-                    label: `Apply all in ${stashCtxMenu.folder || '/'} (${paths.length})`,
-                    icon: <CornerDownRight size={14} />,
-                    onClick: () =>
-                      applyStashSubset(paths, stashCtxMenu.folder + '/')
-                  }
-                ]
-              })()
+      {stashCtxMenu && (() => {
+        const isStash = stashIndex !== null
+        let items: ContextMenuEntry[] = []
+        if (stashCtxMenu.kind === 'file') {
+          const fileName = stashCtxMenu.path.split('/').pop()
+          if (isStash) {
+            items = [
+              {
+                key: 'applyFile',
+                label: `Apply "${fileName}"`,
+                icon: <CornerDownRight size={14} />,
+                onClick: () => applyStashSubset([stashCtxMenu.path], stashCtxMenu.path)
+              }
+            ]
+          } else {
+            items = [
+              {
+                key: 'applyFileToWT',
+                label: `Apply "${fileName}" to working tree`,
+                icon: <CornerDownRight size={14} />,
+                onClick: () => applyCommitSubset([stashCtxMenu.path], stashCtxMenu.path)
+              }
+            ]
+          }
+        } else {
+          const prefix = stashCtxMenu.folder + '/'
+          const paths = (effectiveFileDetails as CommitFileDetail[])
+            .filter((f) => f.status !== 'unchanged')
+            .map((f) => f.path)
+            .filter((p) => p === stashCtxMenu.folder || p.startsWith(prefix))
+          if (isStash) {
+            items = [
+              {
+                key: 'applyFolder',
+                label: `Apply all in ${stashCtxMenu.folder || '/'} (${paths.length})`,
+                icon: <CornerDownRight size={14} />,
+                onClick: () => applyStashSubset(paths, stashCtxMenu.folder + '/')
+              }
+            ]
+          } else {
+            items = [
+              {
+                key: 'applyFolderToWT',
+                label: `Apply ${stashCtxMenu.folder || '/'} to working tree (${paths.length})`,
+                icon: <CornerDownRight size={14} />,
+                onClick: () => applyCommitSubset(paths, stashCtxMenu.folder + '/')
+              }
+            ]
+          }
+        }
+        if (items.length === 0) {
+          return null
+        }
         return (
           <ContextMenu
             x={stashCtxMenu.x}

@@ -263,6 +263,12 @@ const electronAPI = {
       ipcRenderer.invoke('git:getConflictedFiles', repoPath),
     cherryPick: (repoPath: string, hashes: string[]): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:cherryPick', repoPath, hashes),
+    applyCommitToWorkingTree: (
+      repoPath: string,
+      hash: string,
+      paths?: string[]
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:applyCommitToWorkingTree', repoPath, hash, paths),
     cherryPickAbort: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:cherryPickAbort', repoPath),
     cherryPickContinue: (repoPath: string): Promise<GitServiceResult> =>

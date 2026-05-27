@@ -1879,6 +1879,78 @@ export class GitService {
   }
 
   /**
+   * Apply a commit's changes to the working tree as UNSTAGED edits (so the
+   * user can review and decide what to stage). Two modes:
+   *   - paths set   → `git restore --source=<hash> --worktree -- <paths...>`
+   *     overwrites those paths in the working tree only, index untouched.
+   *   - paths empty → `git cherry-pick -n <hash>` to apply the commit's diff
+   *     with 3-way merge semantics, then `git reset HEAD -- <commit's paths>`
+   *     to unstage just what we added (leaves any pre-existing staged work
+   *     alone).
+   * Returns conflict info for the cherry-pick path; the restore path doesn't
+   * produce textual conflicts since it overwrites.
+   */
+  async applyCommitToWorkingTree(
+    repoPath: string,
+    hash: string,
+    paths?: string[],
+    options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; conflicts?: string[] }> {
+    if (paths && paths.length > 0) {
+      try {
+        const args = ['restore', '--source', hash, '--worktree', '--', ...paths]
+        const result = await this.exec(args, repoPath, { signal: options?.signal })
+        const output = (result.stdout + '\n' + result.stderr).trim()
+        return {
+          success: true,
+          message: output || `Applied ${paths.length} path${paths.length === 1 ? '' : 's'} from ${hash.slice(0, 7)} to working tree`
+        }
+      } catch (err) {
+        const gitErr = err as GitError
+        return { success: false, message: gitErr.stderr || gitErr.message || 'Apply failed' }
+      }
+    }
+
+    try {
+      const result = await this.exec(['cherry-pick', '-n', hash], repoPath, { signal: options?.signal })
+      const output = (result.stdout + '\n' + result.stderr).trim()
+      // Unstage just the paths the cherry-pick touched so the user sees them
+      // as unstaged edits to review.
+      try {
+        const affected = await this.exec(
+          ['diff-tree', '--no-commit-id', '--name-only', '-r', hash],
+          repoPath,
+          { signal: options?.signal }
+        )
+        const affectedPaths = affected.stdout.split('\n').map((s) => s.trim()).filter(Boolean)
+        if (affectedPaths.length > 0) {
+          await this.exec(['reset', 'HEAD', '--', ...affectedPaths], repoPath, { signal: options?.signal })
+        }
+      } catch {
+        // Non-critical: cherry-pick succeeded, unstage step failed. The user
+        // still has the changes — they're just staged instead of unstaged.
+      }
+      return { success: true, message: output || `Applied ${hash.slice(0, 7)} to working tree` }
+    } catch (err) {
+      const gitErr = err as GitError
+      const stderr = gitErr.stderr || gitErr.message || ''
+      if (
+        stderr.includes('CONFLICT') ||
+        stderr.includes('conflict') ||
+        stderr.includes('could not apply')
+      ) {
+        const conflicts = await this.getConflictedFiles(repoPath)
+        return {
+          success: false,
+          message: 'Apply resulted in conflicts. Resolve them in the staging area, then commit when ready.',
+          conflicts
+        }
+      }
+      throw err
+    }
+  }
+
+  /**
    * Abort an in-progress cherry-pick.
    */
   async cherryPickAbort(

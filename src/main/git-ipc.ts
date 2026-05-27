@@ -1036,6 +1036,24 @@ export function registerGitIpcHandlers(): void {
   // ─── Cherry-Pick ─────────────────────────────────────────────────────────────
 
   ipcMain.handle(
+    'git:applyCommitToWorkingTree',
+    async (_event, repoPath: string, hash: string, paths?: string[]) => {
+      try {
+        const result = await withWatcherSuppression(() =>
+          gitService.applyCommitToWorkingTree(repoPath, hash, paths)
+        )
+        return {
+          success: result.success,
+          data: result,
+          error: result.success ? undefined : result.message
+        }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
     'git:cherryPick',
     async (_event, repoPath: string, hashes: string[]) => {
       try {
