@@ -2022,8 +2022,9 @@ export class GitService {
     }
 
     // mode === 'reverse'
-    if (!hasParent) {
-      // Root commit introduced the file; reversing the addition removes it.
+    if (!existedBefore) {
+      // The file didn't exist before this commit, so the commit introduced it
+      // (covers root commits too) — reversing that addition removes the file.
       await this.deleteWorkingFile(repoPath, path)
       return { success: true, deleted: true, message: `Removed ${path} (added by ${short})` }
     }
