@@ -269,6 +269,17 @@ const electronAPI = {
       paths?: string[]
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:applyCommitToWorkingTree', repoPath, hash, paths),
+    hasLocalChanges: (repoPath: string, paths: string[]): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:hasLocalChanges', repoPath, paths),
+    stashPaths: (repoPath: string, paths: string[], message: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:stashPaths', repoPath, paths, message),
+    undoFileFromCommit: (
+      repoPath: string,
+      hash: string,
+      path: string,
+      mode: 'reverse' | 'reset'
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:undoFileFromCommit', repoPath, hash, path, mode),
     cherryPickAbort: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:cherryPickAbort', repoPath),
     cherryPickContinue: (repoPath: string): Promise<GitServiceResult> =>

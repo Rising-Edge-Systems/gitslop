@@ -9,6 +9,7 @@ import { TagDialog } from './TagDialog'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { CommitGraphSkeleton } from './Skeleton'
 import { assignLanes, compactLanes, LANE_COLORS, MAX_VISIBLE_LANES, type ParsedRef, type ParentConnection } from './laneAssignment'
+import { checkoutWithAutostash, type NotifyFn } from '../utils/checkout'
 import styles from './CommitGraph.module.css'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ interface CommitGraphProps {
   filters?: CommitLogFilters
   showBranchLabels?: boolean
   maxCommits?: number
+  onNotify?: NotifyFn
 }
 
 interface ContextMenuState {
@@ -1322,7 +1324,7 @@ function getFileIcon(filePath: string): React.ReactNode {
 
 // ─── Main CommitGraph Component ───────────────────────────────────────────────
 
-export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSelect, onLoadComplete, filters, showBranchLabels = true, maxCommits }: CommitGraphProps): React.JSX.Element {
+export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSelect, onLoadComplete, filters, showBranchLabels = true, maxCommits, onNotify }: CommitGraphProps): React.JSX.Element {
   const pageSize = maxCommits ?? DEFAULT_PAGE_SIZE
   const [commits, setCommits] = useState<GitCommit[]>([])
   const [totalCommitCount, setTotalCommitCount] = useState<number | null>(null)
@@ -2347,30 +2349,40 @@ export function CommitGraph({ repoPath, onRefresh, onCommitSelect, onTwoCommitSe
     const displayName = ref.type === 'remote' ? ref.name.split('/').slice(1).join('/') : ref.name
     setCheckoutInProgress(displayName)
     try {
-      if (ref.type === 'remote') {
-        const parts = ref.name.split('/')
-        const remoteName = parts[0]
-        const branchName = parts.slice(1).join('/')
-        // git:checkout resolves with {success:false} rather than throwing, so
-        // we must inspect the result to know whether to fall back to creating
-        // a tracking branch from the remote.
-        const result = await window.electronAPI.git.checkout(repoPath, branchName)
-        if (!result.success) {
-          await window.electronAPI.git.checkoutRemoteBranch(repoPath, remoteName, branchName)
-        }
-      } else {
-        await window.electronAPI.git.checkout(repoPath, ref.name)
-      }
+      // git:checkout resolves with {success:false} rather than throwing, so the
+      // checkout thunks below must inspect the result. checkoutWithAutostash
+      // handles the "blocked by uncommitted changes" case: it auto-stashes,
+      // retries, and notifies the user — without it, a blocked checkout looked
+      // like the UI silently did nothing.
+      const doCheckout =
+        ref.type === 'remote'
+          ? async () => {
+              const parts = ref.name.split('/')
+              const remoteName = parts[0]
+              const branchName = parts.slice(1).join('/')
+              // Prefer a plain checkout (git DWIM-creates the local tracking
+              // branch); only fall back to an explicit tracking-branch create
+              // when that can't resolve the ref.
+              const result = await window.electronAPI.git.checkout(repoPath, branchName)
+              if (result.success) return result
+              return window.electronAPI.git.checkoutRemoteBranch(repoPath, remoteName, branchName)
+            }
+          : () => window.electronAPI.git.checkout(repoPath, ref.name)
+
+      const outcome = await checkoutWithAutostash(repoPath, displayName, doCheckout, onNotify)
+      if (!outcome.success) return
+
       await loadCommits(true)
       fetchAheadBehind()
       loadWipStatus()
       onRefresh?.()
     } catch (err) {
       console.error('Checkout failed:', err)
+      onNotify?.('error', `Failed to checkout ${displayName}`, err instanceof Error ? err.message : undefined)
     } finally {
       setCheckoutInProgress(null)
     }
-  }, [repoPath, loadCommits, fetchAheadBehind, loadWipStatus, onRefresh])
+  }, [repoPath, loadCommits, fetchAheadBehind, loadWipStatus, onRefresh, onNotify])
 
   const handleCloseDetail = useCallback(() => {
     setSelectedIndex(-1)

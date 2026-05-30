@@ -580,6 +580,7 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
                     commitHistoryDepth={appSettings.commitHistoryDepth}
                     workingTreeFile={workingTreeFile}
                     onCloseWorkingTreeFile={() => setWorkingTreeFile(null)}
+                    onNotify={addNotification}
                   />
                 </div>
                 {/* Right panel drag handle + commit details on top, staging area below.

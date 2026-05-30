@@ -41,6 +41,7 @@ import { RebaseDialog } from './RebaseDialog'
 import { FileTree } from './FileTree'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 import { SkeletonList } from './Skeleton'
+import { checkoutWithAutostash } from '../utils/checkout'
 import styles from './Sidebar.module.css'
 
 type SidebarTab = 'git' | 'files'
@@ -81,16 +82,6 @@ interface NewBranchDialogState {
   loading: boolean
 }
 
-// Git refuses to checkout when uncommitted changes or untracked files would
-// be clobbered. Detect those cases so we can auto-stash and retry.
-function needsStashForCheckout(errorText: string | undefined): boolean {
-  if (!errorText) return false
-  return (
-    /would be overwritten by checkout/i.test(errorText) ||
-    /untracked working tree files would be overwritten/i.test(errorText) ||
-    /please commit your changes or stash them/i.test(errorText)
-  )
-}
 
 // ─── SidebarSection ──────────────────────────────────────────────────────────
 
@@ -525,35 +516,14 @@ function RemotesSection({ currentRepo, onBranchesChanged, onNotify }: RemotesSec
     async (remoteName: string, branchName: string) => {
       if (!currentRepo) return
       const rb = remoteBranches.find((b) => b.remote === remoteName && b.branch === branchName)
-      let result = await window.electronAPI.git.checkoutRemoteBranch(currentRepo, remoteName, branchName)
-      let stashed = false
-
-      if (!result.success && needsStashForCheckout(result.error)) {
-        const includeUntracked = /untracked/i.test(result.error || '')
-        const ts = new Date().toISOString().replace('T', ' ').slice(0, 19)
-        const stashRes = await window.electronAPI.git.stashSave(currentRepo, {
-          message: `Auto-stash before checkout to ${remoteName}/${branchName} (${ts})`,
-          includeUntracked
-        })
-        if (!stashRes.success) {
-          onNotify('error', 'Failed to stash changes', stashRes.error)
-          return
-        }
-        stashed = true
-        result = await window.electronAPI.git.checkoutRemoteBranch(currentRepo, remoteName, branchName)
-      }
-
-      if (!result.success) {
-        onNotify('error', `Failed to checkout ${remoteName}/${branchName}`, result.error)
-        return
-      }
-
-      onNotify(
-        'success',
-        stashed
-          ? `Stashed changes and checked out ${branchName}`
-          : `Checked out ${branchName}`
+      const outcome = await checkoutWithAutostash(
+        currentRepo,
+        `${remoteName}/${branchName}`,
+        () => window.electronAPI.git.checkoutRemoteBranch(currentRepo, remoteName, branchName),
+        onNotify
       )
+      if (!outcome.success) return
+
       onBranchesChanged()
       if (rb?.hash) {
         window.dispatchEvent(
@@ -3667,36 +3637,14 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
     async (branchName: string) => {
       if (!currentRepo) return
       const branch = branches.find((b) => b.name === branchName)
-      let result = await window.electronAPI.git.checkout(currentRepo, branchName)
-      let stashed = false
-
-      // Auto-stash and retry if checkout was blocked by uncommitted changes.
-      if (!result.success && needsStashForCheckout(result.error)) {
-        const includeUntracked = /untracked/i.test(result.error || '')
-        const ts = new Date().toISOString().replace('T', ' ').slice(0, 19)
-        const stashRes = await window.electronAPI.git.stashSave(currentRepo, {
-          message: `Auto-stash before checkout to ${branchName} (${ts})`,
-          includeUntracked
-        })
-        if (!stashRes.success) {
-          onNotify('error', `Failed to stash changes`, stashRes.error)
-          return
-        }
-        stashed = true
-        result = await window.electronAPI.git.checkout(currentRepo, branchName)
-      }
-
-      if (!result.success) {
-        onNotify('error', `Failed to checkout ${branchName}`, result.error)
-        return
-      }
-
-      onNotify(
-        'success',
-        stashed
-          ? `Stashed changes and checked out ${branchName}`
-          : `Checked out ${branchName}`
+      const outcome = await checkoutWithAutostash(
+        currentRepo,
+        branchName,
+        () => window.electronAPI.git.checkout(currentRepo, branchName),
+        onNotify
       )
+      if (!outcome.success) return
+
       await loadBranches()
       if (branch?.hash) {
         window.dispatchEvent(

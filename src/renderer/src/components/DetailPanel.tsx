@@ -27,7 +27,9 @@ import styles from './DetailPanel.module.css'
 import type { CommitDetail, CommitFileDetail } from './CommitGraph'
 import { stashIndexFromRefs } from './CommitGraph'
 import { ContextMenu, type ContextMenuEntry } from './ContextMenu'
-import { CornerDownRight } from 'lucide-react'
+import { CornerDownRight, Undo2 } from 'lucide-react'
+import { ConflictChoiceDialog, type ConflictChoice } from './ConflictChoiceDialog'
+import { UndoFileDialog, type UndoMode } from './UndoFileDialog'
 import type { FileListView } from '../hooks/useLayoutState'
 import { DEFAULT_SETTINGS, type AppSettings } from '../hooks/useSettings'
 
@@ -39,6 +41,14 @@ function readAppSettings(): AppSettings {
   } catch { /* ignore */ }
   return { ...DEFAULT_SETTINGS }
 }
+
+/**
+ * An overwrite-style file operation paused while the user decides how to handle
+ * their uncommitted edits (via ConflictChoiceDialog).
+ */
+type PendingConflictOp =
+  | { kind: 'apply'; paths: string[]; label: string }
+  | { kind: 'undoReset'; path: string }
 
 /** Tree node for directory tree view of changed files */
 interface FileTreeNode {
@@ -591,6 +601,10 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
     | { x: number; y: number; kind: 'folder'; folder: string }
     | null
   >(null)
+  // A pending overwrite-style op awaiting the user's stash/overwrite choice.
+  const [conflictOp, setConflictOp] = useState<PendingConflictOp | null>(null)
+  // The file path whose "Undo from this commit" dialog is open.
+  const [undoTarget, setUndoTarget] = useState<string | null>(null)
   const applyStashSubset = useCallback(
     async (paths: string[], label: string) => {
       if (!repoPath || stashIndex === null || paths.length === 0) return
@@ -605,20 +619,100 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
           `${label} applied with conflicts. Conflicted files now have <<<<<<< markers in the working tree — resolve them in the staging area.`
         )
       }
+      // Surface the applied working-tree changes in the status panel.
+      window.dispatchEvent(new CustomEvent('graph:force-refresh'))
     },
     [repoPath, stashIndex]
   )
   // Apply this commit's snapshot of the given path(s) to the working tree
   // via `git checkout <hash> -- <paths...>`. Used by the file/folder right-
   // click menu on non-stash commits.
-  const applyCommitSubset = useCallback(
-    async (paths: string[], label: string) => {
-      if (!repoPath || !commit || paths.length === 0) return
+  const timestamp = (): string => new Date().toISOString().replace('T', ' ').slice(0, 19)
+
+  // Perform an "apply to working tree" (after any conflict choice has been
+  // made). 'stash' sets the user's edits aside first; 'overwrite' replaces them.
+  const runApply = useCallback(
+    async (paths: string[], label: string, choice: ConflictChoice) => {
+      if (!repoPath || !commit) return
+      if (choice === 'stash') {
+        const stashRes = await window.electronAPI.git.stashPaths(
+          repoPath,
+          paths,
+          `Auto-stash before applying ${label} (${timestamp()})`
+        )
+        if (!stashRes.success) {
+          // eslint-disable-next-line no-alert
+          alert(`Failed to stash changes: ${stashRes.error}`)
+          return
+        }
+      }
       const result = await window.electronAPI.git.applyCommitToWorkingTree(repoPath, commit.hash, paths)
       if (!result.success) {
         // eslint-disable-next-line no-alert
         alert(`Failed to apply ${label}: ${result.error}`)
+        return
       }
+      // Refresh so the status panel shows the newly applied changes — otherwise
+      // the action looks like it did nothing.
+      window.dispatchEvent(new CustomEvent('graph:force-refresh'))
+    },
+    [repoPath, commit?.hash]
+  )
+
+  // Perform an "undo file from commit". 'reverse' is non-destructive (it merges
+  // on top of current edits); 'reset' overwrites, so it honors the stash choice.
+  const runUndo = useCallback(
+    async (path: string, mode: UndoMode, choice?: ConflictChoice) => {
+      if (!repoPath || !commit) return
+      if (mode === 'reset' && choice === 'stash') {
+        const stashRes = await window.electronAPI.git.stashPaths(
+          repoPath,
+          [path],
+          `Auto-stash before undoing ${path} (${timestamp()})`
+        )
+        if (!stashRes.success) {
+          // eslint-disable-next-line no-alert
+          alert(`Failed to stash changes: ${stashRes.error}`)
+          return
+        }
+      }
+      const result = await window.electronAPI.git.undoFileFromCommit(repoPath, commit.hash, path, mode)
+      if (!result.success) {
+        // eslint-disable-next-line no-alert
+        alert(`Failed to undo ${path}: ${result.error}`)
+        return
+      }
+      window.dispatchEvent(new CustomEvent('graph:force-refresh'))
+      const data = result.data as { conflicted?: boolean; message?: string } | undefined
+      if (data?.conflicted) {
+        // eslint-disable-next-line no-alert
+        alert(data.message || `Undo applied with conflicts — resolve the <<<<<<< markers in the working tree.`)
+      }
+    },
+    [repoPath, commit?.hash]
+  )
+
+  // Entry point for the file/folder "Apply to working tree" menu. Warns first
+  // when the target paths have uncommitted edits an overwrite would clobber.
+  const applyCommitSubset = useCallback(
+    async (paths: string[], label: string) => {
+      if (!repoPath || !commit || paths.length === 0) return
+      const dirty = await window.electronAPI.git.hasLocalChanges(repoPath, paths)
+      if (dirty.success && dirty.data === true) {
+        setConflictOp({ kind: 'apply', paths, label })
+        return
+      }
+      await runApply(paths, label, 'overwrite')
+    },
+    [repoPath, commit?.hash, runApply]
+  )
+
+  // Entry point for the file "Undo … from this commit" menu — opens the
+  // semantic-choice dialog; the rest of the flow is driven from its callback.
+  const beginUndoFile = useCallback(
+    (path: string) => {
+      if (!repoPath || !commit) return
+      setUndoTarget(path)
     },
     [repoPath, commit?.hash]
   )
@@ -1133,12 +1227,19 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
               }
             ]
           } else {
+            const filePath = stashCtxMenu.path
             items = [
               {
                 key: 'applyFileToWT',
                 label: `Apply "${fileName}" to working tree`,
                 icon: <CornerDownRight size={14} />,
-                onClick: () => applyCommitSubset([stashCtxMenu.path], stashCtxMenu.path)
+                onClick: () => applyCommitSubset([filePath], filePath)
+              },
+              {
+                key: 'undoFileFromCommit',
+                label: `Undo "${fileName}" from this commit…`,
+                icon: <Undo2 size={14} />,
+                onClick: () => beginUndoFile(filePath)
               }
             ]
           }
@@ -1180,6 +1281,47 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
           />
         )
       })()}
+
+      {/* Undo-file semantic choice (reverse vs reset). */}
+      {undoTarget !== null && commit && (
+        <UndoFileDialog
+          fileName={undoTarget.split('/').pop() || undoTarget}
+          shortHash={commit.hash.slice(0, 7)}
+          onCancel={() => setUndoTarget(null)}
+          onChoose={async (mode: UndoMode) => {
+            if (undoTarget === null || !repoPath) return
+            const path: string = undoTarget
+            setUndoTarget(null)
+            if (mode === 'reverse') {
+              // Non-destructive: merges on top of any local edits — no warning needed.
+              await runUndo(path, 'reverse')
+              return
+            }
+            // Reset overwrites the file; warn if there are local edits to it.
+            const dirty = await window.electronAPI.git.hasLocalChanges(repoPath, [path])
+            if (dirty.success && dirty.data === true) {
+              setConflictOp({ kind: 'undoReset', path })
+              return
+            }
+            await runUndo(path, 'reset', 'overwrite')
+          }}
+        />
+      )}
+
+      {/* Stash-vs-overwrite choice for an overwrite-style op on a dirty file. */}
+      {conflictOp && (
+        <ConflictChoiceDialog
+          targetLabel={conflictOp.kind === 'apply' ? conflictOp.label : conflictOp.path}
+          actionVerb={conflictOp.kind === 'apply' ? 'apply' : 'undo'}
+          onCancel={() => setConflictOp(null)}
+          onChoose={async (choice: ConflictChoice) => {
+            const op = conflictOp
+            setConflictOp(null)
+            if (op.kind === 'apply') await runApply(op.paths, op.label, choice)
+            else await runUndo(op.path, 'reset', choice)
+          }}
+        />
+      )}
     </div>
   )
 }

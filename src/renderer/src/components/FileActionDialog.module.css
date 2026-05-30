@@ -1,0 +1,172 @@
+/* =============================================================================
+   FileActionDialog — shared CSS Module for ConflictChoiceDialog & UndoFileDialog
+   ============================================================================= */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+.dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  width: 520px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg) 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.header h3 {
+  margin: 0;
+  font-size: var(--font-xl);
+  color: var(--text-primary);
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-lg);
+  cursor: pointer;
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+}
+
+.closeBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.intro {
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.intro code {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, monospace);
+}
+
+.modes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: var(--space-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--bg-primary);
+}
+
+.mode:hover {
+  border-color: var(--text-secondary);
+}
+
+.modeSelected {
+  border-color: var(--accent);
+  background: rgba(137, 180, 250, 0.08);
+}
+
+.mode input[type="radio"] {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.modeContent {
+  flex: 1;
+}
+
+.modeTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-xs);
+}
+
+.modeDefault {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  margin-left: 6px;
+}
+
+.modeDescription {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-md) 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn {
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-md);
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnCancel {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.btnCancel:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.btnPrimary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border-color: var(--accent);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--btn-primary-hover);
+}

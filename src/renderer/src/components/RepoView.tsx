@@ -32,6 +32,7 @@ interface RepoViewProps {
   // Working-tree file selected in StatusPanel — shown in the main center viewer
   workingTreeFile?: { path: string; staged: boolean; isUntracked: boolean } | null
   onCloseWorkingTreeFile?: () => void
+  onNotify?: (type: 'success' | 'error' | 'warning' | 'info', message: string, details?: string) => void
 }
 
 interface BranchInfo {
@@ -78,7 +79,7 @@ function synthesizeNewFileDiff(path: string, content: string): string {
   ].join('\n')
 }
 
-export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels, commitHistoryDepth, workingTreeFile, onCloseWorkingTreeFile }: RepoViewProps): React.JSX.Element {
+export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels, commitHistoryDepth, workingTreeFile, onCloseWorkingTreeFile, onNotify }: RepoViewProps): React.JSX.Element {
   const [status, setStatus] = useState<RepoStatus | null>(null)
   const [branches, setBranches] = useState<BranchInfo[]>([])
   const [loading, setLoading] = useState(true)
@@ -721,7 +722,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
               onFiltersChange={setCommitFilters}
               filePath={fileHistoryPath}
             />
-            <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} onTwoCommitSelect={onTwoCommitSelect} onLoadComplete={onRepoLoaded} filters={graphFilters} showBranchLabels={showBranchLabels} maxCommits={commitHistoryDepth} />
+            <CommitGraph repoPath={repoPath} onRefresh={loadRepoData} onCommitSelect={onCommitSelect} onTwoCommitSelect={onTwoCommitSelect} onLoadComplete={onRepoLoaded} filters={graphFilters} showBranchLabels={showBranchLabels} maxCommits={commitHistoryDepth} onNotify={onNotify} />
           </div>
 
           {/* Center-Stage Diff View OR Working-Tree Diff */}

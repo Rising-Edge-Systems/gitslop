@@ -24,9 +24,10 @@ interface MainContentProps {
   // Working-tree file selected in StatusPanel — displayed in the main center viewer
   workingTreeFile?: { path: string; staged: boolean; isUntracked: boolean } | null
   onCloseWorkingTreeFile?: () => void
+  onNotify?: (type: 'success' | 'error' | 'warning' | 'info', message: string, details?: string) => void
 }
 
-export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCommitSelect, onTwoCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels, commitHistoryDepth, workingTreeFile, onCloseWorkingTreeFile }: MainContentProps): React.JSX.Element {
+export const MainContent = React.memo(function MainContent({ currentRepo, onRepoOpen, onCommitSelect, onTwoCommitSelect, onRepoLoaded, viewingDiff, diffFile, diffCommitHash, selectedCommit, onBackToGraph, onNavigateFile, diffViewMode, onDiffViewModeChange, showBranchLabels, commitHistoryDepth, workingTreeFile, onCloseWorkingTreeFile, onNotify }: MainContentProps): React.JSX.Element {
   if (!currentRepo) {
     return (
       <div className="main-content main-content--centered">
@@ -54,6 +55,7 @@ export const MainContent = React.memo(function MainContent({ currentRepo, onRepo
         commitHistoryDepth={commitHistoryDepth}
         workingTreeFile={workingTreeFile}
         onCloseWorkingTreeFile={onCloseWorkingTreeFile}
+        onNotify={onNotify}
       />
     </div>
   )

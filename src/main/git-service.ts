@@ -1951,6 +1951,215 @@ export class GitService {
   }
 
   /**
+   * Return true if any of the given paths have uncommitted changes (staged,
+   * unstaged, or untracked) in the working tree. Used to decide whether an
+   * apply/undo that overwrites those paths needs to warn the user first.
+   */
+  async hasLocalChanges(
+    repoPath: string,
+    paths: string[],
+    options?: { signal?: AbortSignal }
+  ): Promise<boolean> {
+    if (paths.length === 0) return false
+    const result = await this.exec(
+      ['status', '--porcelain', '--', ...paths],
+      repoPath,
+      { signal: options?.signal }
+    )
+    return result.stdout.trim().length > 0
+  }
+
+  /**
+   * Stash just the given paths (including any untracked ones that match) so a
+   * subsequent overwrite doesn't clobber the user's edits. Unrelated working
+   * changes are left untouched; the user can pop the stash later.
+   */
+  async stashPaths(
+    repoPath: string,
+    paths: string[],
+    message: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(
+      ['stash', 'push', '--include-untracked', '-m', message, '--', ...paths],
+      repoPath,
+      { signal: options?.signal }
+    )
+  }
+
+  /**
+   * Undo a single file's change introduced by a commit, leaving the result as
+   * an uncommitted change in the working tree (history is never rewritten).
+   *
+   *   - mode 'reverse' → reverse-apply just this commit's diff for the file,
+   *     preserving any later edits; overlaps produce conflict markers. A file
+   *     the commit *added* is removed; a file it *deleted* is restored.
+   *   - mode 'reset' → set the file back to its content in the commit's parent
+   *     (or remove it if it didn't exist there).
+   */
+  async undoFileFromCommit(
+    repoPath: string,
+    hash: string,
+    path: string,
+    mode: 'reverse' | 'reset',
+    options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; conflicted?: boolean; deleted?: boolean }> {
+    const short = hash.slice(0, 7)
+    const hasParent = await this.refExists(repoPath, `${hash}^`, options)
+    const existedBefore = hasParent && (await this.blobExists(repoPath, `${hash}^`, path, options))
+
+    if (mode === 'reset') {
+      if (existedBefore) {
+        await this.exec(
+          ['restore', '--source', `${hash}^`, '--worktree', '--', path],
+          repoPath,
+          { signal: options?.signal }
+        )
+        return { success: true, message: `Reset ${path} to its version before ${short}` }
+      }
+      await this.deleteWorkingFile(repoPath, path)
+      return { success: true, deleted: true, message: `Removed ${path} (it didn't exist before ${short})` }
+    }
+
+    // mode === 'reverse'
+    if (!hasParent) {
+      // Root commit introduced the file; reversing the addition removes it.
+      await this.deleteWorkingFile(repoPath, path)
+      return { success: true, deleted: true, message: `Removed ${path} (added by ${short})` }
+    }
+    const diff = await this.exec(
+      ['diff', '--binary', `${hash}^`, hash, '--', path],
+      repoPath,
+      { signal: options?.signal }
+    )
+    if (!diff.stdout.trim()) {
+      return { success: true, message: `${path} was not changed in ${short}` }
+    }
+    const { conflicted } = await this.applyPatchToWorkingTree(repoPath, diff.stdout, { reverse: true }, options)
+    // `git apply --3way` implies --index, so it staged the result. Move it back
+    // to an unstaged working-tree change so it matches "apply to working tree"
+    // and the user reviews it before committing. (On conflicts this resets the
+    // index entry to HEAD, leaving the markers in the working tree to resolve.)
+    try {
+      await this.exec(['reset', '-q', 'HEAD', '--', path], repoPath, { signal: options?.signal })
+    } catch {
+      // Non-critical: the change is present, just staged rather than unstaged.
+    }
+    return {
+      success: true,
+      conflicted,
+      message: conflicted
+        ? `Reversed ${path} from ${short} with conflicts — resolve the <<<<<<< markers in the working tree.`
+        : `Reversed the change to ${path} from ${short}`
+    }
+  }
+
+  /** True if a git revision (e.g. `<hash>^`) resolves in this repo. */
+  private async refExists(
+    repoPath: string,
+    ref: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<boolean> {
+    try {
+      await this.exec(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], repoPath, {
+        signal: options?.signal
+      })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /** True if `<ref>:<path>` exists (i.e. the file is present in that tree). */
+  private async blobExists(
+    repoPath: string,
+    ref: string,
+    path: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<boolean> {
+    try {
+      await this.exec(['cat-file', '-e', `${ref}:${path}`], repoPath, { signal: options?.signal })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /** Remove a file from the working tree (leaves an unstaged deletion). */
+  private async deleteWorkingFile(repoPath: string, filePath: string): Promise<void> {
+    const { rm } = await import('fs/promises')
+    const { join } = await import('path')
+    await rm(join(repoPath, filePath), { force: true })
+  }
+
+  /**
+   * Pipe a patch to `git apply --3way` (optionally reversed) against the
+   * working tree. A clean apply resolves {conflicted:false}; a 3-way fallback
+   * that writes conflict markers resolves {conflicted:true}; anything else
+   * rejects. Mirrors the stash-file apply path.
+   */
+  private applyPatchToWorkingTree(
+    repoPath: string,
+    patch: string,
+    opts: { reverse?: boolean },
+    options?: { signal?: AbortSignal }
+  ): Promise<{ conflicted: boolean }> {
+    return new Promise<{ conflicted: boolean }>((resolve, reject) => {
+      const signal = options?.signal
+      if (signal?.aborted) {
+        reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+        return
+      }
+
+      const args = ['apply', '--3way', '--whitespace=nowarn']
+      if (opts.reverse) args.push('-R')
+      args.push('-')
+
+      const child = spawn('git', args, {
+        cwd: repoPath,
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+
+      let stderr = ''
+      child.stderr?.on('data', (data: Buffer) => {
+        stderr += data.toString()
+      })
+
+      child.on('close', (code) => {
+        if (signal?.aborted) {
+          reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+          return
+        }
+        if (code === 0) {
+          resolve({ conflicted: false })
+        } else if (/conflict|fallback|U /i.test(stderr)) {
+          resolve({ conflicted: true })
+        } else {
+          reject(this.createError(stderr || 'Failed to apply patch', GitErrorCode.CommandFailed, stderr))
+        }
+      })
+
+      child.on('error', (err) => {
+        reject(this.classifyError(err as Error & { code?: string | number | null }, stderr))
+      })
+
+      if (signal) {
+        signal.addEventListener(
+          'abort',
+          () => {
+            child.kill('SIGTERM')
+            reject(this.createError('Operation cancelled', GitErrorCode.Cancelled))
+          },
+          { once: true }
+        )
+      }
+
+      child.stdin?.write(patch)
+      child.stdin?.end()
+    })
+  }
+
+  /**
    * Abort an in-progress cherry-pick.
    */
   async cherryPickAbort(

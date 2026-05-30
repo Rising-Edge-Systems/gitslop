@@ -1054,6 +1054,48 @@ export function registerGitIpcHandlers(): void {
   )
 
   ipcMain.handle(
+    'git:hasLocalChanges',
+    async (_event, repoPath: string, paths: string[]) => {
+      try {
+        const dirty = await gitService.hasLocalChanges(repoPath, paths)
+        return { success: true, data: dirty }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:stashPaths',
+    async (_event, repoPath: string, paths: string[], message: string) => {
+      try {
+        await withWatcherSuppression(() => gitService.stashPaths(repoPath, paths, message))
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:undoFileFromCommit',
+    async (_event, repoPath: string, hash: string, path: string, mode: 'reverse' | 'reset') => {
+      try {
+        const result = await withWatcherSuppression(() =>
+          gitService.undoFileFromCommit(repoPath, hash, path, mode)
+        )
+        return {
+          success: result.success,
+          data: result,
+          error: result.success ? undefined : result.message
+        }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
     'git:cherryPick',
     async (_event, repoPath: string, hashes: string[]) => {
       try {
