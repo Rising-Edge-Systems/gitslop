@@ -50,19 +50,47 @@ type PendingConflictOp =
   | { kind: 'apply'; paths: string[]; label: string }
   | { kind: 'undoReset'; path: string }
 
+/** A file row prepared for display. Renames/moves get split into two rows
+ *  (the original location and the new location) — see expandRenamesForDisplay. */
+type DisplayFile = CommitFileDetail & {
+  /** Which end of a rename this row represents (undefined for non-renames). */
+  renameRole?: 'source' | 'dest'
+  /** Path to use for click + selection — always the NEW path for renames, so
+   *  both rows open the same diff even though `path` may be the old location. */
+  clickPath?: string
+}
+
+/** Renames/moves are shown as two rows — the original location (red) and the
+ *  new location (green) — both bearing the move icon, so it's obvious what
+ *  moved where. Non-renames pass through unchanged. */
+function expandRenamesForDisplay(files: CommitFileDetail[]): DisplayFile[] {
+  const out: DisplayFile[] = []
+  for (const f of files) {
+    if ((f.status === 'R' || f.status === 'C') && f.oldPath && f.oldPath !== f.path) {
+      // Original location — red. Stats live on the destination row.
+      out.push({ ...f, path: f.oldPath, renameRole: 'source', clickPath: f.path, insertions: 0, deletions: 0 })
+      // New location — green.
+      out.push({ ...f, renameRole: 'dest', clickPath: f.path })
+    } else {
+      out.push(f)
+    }
+  }
+  return out
+}
+
 /** Tree node for directory tree view of changed files */
 interface FileTreeNode {
   name: string
   fullPath: string
   isDir: boolean
   children: FileTreeNode[]
-  file?: CommitFileDetail
+  file?: DisplayFile
   /** True if this directory (or any descendant) contains at least one changed file */
   containsChanges?: boolean
 }
 
 /** Build a directory tree from a flat list of file details */
-function buildFileTree(files: CommitFileDetail[]): FileTreeNode[] {
+function buildFileTree(files: DisplayFile[]): FileTreeNode[] {
   const root: FileTreeNode = { name: '', fullPath: '', isDir: true, children: [] }
 
   for (const file of files) {
@@ -226,7 +254,7 @@ function FileTreeNodeComponent({
 
   // File leaf node
   const file = node.file!
-  const isSelected = selectedFilePath === file.path
+  const isSelected = selectedFilePath === (file.clickPath ?? file.path)
   const isUnchanged = file.status === 'unchanged'
   return (
     <li>
@@ -236,7 +264,7 @@ function FileTreeNodeComponent({
         onClick={() => onFileClick(file)}
         onContextMenu={onFileContextMenu ? (e) => onFileContextMenu(e, file) : undefined}
       >
-        <FileStatusIcon status={file.status} />
+        <FileStatusIcon status={file.status} renameRole={file.renameRole} />
         <span className={styles.fileName}>{node.name}</span>
         {(file.insertions > 0 || file.deletions > 0) && (
           <span className={styles.fileStats}>
@@ -323,7 +351,18 @@ function formatAbsoluteDate(dateStr: string): string {
 }
 
 /** Lucide icon status indicator for a changed file */
-function FileStatusIcon({ status, size = 14 }: { status: string; size?: number }): React.JSX.Element {
+function FileStatusIcon({ status, size = 14, renameRole }: { status: string; size?: number; renameRole?: 'source' | 'dest' }): React.JSX.Element {
+  // Renames render as two rows sharing the move icon: the source location in
+  // red, the destination in green, so it reads at a glance which is which.
+  if (renameRole) {
+    const roleCls = renameRole === 'source' ? styles.iconDeleted : styles.iconAdded
+    const roleTitle = renameRole === 'source' ? 'Moved from here' : 'Moved to here'
+    return (
+      <span className={`${styles.fileIcon} ${roleCls}`} title={roleTitle} aria-label={roleTitle}>
+        <ArrowRightLeft size={size} />
+      </span>
+    )
+  }
   const cls = status === 'A' ? styles.iconAdded
     : status === 'D' ? styles.iconDeleted
     : status === 'R' || status === 'C' ? styles.iconRenamed
@@ -781,9 +820,12 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
     return merged
   }, [showAllFiles, allFilePaths, fileDetails, comparison])
 
+  // Expand renames/moves into source + destination rows for display.
+  const displayFileList = useMemo(() => expandRenamesForDisplay(mergedFileList), [mergedFileList])
+
   // Memoized file tree shared by the renderer, Expand/Collapse All buttons,
   // and the auto-collapse-unchanged-dirs effect below.
-  const mergedFileTree = useMemo(() => buildFileTree(mergedFileList), [mergedFileList])
+  const mergedFileTree = useMemo(() => buildFileTree(displayFileList), [displayFileList])
 
   // Auto-collapse effect: when "All files" mode activates AND the full file
   // list has finished loading, collapse every dir that contains no changed
@@ -814,14 +856,19 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
   // RepoView derives the effective view mode based on file status (see
   // `noDiffForCurrentFile`) so the user's persisted Diff/Full/File
   // preference is preserved across file navigation.
-  const handleFileClick = useCallback((file: CommitFileDetail) => {
+  const handleFileClick = useCallback((file: DisplayFile) => {
+    // For a rename's source row, `path` is the old location; the diff lives
+    // under the new path, so normalize to clickPath before dispatching.
+    const target: CommitFileDetail = file.clickPath && file.clickPath !== file.path
+      ? { ...file, path: file.clickPath }
+      : file
     if (comparison) {
       // In comparison mode, use hashTo as the "commit" for the diff viewer
-      onFileClick?.(file, `comparison:${comparison.hashFrom}..${comparison.hashTo}`)
+      onFileClick?.(target, `comparison:${comparison.hashFrom}..${comparison.hashTo}`)
       return
     }
     if (!commit) return
-    onFileClick?.(file, commit.hash)
+    onFileClick?.(target, commit.hash)
   }, [onFileClick, commit?.hash, comparison])
 
   // Use comparison data when in comparison mode
@@ -1159,12 +1206,12 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
 
               {filesExpanded && fileListView === 'path' && (
                 <ul className={styles.fileList}>
-                  {mergedFileList.map((file) => {
+                  {displayFileList.map((file) => {
                     const { dir, name } = splitPath(file.path)
-                    const isSelected = selectedFilePath === file.path
+                    const isSelected = selectedFilePath === (file.clickPath ?? file.path)
                     const isUnchanged = file.status === 'unchanged'
                     return (
-                      <li key={file.path}>
+                      <li key={`${file.renameRole ?? ''}:${file.path}`}>
                         <button
                           className={`${styles.fileItem} ${isSelected ? styles.fileItemSelected : ''} ${isUnchanged ? styles.fileItemUnchanged : ''}`}
                           onClick={() => handleFileClick(file)}
@@ -1172,7 +1219,7 @@ export function DetailPanel({ detail, comparison, repoPath, onFileClick, selecte
                             handleFileContext ? (e) => handleFileContext(e, file) : undefined
                           }
                         >
-                          <FileStatusIcon status={file.status} />
+                          <FileStatusIcon status={file.status} renameRole={file.renameRole} />
                           <span className={styles.fileName}>
                             {dir && <span className={styles.fileDir}>{dir}</span>}
                             {name}

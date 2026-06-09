@@ -746,21 +746,16 @@ function computeMarkers(lineTypes: Array<'added' | 'removed' | 'context' | null>
   return markers
 }
 
-function ScrollbarMarkers({
-  markers,
-  containerRef,
-  minMarkerHeight = 2,
-  maxMarkerHeight = 20
-}: {
-  markers: MarkerEntry[]
+/** Tracks the scroll container's visible window as {top, height} percentages,
+ *  plus a click-to-scroll handler. Shared by the single and dual marker gutters. */
+function useScrollbarViewport(
   containerRef: React.RefObject<HTMLElement | null>
-  minMarkerHeight?: number
-  maxMarkerHeight?: number
-}): React.JSX.Element {
-  const columnRef = useRef<HTMLDivElement>(null)
+): {
+  viewport: { top: number; height: number }
+  handleClick: (e: React.MouseEvent<HTMLDivElement>) => void
+} {
   const [viewport, setViewport] = useState<{ top: number; height: number }>({ top: 0, height: 100 })
 
-  // Update viewport indicator on scroll and resize
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -773,23 +768,18 @@ function ScrollbarMarkers({
       if (!el) return
       const { scrollTop, scrollHeight, clientHeight } = el
       if (scrollHeight <= 0) return
-      const topPct = (scrollTop / scrollHeight) * 100
-      const heightPct = (clientHeight / scrollHeight) * 100
-      setViewport({ top: topPct, height: heightPct })
+      setViewport({
+        top: (scrollTop / scrollHeight) * 100,
+        height: (clientHeight / scrollHeight) * 100
+      })
     }
 
     const onScroll = (): void => {
-      if (rafId == null) {
-        rafId = requestAnimationFrame(updateViewport)
-      }
+      if (rafId == null) rafId = requestAnimationFrame(updateViewport)
     }
 
-    // Initial calculation
     updateViewport()
-
     container.addEventListener('scroll', onScroll, { passive: true })
-
-    // Also update on resize (content might change size)
     const ro = new ResizeObserver(() => updateViewport())
     ro.observe(container)
 
@@ -802,10 +792,9 @@ function ScrollbarMarkers({
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      const col = columnRef.current
       const container = containerRef.current
-      if (!col || !container) return
-      const rect = col.getBoundingClientRect()
+      if (!container) return
+      const rect = e.currentTarget.getBoundingClientRect()
       const ratio = (e.clientY - rect.top) / rect.height
       const target = ratio * (container.scrollHeight - container.clientHeight)
       container.scrollTo({ top: target, behavior: 'smooth' })
@@ -813,36 +802,83 @@ function ScrollbarMarkers({
     [containerRef]
   )
 
+  return { viewport, handleClick }
+}
+
+/** Render the absolutely-positioned change markers for one column. Height is a
+ *  raw proportion of the file (only floored to a min for visibility) — a block
+ *  that's half the file fills half the gutter, no upper clamp. */
+function renderMarkerBars(markers: MarkerEntry[], minMarkerHeight: number): React.JSX.Element[] {
+  return markers.map((m, i) => {
+    const cls = m.type === 'added' ? styles.scrollbarMarkerAdded : styles.scrollbarMarkerRemoved
+    return (
+      <div
+        key={i}
+        className={`${styles.scrollbarMarker} ${cls}`}
+        style={{
+          top: `${m.position * 100}%`,
+          height: `max(${minMarkerHeight}px, ${m.height * 100}%)`
+        }}
+      />
+    )
+  })
+}
+
+function ScrollbarMarkers({
+  markers,
+  containerRef,
+  minMarkerHeight = 2
+}: {
+  markers: MarkerEntry[]
+  containerRef: React.RefObject<HTMLElement | null>
+  minMarkerHeight?: number
+}): React.JSX.Element {
+  const { viewport, handleClick } = useScrollbarViewport(containerRef)
+
   return (
-    <div
-      ref={columnRef}
-      className={styles.scrollbarMarkerColumn}
-      onClick={handleClick}
-    >
+    <div className={styles.scrollbarMarkerColumn} onClick={handleClick}>
       {/* Viewport indicator — behind markers (lower z-index) */}
       <div
         className={styles.scrollbarViewport}
-        style={{
-          top: `${viewport.top}%`,
-          height: `${viewport.height}%`
-        }}
+        style={{ top: `${viewport.top}%`, height: `${viewport.height}%` }}
       />
-      {markers.map((m, i) => {
-        const top = `${m.position * 100}%`
-        // Clamp pixel height between min and max
-        const heightPercent = m.height * 100
-        const cls = m.type === 'added' ? styles.scrollbarMarkerAdded : styles.scrollbarMarkerRemoved
-        return (
-          <div
-            key={i}
-            className={`${styles.scrollbarMarker} ${cls}`}
-            style={{
-              top,
-              height: `clamp(${minMarkerHeight}px, ${heightPercent}%, ${maxMarkerHeight}px)`
-            }}
-          />
-        )
-      })}
+      {renderMarkerBars(markers, minMarkerHeight)}
+    </div>
+  )
+}
+
+/**
+ * Two side-by-side marker gutters for old-left/new-right diffs: the left strip
+ * shows the old file's removals (red), the right strip shows the new file's
+ * additions (green). A single shared viewport indicator spans both, and the
+ * whole strip is click-to-scroll.
+ */
+function DualScrollbarMarkers({
+  leftMarkers,
+  rightMarkers,
+  containerRef,
+  minMarkerHeight = 2
+}: {
+  leftMarkers: MarkerEntry[]
+  rightMarkers: MarkerEntry[]
+  containerRef: React.RefObject<HTMLElement | null>
+  minMarkerHeight?: number
+}): React.JSX.Element {
+  const { viewport, handleClick } = useScrollbarViewport(containerRef)
+
+  return (
+    <div className={styles.scrollbarDualColumn} onClick={handleClick}>
+      {/* Shared viewport indicator — behind markers, spans both strips */}
+      <div
+        className={styles.scrollbarViewport}
+        style={{ top: `${viewport.top}%`, height: `${viewport.height}%` }}
+      />
+      <div className={styles.scrollbarSubColumn}>
+        {renderMarkerBars(leftMarkers, minMarkerHeight)}
+      </div>
+      <div className={styles.scrollbarSubColumn}>
+        {renderMarkerBars(rightMarkers, minMarkerHeight)}
+      </div>
     </div>
   )
 }
@@ -1585,22 +1621,23 @@ function SideBySideDiffView({
     [virtualRows]
   )
 
-  // Compute unified scrollbar markers from paired lines
-  const unifiedMarkers = useMemo(() => {
-    const types: Array<'added' | 'removed' | 'context' | null> = []
-    for (const pair of pairs) {
-      if (pair.left?.type === 'removed') {
-        types.push('removed')
-      } else if (pair.right?.type === 'added') {
-        types.push('added')
-      } else if (pair.left || pair.right) {
-        types.push('context')
-      } else {
-        types.push(null)
-      }
-    }
-    return computeMarkers(types, types.length)
-  }, [pairs])
+  // Separate left/right scrollbar markers: left gutter tracks the old pane's
+  // removals, right gutter tracks the new pane's additions. Both share the
+  // pair-index denominator so they line up with the synchronized scroll.
+  const leftMarkers = useMemo(
+    () => computeMarkers(
+      pairs.map((p) => (p.left?.type === 'removed' ? 'removed' : p.left ? 'context' : null)),
+      pairs.length
+    ),
+    [pairs]
+  )
+  const rightMarkers = useMemo(
+    () => computeMarkers(
+      pairs.map((p) => (p.right?.type === 'added' ? 'added' : p.right ? 'context' : null)),
+      pairs.length
+    ),
+    [pairs]
+  )
 
   // Props passed to every virtual row
   const rowProps: SbsVirtualRowProps = useMemo(() => ({
@@ -1654,7 +1691,11 @@ function SideBySideDiffView({
           </div>
         )}
       </div>
-      <ScrollbarMarkers markers={unifiedMarkers} containerRef={scrollContainerRef as React.RefObject<HTMLElement | null>} />
+      <DualScrollbarMarkers
+        leftMarkers={leftMarkers}
+        rightMarkers={rightMarkers}
+        containerRef={scrollContainerRef as React.RefObject<HTMLElement | null>}
+      />
     </div>
   )
 }
@@ -2052,23 +2093,23 @@ export function FullDiffView({
   const leftPath = isRenamed && oldPath ? oldPath : filePath
   const rightPath = filePath
 
-  // Merge left + right markers into a single marker array for the unified container.
-  // For each row, pick whichever side has a meaningful change marker.
-  const unifiedMarkers = useMemo(() => {
-    const types: Array<'added' | 'removed' | 'context' | null> = []
-    for (const row of fullRows) {
-      if (row.left?.type === 'removed') {
-        types.push('removed')
-      } else if (row.right?.type === 'added') {
-        types.push('added')
-      } else if (row.left || row.right) {
-        types.push('context')
-      } else {
-        types.push(null)
-      }
-    }
-    return computeMarkers(types, types.length)
-  }, [fullRows])
+  // Separate left/right scrollbar markers: the left gutter tracks the old
+  // file's removals (red), the right gutter the new file's additions (green).
+  // Both use the same row-index denominator so they align with the shared scroll.
+  const leftMarkers = useMemo(
+    () => computeMarkers(
+      fullRows.map((r) => (r.left?.type === 'removed' ? 'removed' : r.left ? 'context' : null)),
+      fullRows.length
+    ),
+    [fullRows]
+  )
+  const rightMarkers = useMemo(
+    () => computeMarkers(
+      fullRows.map((r) => (r.right?.type === 'added' ? 'added' : r.right ? 'context' : null)),
+      fullRows.length
+    ),
+    [fullRows]
+  )
 
   // Build flat virtual-row list, inserting hunk divider items at hunk boundaries
   const virtualRows = useMemo(() => {
@@ -2195,7 +2236,11 @@ export function FullDiffView({
             </div>
           )}
         </div>
-        <ScrollbarMarkers markers={unifiedMarkers} containerRef={scrollContainerRef as React.RefObject<HTMLElement | null>} />
+        <DualScrollbarMarkers
+          leftMarkers={leftMarkers}
+          rightMarkers={rightMarkers}
+          containerRef={scrollContainerRef as React.RefObject<HTMLElement | null>}
+        />
       </div>
     </div>
   )

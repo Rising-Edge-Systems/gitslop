@@ -189,6 +189,25 @@ function parseSignatureStatus(code: string): SignatureStatus {
   }
 }
 
+/**
+ * Git's `--numstat` / `--stat` compress a rename into a single path with brace
+ * notation, e.g. "src/{old => new}/file.ts", "{a => b}.txt", or — when there's
+ * no common prefix/suffix — "old.txt => new.txt". `--name-status` instead lists
+ * the old and new paths uncompressed (tab-separated). Returns the NEW path so
+ * numstat/stat entries can be matched against name-status keys; without this the
+ * same rename shows up twice (once with a bogus "{ => dst}" path segment).
+ */
+function renameNotationToNewPath(p: string): string {
+  const brace = p.match(/^(.*)\{(.*) => (.*)\}(.*)$/)
+  if (brace) {
+    const [, prefix, , newMid, suffix] = brace
+    return (prefix + newMid + suffix).replace(/\/{2,}/g, '/')
+  }
+  const arrow = p.match(/^(.+) => (.+)$/)
+  if (arrow) return arrow[2]
+  return p
+}
+
 // ─── GitService ──────────────────────────────────────────────────────────────
 
 export class GitService {
@@ -639,12 +658,8 @@ export class GitService {
       if (match) {
         const ins = match[1] === '-' ? 0 : parseInt(match[1], 10)
         const del = match[2] === '-' ? 0 : parseInt(match[2], 10)
-        // Handle renames: "old => new" or "{old => new}/path"
-        let filePath = match[3]
-        const renameMatch = filePath.match(/^(.*)\\{(.+) => (.+)\\}(.*)$/)
-        if (renameMatch) {
-          filePath = renameMatch[1] + renameMatch[3] + renameMatch[4]
-        }
+        // Normalize rename brace notation ("{old => new}/path") to the new path.
+        const filePath = renameNotationToNewPath(match[3])
         stats[filePath] = { insertions: ins, deletions: del }
       }
     }
@@ -705,7 +720,7 @@ export class GitService {
       // stat lines look like: "filename | 5 ++-"
       const statMatch = line.match(/^\s*(.+?)\s+\|\s+\d+/)
       if (statMatch) {
-        files.push(statMatch[1].trim())
+        files.push(renameNotationToNewPath(statMatch[1].trim()))
       }
     }
 
@@ -753,8 +768,9 @@ export class GitService {
         if (parts.length >= 3) {
           const ins = parts[0] === '-' ? 0 : parseInt(parts[0], 10) || 0
           const del = parts[1] === '-' ? 0 : parseInt(parts[1], 10) || 0
-          // Handle renames: "old => new" or "{old => new}/path"
-          const filePath = parts.slice(2).join('\t')
+          // Normalize rename brace notation to the new path so it merges with
+          // the matching --name-status entry instead of duplicating the row.
+          const filePath = renameNotationToNewPath(parts.slice(2).join('\t'))
           numstatMap.set(filePath, { insertions: ins, deletions: del })
           totalInsertions += ins
           totalDeletions += del
@@ -863,7 +879,7 @@ export class GitService {
       if (parts.length >= 3) {
         const ins = parts[0] === '-' ? 0 : parseInt(parts[0], 10) || 0
         const del = parts[1] === '-' ? 0 : parseInt(parts[1], 10) || 0
-        const filePath = parts.slice(2).join('\t')
+        const filePath = renameNotationToNewPath(parts.slice(2).join('\t'))
         numstatMap.set(filePath, { insertions: ins, deletions: del })
         totalInsertions += ins
         totalDeletions += del

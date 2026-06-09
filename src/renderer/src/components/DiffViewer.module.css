@@ -788,6 +788,38 @@
   cursor: pointer;
 }
 
+/* Two side-by-side marker gutters for old-left / new-right diffs */
+.scrollbarDualColumn {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  width: 20px;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+}
+
+/* Each strip inside the dual gutter — markers position absolutely within it.
+   Both flex 1:1 with no borders so the two strips stay exactly equal width;
+   the center divider is drawn as an absolute line that consumes no layout. */
+.scrollbarSubColumn {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.scrollbarSubColumn + .scrollbarSubColumn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+}
+
 .scrollbarMarker {
   position: absolute;
   right: 1px;
