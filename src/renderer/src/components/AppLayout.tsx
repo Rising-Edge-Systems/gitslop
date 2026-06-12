@@ -429,6 +429,37 @@ export function AppLayout({ currentRepo, onRepoOpen, onCloseRepo, onOpenSettings
         { ctrl: true, key: '`' },
         handleToggleTerminal
       ),
+      // Zoom shortcuts are handled in the main process (menu accelerators +
+      // before-input-event), so these are display-only registry entries
+      // (enabled: false → the renderer keydown listener skips them) purely so
+      // they appear in the Keyboard Shortcuts reference panel.
+      defineShortcut(
+        'zoom-in',
+        'Zoom In',
+        'View',
+        'Ctrl+=',
+        { ctrl: true, key: '=' },
+        () => {},
+        false
+      ),
+      defineShortcut(
+        'zoom-out',
+        'Zoom Out',
+        'View',
+        'Ctrl+-',
+        { ctrl: true, key: '-' },
+        () => {},
+        false
+      ),
+      defineShortcut(
+        'zoom-reset',
+        'Reset Zoom',
+        'View',
+        'Ctrl+0',
+        { ctrl: true, key: '0' },
+        () => {},
+        false
+      ),
       defineShortcut(
         'open-search',
         'Search (Command Palette)',

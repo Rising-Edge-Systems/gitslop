@@ -241,13 +241,25 @@
   padding: var(--space-xs) var(--space-md);
   background: rgba(137, 180, 250, 0.08);
   color: var(--accent);
-  font-size: var(--font-xs);
+  font-size: 10px;
   font-family: var(--font-mono);
   border-bottom: 1px solid var(--border);
+  /* Keep on one line — the row is a fixed-height virtual row, so a wrapped
+     header would overflow and overlap the code below (e.g. when zoomed in).
+     overflow stays visible so the inline action bar isn't clipped. */
+  white-space: nowrap;
+  /* Fill the (taller) hunk-header row so the tinted band has no gap and the
+     text is vertically centered, rather than sitting flush at the top. */
+  flex: 1;
+  box-sizing: border-box;
 }
 
 .hunkHeaderText {
   opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .hunkHeaderSuffix {

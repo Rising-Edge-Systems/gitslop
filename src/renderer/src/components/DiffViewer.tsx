@@ -1116,6 +1116,9 @@ function HunkActions({
 
 // ─── Inline Diff View ───────────────────────────────────────────────────────
 
+const INLINE_ROW_HEIGHT = 20
+const INLINE_HUNK_HEIGHT = 28
+
 // Flattened inline row — either a hunk header or a diff line
 interface InlineVirtualItem {
   type: 'hunkHeader' | 'line'
@@ -1316,7 +1319,12 @@ function InlineDiffView({
     clearHunkSelection
   }), [items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection])
 
-  const ROW_HEIGHT = 20
+  // Variable row height: hunk headers are taller than data rows so their
+  // padding + border fit without overflowing into the line below.
+  const getRowHeight = useCallback(
+    (index: number) => (items[index]?.type === 'hunkHeader' ? INLINE_HUNK_HEIGHT : INLINE_ROW_HEIGHT),
+    [items]
+  )
 
   return (
     <div className={styles.diffWithMarkers}>
@@ -1325,7 +1333,7 @@ function InlineDiffView({
           listRef={setListRef}
           rowComponent={InlineVirtualRow}
           rowCount={items.length}
-          rowHeight={ROW_HEIGHT}
+          rowHeight={getRowHeight}
           rowProps={rowProps}
           overscanCount={15}
           style={{ height: containerHeight }}

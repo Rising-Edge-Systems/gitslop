@@ -65,6 +65,8 @@ interface StoreSchema {
   githubAccounts: IntegrationAccount[]
   gitlabAccounts: IntegrationAccount[]
   autoCheckUpdates: boolean
+  // UI zoom level (Electron zoom level; each step is a 1.2x factor, like VSCode/browsers)
+  zoomLevel: number
   // Legacy single-token fields (migrated on load)
   githubToken?: string
   gitlabToken?: string
@@ -78,11 +80,32 @@ export const store = new Store<StoreSchema>({
     activeProfileId: '',
     githubAccounts: [],
     gitlabAccounts: [],
-    autoCheckUpdates: true
+    autoCheckUpdates: true,
+    zoomLevel: 0
   }
 })
 
 let mainWindow: BrowserWindow | null = null
+
+// ─── UI Zoom (VSCode-like Ctrl+= / Ctrl+- / Ctrl+0) ─────────────────────────
+const MIN_ZOOM_LEVEL = -5
+const MAX_ZOOM_LEVEL = 5
+
+function applyZoomLevel(level: number): void {
+  const clamped = Math.max(MIN_ZOOM_LEVEL, Math.min(MAX_ZOOM_LEVEL, level))
+  store.set('zoomLevel', clamped)
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.setZoomLevel(clamped)
+  }
+}
+
+function adjustZoom(delta: number): void {
+  applyZoomLevel(store.get('zoomLevel', 0) + delta)
+}
+
+function resetZoom(): void {
+  applyZoomLevel(0)
+}
 
 function createWindow(): void {
   // Resolve the icon path. In dev, __dirname = <project>/out/main so the
@@ -132,6 +155,30 @@ function createWindow(): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  // Restore the persisted zoom level on every load (also re-applied after dev HMR reloads)
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow?.webContents.setZoomLevel(store.get('zoomLevel', 0))
+  })
+
+  // VSCode-style zoom keys. The View-menu accelerators only bind the main `+`/`-`/`0`
+  // keys; here we cover the variants menus can't express: `Ctrl+=` (zoom in without
+  // Shift) and the numpad keys. Guarded so it never overlaps the menu accelerators.
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    if (input.type !== 'keyDown') return
+    if (!(input.control || input.meta) || input.alt) return
+
+    if (input.key === '=' || input.code === 'NumpadAdd') {
+      _event.preventDefault()
+      adjustZoom(1)
+    } else if (input.code === 'NumpadSubtract') {
+      _event.preventDefault()
+      adjustZoom(-1)
+    } else if (input.code === 'Numpad0') {
+      _event.preventDefault()
+      resetZoom()
+    }
   })
 
   // Load the renderer
@@ -1868,9 +1915,21 @@ app.whenReady().then(async () => {
           }
         },
         { type: 'separator' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { role: 'resetZoom' },
+        {
+          label: 'Zoom In',
+          accelerator: 'CmdOrCtrl+Plus',
+          click: (): void => adjustZoom(1)
+        },
+        {
+          label: 'Zoom Out',
+          accelerator: 'CmdOrCtrl+-',
+          click: (): void => adjustZoom(-1)
+        },
+        {
+          label: 'Reset Zoom',
+          accelerator: 'CmdOrCtrl+0',
+          click: (): void => resetZoom()
+        },
         { type: 'separator' },
         { role: 'togglefullscreen' },
         { type: 'separator' },
