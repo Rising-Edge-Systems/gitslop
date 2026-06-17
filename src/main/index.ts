@@ -2187,6 +2187,12 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
         ignored: (path: string) => shouldIgnorePath(path),
         ignoreInitial: true,
         persistent: true,
+        // Poll instead of using native ReadDirectoryChangesW. The native API
+        // holds an open handle on every watched directory, which on Windows
+        // blocks the user from deleting/renaming those folders while GitSlop
+        // is open. Polling uses fs.stat and holds no handles.
+        usePolling: true,
+        interval: 250,
         awaitWriteFinish: {
           stabilityThreshold: 300,
           pollInterval: 100
@@ -2199,6 +2205,8 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
         ignoreInitial: true,
         persistent: true,
         depth: 0,
+        usePolling: true,
+        interval: 250,
         awaitWriteFinish: {
           stabilityThreshold: 300,
           pollInterval: 100
@@ -2226,6 +2234,8 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
         ignoreInitial: true,
         persistent: true,
         depth: 1,
+        usePolling: true,
+        interval: 250,
         awaitWriteFinish: {
           stabilityThreshold: 300,
           pollInterval: 100
@@ -2269,7 +2279,11 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
       {
         ignoreInitial: true,
         persistent: true,
-        depth: 5
+        depth: 5,
+        // Poll so we don't hold a handle on .git, which would block the user
+        // from deleting the repo folder while GitSlop is open.
+        usePolling: true,
+        interval: 250
       }
     )
     gitRefWatcher.on('add', () => sendRepoChanged())
