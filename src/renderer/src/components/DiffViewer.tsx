@@ -3,7 +3,7 @@ import { List, useListCallbackRef } from 'react-window'
 import { Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import styles from './DiffViewer.module.css'
 import { renderTextWithWhitespace } from '../utils/whitespaceMarkers'
-import { renderWithHighlights, computeFindMarks, type HighlightRange, type FindMark } from '../utils/textHighlight'
+import { renderWithHighlights, computeFindMarks, computeMatches, mergeColumnMatches, type HighlightRange, type FindMark } from '../utils/textHighlight'
 import { FindWidget } from './FindWidget'
 import { useFindController } from '../hooks/useFindController'
 
@@ -719,6 +719,8 @@ export function DiffViewer({
           hunks={parsed.hunks}
           language={language}
           hunkActions={hunkActions}
+          findOpen={!!findOpen}
+          onCloseFind={onCloseFind ?? ((): void => {})}
         />
       )}
     </div>
@@ -881,12 +883,14 @@ function DualScrollbarMarkers({
   leftMarkers,
   rightMarkers,
   containerRef,
-  minMarkerHeight = 2
+  minMarkerHeight = 2,
+  findMarks
 }: {
   leftMarkers: MarkerEntry[]
   rightMarkers: MarkerEntry[]
   containerRef: React.RefObject<HTMLElement | null>
   minMarkerHeight?: number
+  findMarks?: FindMark[]
 }): React.JSX.Element {
   const { viewport, handleClick } = useScrollbarViewport(containerRef)
 
@@ -903,6 +907,14 @@ function DualScrollbarMarkers({
       <div className={styles.scrollbarSubColumn}>
         {renderMarkerBars(rightMarkers, minMarkerHeight)}
       </div>
+      {/* Find ticks span both sub-columns (matches live in either pane). */}
+      {findMarks?.map((m, i) => (
+        <div
+          key={`f${i}`}
+          className={`${styles.scrollbarFindMarker} ${m.current ? styles.scrollbarFindMarkerCurrent : ''}`}
+          style={{ top: `${m.position * 100}%` }}
+        />
+      ))}
     </div>
   )
 }
@@ -1479,6 +1491,8 @@ interface SbsVirtualRowProps {
   getHunkSelection: (hunkIdx: number) => Set<number> | undefined
   toggleLineSelection: (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void
   clearHunkSelection: (hunkIdx: number) => void
+  leftRangesByLine: Map<number, HighlightRange[]>
+  rightRangesByLine: Map<number, HighlightRange[]>
 }
 
 function SbsVirtualRow(props: {
@@ -1488,7 +1502,8 @@ function SbsVirtualRow(props: {
 } & SbsVirtualRowProps): React.ReactElement {
   const {
     index, style, virtualRows, language, hunkActions, hunks,
-    wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection
+    wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection,
+    leftRangesByLine, rightRangesByLine
   } = props
   const item = virtualRows[index]
 
@@ -1514,6 +1529,8 @@ function SbsVirtualRow(props: {
   const wordDiff = pair.left && pair.right && pair.left.type === 'removed' && pair.right.type === 'added'
     ? wordDiffCache.get(`${pair.left.oldLineNum}:${pair.right.newLineNum}`)
     : undefined
+  const leftRanges = leftRangesByLine.get(index) ?? []
+  const rightRanges = rightRangesByLine.get(index) ?? []
 
   // Line-selection state for LEFT (removed) side
   const leftSelectable =
@@ -1563,10 +1580,10 @@ function SbsVirtualRow(props: {
           <span className={styles.sbsLineContent}>
             <span className={styles.sbsLineContentInner}>
               {pair.left ? (
-                wordDiff ? (
+                wordDiff && leftRanges.length === 0 ? (
                   <WordDiffContent segments={wordDiff.oldSegments} lineType="removed" />
                 ) : (
-                  <SyntaxHighlightedContent text={pair.left.content} language={language} />
+                  <RangeHighlightedContent text={pair.left.content} language={language} ranges={leftRanges} baseClass="findMatch" />
                 )
               ) : ''}
             </span>
@@ -1598,10 +1615,10 @@ function SbsVirtualRow(props: {
           <span className={styles.sbsLineContent}>
             <span className={styles.sbsLineContentInner}>
               {pair.right ? (
-                wordDiff ? (
+                wordDiff && rightRanges.length === 0 ? (
                   <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
                 ) : (
-                  <SyntaxHighlightedContent text={pair.right.content} language={language} />
+                  <RangeHighlightedContent text={pair.right.content} language={language} ranges={rightRanges} baseClass="findMatch" />
                 )
               ) : ''}
             </span>
@@ -1615,11 +1632,15 @@ function SbsVirtualRow(props: {
 function SideBySideDiffView({
   hunks,
   language,
-  hunkActions
+  hunkActions,
+  findOpen,
+  onCloseFind
 }: {
   hunks: DiffHunk[]
   language: string | null
   hunkActions: HunkActionsConfig | null
+  findOpen: boolean
+  onCloseFind: () => void
 }): React.JSX.Element {
   const [listRef, setListRef] = useListCallbackRef()
   const listWrapperRef = useRef<HTMLDivElement>(null)
@@ -1696,6 +1717,69 @@ function SideBySideDiffView({
     return items
   }, [pairs, pairMeta, hunkHeaders])
 
+  // ─── Find (Ctrl+F) ────────────────────────────────────────────────────────
+  // Two-column find: search the left (old) and right (new) panes independently,
+  // then merge into one document-ordered list so the counter + next/prev cycle
+  // across both panes (left before right within a row). Each model is indexed
+  // by virtual-row index so a match's lineIndex == its row index.
+  const [findQuery, setFindQuery] = useState('')
+  const [findCase, setFindCase] = useState(false)
+  const [findWord, setFindWord] = useState(false)
+  const findOptsMemo = useMemo(() => ({ caseSensitive: findCase, wholeWord: findWord }), [findCase, findWord])
+  const leftModel = useMemo(
+    () => virtualRows.map((it) => ({ text: it.kind === 'data' ? (it.pair.left?.content ?? '') : '' })),
+    [virtualRows]
+  )
+  const rightModel = useMemo(
+    () => virtualRows.map((it) => ({ text: it.kind === 'data' ? (it.pair.right?.content ?? '') : '' })),
+    [virtualRows]
+  )
+  const findActiveQuery = findOpen ? findQuery : ''
+  const leftMatches = useMemo(
+    () => computeMatches(leftModel, findActiveQuery, findOptsMemo),
+    [leftModel, findActiveQuery, findOptsMemo]
+  )
+  const rightMatches = useMemo(
+    () => computeMatches(rightModel, findActiveQuery, findOptsMemo),
+    [rightModel, findActiveQuery, findOptsMemo]
+  )
+  const merged = useMemo(() => mergeColumnMatches(leftMatches, rightMatches), [leftMatches, rightMatches])
+  // Drive selection state (currentIndex/next/prev/clamp/reset) with the shared
+  // controller. Feed it an interleaved [left,right,left,right,…] model so its
+  // match count equals merged.length and its currentIndex indexes `merged`
+  // in the same document order.
+  const combinedModel = useMemo(() => {
+    const m: { text: string }[] = []
+    for (let i = 0; i < leftModel.length; i++) {
+      m.push(leftModel[i])
+      m.push(rightModel[i])
+    }
+    return m
+  }, [leftModel, rightModel])
+  const find = useFindController(combinedModel, findActiveQuery, findOptsMemo)
+  const { leftRangesByLine, rightRangesByLine } = useMemo(() => {
+    const left = new Map<number, HighlightRange[]>()
+    const right = new Map<number, HighlightRange[]>()
+    merged.forEach((m, i) => {
+      const cls = i === find.currentIndex ? 'findMatchCurrent' : 'findMatch'
+      const target = m.column === 'left' ? left : right
+      const arr = target.get(m.lineIndex) ?? []
+      arr.push({ lineIndex: m.lineIndex, start: m.start, end: m.end, className: cls })
+      target.set(m.lineIndex, arr)
+    })
+    return { leftRangesByLine: left, rightRangesByLine: right }
+  }, [merged, find.currentIndex])
+  // Guard: currentIndex can momentarily exceed merged.length for one render
+  // after the match set shrinks (clamp runs in an effect inside the controller).
+  const current = merged[find.currentIndex]
+  useEffect(() => {
+    if (findOpen && current && listRef) listRef.scrollToRow({ index: current.lineIndex, align: 'smart', behavior: 'smooth' })
+  }, [findOpen, current, listRef])
+  const findMarks = useMemo(
+    () => computeFindMarks(merged.map((m) => m.lineIndex), virtualRows.length, find.currentIndex),
+    [merged, virtualRows.length, find.currentIndex]
+  )
+
   // Variable row height: hunk dividers are taller than data rows
   const getRowHeight = useCallback(
     (index: number) => {
@@ -1732,14 +1816,32 @@ function SideBySideDiffView({
     wordDiffCache,
     getHunkSelection,
     toggleLineSelection: toggleLineSelection as (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void,
-    clearHunkSelection
+    clearHunkSelection,
+    leftRangesByLine,
+    rightRangesByLine
   }), [
     virtualRows, language, hunkActions, hunks, wordDiffCache,
-    getHunkSelection, toggleLineSelection, clearHunkSelection
+    getHunkSelection, toggleLineSelection, clearHunkSelection,
+    leftRangesByLine, rightRangesByLine
   ])
 
   return (
     <div className={styles.diffWithMarkers}>
+      {findOpen && (
+        <FindWidget
+          query={findQuery}
+          onQueryChange={setFindQuery}
+          caseSensitive={findCase}
+          wholeWord={findWord}
+          onToggleCase={() => setFindCase((v) => !v)}
+          onToggleWholeWord={() => setFindWord((v) => !v)}
+          count={find.count}
+          currentIndex={find.currentIndex}
+          onNext={find.next}
+          onPrev={find.prev}
+          onClose={onCloseFind}
+        />
+      )}
       <div className={styles.fullDiffVirtualContainer} ref={hScrollContainerRef}>
         {/* Sticky column headers */}
         <div className={styles.fullDiffStickyHeaders}>
@@ -1779,6 +1881,7 @@ function SideBySideDiffView({
         leftMarkers={leftMarkers}
         rightMarkers={rightMarkers}
         containerRef={scrollContainerRef as React.RefObject<HTMLElement | null>}
+        findMarks={findMarks}
       />
     </div>
   )
@@ -1801,6 +1904,10 @@ interface FullDiffViewProps {
   onStageHunk?: (patch: string) => void | Promise<void>
   onUnstageHunk?: (patch: string) => void | Promise<void>
   onDiscardHunk?: (patch: string) => void | Promise<void>
+  /** Whether the Find widget is open (Ctrl+F). Owned by the parent (RepoView). */
+  findOpen?: boolean
+  /** Close the Find widget (Esc / close button). */
+  onCloseFind?: () => void
 }
 
 /**
@@ -1967,6 +2074,8 @@ interface FullDiffVirtualRowProps {
   clearHunkSelection: (hunkIdx: number) => void
   isNewFile: boolean
   isDeletedFile: boolean
+  leftRangesByLine: Map<number, HighlightRange[]>
+  rightRangesByLine: Map<number, HighlightRange[]>
 }
 
 function FullDiffVirtualRow(props: {
@@ -1977,7 +2086,7 @@ function FullDiffVirtualRow(props: {
   const {
     index, style, virtualRows, language, stagingActive, hunkActionsConfig,
     parsedHunks, getHunkSelection, toggleLineSelection, clearHunkSelection,
-    isNewFile, isDeletedFile
+    isNewFile, isDeletedFile, leftRangesByLine, rightRangesByLine
   } = props
   const item = virtualRows[index]
 
@@ -2062,7 +2171,14 @@ function FullDiffVirtualRow(props: {
           <span className={styles.sbsLineNum}>{side?.lineNum ?? ''}</span>
           <span className={styles.sbsLineContent}>
             <span className={styles.sbsLineContentInner}>
-              {side ? <SyntaxHighlightedContent text={side.content} language={language} /> : ''}
+              {side ? (
+                <RangeHighlightedContent
+                  text={side.content}
+                  language={language}
+                  ranges={(isLeft ? leftRangesByLine : rightRangesByLine).get(index) ?? []}
+                  baseClass="findMatch"
+                />
+              ) : ''}
             </span>
           </span>
         </div>
@@ -2089,7 +2205,9 @@ export function FullDiffView({
   stagingMode,
   onStageHunk,
   onUnstageHunk,
-  onDiscardHunk
+  onDiscardHunk,
+  findOpen = false,
+  onCloseFind = (): void => {}
 }: FullDiffViewProps): React.JSX.Element {
   const [listRef, setListRef] = useListCallbackRef()
   const listWrapperRef = useRef<HTMLDivElement>(null)
@@ -2209,6 +2327,65 @@ export function FullDiffView({
     return items
   }, [fullRows, stagingActive])
 
+  // ─── Find (Ctrl+F) ────────────────────────────────────────────────────────
+  // Same two-column strategy as SideBySideDiffView: search each pane, merge
+  // into one document-ordered list, and drive selection via the shared
+  // controller fed an interleaved model. Models are indexed by virtual-row
+  // index so a match's lineIndex == its row index.
+  const [findQuery, setFindQuery] = useState('')
+  const [findCase, setFindCase] = useState(false)
+  const [findWord, setFindWord] = useState(false)
+  const findOptsMemo = useMemo(() => ({ caseSensitive: findCase, wholeWord: findWord }), [findCase, findWord])
+  const leftModel = useMemo(
+    () => virtualRows.map((it) => ({ text: it.kind === 'data' ? (it.row.left?.content ?? '') : '' })),
+    [virtualRows]
+  )
+  const rightModel = useMemo(
+    () => virtualRows.map((it) => ({ text: it.kind === 'data' ? (it.row.right?.content ?? '') : '' })),
+    [virtualRows]
+  )
+  const findActiveQuery = findOpen ? findQuery : ''
+  const leftMatches = useMemo(
+    () => computeMatches(leftModel, findActiveQuery, findOptsMemo),
+    [leftModel, findActiveQuery, findOptsMemo]
+  )
+  const rightMatches = useMemo(
+    () => computeMatches(rightModel, findActiveQuery, findOptsMemo),
+    [rightModel, findActiveQuery, findOptsMemo]
+  )
+  const merged = useMemo(() => mergeColumnMatches(leftMatches, rightMatches), [leftMatches, rightMatches])
+  const combinedModel = useMemo(() => {
+    const m: { text: string }[] = []
+    for (let i = 0; i < leftModel.length; i++) {
+      m.push(leftModel[i])
+      m.push(rightModel[i])
+    }
+    return m
+  }, [leftModel, rightModel])
+  const find = useFindController(combinedModel, findActiveQuery, findOptsMemo)
+  const { leftRangesByLine, rightRangesByLine } = useMemo(() => {
+    const left = new Map<number, HighlightRange[]>()
+    const right = new Map<number, HighlightRange[]>()
+    merged.forEach((m, i) => {
+      const cls = i === find.currentIndex ? 'findMatchCurrent' : 'findMatch'
+      const target = m.column === 'left' ? left : right
+      const arr = target.get(m.lineIndex) ?? []
+      arr.push({ lineIndex: m.lineIndex, start: m.start, end: m.end, className: cls })
+      target.set(m.lineIndex, arr)
+    })
+    return { leftRangesByLine: left, rightRangesByLine: right }
+  }, [merged, find.currentIndex])
+  // Guard: currentIndex can momentarily exceed merged.length for one render
+  // after the match set shrinks (clamp runs in an effect inside the controller).
+  const current = merged[find.currentIndex]
+  useEffect(() => {
+    if (findOpen && current && listRef) listRef.scrollToRow({ index: current.lineIndex, align: 'smart', behavior: 'smooth' })
+  }, [findOpen, current, listRef])
+  const findMarks = useMemo(
+    () => computeFindMarks(merged.map((m) => m.lineIndex), virtualRows.length, find.currentIndex),
+    [merged, virtualRows.length, find.currentIndex]
+  )
+
   // Variable row height: hunk dividers are taller than data rows
   const getRowHeight = useCallback(
     (index: number) => {
@@ -2229,10 +2406,13 @@ export function FullDiffView({
     toggleLineSelection: toggleLineSelection as (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void,
     clearHunkSelection,
     isNewFile,
-    isDeletedFile
+    isDeletedFile,
+    leftRangesByLine,
+    rightRangesByLine
   }), [
     virtualRows, language, stagingActive, hunkActionsConfig, parsed.hunks,
-    getHunkSelection, toggleLineSelection, clearHunkSelection, isNewFile, isDeletedFile
+    getHunkSelection, toggleLineSelection, clearHunkSelection, isNewFile, isDeletedFile,
+    leftRangesByLine, rightRangesByLine
   ])
 
   // Binary file — show placeholder in both panes
@@ -2282,6 +2462,21 @@ export function FullDiffView({
         </div>
       )}
       <div className={styles.diffWithMarkers}>
+        {findOpen && (
+          <FindWidget
+            query={findQuery}
+            onQueryChange={setFindQuery}
+            caseSensitive={findCase}
+            wholeWord={findWord}
+            onToggleCase={() => setFindCase((v) => !v)}
+            onToggleWholeWord={() => setFindWord((v) => !v)}
+            count={find.count}
+            currentIndex={find.currentIndex}
+            onNext={find.next}
+            onPrev={find.prev}
+            onClose={onCloseFind}
+          />
+        )}
         <div className={styles.fullDiffVirtualContainer} ref={hScrollContainerRef}>
           {/* Column headers — fixed above the virtual list */}
           <div className={styles.fullDiffStickyHeaders}>
@@ -2324,6 +2519,7 @@ export function FullDiffView({
           leftMarkers={leftMarkers}
           rightMarkers={rightMarkers}
           containerRef={scrollContainerRef as React.RefObject<HTMLElement | null>}
+          findMarks={findMarks}
         />
       </div>
     </div>

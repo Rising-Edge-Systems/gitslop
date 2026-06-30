@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeMatches, buildHighlightSegments, computeFindMarks } from '../textHighlight'
+import { computeMatches, buildHighlightSegments, computeFindMarks, mergeColumnMatches } from '../textHighlight'
 
 const L = (...t: string[]) => t.map((text) => ({ text }))
 
@@ -70,6 +70,18 @@ describe('buildHighlightSegments', () => {
   it('uses the range className override when present (current match)', () => {
     expect(buildHighlightSegments([tok('abc')], [{ lineIndex: 0, start: 0, end: 3, className: 'findMatchCurrent' }], 'findMatch')).toEqual([
       { text: 'abc', className: '', markClass: 'findMatchCurrent' }
+    ])
+  })
+})
+
+describe('mergeColumnMatches', () => {
+  it('orders by lineIndex, then left-before-right, then start', () => {
+    const left = [{ lineIndex: 0, start: 5, end: 6 }, { lineIndex: 1, start: 0, end: 1 }]
+    const right = [{ lineIndex: 0, start: 2, end: 3 }]
+    expect(mergeColumnMatches(left, right)).toEqual([
+      { lineIndex: 0, start: 5, end: 6, column: 'left' },
+      { lineIndex: 0, start: 2, end: 3, column: 'right' },
+      { lineIndex: 1, start: 0, end: 1, column: 'left' }
     ])
   })
 })

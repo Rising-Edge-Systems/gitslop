@@ -44,6 +44,31 @@ export function computeMatches(
   return ranges
 }
 
+// ─── Two-column (side-by-side / full-diff) match merging ─────────────────────
+
+/** A find match tagged with the column it belongs to (left = old, right = new). */
+export interface ColumnMatch extends HighlightRange {
+  column: 'left' | 'right'
+}
+
+/**
+ * Merge per-column match lists into one document-ordered list so the Find
+ * counter + next/prev cycle through both panes. Order: by lineIndex (row),
+ * then left-before-right within a row, then by start column.
+ */
+export function mergeColumnMatches(left: HighlightRange[], right: HighlightRange[]): ColumnMatch[] {
+  const tagged: ColumnMatch[] = [
+    ...left.map((r) => ({ ...r, column: 'left' as const })),
+    ...right.map((r) => ({ ...r, column: 'right' as const }))
+  ]
+  tagged.sort((a, b) =>
+    (a.lineIndex - b.lineIndex) ||
+    (a.column === b.column ? 0 : a.column === 'left' ? -1 : 1) ||
+    (a.start - b.start)
+  )
+  return tagged
+}
+
 // ─── Segment splitter + renderWithHighlights ─────────────────────────────────
 
 import React, { Fragment } from 'react'

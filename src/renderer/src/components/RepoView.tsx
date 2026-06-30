@@ -953,6 +953,8 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                       onStageHunk={handleStageHunk}
                       onUnstageHunk={handleUnstageHunk}
                       onDiscardHunk={handleDiscardHunk}
+                      findOpen={findOpen}
+                      onCloseFind={() => setFindOpen(false)}
                     />
                   )}
                 </div>
@@ -1090,6 +1092,8 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                         className={styles.centerDiffViewer}
                         fileStatus={fileDetail?.status}
                         oldPath={fileDetail?.oldPath}
+                        findOpen={findOpen}
+                        onCloseFind={() => setFindOpen(false)}
                       />
                     )
                   })()}
