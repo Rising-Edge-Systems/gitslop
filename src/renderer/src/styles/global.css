@@ -492,6 +492,16 @@ body.sidebar-dragging * {
   color: var(--info);
 }
 
+.findMatch {
+  background: rgba(234, 179, 8, 0.32);
+  color: inherit;
+  border-radius: 2px;
+}
+.findMatchCurrent {
+  background: rgba(234, 179, 8, 0.85);
+  color: var(--bg-primary);
+  border-radius: 2px;
+}
 
 @keyframes fadeIn {
   from { opacity: 0; }

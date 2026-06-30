@@ -1,0 +1,48 @@
+.widget {
+  position: absolute;
+  top: 8px;
+  right: 18px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.input {
+  width: 180px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-family: var(--font-family);
+  padding: 3px 6px;
+  outline: none;
+}
+.input:focus { border-color: var(--accent); }
+.toggle, .nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.toggle:hover, .nav:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-primary); }
+.toggleActive { color: var(--accent); background: var(--bg-primary); }
+.nav:disabled { opacity: 0.35; cursor: default; }
+.counter {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  min-width: 64px;
+  text-align: center;
+  white-space: nowrap;
+}
