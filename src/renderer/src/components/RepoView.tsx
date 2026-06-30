@@ -9,10 +9,13 @@ import { CommitFilterBar, CommitFilters, EMPTY_FILTERS, hasActiveFilters } from 
 import { CommitGraph, CommitLogFilters, CommitDetail } from './CommitGraph'
 import { ConflictResolver } from './ConflictResolver'
 // StatusPanel moved to right panel in AppLayout
-import { DiffViewer, FullDiffView, SyntaxHighlightedContent, detectLanguage, type DiffViewMode } from './DiffViewer'
+import { DiffViewer, FullDiffView, SyntaxHighlightedContent, RangeHighlightedContent, detectLanguage, type DiffViewMode } from './DiffViewer'
 import { Columns } from 'lucide-react'
 import { CodeEditor, openFileInEditor } from './CodeEditor'
 import { defineShortcut, useKeyboardShortcuts, useShortcutHandler } from '../hooks/useKeyboardShortcuts'
+import { FindWidget } from './FindWidget'
+import { useFindController } from '../hooks/useFindController'
+import { type HighlightRange } from '../utils/textHighlight'
 import { shouldShowLoadingSpinner } from './loadingDecision'
 import { clampRestoreScrollTop } from './scrollPreserve'
 import { isOpenFileAffected } from './repoChangeFilter'
@@ -255,6 +258,42 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   useEffect(() => {
     setFindOpen(false)
   }, [centerViewMode, workingTreeFile?.path])
+
+  // ─── File View Find (non-virtualized) ──────────────────────────────────────
+  const [fileViewFindQuery, setFileViewFindQuery] = useState('')
+  const [fileViewFindCase, setFileViewFindCase] = useState(false)
+  const [fileViewFindWord, setFileViewFindWord] = useState(false)
+  const fileViewFindOpts = useMemo(
+    () => ({ caseSensitive: fileViewFindCase, wholeWord: fileViewFindWord }),
+    [fileViewFindCase, fileViewFindWord]
+  )
+  const fileLineModel = useMemo(
+    () => (fileContent ?? '').split('\n').map((text) => ({ text })),
+    [fileContent]
+  )
+  const fileFind = useFindController(
+    fileLineModel,
+    centerViewMode === 'file' && findOpen ? fileViewFindQuery : '',
+    fileViewFindOpts
+  )
+  const fileRangesByLine = useMemo(() => {
+    const map = new Map<number, HighlightRange[]>()
+    fileFind.matches.forEach((m, i) => {
+      const cls = i === fileFind.currentIndex ? 'findMatchCurrent' : 'findMatch'
+      const arr = map.get(m.lineIndex) ?? []
+      arr.push({ ...m, className: cls })
+      map.set(m.lineIndex, arr)
+    })
+    return map
+  }, [fileFind.matches, fileFind.currentIndex])
+  useEffect(() => {
+    if (!findOpen || centerViewMode !== 'file') return
+    const cur = fileFind.matches[fileFind.currentIndex]
+    if (!cur) return
+    fileViewScrollRef.current
+      ?.querySelector(`[data-find-line="${cur.lineIndex}"]`)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [findOpen, centerViewMode, fileFind.currentIndex, fileFind.matches])
 
   useEffect(() => {
     if (!workingTreeFile) {
@@ -973,12 +1012,27 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                   )}
                   {!fileLoading && !fileError && fileContent !== null && (
                     <div className={styles.fullFileViewer} ref={fileViewScrollRef}>
+                      {findOpen && (
+                        <FindWidget
+                          query={fileViewFindQuery}
+                          onQueryChange={setFileViewFindQuery}
+                          caseSensitive={fileViewFindCase}
+                          wholeWord={fileViewFindWord}
+                          onToggleCase={() => setFileViewFindCase((v) => !v)}
+                          onToggleWholeWord={() => setFileViewFindWord((v) => !v)}
+                          count={fileFind.count}
+                          currentIndex={fileFind.currentIndex}
+                          onNext={fileFind.next}
+                          onPrev={fileFind.prev}
+                          onClose={() => setFindOpen(false)}
+                        />
+                      )}
                       <pre className={styles.fullFilePre}>
                         <code>{fileContent.split('\n').map((line, i) => (
-                          <div key={i} className={styles.fullFileLine}>
+                          <div key={i} data-find-line={i} className={styles.fullFileLine}>
                             <span className={styles.fullFileLineNum}>{i + 1}</span>
                             <span className={styles.fullFileLineContent}>
-                              <SyntaxHighlightedContent text={line} language={workingTreeFileLanguage} />
+                              <RangeHighlightedContent text={line} language={workingTreeFileLanguage} ranges={fileRangesByLine.get(i) ?? []} baseClass="findMatch" />
                             </span>
                           </div>
                         ))}</code>
@@ -1112,13 +1166,28 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                     </div>
                   )}
                   {!fileLoading && !fileError && fileContent !== null && (
-                    <div className={styles.fullFileViewer}>
+                    <div className={styles.fullFileViewer} ref={fileViewScrollRef}>
+                      {findOpen && (
+                        <FindWidget
+                          query={fileViewFindQuery}
+                          onQueryChange={setFileViewFindQuery}
+                          caseSensitive={fileViewFindCase}
+                          wholeWord={fileViewFindWord}
+                          onToggleCase={() => setFileViewFindCase((v) => !v)}
+                          onToggleWholeWord={() => setFileViewFindWord((v) => !v)}
+                          count={fileFind.count}
+                          currentIndex={fileFind.currentIndex}
+                          onNext={fileFind.next}
+                          onPrev={fileFind.prev}
+                          onClose={() => setFindOpen(false)}
+                        />
+                      )}
                       <pre className={styles.fullFilePre}>
                         <code>{fileContent.split('\n').map((line, i) => (
-                          <div key={i} className={styles.fullFileLine}>
+                          <div key={i} data-find-line={i} className={styles.fullFileLine}>
                             <span className={styles.fullFileLineNum}>{i + 1}</span>
                             <span className={styles.fullFileLineContent}>
-                              <SyntaxHighlightedContent text={line} language={diffFileLanguage} />
+                              <RangeHighlightedContent text={line} language={diffFileLanguage} ranges={fileRangesByLine.get(i) ?? []} baseClass="findMatch" />
                             </span>
                           </div>
                         ))}</code>
@@ -1142,6 +1211,8 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                 repoPath={repoPath}
                 filePath={blameFilePath}
                 onClose={() => setBlameFilePath(null)}
+                findOpen={findOpen}
+                onCloseFind={() => setFindOpen(false)}
                 onCommitClick={(hash) => {
                   // Dispatch event to scroll graph to this commit
                   window.dispatchEvent(

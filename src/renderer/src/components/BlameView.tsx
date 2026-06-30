@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X, AlertTriangle } from 'lucide-react'
 import styles from './BlameView.module.css'
 import { renderTextWithWhitespace } from '../utils/whitespaceMarkers'
+import { renderWithHighlights, type HighlightRange } from '../utils/textHighlight'
+import { useFindController } from '../hooks/useFindController'
+import { FindWidget } from './FindWidget'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -21,6 +24,8 @@ interface BlameViewProps {
   filePath: string
   onClose: () => void
   onCommitClick?: (hash: string) => void
+  findOpen?: boolean
+  onCloseFind?: () => void
 }
 
 // ─── Age color helper ──────────────────────────────────────────────────────
@@ -61,7 +66,9 @@ export function BlameView({
   repoPath,
   filePath,
   onClose,
-  onCommitClick
+  onCommitClick,
+  findOpen = false,
+  onCloseFind
 }: BlameViewProps): React.JSX.Element {
   const [blameLines, setBlameLines] = useState<BlameLine[]>([])
   const [loading, setLoading] = useState(true)
@@ -73,6 +80,16 @@ export function BlameView({
     y: number
   } | null>(null)
   const [colorMode, setColorMode] = useState<'age' | 'author'>('age')
+
+  // ─── Find state ─────────────────────────────────────────────────────────────
+  const [findQuery, setFindQuery] = useState('')
+  const [findCase, setFindCase] = useState(false)
+  const [findWord, setFindWord] = useState(false)
+  const findOpts = useMemo(
+    () => ({ caseSensitive: findCase, wholeWord: findWord }),
+    [findCase, findWord]
+  )
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const fileName = useMemo(() => {
     const parts = filePath.replace(/\\/g, '/').split('/')
@@ -116,6 +133,32 @@ export function BlameView({
     })
     return map
   }, [blameLines])
+
+  // ─── Find controller ─────────────────────────────────────────────────────
+
+  const lineModel = useMemo(
+    () => blameLines.map((l) => ({ text: l.content })),
+    [blameLines]
+  )
+  const find = useFindController(lineModel, findOpen ? findQuery : '', findOpts)
+  const rangesByLine = useMemo(() => {
+    const map = new Map<number, HighlightRange[]>()
+    find.matches.forEach((m, i) => {
+      const cls = i === find.currentIndex ? 'findMatchCurrent' : 'findMatch'
+      const arr = map.get(m.lineIndex) ?? []
+      arr.push({ ...m, className: cls })
+      map.set(m.lineIndex, arr)
+    })
+    return map
+  }, [find.matches, find.currentIndex])
+  useEffect(() => {
+    if (!findOpen) return
+    const cur = find.matches[find.currentIndex]
+    if (!cur) return
+    contentRef.current
+      ?.querySelector(`[data-find-line="${cur.lineIndex}"]`)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [findOpen, find.currentIndex, find.matches])
 
   // ─── Group consecutive lines with same hash ──────────────────────────────
 
@@ -208,7 +251,22 @@ export function BlameView({
         </div>
       </div>
 
-      <div className={styles.content}>
+      <div className={styles.content} ref={contentRef}>
+        {findOpen && (
+          <FindWidget
+            query={findQuery}
+            onQueryChange={setFindQuery}
+            caseSensitive={findCase}
+            wholeWord={findWord}
+            onToggleCase={() => setFindCase((v) => !v)}
+            onToggleWholeWord={() => setFindWord((v) => !v)}
+            count={find.count}
+            currentIndex={find.currentIndex}
+            onNext={find.next}
+            onPrev={find.prev}
+            onClose={() => onCloseFind?.()}
+          />
+        )}
         <div className={styles.lines}>
           {blameLines.map((line, idx) => {
             const group = groupedLines[idx]
@@ -224,6 +282,7 @@ export function BlameView({
             return (
               <div
                 key={`${line.lineNumber}-${idx}`}
+                data-find-line={idx}
                 className={`${styles.line} ${isHovered ? styles.lineHovered : ''} ${isFirstInGroup ? styles.lineGroupStart : ''}`}
                 onMouseEnter={() => setHoveredHash(line.hash)}
                 onMouseLeave={() => setHoveredHash(null)}
@@ -257,7 +316,11 @@ export function BlameView({
                 <span className={styles.lineNumber}>{line.lineNumber}</span>
 
                 {/* Content */}
-                <pre className={styles.lineContent}>{line.content ? renderTextWithWhitespace(line.content, `b${idx}-`) : ' '}</pre>
+                <pre className={styles.lineContent}>
+                  {findOpen
+                    ? renderWithHighlights(line.content ?? '', [], rangesByLine.get(idx) ?? [], 'findMatch')
+                    : (line.content ? renderTextWithWhitespace(line.content, `b${idx}-`) : ' ')}
+                </pre>
               </div>
             )
           })}
