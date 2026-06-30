@@ -14,6 +14,7 @@ import { Columns } from 'lucide-react'
 import { CodeEditor, openFileInEditor } from './CodeEditor'
 import { shouldShowLoadingSpinner } from './loadingDecision'
 import { clampRestoreScrollTop } from './scrollPreserve'
+import { isOpenFileAffected } from './repoChangeFilter'
 
 interface RepoViewProps {
   repoPath: string
@@ -153,6 +154,8 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   )
   const diffIdentityRef = useRef<string | null>(null)
   const fileIdentityRef = useRef<string | null>(null)
+  const workingTreeFileRef = useRef(workingTreeFile)
+  workingTreeFileRef.current = workingTreeFile
   const fullIdentityRef = useRef<string | null>(null)
   const fileViewScrollRef = useRef<HTMLDivElement>(null)
   const pendingFileScrollRef = useRef<number | null>(null)
@@ -631,7 +634,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   }, [loadRepoData, repoPath])
 
   useEffect(() => {
-    const cleanup = window.electronAPI.onRepoChanged?.(() => {
+    const cleanup = window.electronAPI.onRepoChanged?.((changedPaths) => {
       window.electronAPI.git.getConflictedFiles(repoPath).then((result) => {
         if (result.success && Array.isArray(result.data)) {
           const nowHasConflicts = result.data.length > 0
@@ -639,11 +642,12 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
           if (!nowHasConflicts) setShowConflictResolver(false)
         }
       })
-      // Reload the working-tree diff/full/file panes on external file changes
-      // (user edited the file in another editor). Bumping the key re-runs all
-      // three working-tree loaders — cheap no-op when no workingTreeFile is
-      // selected or we're viewing a historical commit.
-      setWorkingTreeRefreshKey((k) => k + 1)
+      // Path-aware center refresh: only re-run the working-tree loaders when the
+      // file open in the center view actually changed (or scope is unknown).
+      const open = workingTreeFileRef.current
+      if (open && isOpenFileAffected(open.path, open.staged, changedPaths)) {
+        setWorkingTreeRefreshKey((k) => k + 1)
+      }
     })
     return () => { cleanup?.() }
   }, [repoPath])
