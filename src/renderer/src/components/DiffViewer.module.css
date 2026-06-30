@@ -519,6 +519,8 @@
   align-items: center;
 }
 .line:hover .editPencil { opacity: 1; }
+/* Split (side-by-side) right-pane rows host the pencil too. */
+.sbsLine:hover .editPencil { opacity: 1; }
 .editPencil:hover { color: var(--accent, #4aa3ff); }
 
 .inlineEditInput,

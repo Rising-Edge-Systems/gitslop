@@ -732,6 +732,7 @@ export function DiffViewer({
           hunkActions={hunkActions}
           findOpen={!!findOpen}
           onCloseFind={onCloseFind ?? ((): void => {})}
+          inlineEdit={inlineEdit}
         />
       )}
     </div>
@@ -1725,6 +1726,20 @@ interface SbsVirtualRowProps {
   leftSelByLine: Map<number, HighlightRange[]>
   rightSelByLine: Map<number, HighlightRange[]>
   findOpen: boolean
+  /**
+   * In-place editing of the RIGHT (new) pane (working-tree split diff only).
+   * Undefined ⇒ read-only (commit/historical split): no pencil, no input.
+   * The LEFT (old) pane is always read-only.
+   */
+  edit?: {
+    controller: UseInlineLineEdit
+    editableLines: Set<number> // new-side fileLines that may show a pencil
+  }
+  /**
+   * Active multi-line edit span by virtual-row index, or null when single-line /
+   * not editing. The top-of-span row hosts the textarea; interior rows collapse.
+   */
+  editSpan?: InlineEditSpan | null
 }
 
 function SbsVirtualRow(props: {
@@ -1735,9 +1750,18 @@ function SbsVirtualRow(props: {
   const {
     index, style, virtualRows, language, hunkActions, hunks,
     wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection,
-    leftRangesByLine, rightRangesByLine, leftSelByLine, rightSelByLine, findOpen
+    leftRangesByLine, rightRangesByLine, leftSelByLine, rightSelByLine, findOpen,
+    edit, editSpan
   } = props
   const item = virtualRows[index]
+
+  // Interior of a multi-line edit span (below the top-of-span host row): the
+  // host's textarea covers these rows and getRowHeight collapses them to 0, so
+  // render a bare div WITHOUT .fullDiffRow/.sbsLine (whose min-heights would
+  // otherwise force the rows back open).
+  if (editSpan && index > editSpan.topIdx && index <= editSpan.botIdx) {
+    return <div style={style} />
+  }
 
   if (item.kind === 'hunkDivider') {
     return (
@@ -1786,6 +1810,19 @@ function SbsVirtualRow(props: {
   const rightSelected = rightSelectable
     ? (getHunkSelection(meta.hunkIdx)?.has(meta.rightLineIdx!) ?? false)
     : false
+
+  // ─── Right-pane in-place editing (working-tree split diff only) ───────────
+  // The RIGHT cell is editable when it carries a new-side line number (context
+  // + added rows; removed lines live on the left and never qualify). The LEFT
+  // cell is always read-only. Mirrors buildEditableTargets + InlineVirtualRow:
+  // single-line edits host an <input> on the focus row; a multi-line edit hosts
+  // a <textarea> on the top-of-span row, with interior rows collapsed above.
+  const rightLineNum = pair.right?.newLineNum ?? null
+  const isMultiHost = !!edit && !!editSpan && index === editSpan.topIdx
+  const isEditing =
+    !!edit && !editSpan && !!edit.controller.editing && rightLineNum != null &&
+    edit.controller.editing.focusLine === rightLineNum
+  const showPencil = !!edit && rightLineNum != null && edit.editableLines.has(rightLineNum)
 
   return (
     <div style={style} className={styles.fullDiffRow}>
@@ -1848,15 +1885,43 @@ function SbsVirtualRow(props: {
             {pair.right?.newLineNum ?? pair.right?.oldLineNum ?? ''}
           </span>
           <span className={styles.sbsLineContent}>
-            <span className={styles.sbsLineContentInner}>
-              {pair.right ? (
-                wordDiff && rightRanges.length === 0 ? (
-                  <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
-                ) : (
-                  <RangeHighlightedContent text={pair.right.content} language={language} ranges={rightRanges} baseClass={baseClass} />
-                )
-              ) : ''}
-            </span>
+            {isMultiHost && edit && editSpan ? (
+              <textarea
+                className={styles.inlineEditTextarea}
+                autoFocus
+                rows={editSpan.hi - editSpan.lo + 1}
+                value={edit.controller.buffer}
+                onChange={(e) => edit.controller.setBuffer(e.target.value)}
+                onKeyDown={(e) => handleInlineEditKeyDown(e, edit.controller)}
+              />
+            ) : isEditing && edit ? (
+              <input
+                className={styles.inlineEditInput}
+                autoFocus
+                value={edit.controller.buffer}
+                onChange={(e) => edit.controller.setBuffer(e.target.value)}
+                onKeyDown={(e) => handleInlineEditKeyDown(e, edit.controller)}
+              />
+            ) : (
+              <span className={styles.sbsLineContentInner}>
+                {pair.right ? (
+                  wordDiff && rightRanges.length === 0 ? (
+                    <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
+                  ) : (
+                    <RangeHighlightedContent text={pair.right.content} language={language} ranges={rightRanges} baseClass={baseClass} />
+                  )
+                ) : ''}
+                {showPencil && edit && (
+                  <button
+                    className={styles.editPencil}
+                    title="Edit this line"
+                    onClick={() => edit.controller.enter(rightLineNum as number)}
+                  >
+                    <Pencil size={11} />
+                  </button>
+                )}
+              </span>
+            )}
           </span>
         </div>
       </div>
@@ -1869,13 +1934,15 @@ function SideBySideDiffView({
   language,
   hunkActions,
   findOpen,
-  onCloseFind
+  onCloseFind,
+  inlineEdit
 }: {
   hunks: DiffHunk[]
   language: string | null
   hunkActions: HunkActionsConfig | null
   findOpen: boolean
   onCloseFind: () => void
+  inlineEdit?: { absPath: string; onSaved: () => void }
 }): React.JSX.Element {
   const [listRef, setListRef] = useListCallbackRef()
   const listWrapperRef = useRef<HTMLDivElement>(null)
@@ -1951,6 +2018,69 @@ function SideBySideDiffView({
     }
     return items
   }, [pairs, pairMeta, hunkHeaders])
+
+  // ─── Right-pane in-place line editing (working-tree split diff only) ───────
+  // The new-side (RIGHT) pane is editable; the old-side (LEFT) pane stays
+  // read-only. Targets/lineText key on the right-side new-file line number, so
+  // they share file-line identity with the inline view's editor — arrow nav
+  // crosses hunk boundaries the same way. The controller state lives here, above
+  // the virtualized List, so it survives row unmount/remount on scroll.
+  const editLineText = useMemo(() => {
+    const m = new Map<number, string>()
+    for (const h of hunks) {
+      for (const l of h.lines) {
+        if (l.type !== 'removed' && l.newLineNum != null) m.set(l.newLineNum, l.content)
+      }
+    }
+    return m
+  }, [hunks])
+  const editTargets = useMemo(
+    () =>
+      buildEditableTargets(
+        hunks.flatMap((h) => [
+          { type: 'hunkHeader' as const, line: null },
+          ...h.lines.map((l) => ({ type: 'line' as const, line: { type: l.type, newLineNum: l.newLineNum } }))
+        ])
+      ),
+    [hunks]
+  )
+  const editController = useInlineLineEdit({
+    absPath: inlineEdit?.absPath ?? '',
+    targets: editTargets,
+    lineText: editLineText,
+    onSaved: inlineEdit?.onSaved ?? ((): void => {})
+  })
+  const editForRows = useMemo(
+    () =>
+      inlineEdit
+        ? { controller: editController, editableLines: new Set(editTargets.map((t) => t.fileLine)) }
+        : undefined,
+    [inlineEdit, editController, editTargets]
+  )
+  // new-side fileLine -> virtual-row index (only data rows whose right side
+  // carries a new-file line number qualify).
+  const newLineToRowIndex = useMemo(() => {
+    const m = new Map<number, number>()
+    virtualRows.forEach((it, i) => {
+      if (it.kind === 'data' && it.pair.right && it.pair.right.newLineNum != null) {
+        m.set(it.pair.right.newLineNum, i)
+      }
+    })
+    return m
+  }, [virtualRows])
+  // Virtual-row span of an active multi-line edit (null when single-line). In
+  // the split model consecutive new-file lines map to consecutive data rows
+  // (removed lines pair onto the same row's left cell), so the span is exact.
+  const editing = editController.editing
+  const editSpan = useMemo<InlineEditSpan | null>(() => {
+    if (!inlineEdit || !isMultiLine(editing) || !editing) return null
+    const lo = Math.min(editing.anchorLine, editing.focusLine)
+    const hi = Math.max(editing.anchorLine, editing.focusLine)
+    const topIdx = newLineToRowIndex.get(lo)
+    const botIdx = newLineToRowIndex.get(hi)
+    if (topIdx == null || botIdx == null) return null
+    return { lo, hi, topIdx, botIdx }
+  }, [inlineEdit, editing, newLineToRowIndex])
 
   // ─── Find (Ctrl+F) ────────────────────────────────────────────────────────
   // Two-column find: search the left (old) and right (new) panes independently,
@@ -2033,13 +2163,22 @@ function SideBySideDiffView({
     [merged, virtualRows.length, find.currentIndex]
   )
 
-  // Variable row height: hunk dividers are taller than data rows
+  // Variable row height: hunk dividers are taller than data rows. During a
+  // multi-line edit the top-of-span row grows to host the textarea over the
+  // whole span and the interior rows collapse to 0 — so the List geometry stays
+  // exact and the textarea is never clipped by a later (lower) row painting over
+  // it. The bounds cache re-measures whenever editSpan/rowProps change identity.
   const getRowHeight = useCallback(
     (index: number) => {
       const item = virtualRows[index]
-      return item.kind === 'hunkDivider' ? SBS_HUNK_HEIGHT : SBS_ROW_HEIGHT
+      if (item.kind === 'hunkDivider') return SBS_HUNK_HEIGHT
+      if (editSpan) {
+        if (index === editSpan.topIdx) return (editSpan.botIdx - editSpan.topIdx + 1) * SBS_ROW_HEIGHT
+        if (index > editSpan.topIdx && index <= editSpan.botIdx) return 0
+      }
+      return SBS_ROW_HEIGHT
     },
-    [virtualRows]
+    [virtualRows, editSpan]
   )
 
   // Separate left/right scrollbar markers: left gutter tracks the old pane's
@@ -2074,11 +2213,14 @@ function SideBySideDiffView({
     rightRangesByLine,
     leftSelByLine,
     rightSelByLine,
-    findOpen
+    findOpen,
+    edit: editForRows,
+    editSpan
   }), [
     virtualRows, language, hunkActions, hunks, wordDiffCache,
     getHunkSelection, toggleLineSelection, clearHunkSelection,
-    leftRangesByLine, rightRangesByLine, leftSelByLine, rightSelByLine, findOpen
+    leftRangesByLine, rightRangesByLine, leftSelByLine, rightSelByLine, findOpen,
+    editForRows, editSpan
   ])
 
   return (
