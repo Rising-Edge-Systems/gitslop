@@ -33,7 +33,10 @@ jobs:
             platform: linux
           - os: macos-latest
             platform: mac
-          - os: windows-latest
+          # Pinned: windows-latest rolled to the windows-2025-vs2026 image, whose
+          # toolchain node-gyp can't detect, breaking the native node-pty rebuild.
+          # windows-2022 ships an MSVC toolchain node-gyp finds. (v1.2.30 release failure)
+          - os: windows-2022
             platform: win
     runs-on: ${{ matrix.os }}
     steps:
