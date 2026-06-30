@@ -273,7 +273,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   )
   const fileFind = useFindController(
     fileLineModel,
-    centerViewMode === 'file' && findOpen ? fileViewFindQuery : '',
+    centerViewMode === 'file' && findOpen && !blameFilePath ? fileViewFindQuery : '',
     fileViewFindOpts
   )
   const fileRangesByLine = useMemo(() => {
@@ -287,13 +287,13 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
     return map
   }, [fileFind.matches, fileFind.currentIndex])
   useEffect(() => {
-    if (!findOpen || centerViewMode !== 'file') return
+    if (!findOpen || centerViewMode !== 'file' || !!blameFilePath) return
     const cur = fileFind.matches[fileFind.currentIndex]
     if (!cur) return
     fileViewScrollRef.current
       ?.querySelector(`[data-find-line="${cur.lineIndex}"]`)
       ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, [findOpen, centerViewMode, fileFind.currentIndex, fileFind.matches])
+  }, [findOpen, centerViewMode, blameFilePath, fileFind.currentIndex, fileFind.matches])
 
   useEffect(() => {
     if (!workingTreeFile) {
@@ -1012,7 +1012,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                   )}
                   {!fileLoading && !fileError && fileContent !== null && (
                     <div className={styles.fullFileViewer} ref={fileViewScrollRef}>
-                      {findOpen && (
+                      {findOpen && !blameFilePath && (
                         <FindWidget
                           query={fileViewFindQuery}
                           onQueryChange={setFileViewFindQuery}
@@ -1167,7 +1167,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                   )}
                   {!fileLoading && !fileError && fileContent !== null && (
                     <div className={styles.fullFileViewer} ref={fileViewScrollRef}>
-                      {findOpen && (
+                      {findOpen && !blameFilePath && (
                         <FindWidget
                           query={fileViewFindQuery}
                           onQueryChange={setFileViewFindQuery}
