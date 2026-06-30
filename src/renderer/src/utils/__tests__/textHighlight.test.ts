@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeMatches, buildHighlightSegments, computeFindMarks, mergeColumnMatches } from '../textHighlight'
+import { computeMatches, buildHighlightSegments, computeFindMarks, mergeColumnMatches, shouldHighlightSelection, isWordSelection, selectionToQuery, excludeOwnRange } from '../textHighlight'
 
 const L = (...t: string[]) => t.map((text) => ({ text }))
 
@@ -95,5 +95,48 @@ describe('computeFindMarks', () => {
   })
   it('returns [] when totalRows is 0', () => {
     expect(computeFindMarks([0], 0, 0)).toEqual([])
+  })
+})
+
+describe('shouldHighlightSelection', () => {
+  it('rejects empty, whitespace-only, and multi-line selections', () => {
+    expect(shouldHighlightSelection('')).toBe(false)
+    expect(shouldHighlightSelection('   ')).toBe(false)
+    expect(shouldHighlightSelection('a\nb')).toBe(false)
+  })
+  it('accepts a single-line, non-whitespace selection', () => {
+    expect(shouldHighlightSelection('foo')).toBe(true)
+    expect(shouldHighlightSelection('a b')).toBe(true)
+  })
+})
+
+describe('isWordSelection', () => {
+  it('is true when selection is all word chars with non-word boundaries', () => {
+    expect(isWordSelection(' ', 'foo', '(')).toBe(true)
+    expect(isWordSelection('', 'foo', '')).toBe(true)
+  })
+  it('is false when a boundary char is a word char', () => {
+    expect(isWordSelection('x', 'foo', ' ')).toBe(false)
+    expect(isWordSelection(' ', 'foo', 'x')).toBe(false)
+  })
+  it('is false when the selection itself contains a non-word char', () => {
+    expect(isWordSelection(' ', 'fo o', ' ')).toBe(false)
+  })
+})
+
+describe('selectionToQuery', () => {
+  it('returns null for a non-qualifying selection', () => {
+    expect(selectionToQuery('  ', false)).toBeNull()
+  })
+  it('is always case-sensitive, passing through the whole-word flag', () => {
+    expect(selectionToQuery('foo', true)).toEqual({ query: 'foo', caseSensitive: true, wholeWord: true })
+    expect(selectionToQuery('a b', false)).toEqual({ query: 'a b', caseSensitive: true, wholeWord: false })
+  })
+})
+
+describe('excludeOwnRange', () => {
+  it('drops the match equal to the active selection', () => {
+    const r = [{ lineIndex: 1, start: 0, end: 3 }, { lineIndex: 2, start: 4, end: 7 }]
+    expect(excludeOwnRange(r, { lineIndex: 1, start: 0 })).toEqual([{ lineIndex: 2, start: 4, end: 7 }])
   })
 })

@@ -147,3 +147,39 @@ export function computeFindMarks(lineIndexes: number[], totalRows: number, curre
   if (totalRows <= 0) return []
   return lineIndexes.map((li, i) => ({ position: li / totalRows, current: i === currentIndex }))
 }
+
+// ─── Part 4: selection-highlight predicates ───────────────────────────────────
+
+export function shouldHighlightSelection(selectedText: string): boolean {
+  if (!selectedText) return false
+  if (selectedText.includes('\n')) return false
+  if (selectedText.trim().length === 0) return false
+  return true
+}
+
+export function isWordSelection(before: string, selected: string, after: string): boolean {
+  if (!selected) return false
+  for (const ch of selected) if (!WORD_CHAR.test(ch)) return false
+  if (before && WORD_CHAR.test(before)) return false
+  if (after && WORD_CHAR.test(after)) return false
+  return true
+}
+
+export interface SelectionQuery {
+  query: string
+  caseSensitive: boolean
+  wholeWord: boolean
+}
+
+export function selectionToQuery(selectedText: string, isWholeWordSelection: boolean): SelectionQuery | null {
+  if (!shouldHighlightSelection(selectedText)) return null
+  return { query: selectedText, caseSensitive: true, wholeWord: isWholeWordSelection }
+}
+
+export function excludeOwnRange(
+  ranges: HighlightRange[],
+  own: { lineIndex: number; start: number } | null
+): HighlightRange[] {
+  if (!own) return ranges
+  return ranges.filter((r) => !(r.lineIndex === own.lineIndex && r.start === own.start))
+}
