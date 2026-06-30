@@ -502,6 +502,11 @@ body.sidebar-dragging * {
   color: var(--bg-primary);
   border-radius: 2px;
 }
+.selectionHighlight {
+  background: rgba(120, 170, 255, 0.28);
+  color: inherit;
+  border-radius: 2px;
+}
 
 @keyframes fadeIn {
   from { opacity: 0; }
