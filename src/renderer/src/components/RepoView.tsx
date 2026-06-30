@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, FileCode, GitCompare, Pencil } from 'lucide-react'
 import styles from './RepoView.module.css'
 import { RepoViewSkeleton } from './Skeleton'
@@ -13,6 +13,7 @@ import { DiffViewer, FullDiffView, SyntaxHighlightedContent, detectLanguage, typ
 import { Columns } from 'lucide-react'
 import { CodeEditor, openFileInEditor } from './CodeEditor'
 import { shouldShowLoadingSpinner } from './loadingDecision'
+import { clampRestoreScrollTop } from './scrollPreserve'
 
 interface RepoViewProps {
   repoPath: string
@@ -153,6 +154,8 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   const diffIdentityRef = useRef<string | null>(null)
   const fileIdentityRef = useRef<string | null>(null)
   const fullIdentityRef = useRef<string | null>(null)
+  const fileViewScrollRef = useRef<HTMLDivElement>(null)
+  const pendingFileScrollRef = useRef<number | null>(null)
   // Mirror refs: read "do we have content?" inside loaders WITHOUT putting the
   // content state in their deps (that would loop the silent re-fetch).
   const workingTreeDiffRef = useRef(workingTreeDiff)
@@ -424,6 +427,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
       hasCurrentContent: fileContentRef.current !== null
     })
     if (showSpinner) setFileLoading(true)
+    else pendingFileScrollRef.current = fileViewScrollRef.current?.scrollTop ?? null
     setFileError(null)
 
     const loader = workingTreeFile.staged
@@ -455,6 +459,17 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
       })
     return () => { cancelled = true }
   }, [centerViewMode, workingTreeFile, repoPath, workingTreeRefreshKey])
+
+  // Safety net: after a silent File-view swap, restore the captured scroll offset
+  // (clamped to the new content height). No-op for first loads (pending == null).
+  useLayoutEffect(() => {
+    const el = fileViewScrollRef.current
+    const target = pendingFileScrollRef.current
+    if (el && target != null) {
+      el.scrollTop = clampRestoreScrollTop(target, el.scrollHeight - el.clientHeight)
+    }
+    pendingFileScrollRef.current = null
+  }, [fileContent])
 
   // ─── Working-Tree Full Diff Loader ──────────────────────────────────────
   // Loads old + new file contents for side-by-side highlighted view:
@@ -922,7 +937,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                     </div>
                   )}
                   {!fileLoading && !fileError && fileContent !== null && (
-                    <div className={styles.fullFileViewer}>
+                    <div className={styles.fullFileViewer} ref={fileViewScrollRef}>
                       <pre className={styles.fullFilePre}>
                         <code>{fileContent.split('\n').map((line, i) => (
                           <div key={i} className={styles.fullFileLine}>
