@@ -6,6 +6,11 @@ import { useInlineLineEdit } from './useInlineLineEdit'
 import { buildEditableTargets, type NavItem } from '../utils/inlineEditNav'
 import { type HighlightRange } from '../utils/textHighlight'
 
+/** True when the active edit spans more than one line (anchor ≠ focus). */
+function isMultiLine(editing: { anchorLine: number; focusLine: number } | null): boolean {
+  return !!editing && editing.anchorLine !== editing.focusLine
+}
+
 /**
  * Non-virtualized working-tree File view with in-place single-line editing.
  *
@@ -54,47 +59,90 @@ export function FullFileEditableView({
 
   const edit = useInlineLineEdit({ absPath, targets, lineText, onSaved })
 
+  // Shared key handler for both the single-line <input> and the multi-line
+  // <textarea>. stopPropagation keeps window-level handlers (Escape-closes-file,
+  // close-find) from firing mid-edit.
+  const onEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+    // Shift+Enter inserts a literal newline in the textarea (no commit).
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.stopPropagation()
+      return
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      void edit.moveDown()
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      edit.cancel()
+      return
+    }
+    if (e.ctrlKey && e.shiftKey && e.key === 'ArrowDown') {
+      e.preventDefault()
+      e.stopPropagation()
+      edit.extendDown()
+      return
+    }
+    if (e.ctrlKey && e.shiftKey && e.key === 'ArrowUp') {
+      e.preventDefault()
+      e.stopPropagation()
+      edit.extendUp()
+      return
+    }
+    const t = e.currentTarget
+    if (!e.shiftKey && e.key === 'ArrowUp' && t.selectionStart === 0) {
+      e.preventDefault()
+      e.stopPropagation()
+      void edit.moveUp()
+    } else if (!e.shiftKey && e.key === 'ArrowDown' && t.selectionStart === t.value.length) {
+      e.preventDefault()
+      e.stopPropagation()
+      void edit.moveDown()
+    }
+  }
+
+  const ed = editable ? edit.editing : null
+  const multi = isMultiLine(ed)
+  const lo = ed ? Math.min(ed.anchorLine, ed.focusLine) : 0
+  const hi = ed ? Math.max(ed.anchorLine, ed.focusLine) : -1
+
   return (
     <pre className={styles.fullFilePre}>
       <code>
         {lines.map((line, i) => {
           const fileLine = i + 1
-          const isEditing = editable && !!edit.editing && edit.editing.focusLine === fileLine
+          const inSpan = !!ed && fileLine >= lo && fileLine <= hi
+          // The control lives on the top-of-span row when multi-line (the
+          // textarea grows downward over the rest of the span), else the focus
+          // row. Other in-span rows render nothing — the textarea covers them.
+          const isHostRow = !!ed && (multi ? fileLine === lo : ed.focusLine === fileLine)
+          if (inSpan && !isHostRow) return null
           return (
             <div key={i} data-find-line={i} className={styles.fullFileLine}>
               <span className={styles.fullFileLineNum}>{fileLine}</span>
               <span className={styles.fullFileLineContent}>
-                {isEditing ? (
-                  <input
-                    className={styles.inlineEditInput}
-                    autoFocus
-                    value={edit.buffer}
-                    onChange={(e) => edit.setBuffer(e.target.value)}
-                    onKeyDown={(e) => {
-                      // Handle locally and stop the event before it reaches the
-                      // window-level keydown listeners (e.g. Escape-closes-file).
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        void edit.moveDown()
-                      } else if (e.key === 'Escape') {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        edit.cancel()
-                      } else if (e.key === 'ArrowUp' && e.currentTarget.selectionStart === 0) {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        void edit.moveUp()
-                      } else if (
-                        e.key === 'ArrowDown' &&
-                        e.currentTarget.selectionStart === e.currentTarget.value.length
-                      ) {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        void edit.moveDown()
-                      }
-                    }}
-                  />
+                {isHostRow ? (
+                  multi ? (
+                    <textarea
+                      className={styles.inlineEditTextarea}
+                      autoFocus
+                      rows={hi - lo + 1}
+                      value={edit.buffer}
+                      onChange={(e) => edit.setBuffer(e.target.value)}
+                      onKeyDown={onEditKeyDown}
+                    />
+                  ) : (
+                    <input
+                      className={styles.inlineEditInput}
+                      autoFocus
+                      value={edit.buffer}
+                      onChange={(e) => edit.setBuffer(e.target.value)}
+                      onKeyDown={onEditKeyDown}
+                    />
+                  )
                 ) : (
                   <>
                     <RangeHighlightedContent

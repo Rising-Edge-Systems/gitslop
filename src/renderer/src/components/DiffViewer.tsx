@@ -1166,6 +1166,73 @@ function HunkActions({
 const INLINE_ROW_HEIGHT = 20
 const INLINE_HUNK_HEIGHT = 28
 
+/** True when the active edit spans more than one line (anchor ≠ focus). */
+function isMultiLine(editing: { anchorLine: number; focusLine: number } | null): boolean {
+  return !!editing && editing.anchorLine !== editing.focusLine
+}
+
+/**
+ * Display-index span for an active multi-line edit. `topIdx`/`botIdx` are the
+ * flat-row indices of the new-side lines `lo`/`hi`; the rows between them may
+ * include removed rows, so the span is tracked by display index (not file line)
+ * to keep the virtualized geometry exact.
+ */
+interface InlineEditSpan {
+  lo: number
+  hi: number
+  topIdx: number
+  botIdx: number
+}
+
+/**
+ * Shared key handler for the inline-edit `<input>` and `<textarea>`.
+ * stopPropagation keeps window-level handlers (close file/diff, close find)
+ * from firing mid-edit. Shift+Enter inserts a literal newline (no commit).
+ */
+function handleInlineEditKeyDown(
+  e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  c: UseInlineLineEdit
+): void {
+  if (e.key === 'Enter' && e.shiftKey) {
+    e.stopPropagation()
+    return
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    e.stopPropagation()
+    void c.moveDown()
+    return
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    e.stopPropagation()
+    c.cancel()
+    return
+  }
+  if (e.ctrlKey && e.shiftKey && e.key === 'ArrowDown') {
+    e.preventDefault()
+    e.stopPropagation()
+    c.extendDown()
+    return
+  }
+  if (e.ctrlKey && e.shiftKey && e.key === 'ArrowUp') {
+    e.preventDefault()
+    e.stopPropagation()
+    c.extendUp()
+    return
+  }
+  const t = e.currentTarget
+  if (!e.shiftKey && e.key === 'ArrowUp' && t.selectionStart === 0) {
+    e.preventDefault()
+    e.stopPropagation()
+    void c.moveUp()
+  } else if (!e.shiftKey && e.key === 'ArrowDown' && t.selectionStart === t.value.length) {
+    e.preventDefault()
+    e.stopPropagation()
+    void c.moveDown()
+  }
+}
+
 // Flattened inline row — either a hunk header or a diff line
 interface InlineVirtualItem {
   type: 'hunkHeader' | 'line'
@@ -1194,6 +1261,11 @@ interface InlineVirtualRowProps {
     controller: UseInlineLineEdit
     editableLines: Set<number> // new-side fileLines that may show a pencil
   }
+  /**
+   * Active multi-line edit span by display index, or null when single-line /
+   * not editing. The top-of-span row hosts the textarea; interior rows collapse.
+   */
+  editSpan?: InlineEditSpan | null
 }
 
 function InlineVirtualRow(props: {
@@ -1201,9 +1273,16 @@ function InlineVirtualRow(props: {
   index: number
   style: React.CSSProperties
 } & InlineVirtualRowProps): React.ReactElement {
-  const { index, style, items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine, selByLine, findOpen, edit } = props
+  const { index, style, items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine, selByLine, findOpen, edit, editSpan } = props
   const item = items[index]
   if (!item) return <div style={style} />
+
+  // Interior of a multi-line edit span (below the top-of-span host row): the
+  // host's textarea covers these rows and getRowHeight collapses them to 0, so
+  // render a bare div WITHOUT the .line class (whose min-height would force 20px).
+  if (editSpan && index > editSpan.topIdx && index <= editSpan.botIdx) {
+    return <div style={style} />
+  }
 
   if (item.type === 'hunkHeader') {
     const hunkSelection = getHunkSelection(item.hunkIdx)
@@ -1261,8 +1340,11 @@ function InlineVirtualRow(props: {
   // hunk headers never qualify, matching buildEditableTargets. The pencil shows
   // for every editable row; the input replaces the content only on the row that
   // currently has edit focus (so all other rows render byte-identically).
+  // Single-line edit: the focus row hosts an <input>. Multi-line edit: the
+  // top-of-span row hosts a <textarea> covering the whole span (editSpan).
+  const isMultiHost = !!edit && !!editSpan && index === editSpan.topIdx
   const isEditing =
-    !!edit && !!edit.controller.editing && line.newLineNum != null &&
+    !!edit && !editSpan && !!edit.controller.editing && line.newLineNum != null &&
     edit.controller.editing.focusLine === line.newLineNum
   const showPencil = !!edit && line.newLineNum != null && edit.editableLines.has(line.newLineNum)
 
@@ -1289,37 +1371,22 @@ function InlineVirtualRow(props: {
       <span className={styles.lineNum}>{line.newLineNum ?? ''}</span>
       <span className={styles.linePrefix}>{prefix}</span>
       <span className={styles.lineContent}>
-        {isEditing && edit ? (
+        {isMultiHost && edit && editSpan ? (
+          <textarea
+            className={styles.inlineEditTextarea}
+            autoFocus
+            rows={editSpan.hi - editSpan.lo + 1}
+            value={edit.controller.buffer}
+            onChange={(e) => edit.controller.setBuffer(e.target.value)}
+            onKeyDown={(e) => handleInlineEditKeyDown(e, edit.controller)}
+          />
+        ) : isEditing && edit ? (
           <input
             className={styles.inlineEditInput}
             autoFocus
             value={edit.controller.buffer}
             onChange={(e) => edit.controller.setBuffer(e.target.value)}
-            onKeyDown={(e) => {
-              // Handle locally and stop the event before it reaches the
-              // window-level keydown listeners (close file/diff, close find).
-              const c = edit.controller
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                e.stopPropagation()
-                void c.moveDown()
-              } else if (e.key === 'Escape') {
-                e.preventDefault()
-                e.stopPropagation()
-                c.cancel()
-              } else if (e.key === 'ArrowUp' && e.currentTarget.selectionStart === 0) {
-                e.preventDefault()
-                e.stopPropagation()
-                void c.moveUp()
-              } else if (
-                e.key === 'ArrowDown' &&
-                e.currentTarget.selectionStart === e.currentTarget.value.length
-              ) {
-                e.preventDefault()
-                e.stopPropagation()
-                void c.moveDown()
-              }
-            }}
+            onKeyDown={(e) => handleInlineEditKeyDown(e, edit.controller)}
           />
         ) : (
           <>
@@ -1437,6 +1504,27 @@ function InlineDiffView({
         : undefined,
     [inlineEdit, editController, editTargets]
   )
+  // new-side fileLine -> flat display index (context + added rows carry one).
+  const newLineToIndex = useMemo(() => {
+    const m = new Map<number, number>()
+    items.forEach((it, i) => {
+      if (it.type === 'line' && it.line && it.line.newLineNum != null) m.set(it.line.newLineNum, i)
+    })
+    return m
+  }, [items])
+  // Display-index span of an active multi-line edit (null when single-line).
+  // Spans are file-line-contiguous but may straddle removed rows in the diff,
+  // so the visual span is tracked by display index to keep geometry exact.
+  const editing = editController.editing
+  const editSpan = useMemo<InlineEditSpan | null>(() => {
+    if (!inlineEdit || !isMultiLine(editing) || !editing) return null
+    const lo = Math.min(editing.anchorLine, editing.focusLine)
+    const hi = Math.max(editing.anchorLine, editing.focusLine)
+    const topIdx = newLineToIndex.get(lo)
+    const botIdx = newLineToIndex.get(hi)
+    if (topIdx == null || botIdx == null) return null
+    return { lo, hi, topIdx, botIdx }
+  }, [inlineEdit, editing, newLineToIndex])
 
   // ─── Find (Ctrl+F) ────────────────────────────────────────────────────────
   const [findQuery, setFindQuery] = useState('')
@@ -1518,14 +1606,26 @@ function InlineDiffView({
     rangesByLine,
     selByLine,
     findOpen,
-    edit: editForRows
-  }), [items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine, selByLine, findOpen, editForRows])
+    edit: editForRows,
+    editSpan
+  }), [items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine, selByLine, findOpen, editForRows, editSpan])
 
   // Variable row height: hunk headers are taller than data rows so their
-  // padding + border fit without overflowing into the line below.
+  // padding + border fit without overflowing into the line below. During a
+  // multi-line edit the top-of-span row grows to host the textarea over the
+  // whole span and the interior rows collapse to 0 — so the List geometry stays
+  // exact and the textarea is never clipped by a later (lower) row painting over
+  // it. The bounds cache re-measures whenever editSpan/rowProps change identity.
   const getRowHeight = useCallback(
-    (index: number) => (items[index]?.type === 'hunkHeader' ? INLINE_HUNK_HEIGHT : INLINE_ROW_HEIGHT),
-    [items]
+    (index: number) => {
+      if (items[index]?.type === 'hunkHeader') return INLINE_HUNK_HEIGHT
+      if (editSpan) {
+        if (index === editSpan.topIdx) return (editSpan.botIdx - editSpan.topIdx + 1) * INLINE_ROW_HEIGHT
+        if (index > editSpan.topIdx && index <= editSpan.botIdx) return 0
+      }
+      return INLINE_ROW_HEIGHT
+    },
+    [items, editSpan]
   )
 
   return (
