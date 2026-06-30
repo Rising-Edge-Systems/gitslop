@@ -15,6 +15,7 @@ import { CodeEditor, openFileInEditor } from './CodeEditor'
 import { defineShortcut, useKeyboardShortcuts, useShortcutHandler } from '../hooks/useKeyboardShortcuts'
 import { FindWidget } from './FindWidget'
 import { useFindController } from '../hooks/useFindController'
+import { useSelectionHighlight } from '../hooks/useSelectionHighlight'
 import { type HighlightRange } from '../utils/textHighlight'
 import { shouldShowLoadingSpinner } from './loadingDecision'
 import { clampRestoreScrollTop } from './scrollPreserve'
@@ -294,6 +295,24 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
       ?.querySelector(`[data-find-line="${cur.lineIndex}"]`)
       ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }, [findOpen, centerViewMode, blameFilePath, fileFind.currentIndex, fileFind.matches])
+
+  // ─── File View selection highlight (Part 4) — mutually exclusive with Find ──
+  // Enabled only while the (non-virtualized) File view is actually showing and
+  // Find is closed, so the document `selectionchange` listener is scoped to it.
+  const fileSelHl = useSelectionHighlight(
+    fileLineModel,
+    fileViewScrollRef,
+    !findOpen && centerViewMode === 'file' && !blameFilePath
+  )
+  const fileSelByLine = useMemo(() => {
+    const map = new Map<number, HighlightRange[]>()
+    for (const r of fileSelHl) {
+      const arr = map.get(r.lineIndex) ?? []
+      arr.push({ ...r, className: 'selectionHighlight' })
+      map.set(r.lineIndex, arr)
+    }
+    return map
+  }, [fileSelHl])
 
   useEffect(() => {
     if (!workingTreeFile) {
@@ -1032,7 +1051,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                           <div key={i} data-find-line={i} className={styles.fullFileLine}>
                             <span className={styles.fullFileLineNum}>{i + 1}</span>
                             <span className={styles.fullFileLineContent}>
-                              <RangeHighlightedContent text={line} language={workingTreeFileLanguage} ranges={fileRangesByLine.get(i) ?? []} baseClass="findMatch" />
+                              <RangeHighlightedContent text={line} language={workingTreeFileLanguage} ranges={findOpen ? (fileRangesByLine.get(i) ?? []) : (fileSelByLine.get(i) ?? [])} baseClass={findOpen ? 'findMatch' : 'selectionHighlight'} />
                             </span>
                           </div>
                         ))}</code>
@@ -1187,7 +1206,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                           <div key={i} data-find-line={i} className={styles.fullFileLine}>
                             <span className={styles.fullFileLineNum}>{i + 1}</span>
                             <span className={styles.fullFileLineContent}>
-                              <RangeHighlightedContent text={line} language={diffFileLanguage} ranges={fileRangesByLine.get(i) ?? []} baseClass="findMatch" />
+                              <RangeHighlightedContent text={line} language={diffFileLanguage} ranges={findOpen ? (fileRangesByLine.get(i) ?? []) : (fileSelByLine.get(i) ?? [])} baseClass={findOpen ? 'findMatch' : 'selectionHighlight'} />
                             </span>
                           </div>
                         ))}</code>

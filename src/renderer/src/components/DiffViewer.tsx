@@ -6,6 +6,7 @@ import { renderTextWithWhitespace } from '../utils/whitespaceMarkers'
 import { renderWithHighlights, computeFindMarks, computeMatches, mergeColumnMatches, type HighlightRange, type FindMark } from '../utils/textHighlight'
 import { FindWidget } from './FindWidget'
 import { useFindController } from '../hooks/useFindController'
+import { useSelectionHighlight } from '../hooks/useSelectionHighlight'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1173,6 +1174,8 @@ interface InlineVirtualRowProps {
   toggleLineSelection: (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void
   clearHunkSelection: (hunkIdx: number) => void
   rangesByLine: Map<number, HighlightRange[]>
+  selByLine: Map<number, HighlightRange[]>
+  findOpen: boolean
 }
 
 function InlineVirtualRow(props: {
@@ -1180,7 +1183,7 @@ function InlineVirtualRow(props: {
   index: number
   style: React.CSSProperties
 } & InlineVirtualRowProps): React.ReactElement {
-  const { index, style, items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine } = props
+  const { index, style, items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine, selByLine, findOpen } = props
   const item = items[index]
   if (!item) return <div style={style} />
 
@@ -1233,9 +1236,12 @@ function InlineVirtualRow(props: {
   const isLineSelected = hunkSelection?.has(lineIdx) ?? false
   const canSelectLine = line.type !== 'context' && !!hunkActions
 
+  const inlineRanges = findOpen ? (rangesByLine.get(index) ?? []) : (selByLine.get(index) ?? [])
+
   return (
     <div
       style={style}
+      data-find-line={index}
       className={`${styles.line} ${lineTypeClass[line.type] || ''} ${isLineSelected ? styles.lineSelected : ''}`}
     >
       {hunkActions && (
@@ -1261,7 +1267,7 @@ function InlineVirtualRow(props: {
             lineType={line.type}
           />
         ) : (
-          <RangeHighlightedContent text={line.content} language={language} ranges={rangesByLine.get(index) ?? []} baseClass="findMatch" />
+          <RangeHighlightedContent text={line.content} language={language} ranges={inlineRanges} baseClass={findOpen ? 'findMatch' : 'selectionHighlight'} />
         )}
       </span>
     </div>
@@ -1347,6 +1353,21 @@ function InlineDiffView({
     })
     return map
   }, [find.matches, find.currentIndex])
+
+  // ─── Selection highlight (Part 4) — mutually exclusive with Find ──────────
+  // When Find is open it owns the highlight layer; otherwise highlight all
+  // occurrences of the current selection (VSCode-style) using `lineModel`.
+  const selHl = useSelectionHighlight(lineModel, containerRef, !findOpen)
+  const selByLine = useMemo(() => {
+    const map = new Map<number, HighlightRange[]>()
+    for (const r of selHl) {
+      const arr = map.get(r.lineIndex) ?? []
+      arr.push({ ...r, className: 'selectionHighlight' })
+      map.set(r.lineIndex, arr)
+    }
+    return map
+  }, [selHl])
+
   // Guard: currentIndex can momentarily exceed matches.length for one render
   // after the match set shrinks (clamp runs in an effect inside the controller).
   const current = find.matches[find.currentIndex]
@@ -1389,8 +1410,10 @@ function InlineDiffView({
     getHunkSelection,
     toggleLineSelection,
     clearHunkSelection,
-    rangesByLine
-  }), [items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine])
+    rangesByLine,
+    selByLine,
+    findOpen
+  }), [items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine, selByLine, findOpen])
 
   // Variable row height: hunk headers are taller than data rows so their
   // padding + border fit without overflowing into the line below.
@@ -1493,6 +1516,9 @@ interface SbsVirtualRowProps {
   clearHunkSelection: (hunkIdx: number) => void
   leftRangesByLine: Map<number, HighlightRange[]>
   rightRangesByLine: Map<number, HighlightRange[]>
+  leftSelByLine: Map<number, HighlightRange[]>
+  rightSelByLine: Map<number, HighlightRange[]>
+  findOpen: boolean
 }
 
 function SbsVirtualRow(props: {
@@ -1503,7 +1529,7 @@ function SbsVirtualRow(props: {
   const {
     index, style, virtualRows, language, hunkActions, hunks,
     wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection,
-    leftRangesByLine, rightRangesByLine
+    leftRangesByLine, rightRangesByLine, leftSelByLine, rightSelByLine, findOpen
   } = props
   const item = virtualRows[index]
 
@@ -1529,8 +1555,9 @@ function SbsVirtualRow(props: {
   const wordDiff = pair.left && pair.right && pair.left.type === 'removed' && pair.right.type === 'added'
     ? wordDiffCache.get(`${pair.left.oldLineNum}:${pair.right.newLineNum}`)
     : undefined
-  const leftRanges = leftRangesByLine.get(index) ?? []
-  const rightRanges = rightRangesByLine.get(index) ?? []
+  const leftRanges = findOpen ? (leftRangesByLine.get(index) ?? []) : (leftSelByLine.get(index) ?? [])
+  const rightRanges = findOpen ? (rightRangesByLine.get(index) ?? []) : (rightSelByLine.get(index) ?? [])
+  const baseClass = findOpen ? 'findMatch' : 'selectionHighlight'
 
   // Line-selection state for LEFT (removed) side
   const leftSelectable =
@@ -1559,6 +1586,7 @@ function SbsVirtualRow(props: {
       {/* Left cell (old) */}
       <div className={styles.fullDiffCellLeft}>
         <div
+          data-find-line={index * 2}
           className={`${styles.sbsLine} ${pair.left ? (sbsLineTypeClass[pair.left.type] || '') : styles.sbsLineEmpty} ${leftSelected ? styles.sbsLineSelected : ''}`}
         >
           {hunkActions && (
@@ -1583,7 +1611,7 @@ function SbsVirtualRow(props: {
                 wordDiff && leftRanges.length === 0 ? (
                   <WordDiffContent segments={wordDiff.oldSegments} lineType="removed" />
                 ) : (
-                  <RangeHighlightedContent text={pair.left.content} language={language} ranges={leftRanges} baseClass="findMatch" />
+                  <RangeHighlightedContent text={pair.left.content} language={language} ranges={leftRanges} baseClass={baseClass} />
                 )
               ) : ''}
             </span>
@@ -1594,6 +1622,7 @@ function SbsVirtualRow(props: {
       {/* Right cell (new) */}
       <div className={styles.fullDiffCellRight}>
         <div
+          data-find-line={index * 2 + 1}
           className={`${styles.sbsLine} ${pair.right ? (sbsLineTypeClass[pair.right.type] || '') : styles.sbsLineEmpty} ${rightSelected ? styles.sbsLineSelected : ''}`}
         >
           {hunkActions && (
@@ -1618,7 +1647,7 @@ function SbsVirtualRow(props: {
                 wordDiff && rightRanges.length === 0 ? (
                   <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
                 ) : (
-                  <RangeHighlightedContent text={pair.right.content} language={language} ranges={rightRanges} baseClass="findMatch" />
+                  <RangeHighlightedContent text={pair.right.content} language={language} ranges={rightRanges} baseClass={baseClass} />
                 )
               ) : ''}
             </span>
@@ -1769,6 +1798,24 @@ function SideBySideDiffView({
     })
     return { leftRangesByLine: left, rightRangesByLine: right }
   }, [merged, find.currentIndex])
+
+  // ─── Selection highlight (Part 4) — mutually exclusive with Find ──────────
+  // Run over the interleaved `combinedModel` (index 2r = left, 2r+1 = right) so
+  // occurrences in either pane are found; decode back to per-pane row maps.
+  const selHl = useSelectionHighlight(combinedModel, listWrapperRef, !findOpen)
+  const { leftSelByLine, rightSelByLine } = useMemo(() => {
+    const left = new Map<number, HighlightRange[]>()
+    const right = new Map<number, HighlightRange[]>()
+    for (const r of selHl) {
+      const row = Math.floor(r.lineIndex / 2)
+      const target = r.lineIndex % 2 === 0 ? left : right
+      const arr = target.get(row) ?? []
+      arr.push({ lineIndex: row, start: r.start, end: r.end, className: 'selectionHighlight' })
+      target.set(row, arr)
+    }
+    return { leftSelByLine: left, rightSelByLine: right }
+  }, [selHl])
+
   // Guard: currentIndex can momentarily exceed merged.length for one render
   // after the match set shrinks (clamp runs in an effect inside the controller).
   const current = merged[find.currentIndex]
@@ -1818,11 +1865,14 @@ function SideBySideDiffView({
     toggleLineSelection: toggleLineSelection as (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void,
     clearHunkSelection,
     leftRangesByLine,
-    rightRangesByLine
+    rightRangesByLine,
+    leftSelByLine,
+    rightSelByLine,
+    findOpen
   }), [
     virtualRows, language, hunkActions, hunks, wordDiffCache,
     getHunkSelection, toggleLineSelection, clearHunkSelection,
-    leftRangesByLine, rightRangesByLine
+    leftRangesByLine, rightRangesByLine, leftSelByLine, rightSelByLine, findOpen
   ])
 
   return (
@@ -2076,6 +2126,9 @@ interface FullDiffVirtualRowProps {
   isDeletedFile: boolean
   leftRangesByLine: Map<number, HighlightRange[]>
   rightRangesByLine: Map<number, HighlightRange[]>
+  leftSelByLine: Map<number, HighlightRange[]>
+  rightSelByLine: Map<number, HighlightRange[]>
+  findOpen: boolean
 }
 
 function FullDiffVirtualRow(props: {
@@ -2086,7 +2139,8 @@ function FullDiffVirtualRow(props: {
   const {
     index, style, virtualRows, language, stagingActive, hunkActionsConfig,
     parsedHunks, getHunkSelection, toggleLineSelection, clearHunkSelection,
-    isNewFile, isDeletedFile, leftRangesByLine, rightRangesByLine
+    isNewFile, isDeletedFile, leftRangesByLine, rightRangesByLine,
+    leftSelByLine, rightSelByLine, findOpen
   } = props
   const item = virtualRows[index]
 
@@ -2143,10 +2197,14 @@ function FullDiffVirtualRow(props: {
     const selectable = stagingActive && isChanged && row.hunkIdx !== null && lineIdx !== null
     const sel = row.hunkIdx !== null ? getHunkSelection(row.hunkIdx) : undefined
     const isSelected = selectable && sel ? sel.has(lineIdx!) : false
+    const sideRanges = findOpen
+      ? ((isLeft ? leftRangesByLine : rightRangesByLine).get(index) ?? [])
+      : ((isLeft ? leftSelByLine : rightSelByLine).get(index) ?? [])
 
     return (
       <div className={isLeft ? styles.fullDiffCellLeft : styles.fullDiffCellRight}>
         <div
+          data-find-line={isLeft ? index * 2 : index * 2 + 1}
           className={`${styles.sbsLine} ${
             side
               ? (isChanged
@@ -2175,8 +2233,8 @@ function FullDiffVirtualRow(props: {
                 <RangeHighlightedContent
                   text={side.content}
                   language={language}
-                  ranges={(isLeft ? leftRangesByLine : rightRangesByLine).get(index) ?? []}
-                  baseClass="findMatch"
+                  ranges={sideRanges}
+                  baseClass={findOpen ? 'findMatch' : 'selectionHighlight'}
                 />
               ) : ''}
             </span>
@@ -2375,6 +2433,24 @@ export function FullDiffView({
     })
     return { leftRangesByLine: left, rightRangesByLine: right }
   }, [merged, find.currentIndex])
+
+  // ─── Selection highlight (Part 4) — mutually exclusive with Find ──────────
+  // Run over the interleaved `combinedModel` (index 2r = left, 2r+1 = right) so
+  // occurrences in either pane are found; decode back to per-pane row maps.
+  const selHl = useSelectionHighlight(combinedModel, listWrapperRef, !findOpen)
+  const { leftSelByLine, rightSelByLine } = useMemo(() => {
+    const left = new Map<number, HighlightRange[]>()
+    const right = new Map<number, HighlightRange[]>()
+    for (const r of selHl) {
+      const row = Math.floor(r.lineIndex / 2)
+      const target = r.lineIndex % 2 === 0 ? left : right
+      const arr = target.get(row) ?? []
+      arr.push({ lineIndex: row, start: r.start, end: r.end, className: 'selectionHighlight' })
+      target.set(row, arr)
+    }
+    return { leftSelByLine: left, rightSelByLine: right }
+  }, [selHl])
+
   // Guard: currentIndex can momentarily exceed merged.length for one render
   // after the match set shrinks (clamp runs in an effect inside the controller).
   const current = merged[find.currentIndex]
@@ -2408,11 +2484,14 @@ export function FullDiffView({
     isNewFile,
     isDeletedFile,
     leftRangesByLine,
-    rightRangesByLine
+    rightRangesByLine,
+    leftSelByLine,
+    rightSelByLine,
+    findOpen
   }), [
     virtualRows, language, stagingActive, hunkActionsConfig, parsed.hunks,
     getHunkSelection, toggleLineSelection, clearHunkSelection, isNewFile, isDeletedFile,
-    leftRangesByLine, rightRangesByLine
+    leftRangesByLine, rightRangesByLine, leftSelByLine, rightSelByLine, findOpen
   ])
 
   // Binary file — show placeholder in both panes

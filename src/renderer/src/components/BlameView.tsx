@@ -4,6 +4,7 @@ import styles from './BlameView.module.css'
 import { renderTextWithWhitespace } from '../utils/whitespaceMarkers'
 import { renderWithHighlights, type HighlightRange } from '../utils/textHighlight'
 import { useFindController } from '../hooks/useFindController'
+import { useSelectionHighlight } from '../hooks/useSelectionHighlight'
 import { FindWidget } from './FindWidget'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -159,6 +160,18 @@ export function BlameView({
       ?.querySelector(`[data-find-line="${cur.lineIndex}"]`)
       ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }, [findOpen, find.currentIndex, find.matches])
+
+  // ─── Selection highlight (Part 4) — mutually exclusive with Find ──────────
+  const selHl = useSelectionHighlight(lineModel, contentRef, !findOpen)
+  const selByLine = useMemo(() => {
+    const map = new Map<number, HighlightRange[]>()
+    for (const r of selHl) {
+      const arr = map.get(r.lineIndex) ?? []
+      arr.push({ ...r, className: 'selectionHighlight' })
+      map.set(r.lineIndex, arr)
+    }
+    return map
+  }, [selHl])
 
   // ─── Group consecutive lines with same hash ──────────────────────────────
 
@@ -319,7 +332,9 @@ export function BlameView({
                 <pre className={styles.lineContent}>
                   {findOpen
                     ? renderWithHighlights(line.content ?? '', [], rangesByLine.get(idx) ?? [], 'findMatch')
-                    : (line.content ? renderTextWithWhitespace(line.content, `b${idx}-`) : ' ')}
+                    : (selByLine.get(idx)?.length
+                        ? renderWithHighlights(line.content ?? '', [], selByLine.get(idx)!, 'selectionHighlight')
+                        : (line.content ? renderTextWithWhitespace(line.content, `b${idx}-`) : ' '))}
                 </pre>
               </div>
             )
