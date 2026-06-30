@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeMatches } from '../textHighlight'
+import { computeMatches, buildHighlightSegments, computeFindMarks } from '../textHighlight'
 
 const L = (...t: string[]) => t.map((text) => ({ text }))
 
@@ -37,5 +37,51 @@ describe('computeMatches', () => {
       { lineIndex: 1, start: 1, end: 2 },
       { lineIndex: 2, start: 0, end: 1 }
     ])
+  })
+})
+
+const tok = (text: string, className = '') => ({ text, className })
+
+describe('buildHighlightSegments', () => {
+  it('returns one unhighlighted segment when no ranges', () => {
+    expect(buildHighlightSegments([tok('hello')], [], 'findMatch')).toEqual([
+      { text: 'hello', className: '', markClass: null }
+    ])
+  })
+  it('splits a single plain token around one range', () => {
+    expect(buildHighlightSegments([tok('foobar')], [{ lineIndex: 0, start: 3, end: 6 }], 'findMatch')).toEqual([
+      { text: 'foo', className: '', markClass: null },
+      { text: 'bar', className: '', markClass: 'findMatch' }
+    ])
+  })
+  it('splits a match that straddles two syntax tokens, preserving classes', () => {
+    // tokens: "fo"(syn-keyword) + "obar"(""), match cols 1..4 = "oob"
+    expect(buildHighlightSegments(
+      [tok('fo', 'syn-keyword'), tok('obar')],
+      [{ lineIndex: 0, start: 1, end: 4 }],
+      'findMatch'
+    )).toEqual([
+      { text: 'f', className: 'syn-keyword', markClass: null },
+      { text: 'o', className: 'syn-keyword', markClass: 'findMatch' },
+      { text: 'ob', className: '', markClass: 'findMatch' },
+      { text: 'ar', className: '', markClass: null }
+    ])
+  })
+  it('uses the range className override when present (current match)', () => {
+    expect(buildHighlightSegments([tok('abc')], [{ lineIndex: 0, start: 0, end: 3, className: 'findMatchCurrent' }], 'findMatch')).toEqual([
+      { text: 'abc', className: '', markClass: 'findMatchCurrent' }
+    ])
+  })
+})
+
+describe('computeFindMarks', () => {
+  it('maps line indexes to proportional positions and flags the current', () => {
+    expect(computeFindMarks([0, 50], 100, 1)).toEqual([
+      { position: 0, current: false },
+      { position: 0.5, current: true }
+    ])
+  })
+  it('returns [] when totalRows is 0', () => {
+    expect(computeFindMarks([0], 0, 0)).toEqual([])
   })
 })
