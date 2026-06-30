@@ -198,6 +198,29 @@ describe('toRepoRelativePath', () => {
   it('returns null when repoPath is null', () => {
     expect(toRepoRelativePath('/repo/src/a.ts', null)).toBe(null)
   })
+
+  // Drive-letter case mismatch: chokidar may emit lowercase drive while repo root has uppercase
+  it('matches when absPath has lowercase drive and repoPath has uppercase drive, preserving filename case', () => {
+    expect(toRepoRelativePath('c:\\repo\\src\\App.tsx', 'C:\\repo')).toBe('src/App.tsx')
+  })
+  it('matches when absPath has uppercase drive and repoPath has lowercase drive, preserving filename case', () => {
+    expect(toRepoRelativePath('C:\\repo\\src\\App.tsx', 'c:\\repo')).toBe('src/App.tsx')
+  })
+
+  // Filename case must be preserved exactly — git paths are case-sensitive
+  it('does not alter the case of the returned relative path segments', () => {
+    expect(toRepoRelativePath('C:\\repo\\SRC\\ReadMe.MD', 'C:\\repo')).toBe('SRC/ReadMe.MD')
+  })
+
+  // Trailing slash on abs path is stripped by norm before comparison
+  it('handles trailing backslash on absPath (norm strips it, returns dir as relative path)', () => {
+    expect(toRepoRelativePath('C:\\repo\\src\\', 'C:\\repo')).toBe('src')
+  })
+
+  // Regression guard: only drive letter matches, but folder is different — must return null
+  it('returns null when only the drive letter matches but the folder is different', () => {
+    expect(toRepoRelativePath('C:\\other\\x.ts', 'C:\\repo')).toBe(null)
+  })
 })
 
 describe('recordChangedPath / drainChangedPaths', () => {

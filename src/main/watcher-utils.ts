@@ -124,11 +124,15 @@ export function shouldIgnorePath(path: string): boolean {
 export function toRepoRelativePath(absPath: string, repoPath: string | null): string | null {
   if (!repoPath) return null
   const norm = (s: string): string => s.replace(/\\/g, '/').replace(/\/+$/, '')
-  const a = norm(absPath)
-  const r = norm(repoPath)
-  if (a === r) return null
-  if (!a.startsWith(r + '/')) return null
-  return a.slice(r.length + 1)
+  const normAbs = norm(absPath)
+  const normRoot = norm(repoPath)
+  // Use lowercase copies only for the prefix comparison so Windows drive-letter
+  // case differences (e.g. chokidar emits 'c:\…' vs stored root 'C:\…') don't
+  // cause a miss. The returned slice always comes from normAbs (original case)
+  // so git's case-sensitive path comparisons remain correct.
+  if (normAbs.toLowerCase() === normRoot.toLowerCase()) return null
+  if (!normAbs.toLowerCase().startsWith((normRoot + '/').toLowerCase())) return null
+  return normAbs.slice(normRoot.length + 1)
 }
 
 /**
