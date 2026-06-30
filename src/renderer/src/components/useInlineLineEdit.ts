@@ -1,6 +1,14 @@
 import { useCallback, useState } from 'react'
 import { applyLineEdits } from '../utils/applyLineEdits'
-import { EditableTarget, nextEditable, prevEditable } from '../utils/inlineEditNav'
+import { EditableTarget, nextEditable, prevEditable, extendSelection } from '../utils/inlineEditNav'
+
+function bufferForRange(anchor: number, focus: number, lineText: Map<number, string>): string {
+  const lo = Math.min(anchor, focus)
+  const hi = Math.max(anchor, focus)
+  const out: string[] = []
+  for (let ln = lo; ln <= hi; ln++) out.push(lineText.get(ln) ?? '')
+  return out.join('\n')
+}
 
 export interface InlineEditState {
   anchorLine: number
@@ -54,6 +62,7 @@ export function useInlineLineEdit({ absPath, targets, lineText, onSaved }: UseIn
     const next = applyLineEdits(read.data, [{ startLine: start, endLine: end, text: buffer }])
     const write = await window.electronAPI.file.write(absPath, next)
     setEditing(null)
+    setBuffer('')
     if (write.success) onSaved()
   }, [editing, buffer, absPath, onSaved])
 
@@ -71,9 +80,21 @@ export function useInlineLineEdit({ absPath, targets, lineText, onSaved }: UseIn
     if (t) enter(t.fileLine)
   }, [editing, commit, targets, enter])
 
-  // Filled in Task 8 (5b multi-line selection).
-  const extendUp = useCallback(() => {}, [])
-  const extendDown = useCallback(() => {}, [])
+  const extendDown = useCallback(() => {
+    if (!editing) return
+    const ext = extendSelection(editing.anchorLine, editing.focusLine, 'down', targets)
+    if (!ext) return
+    setEditing({ anchorLine: ext.anchorFileLine, focusLine: ext.focusFileLine })
+    setBuffer(bufferForRange(ext.anchorFileLine, ext.focusFileLine, lineText))
+  }, [editing, targets, lineText])
+
+  const extendUp = useCallback(() => {
+    if (!editing) return
+    const ext = extendSelection(editing.anchorLine, editing.focusLine, 'up', targets)
+    if (!ext) return
+    setEditing({ anchorLine: ext.anchorFileLine, focusLine: ext.focusFileLine })
+    setBuffer(bufferForRange(ext.anchorFileLine, ext.focusFileLine, lineText))
+  }, [editing, targets, lineText])
 
   return { editing, buffer, setBuffer, enter, cancel, commit, moveUp, moveDown, extendUp, extendDown }
 }

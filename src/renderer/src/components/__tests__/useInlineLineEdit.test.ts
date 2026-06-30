@@ -61,4 +61,40 @@ describe('useInlineLineEdit', () => {
     expect(result.current.editing).toBeNull()
     expect(writeMock).not.toHaveBeenCalled()
   })
+
+  it('moveUp() commits then moves to the previous target', async () => {
+    const { result } = setup()
+    act(() => result.current.enter(2))
+    act(() => result.current.setBuffer('TWO'))
+    await act(async () => { await result.current.moveUp() })
+    expect(writeMock).toHaveBeenCalledWith('/repo/f.txt', 'one\nTWO\nthree\n')
+    expect(result.current.editing).toEqual({ anchorLine: 1, focusLine: 1 })
+    expect(result.current.buffer).toBe('one')
+  })
+})
+
+describe('multi-line extend', () => {
+  it('extendDown grows the range and rebuilds the buffer from the spanned lines', () => {
+    const { result } = setup()
+    act(() => result.current.enter(1))
+    act(() => result.current.extendDown())
+    expect(result.current.editing).toEqual({ anchorLine: 1, focusLine: 2 })
+    expect(result.current.buffer).toBe('one\ntwo')
+  })
+
+  it('commit of a multi-line edit block-replaces lines and preserves the rest', async () => {
+    const { result } = setup()
+    act(() => result.current.enter(1))
+    act(() => result.current.extendDown())
+    act(() => result.current.setBuffer('X\nY\nZ'))
+    await act(async () => { await result.current.commit() })
+    expect(writeMock).toHaveBeenCalledWith('/repo/f.txt', 'X\nY\nZ\nthree\n')
+  })
+
+  it('extendDown is a no-op across a non-contiguous gap', () => {
+    const { result } = setup()
+    act(() => result.current.enter(3)) // last contiguous target in this fixture
+    act(() => result.current.extendDown())
+    expect(result.current.editing).toEqual({ anchorLine: 3, focusLine: 3 })
+  })
 })
