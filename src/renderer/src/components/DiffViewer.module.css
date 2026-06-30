@@ -859,13 +859,29 @@
   pointer-events: none;
 }
 
-/* Flex row: scroll area + marker gutter side by side */
+/* Flex row: scroll area + marker gutter side by side.
+   position: relative so the absolutely-positioned Find widget anchors here. */
 .diffWithMarkers {
+  position: relative;
   display: flex;
   flex: 1;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+/* Find-match ticks on the scrollbar gutter */
+.scrollbarFindMarker {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: rgba(234, 179, 8, 0.7);
+  pointer-events: none;
+}
+.scrollbarFindMarkerCurrent {
+  background: rgba(234, 179, 8, 1);
+  height: 3px;
 }
 
 /* The actual scroll container for diff content */

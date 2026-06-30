@@ -3,6 +3,9 @@ import { List, useListCallbackRef } from 'react-window'
 import { Package, ChevronLeft, ChevronRight } from 'lucide-react'
 import styles from './DiffViewer.module.css'
 import { renderTextWithWhitespace } from '../utils/whitespaceMarkers'
+import { renderWithHighlights, computeFindMarks, type HighlightRange, type FindMark } from '../utils/textHighlight'
+import { FindWidget } from './FindWidget'
+import { useFindController } from '../hooks/useFindController'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -563,6 +566,10 @@ export interface DiffViewerProps {
   fileCount?: number
   /** Navigate to prev/next file */
   onNavigateFile?: (direction: 'prev' | 'next') => void
+  /** Whether the Find widget is open (Ctrl+F). Owned by the parent (RepoView). */
+  findOpen?: boolean
+  /** Close the Find widget (Esc / close button). */
+  onCloseFind?: () => void
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
@@ -591,7 +598,9 @@ export function DiffViewer({
   onStageHunk,
   onUnstageHunk,
   onDiscardHunk,
-  stagingMode
+  stagingMode,
+  findOpen,
+  onCloseFind
 }: DiffViewerProps): React.JSX.Element {
   const [mode, setMode] = useState<DiffViewMode>(initialMode)
 
@@ -698,7 +707,13 @@ export function DiffViewer({
 
       {/* Diff Content */}
       {mode === 'inline' ? (
-        <InlineDiffView hunks={parsed.hunks} language={language} hunkActions={hunkActions} />
+        <InlineDiffView
+          hunks={parsed.hunks}
+          language={language}
+          hunkActions={hunkActions}
+          findOpen={!!findOpen}
+          onCloseFind={onCloseFind ?? ((): void => {})}
+        />
       ) : (
         <SideBySideDiffView
           hunks={parsed.hunks}
@@ -827,11 +842,13 @@ function renderMarkerBars(markers: MarkerEntry[], minMarkerHeight: number): Reac
 function ScrollbarMarkers({
   markers,
   containerRef,
-  minMarkerHeight = 2
+  minMarkerHeight = 2,
+  findMarks
 }: {
   markers: MarkerEntry[]
   containerRef: React.RefObject<HTMLElement | null>
   minMarkerHeight?: number
+  findMarks?: FindMark[]
 }): React.JSX.Element {
   const { viewport, handleClick } = useScrollbarViewport(containerRef)
 
@@ -843,6 +860,13 @@ function ScrollbarMarkers({
         style={{ top: `${viewport.top}%`, height: `${viewport.height}%` }}
       />
       {renderMarkerBars(markers, minMarkerHeight)}
+      {findMarks?.map((m, i) => (
+        <div
+          key={`f${i}`}
+          className={`${styles.scrollbarFindMarker} ${m.current ? styles.scrollbarFindMarkerCurrent : ''}`}
+          style={{ top: `${m.position * 100}%` }}
+        />
+      ))}
     </div>
   )
 }
@@ -1136,6 +1160,7 @@ interface InlineVirtualRowProps {
   getHunkSelection: (hunkIdx: number) => Set<number> | undefined
   toggleLineSelection: (hunkIdx: number, lineIdx: number, e: React.MouseEvent) => void
   clearHunkSelection: (hunkIdx: number) => void
+  rangesByLine: Map<number, HighlightRange[]>
 }
 
 function InlineVirtualRow(props: {
@@ -1143,7 +1168,7 @@ function InlineVirtualRow(props: {
   index: number
   style: React.CSSProperties
 } & InlineVirtualRowProps): React.ReactElement {
-  const { index, style, items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection } = props
+  const { index, style, items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine } = props
   const item = items[index]
   if (!item) return <div style={style} />
 
@@ -1224,7 +1249,7 @@ function InlineVirtualRow(props: {
             lineType={line.type}
           />
         ) : (
-          <SyntaxHighlightedContent text={line.content} language={language} />
+          <RangeHighlightedContent text={line.content} language={language} ranges={rangesByLine.get(index) ?? []} baseClass="findMatch" />
         )}
       </span>
     </div>
@@ -1234,11 +1259,15 @@ function InlineVirtualRow(props: {
 function InlineDiffView({
   hunks,
   language,
-  hunkActions
+  hunkActions,
+  findOpen,
+  onCloseFind
 }: {
   hunks: DiffHunk[]
   language: string | null
   hunkActions: HunkActionsConfig | null
+  findOpen: boolean
+  onCloseFind: () => void
 }): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const [listRef, setListRef] = useListCallbackRef()
@@ -1286,6 +1315,37 @@ function InlineDiffView({
     return flat
   }, [hunks])
 
+  // ─── Find (Ctrl+F) ────────────────────────────────────────────────────────
+  const [findQuery, setFindQuery] = useState('')
+  const [findCase, setFindCase] = useState(false)
+  const [findWord, setFindWord] = useState(false)
+  const findOptsMemo = useMemo(() => ({ caseSensitive: findCase, wholeWord: findWord }), [findCase, findWord])
+  const lineModel = useMemo(
+    () => items.map((it) => ({ text: it.type === 'line' && it.line ? it.line.content : '' })),
+    [items]
+  )
+  const find = useFindController(lineModel, findOpen ? findQuery : '', findOptsMemo)
+  const rangesByLine = useMemo(() => {
+    const map = new Map<number, HighlightRange[]>()
+    find.matches.forEach((m, i) => {
+      const cls = i === find.currentIndex ? 'findMatchCurrent' : 'findMatch'
+      const arr = map.get(m.lineIndex) ?? []
+      arr.push({ ...m, className: cls })
+      map.set(m.lineIndex, arr)
+    })
+    return map
+  }, [find.matches, find.currentIndex])
+  // Guard: currentIndex can momentarily exceed matches.length for one render
+  // after the match set shrinks (clamp runs in an effect inside the controller).
+  const current = find.matches[find.currentIndex]
+  useEffect(() => {
+    if (findOpen && current && listRef) listRef.scrollToRow({ index: current.lineIndex, align: 'smart', behavior: 'smooth' })
+  }, [findOpen, current, listRef])
+  const findMarks = useMemo(
+    () => computeFindMarks(find.matches.map((m) => m.lineIndex), items.length, find.currentIndex),
+    [find.matches, items.length, find.currentIndex]
+  )
+
   const inlineMarkers = useMemo(() => {
     const lineTypes: Array<'added' | 'removed' | 'context' | null> = []
     for (const item of items) {
@@ -1316,8 +1376,9 @@ function InlineDiffView({
     wordDiffCache,
     getHunkSelection,
     toggleLineSelection,
-    clearHunkSelection
-  }), [items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection])
+    clearHunkSelection,
+    rangesByLine
+  }), [items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine])
 
   // Variable row height: hunk headers are taller than data rows so their
   // padding + border fit without overflowing into the line below.
@@ -1328,6 +1389,21 @@ function InlineDiffView({
 
   return (
     <div className={styles.diffWithMarkers}>
+      {findOpen && (
+        <FindWidget
+          query={findQuery}
+          onQueryChange={setFindQuery}
+          caseSensitive={findCase}
+          wholeWord={findWord}
+          onToggleCase={() => setFindCase((v) => !v)}
+          onToggleWholeWord={() => setFindWord((v) => !v)}
+          count={find.count}
+          currentIndex={find.currentIndex}
+          onNext={find.next}
+          onPrev={find.prev}
+          onClose={onCloseFind}
+        />
+      )}
       <div ref={containerRef} style={{ flex: 1, overflow: 'hidden' }}>
         <List<InlineVirtualRowProps>
           listRef={setListRef}
@@ -1339,7 +1415,7 @@ function InlineDiffView({
           style={{ height: containerHeight }}
         />
       </div>
-      <ScrollbarMarkers markers={inlineMarkers} containerRef={listRef ? { current: (listRef as unknown as { outerElement: HTMLElement }).outerElement } : containerRef} />
+      <ScrollbarMarkers markers={inlineMarkers} findMarks={findMarks} containerRef={listRef ? { current: (listRef as unknown as { outerElement: HTMLElement }).outerElement } : containerRef} />
     </div>
   )
 }
@@ -2289,4 +2365,20 @@ export function SyntaxHighlightedContent({ text, language }: { text: string; lan
       )}
     </>
   )
+}
+
+/**
+ * Like SyntaxHighlightedContent, but overlays Find match highlights (`ranges`)
+ * on top of the syntax tokens. Falls back to plain syntax rendering when there
+ * are no ranges so the common (no-search) path stays cheap.
+ */
+export function RangeHighlightedContent({
+  text,
+  language,
+  ranges,
+  baseClass
+}: { text: string; language: string | null; ranges: HighlightRange[]; baseClass: string }): React.JSX.Element {
+  const tokens = useMemo(() => highlightLine(text, language), [text, language])
+  if (ranges.length === 0) return <SyntaxHighlightedContent text={text} language={language} />
+  return <>{renderWithHighlights(text, tokens, ranges, baseClass)}</>
 }

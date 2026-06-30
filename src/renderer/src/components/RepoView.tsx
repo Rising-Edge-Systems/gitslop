@@ -12,6 +12,7 @@ import { ConflictResolver } from './ConflictResolver'
 import { DiffViewer, FullDiffView, SyntaxHighlightedContent, detectLanguage, type DiffViewMode } from './DiffViewer'
 import { Columns } from 'lucide-react'
 import { CodeEditor, openFileInEditor } from './CodeEditor'
+import { defineShortcut, useKeyboardShortcuts, useShortcutHandler } from '../hooks/useKeyboardShortcuts'
 import { shouldShowLoadingSpinner } from './loadingDecision'
 import { clampRestoreScrollTop } from './scrollPreserve'
 import { isOpenFileAffected } from './repoChangeFilter'
@@ -228,6 +229,32 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   const handleEditorFileSaved = useCallback(() => {
     setWorkingTreeRefreshKey((k) => k + 1)
   }, [])
+
+  // ─── Find (Ctrl+F) in the custom text/diff views ──────────────────────────
+  // Owned here so a single Find widget is shared by whichever diff view is
+  // mounted. Disabled while the Monaco editor is up (editingWorkingTree) so
+  // Monaco keeps its own native Ctrl+F find.
+  const [findOpen, setFindOpen] = useState(false)
+  const stableOpenFind = useShortcutHandler(() => setFindOpen(true))
+  const findShortcuts = useMemo(
+    () => [
+      defineShortcut(
+        'find-in-view',
+        'Find',
+        'View',
+        'Ctrl+F',
+        { ctrl: true, key: 'f' },
+        stableOpenFind,
+        !editingWorkingTree
+      )
+    ],
+    [stableOpenFind, editingWorkingTree]
+  )
+  useKeyboardShortcuts(findShortcuts)
+  // Close Find when the view mode or selected working-tree file changes.
+  useEffect(() => {
+    setFindOpen(false)
+  }, [centerViewMode, workingTreeFile?.path])
 
   useEffect(() => {
     if (!workingTreeFile) {
@@ -890,6 +917,8 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                       onStageHunk={handleStageHunk}
                       onUnstageHunk={handleUnstageHunk}
                       onDiscardHunk={handleDiscardHunk}
+                      findOpen={findOpen}
+                      onCloseFind={() => setFindOpen(false)}
                     />
                   )}
                 </div>
@@ -1028,6 +1057,8 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                         fileIndex={currentFileIndex >= 0 ? currentFileIndex : 0}
                         fileCount={selectedCommit?.fileDetails.length}
                         onNavigateFile={onNavigateFile}
+                        findOpen={findOpen}
+                        onCloseFind={() => setFindOpen(false)}
                       />
                     )
                   })()}
