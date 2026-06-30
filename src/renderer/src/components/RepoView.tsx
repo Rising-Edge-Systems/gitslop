@@ -12,6 +12,7 @@ import { ConflictResolver } from './ConflictResolver'
 import { DiffViewer, FullDiffView, SyntaxHighlightedContent, detectLanguage, type DiffViewMode } from './DiffViewer'
 import { Columns } from 'lucide-react'
 import { CodeEditor, openFileInEditor } from './CodeEditor'
+import { shouldShowLoadingSpinner } from './loadingDecision'
 
 interface RepoViewProps {
   repoPath: string
@@ -142,6 +143,24 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   const [workingTreeDiffLoading, setWorkingTreeDiffLoading] = useState(false)
   const [workingTreeDiffError, setWorkingTreeDiffError] = useState<string | null>(null)
   const [workingTreeRefreshKey, setWorkingTreeRefreshKey] = useState(0)
+  // Identity = path|staged|untracked. A change means a DIFFERENT file/version is
+  // open → show the spinner. A bare refreshKey bump keeps the same identity →
+  // fetch silently and swap content in place (no flash; react-window keeps scroll).
+  const workingTreeIdentity = useMemo(
+    () => (workingTreeFile ? `${workingTreeFile.path}|${workingTreeFile.staged}|${workingTreeFile.isUntracked}` : null),
+    [workingTreeFile]
+  )
+  const diffIdentityRef = useRef<string | null>(null)
+  const fileIdentityRef = useRef<string | null>(null)
+  const fullIdentityRef = useRef<string | null>(null)
+  // Mirror refs: read "do we have content?" inside loaders WITHOUT putting the
+  // content state in their deps (that would loop the silent re-fetch).
+  const workingTreeDiffRef = useRef(workingTreeDiff)
+  workingTreeDiffRef.current = workingTreeDiff
+  const fileContentRef = useRef(fileContent)
+  fileContentRef.current = fileContent
+  const fullReadyRef = useRef(false)
+  fullReadyRef.current = fullOldContent !== null && fullNewContent !== null
   // Inline editor toggle — swaps the working-tree diff viewer for the Monaco
   // editor on the same file. Reset whenever the selected file changes so
   // switching files always lands you on the diff first.
@@ -211,7 +230,11 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
       return
     }
     let cancelled = false
-    setWorkingTreeDiffLoading(true)
+    const showSpinner = shouldShowLoadingSpinner({
+      identityChanged: workingTreeIdentity !== diffIdentityRef.current,
+      hasCurrentContent: workingTreeDiffRef.current !== null
+    })
+    if (showSpinner) setWorkingTreeDiffLoading(true)
     setWorkingTreeDiffError(null)
 
     // Untracked files aren't tracked by git yet, so `git diff` returns nothing.
@@ -241,7 +264,10 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
         setWorkingTreeDiffError(err instanceof Error ? err.message : 'Failed to load diff')
       })
       .finally(() => {
-        if (!cancelled) setWorkingTreeDiffLoading(false)
+        if (!cancelled) {
+          setWorkingTreeDiffLoading(false)
+          diffIdentityRef.current = workingTreeIdentity
+        }
       })
     return () => { cancelled = true }
   }, [workingTreeFile, repoPath, workingTreeRefreshKey])
@@ -393,7 +419,11 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   useEffect(() => {
     if (centerViewMode !== 'file' || !workingTreeFile) return
     let cancelled = false
-    setFileLoading(true)
+    const showSpinner = shouldShowLoadingSpinner({
+      identityChanged: workingTreeIdentity !== fileIdentityRef.current,
+      hasCurrentContent: fileContentRef.current !== null
+    })
+    if (showSpinner) setFileLoading(true)
     setFileError(null)
 
     const loader = workingTreeFile.staged
@@ -418,7 +448,10 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
         setFileError(err instanceof Error ? err.message : 'Failed to load file content')
       })
       .finally(() => {
-        if (!cancelled) setFileLoading(false)
+        if (!cancelled) {
+          setFileLoading(false)
+          fileIdentityRef.current = workingTreeIdentity
+        }
       })
     return () => { cancelled = true }
   }, [centerViewMode, workingTreeFile, repoPath, workingTreeRefreshKey])
@@ -431,10 +464,16 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   useEffect(() => {
     if (centerViewMode !== 'full' || !workingTreeFile) return
     let cancelled = false
-    setFullLoading(true)
+    const showSpinner = shouldShowLoadingSpinner({
+      identityChanged: workingTreeIdentity !== fullIdentityRef.current,
+      hasCurrentContent: fullReadyRef.current
+    })
+    if (showSpinner) {
+      setFullLoading(true)
+      setFullOldContent(null)
+      setFullNewContent(null)
+    }
     setFullError(null)
-    setFullOldContent(null)
-    setFullNewContent(null)
 
     const { path, staged, isUntracked } = workingTreeFile
 
@@ -477,7 +516,10 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
         setFullError(err instanceof Error ? err.message : 'Failed to load file content')
       })
       .finally(() => {
-        if (!cancelled) setFullLoading(false)
+        if (!cancelled) {
+          setFullLoading(false)
+          fullIdentityRef.current = workingTreeIdentity
+        }
       })
     return () => { cancelled = true }
   }, [centerViewMode, workingTreeFile, repoPath, workingTreeRefreshKey])
