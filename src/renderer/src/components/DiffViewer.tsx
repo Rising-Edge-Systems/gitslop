@@ -1210,13 +1210,15 @@ function handleInlineEditKeyDown(
     c.cancel()
     return
   }
-  if (e.ctrlKey && e.shiftKey && e.key === 'ArrowDown') {
+  // Shift+Arrow extends the edit to the adjacent line (multi-line). Ctrl+Shift+Arrow
+  // still works since it also carries shiftKey. Plain Arrow (no shift) moves instead.
+  if (e.shiftKey && e.key === 'ArrowDown') {
     e.preventDefault()
     e.stopPropagation()
     c.extendDown()
     return
   }
-  if (e.ctrlKey && e.shiftKey && e.key === 'ArrowUp') {
+  if (e.shiftKey && e.key === 'ArrowUp') {
     e.preventDefault()
     e.stopPropagation()
     c.extendUp()
@@ -1368,6 +1370,19 @@ function InlineVirtualRow(props: {
           <span className={styles.lineSelect} />
         )
       )}
+      {edit && (
+        <span className={styles.editGutter}>
+          {showPencil && !isEditing && !isMultiHost && (
+            <button
+              className={styles.editPencil}
+              title="Edit this line"
+              onClick={() => edit.controller.enter(line.newLineNum as number)}
+            >
+              <Pencil size={11} />
+            </button>
+          )}
+        </span>
+      )}
       <span className={styles.lineNum}>{line.oldLineNum ?? ''}</span>
       <span className={styles.lineNum}>{line.newLineNum ?? ''}</span>
       <span className={styles.linePrefix}>{prefix}</span>
@@ -1389,26 +1404,16 @@ function InlineVirtualRow(props: {
             onChange={(e) => edit.controller.setBuffer(e.target.value)}
             onKeyDown={(e) => handleInlineEditKeyDown(e, edit.controller)}
           />
+        ) : wordDiffInfo ? (
+          renderWordDiff(
+            line.type === 'removed' ? wordDiffInfo.oldSegments : wordDiffInfo.newSegments,
+            line.type,
+            line.content,
+            inlineRanges,
+            findOpen ? 'findMatch' : 'selectionHighlight'
+          )
         ) : (
-          <>
-            {wordDiffInfo && inlineRanges.length === 0 ? (
-              <WordDiffContent
-                segments={line.type === 'removed' ? wordDiffInfo.oldSegments : wordDiffInfo.newSegments}
-                lineType={line.type}
-              />
-            ) : (
-              <RangeHighlightedContent text={line.content} language={language} ranges={inlineRanges} baseClass={findOpen ? 'findMatch' : 'selectionHighlight'} />
-            )}
-            {showPencil && edit && (
-              <button
-                className={styles.editPencil}
-                title="Edit this line"
-                onClick={() => edit.controller.enter(line.newLineNum as number)}
-              >
-                <Pencil size={11} />
-              </button>
-            )}
-          </>
+          <RangeHighlightedContent text={line.content} language={language} ranges={inlineRanges} baseClass={findOpen ? 'findMatch' : 'selectionHighlight'} />
         )}
       </span>
     </div>
@@ -1851,8 +1856,8 @@ function SbsVirtualRow(props: {
           <span className={styles.sbsLineContent}>
             <span className={styles.sbsLineContentInner}>
               {pair.left ? (
-                wordDiff && leftRanges.length === 0 ? (
-                  <WordDiffContent segments={wordDiff.oldSegments} lineType="removed" />
+                wordDiff ? (
+                  renderWordDiff(wordDiff.oldSegments, 'removed', pair.left.content, leftRanges, baseClass)
                 ) : (
                   <RangeHighlightedContent text={pair.left.content} language={language} ranges={leftRanges} baseClass={baseClass} />
                 )
@@ -1881,6 +1886,19 @@ function SbsVirtualRow(props: {
               <span className={styles.lineSelect} />
             )
           )}
+          {edit && (
+            <span className={styles.editGutter}>
+              {showPencil && !isEditing && !isMultiHost && (
+                <button
+                  className={styles.editPencil}
+                  title="Edit this line"
+                  onClick={() => edit.controller.enter(rightLineNum as number)}
+                >
+                  <Pencil size={11} />
+                </button>
+              )}
+            </span>
+          )}
           <span className={styles.sbsLineNum}>
             {pair.right?.newLineNum ?? pair.right?.oldLineNum ?? ''}
           </span>
@@ -1905,21 +1923,12 @@ function SbsVirtualRow(props: {
             ) : (
               <span className={styles.sbsLineContentInner}>
                 {pair.right ? (
-                  wordDiff && rightRanges.length === 0 ? (
-                    <WordDiffContent segments={wordDiff.newSegments} lineType="added" />
+                  wordDiff ? (
+                    renderWordDiff(wordDiff.newSegments, 'added', pair.right.content, rightRanges, baseClass)
                   ) : (
                     <RangeHighlightedContent text={pair.right.content} language={language} ranges={rightRanges} baseClass={baseClass} />
                   )
                 ) : ''}
-                {showPencil && edit && (
-                  <button
-                    className={styles.editPencil}
-                    title="Edit this line"
-                    onClick={() => edit.controller.enter(rightLineNum as number)}
-                  >
-                    <Pencil size={11} />
-                  </button>
-                )}
               </span>
             )}
           </span>
@@ -2955,24 +2964,24 @@ export function FullDiffView({
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
-function WordDiffContent({ segments, lineType }: { segments: WordDiffSegment[]; lineType: string }): React.JSX.Element {
-  return (
-    <>
-      {segments.map((seg, i) => {
-        if (seg.type === 'common') {
-          return <span key={i}>{renderTextWithWhitespace(seg.text, `c${i}-`)}</span>
-        }
-        const cls = lineType === 'removed'
-          ? styles.wordRemoved
-          : styles.wordAdded
-        return (
-          <span key={i} className={cls}>
-            {renderTextWithWhitespace(seg.text, `s${i}-`)}
-          </span>
-        )
-      })}
-    </>
-  )
+/** Render a word-diff (partial-edit) line with find/selection highlight ranges
+ *  overlaid on top. The word-diff coloring (wordAdded/wordRemoved) is carried as
+ *  each token's className so highlighting a matched word NEVER erases the
+ *  partial-edit coloring — both render together (<mark> wraps the colored span).
+ *  With empty ranges this renders identically to plain word-diff coloring. */
+function renderWordDiff(
+  segments: WordDiffSegment[],
+  lineType: string,
+  text: string,
+  ranges: HighlightRange[],
+  baseClass: string
+): React.ReactNode {
+  const changedCls = lineType === 'removed' ? styles.wordRemoved : styles.wordAdded
+  const tokens = segments.map((seg) => ({
+    text: seg.text,
+    className: seg.type === 'common' ? '' : changedCls
+  }))
+  return renderWithHighlights(text, tokens, ranges, baseClass)
 }
 
 export function SyntaxHighlightedContent({ text, language }: { text: string; language: string | null }): React.JSX.Element {

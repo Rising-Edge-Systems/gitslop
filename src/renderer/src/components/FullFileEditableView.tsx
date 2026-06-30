@@ -80,13 +80,15 @@ export function FullFileEditableView({
       edit.cancel()
       return
     }
-    if (e.ctrlKey && e.shiftKey && e.key === 'ArrowDown') {
+    // Shift+Arrow extends the edit to the adjacent line (multi-line). Ctrl+Shift+Arrow
+    // still works since it also carries shiftKey. Plain Arrow (no shift) moves instead.
+    if (e.shiftKey && e.key === 'ArrowDown') {
       e.preventDefault()
       e.stopPropagation()
       edit.extendDown()
       return
     }
-    if (e.ctrlKey && e.shiftKey && e.key === 'ArrowUp') {
+    if (e.shiftKey && e.key === 'ArrowUp') {
       e.preventDefault()
       e.stopPropagation()
       edit.extendUp()
@@ -122,6 +124,19 @@ export function FullFileEditableView({
           if (inSpan && !isHostRow) return null
           return (
             <div key={i} data-find-line={i} className={styles.fullFileLine}>
+              {editable && (
+                <span className={styles.editGutter}>
+                  {!isHostRow && (
+                    <button
+                      className={styles.editPencil}
+                      title="Edit this line"
+                      onClick={() => edit.enter(fileLine)}
+                    >
+                      <Pencil size={11} />
+                    </button>
+                  )}
+                </span>
+              )}
               <span className={styles.fullFileLineNum}>{fileLine}</span>
               <span className={styles.fullFileLineContent}>
                 {isHostRow ? (
@@ -144,23 +159,12 @@ export function FullFileEditableView({
                     />
                   )
                 ) : (
-                  <>
-                    <RangeHighlightedContent
-                      text={line}
-                      language={language}
-                      ranges={findOpen ? (rangesByLine.get(i) ?? []) : (selByLine.get(i) ?? [])}
-                      baseClass={findOpen ? 'findMatch' : 'selectionHighlight'}
-                    />
-                    {editable && (
-                      <button
-                        className={styles.editPencil}
-                        title="Edit this line"
-                        onClick={() => edit.enter(fileLine)}
-                      >
-                        <Pencil size={11} />
-                      </button>
-                    )}
-                  </>
+                  <RangeHighlightedContent
+                    text={line}
+                    language={language}
+                    ranges={findOpen ? (rangesByLine.get(i) ?? []) : (selByLine.get(i) ?? [])}
+                    baseClass={findOpen ? 'findMatch' : 'selectionHighlight'}
+                  />
                 )}
               </span>
             </div>

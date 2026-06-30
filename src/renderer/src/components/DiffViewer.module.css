@@ -508,10 +508,32 @@
 }
 
 /* ─── Inline line editing (working-tree only) ─────────────────────────── */
+/* Edit affordance lives in its own gutter cell to the LEFT of the line number
+   (reserves width on every editable row so the numbers never shift on hover). */
+.editGutter {
+  width: 16px;
+  min-width: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  background: var(--bg-secondary);
+}
+/* Mirror the line-number tint so the gutter blends into added/removed lines
+   instead of punching an opaque dark cell into the green/red row. */
+.lineAdded .editGutter,
+.sbsLineAdded .editGutter {
+  background: rgba(166, 227, 161, 0.08);
+}
+.lineRemoved .editGutter,
+.sbsLineRemoved .editGutter {
+  background: rgba(243, 139, 168, 0.08);
+}
 .editPencil {
   opacity: 0;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0;
   color: var(--text-secondary, #888);
   background: none;
   border: none;

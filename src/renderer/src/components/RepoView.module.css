@@ -283,10 +283,21 @@
 }
 
 /* ─── Inline line editing in the File view ────────────────────────────── */
+/* Pencil gutter sits to the LEFT of the line number; reserves width on every
+   row so numbers stay put whether or not the row is hovered. */
+.editGutter {
+  width: 16px;
+  min-width: 16px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
 .fullFileLine .editPencil {
   opacity: 0;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0;
   color: var(--text-secondary, #888);
   background: none;
   border: none;
