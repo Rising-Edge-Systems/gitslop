@@ -7,6 +7,9 @@ import {
   isWatcherSuppressed,
   debouncedSend,
   shouldIgnorePath,
+  toRepoRelativePath,
+  recordChangedPath,
+  drainChangedPaths,
   type WatcherState
 } from '../watcher-utils'
 
@@ -176,5 +179,52 @@ describe('debouncedSend', () => {
     // Wait for debounce to fire — it should re-check suppression and skip
     await delay(120)
     expect(callback).not.toHaveBeenCalled()
+  })
+})
+
+describe('toRepoRelativePath', () => {
+  it('relativizes a unix path inside the repo', () => {
+    expect(toRepoRelativePath('/repo/src/a.ts', '/repo')).toBe('src/a.ts')
+  })
+  it('relativizes a windows path and normalizes separators to /', () => {
+    expect(toRepoRelativePath('C:\\repo\\src\\a.ts', 'C:\\repo')).toBe('src/a.ts')
+  })
+  it('returns null for the repo root itself', () => {
+    expect(toRepoRelativePath('/repo', '/repo')).toBe(null)
+  })
+  it('returns null for a path outside the repo', () => {
+    expect(toRepoRelativePath('/other/x.ts', '/repo')).toBe(null)
+  })
+  it('returns null when repoPath is null', () => {
+    expect(toRepoRelativePath('/repo/src/a.ts', null)).toBe(null)
+  })
+})
+
+describe('recordChangedPath / drainChangedPaths', () => {
+  it('accumulates relativized paths, dedupes, drains once', () => {
+    const s = createWatcherState()
+    recordChangedPath(s, '/repo/src/a.ts', '/repo')
+    recordChangedPath(s, '/repo/src/b.ts', '/repo')
+    recordChangedPath(s, '/repo/src/a.ts', '/repo')
+    expect(drainChangedPaths(s)).toEqual(['src/a.ts', 'src/b.ts'])
+    expect(drainChangedPaths(s)).toEqual([])
+  })
+  it('marks broad scope (null) on a path-less event', () => {
+    const s = createWatcherState()
+    recordChangedPath(s, '/repo/src/a.ts', '/repo')
+    recordChangedPath(s, undefined, '/repo')
+    expect(drainChangedPaths(s)).toBe(null)
+  })
+  it('marks broad scope when a path falls outside the repo', () => {
+    const s = createWatcherState()
+    recordChangedPath(s, '/elsewhere/x.ts', '/repo')
+    expect(drainChangedPaths(s)).toBe(null)
+  })
+  it('resets broadChange after draining', () => {
+    const s = createWatcherState()
+    recordChangedPath(s, undefined, '/repo')
+    expect(drainChangedPaths(s)).toBe(null)
+    recordChangedPath(s, '/repo/a.ts', '/repo')
+    expect(drainChangedPaths(s)).toEqual(['a.ts'])
   })
 })

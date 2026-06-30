@@ -7,13 +7,17 @@ export interface WatcherState {
   suppressedUntil: number
   activeGitOperations: number
   debounceTimer: ReturnType<typeof setTimeout> | null
+  changedPaths: Set<string>
+  broadChange: boolean
 }
 
 export function createWatcherState(): WatcherState {
   return {
     suppressedUntil: 0,
     activeGitOperations: 0,
-    debounceTimer: null
+    debounceTimer: null,
+    changedPaths: new Set<string>(),
+    broadChange: false
   }
 }
 
@@ -111,4 +115,48 @@ export function shouldIgnorePath(path: string): boolean {
     return true
   }
   return false
+}
+
+/**
+ * Convert an absolute fs path to a repo-relative path with forward slashes.
+ * Returns null for the repo root itself or any path outside the repo.
+ */
+export function toRepoRelativePath(absPath: string, repoPath: string | null): string | null {
+  if (!repoPath) return null
+  const norm = (s: string): string => s.replace(/\\/g, '/').replace(/\/+$/, '')
+  const a = norm(absPath)
+  const r = norm(repoPath)
+  if (a === r) return null
+  if (!a.startsWith(r + '/')) return null
+  return a.slice(r.length + 1)
+}
+
+/**
+ * Record one changed path into the pending set. A missing path, or any path
+ * that cannot be relativized into the repo, escalates the window to "broad
+ * scope" so subscribers refetch everything.
+ */
+export function recordChangedPath(state: WatcherState, absPath: string | undefined, repoPath: string | null): void {
+  if (!absPath) {
+    state.broadChange = true
+    return
+  }
+  const rel = toRepoRelativePath(absPath, repoPath)
+  if (rel === null) {
+    state.broadChange = true
+    return
+  }
+  state.changedPaths.add(rel)
+}
+
+/**
+ * Drain the accumulated changes for one IPC send. Returns null when the window
+ * was broad-scope (unknown set), else the deduped list of repo-relative paths.
+ * Resets state either way.
+ */
+export function drainChangedPaths(state: WatcherState): string[] | null {
+  const result = state.broadChange ? null : [...state.changedPaths]
+  state.changedPaths.clear()
+  state.broadChange = false
+  return result
 }
