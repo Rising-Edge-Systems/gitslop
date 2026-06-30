@@ -2315,6 +2315,12 @@ interface FullDiffViewProps {
   findOpen?: boolean
   /** Close the Find widget (Esc / close button). */
   onCloseFind?: () => void
+  /**
+   * In-place editing of the RIGHT (new) pane (working-tree full diff only).
+   * Undefined ⇒ read-only (commit/historical full view, staged snapshot): no
+   * pencil, no input. The LEFT (old) pane is always read-only.
+   */
+  inlineEdit?: { absPath: string; onSaved: () => void }
 }
 
 /**
@@ -2486,6 +2492,20 @@ interface FullDiffVirtualRowProps {
   leftSelByLine: Map<number, HighlightRange[]>
   rightSelByLine: Map<number, HighlightRange[]>
   findOpen: boolean
+  /**
+   * In-place editing of the RIGHT (new) pane (working-tree full diff only).
+   * Undefined ⇒ read-only: no pencil, no input. The LEFT (old) pane is always
+   * read-only.
+   */
+  edit?: {
+    controller: UseInlineLineEdit
+    editableLines: Set<number> // new-side fileLines that may show a pencil
+  }
+  /**
+   * Active multi-line edit span by virtual-row index, or null when single-line /
+   * not editing. The top-of-span row hosts the textarea; interior rows collapse.
+   */
+  editSpan?: InlineEditSpan | null
 }
 
 function FullDiffVirtualRow(props: {
@@ -2497,9 +2517,17 @@ function FullDiffVirtualRow(props: {
     index, style, virtualRows, language, stagingActive, hunkActionsConfig,
     parsedHunks, getHunkSelection, toggleLineSelection, clearHunkSelection,
     isNewFile, isDeletedFile, leftRangesByLine, rightRangesByLine,
-    leftSelByLine, rightSelByLine, findOpen
+    leftSelByLine, rightSelByLine, findOpen, edit, editSpan
   } = props
   const item = virtualRows[index]
+
+  // Interior of a multi-line edit span (below the top-of-span host row): the
+  // host's textarea covers these rows and getRowHeight collapses them to 0, so
+  // render a bare div WITHOUT .fullDiffRow/.sbsLine (whose min-heights would
+  // otherwise force the rows back open).
+  if (editSpan && index > editSpan.topIdx && index <= editSpan.botIdx) {
+    return <div style={style} />
+  }
 
   if (item.kind === 'hunkDivider') {
     return (
@@ -2558,6 +2586,19 @@ function FullDiffVirtualRow(props: {
       ? ((isLeft ? leftRangesByLine : rightRangesByLine).get(index) ?? [])
       : ((isLeft ? leftSelByLine : rightSelByLine).get(index) ?? [])
 
+    // ─── Right-pane in-place editing (working-tree full diff only) ──────────
+    // Only the RIGHT cell that carries a new-side line number is editable
+    // (context + added rows). The LEFT (old) cell is always read-only, and
+    // removed-only / empty cells never qualify. Mirrors SbsVirtualRow: a
+    // single-line edit hosts an <input> on the focus row; a multi-line edit
+    // hosts a <textarea> on the top-of-span row, interior rows collapsed above.
+    const rightLineNum = !isLeft ? (side?.lineNum ?? null) : null
+    const isMultiHost = !isLeft && !!edit && !!editSpan && index === editSpan.topIdx
+    const isEditing =
+      !isLeft && !!edit && !editSpan && !!edit.controller.editing && rightLineNum != null &&
+      edit.controller.editing.focusLine === rightLineNum
+    const showPencil = !isLeft && !!edit && rightLineNum != null && edit.editableLines.has(rightLineNum)
+
     return (
       <div className={isLeft ? styles.fullDiffCellLeft : styles.fullDiffCellRight}>
         <div
@@ -2583,18 +2624,50 @@ function FullDiffVirtualRow(props: {
               <span className={styles.lineSelect} />
             )
           )}
+          {!isLeft && edit && (
+            <span className={styles.editGutter}>
+              {showPencil && !isEditing && !isMultiHost && (
+                <button
+                  className={styles.editPencil}
+                  title="Edit this line"
+                  onClick={() => edit.controller.enter(rightLineNum as number)}
+                >
+                  <Pencil size={11} />
+                </button>
+              )}
+            </span>
+          )}
           <span className={styles.sbsLineNum}>{side?.lineNum ?? ''}</span>
           <span className={styles.sbsLineContent}>
-            <span className={styles.sbsLineContentInner}>
-              {side ? (
-                <RangeHighlightedContent
-                  text={side.content}
-                  language={language}
-                  ranges={sideRanges}
-                  baseClass={findOpen ? 'findMatch' : 'selectionHighlight'}
-                />
-              ) : ''}
-            </span>
+            {isMultiHost && edit && editSpan ? (
+              <textarea
+                className={styles.inlineEditTextarea}
+                autoFocus
+                rows={editSpan.hi - editSpan.lo + 1}
+                value={edit.controller.buffer}
+                onChange={(e) => edit.controller.setBuffer(e.target.value)}
+                onKeyDown={(e) => handleInlineEditKeyDown(e, edit.controller)}
+              />
+            ) : isEditing && edit ? (
+              <input
+                className={styles.inlineEditInput}
+                autoFocus
+                value={edit.controller.buffer}
+                onChange={(e) => edit.controller.setBuffer(e.target.value)}
+                onKeyDown={(e) => handleInlineEditKeyDown(e, edit.controller)}
+              />
+            ) : (
+              <span className={styles.sbsLineContentInner}>
+                {side ? (
+                  <RangeHighlightedContent
+                    text={side.content}
+                    language={language}
+                    ranges={sideRanges}
+                    baseClass={findOpen ? 'findMatch' : 'selectionHighlight'}
+                  />
+                ) : ''}
+              </span>
+            )}
           </span>
         </div>
       </div>
@@ -2622,7 +2695,8 @@ export function FullDiffView({
   onUnstageHunk,
   onDiscardHunk,
   findOpen = false,
-  onCloseFind = (): void => {}
+  onCloseFind = (): void => {},
+  inlineEdit
 }: FullDiffViewProps): React.JSX.Element {
   const [listRef, setListRef] = useListCallbackRef()
   const listWrapperRef = useRef<HTMLDivElement>(null)
@@ -2742,6 +2816,73 @@ export function FullDiffView({
     return items
   }, [fullRows, stagingActive])
 
+  // ─── Right-pane in-place line editing (working-tree full diff only) ───────
+  // CRITICAL: the Full view shows the ENTIRE file, so editable targets are
+  // built from ALL rows (fullRows / virtualRows), NOT from hunks — otherwise
+  // the unchanged context lines between hunks (the majority of the file)
+  // wouldn't be editable. The new-side (RIGHT) pane is editable; the old-side
+  // (LEFT) pane stays read-only. Targets/lineText key on the right-side
+  // new-file line number, so they share file-line identity with the inline /
+  // split editors — arrow nav crosses hunk boundaries the same way. The
+  // controller state lives here, above the virtualized List, so it survives
+  // row unmount/remount on scroll.
+  const editLineText = useMemo(() => {
+    const m = new Map<number, string>()
+    for (const r of fullRows) if (r.right) m.set(r.right.lineNum, r.right.content)
+    return m
+  }, [fullRows])
+  const editTargets = useMemo(
+    () =>
+      buildEditableTargets(
+        virtualRows.map((it) =>
+          it.kind === 'hunkDivider'
+            ? { type: 'hunkHeader' as const, line: null }
+            : {
+                type: 'line' as const,
+                line: it.row.right
+                  ? { type: it.row.right.type, newLineNum: it.row.right.lineNum }
+                  : null
+              }
+        )
+      ),
+    [virtualRows]
+  )
+  const editController = useInlineLineEdit({
+    absPath: inlineEdit?.absPath ?? '',
+    targets: editTargets,
+    lineText: editLineText,
+    onSaved: inlineEdit?.onSaved ?? ((): void => {})
+  })
+  const editForRows = useMemo(
+    () =>
+      inlineEdit
+        ? { controller: editController, editableLines: new Set(editTargets.map((t) => t.fileLine)) }
+        : undefined,
+    [inlineEdit, editController, editTargets]
+  )
+  // new-side fileLine -> virtual-row index (only data rows whose right side
+  // carries a new-file line number qualify).
+  const newLineToRowIndex = useMemo(() => {
+    const m = new Map<number, number>()
+    virtualRows.forEach((it, i) => {
+      if (it.kind === 'data' && it.row.right) m.set(it.row.right.lineNum, i)
+    })
+    return m
+  }, [virtualRows])
+  // Virtual-row span of an active multi-line edit (null when single-line). In
+  // the full-diff model consecutive new-file lines map to consecutive data rows
+  // (removed lines pair onto the same row's left cell), so the span is exact.
+  const editing = editController.editing
+  const editSpan = useMemo<InlineEditSpan | null>(() => {
+    if (!inlineEdit || !isMultiLine(editing) || !editing) return null
+    const lo = Math.min(editing.anchorLine, editing.focusLine)
+    const hi = Math.max(editing.anchorLine, editing.focusLine)
+    const topIdx = newLineToRowIndex.get(lo)
+    const botIdx = newLineToRowIndex.get(hi)
+    if (topIdx == null || botIdx == null) return null
+    return { lo, hi, topIdx, botIdx }
+  }, [inlineEdit, editing, newLineToRowIndex])
+
   // ─── Find (Ctrl+F) ────────────────────────────────────────────────────────
   // Same two-column strategy as SideBySideDiffView: search each pane, merge
   // into one document-ordered list, and drive selection via the shared
@@ -2819,13 +2960,22 @@ export function FullDiffView({
     [merged, virtualRows.length, find.currentIndex]
   )
 
-  // Variable row height: hunk dividers are taller than data rows
+  // Variable row height: hunk dividers are taller than data rows. During a
+  // multi-line edit the top-of-span row grows to host the textarea over the
+  // whole span and the interior rows collapse to 0 — so the List geometry stays
+  // exact and the textarea is never clipped by a later (lower) row painting over
+  // it. The bounds cache re-measures whenever editSpan/rowProps change identity.
   const getRowHeight = useCallback(
     (index: number) => {
       const item = virtualRows[index]
-      return item.kind === 'hunkDivider' ? FULL_DIFF_HUNK_HEIGHT : FULL_DIFF_ROW_HEIGHT
+      if (item.kind === 'hunkDivider') return FULL_DIFF_HUNK_HEIGHT
+      if (editSpan) {
+        if (index === editSpan.topIdx) return (editSpan.botIdx - editSpan.topIdx + 1) * FULL_DIFF_ROW_HEIGHT
+        if (index > editSpan.topIdx && index <= editSpan.botIdx) return 0
+      }
+      return FULL_DIFF_ROW_HEIGHT
     },
-    [virtualRows]
+    [virtualRows, editSpan]
   )
 
   // Props passed to every virtual row
@@ -2844,11 +2994,14 @@ export function FullDiffView({
     rightRangesByLine,
     leftSelByLine,
     rightSelByLine,
-    findOpen
+    findOpen,
+    edit: editForRows,
+    editSpan
   }), [
     virtualRows, language, stagingActive, hunkActionsConfig, parsed.hunks,
     getHunkSelection, toggleLineSelection, clearHunkSelection, isNewFile, isDeletedFile,
-    leftRangesByLine, rightRangesByLine, leftSelByLine, rightSelByLine, findOpen
+    leftRangesByLine, rightRangesByLine, leftSelByLine, rightSelByLine, findOpen,
+    editForRows, editSpan
   ])
 
   // Binary file — show placeholder in both panes

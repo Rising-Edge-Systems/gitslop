@@ -1019,6 +1019,11 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                       onDiscardHunk={handleDiscardHunk}
                       findOpen={findOpen}
                       onCloseFind={() => setFindOpen(false)}
+                      inlineEdit={
+                        workingTreeFile.staged
+                          ? undefined
+                          : { absPath: `${repoPath}/${workingTreeFile.path}`, onSaved: handleEditorFileSaved }
+                      }
                     />
                   )}
                 </div>
