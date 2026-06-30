@@ -54,6 +54,20 @@ describe('useInlineLineEdit', () => {
     expect(result.current.buffer).toBe('two')
   })
 
+  it('commit() aborts (no write) when the file changed on disk underneath the edit', async () => {
+    const onSaved = vi.fn()
+    const { result } = setup(onSaved)
+    act(() => result.current.enter(2)) // seeded original for line 2 is 'two'
+    act(() => result.current.setBuffer('TWO'))
+    // Simulate an external edit: the fresh read returns a different line 2.
+    readMock.mockResolvedValueOnce({ success: true, data: 'one\nCHANGED\nthree\n' })
+    await act(async () => { await result.current.commit() })
+    expect(writeMock).not.toHaveBeenCalled()
+    expect(result.current.editing).toBeNull()
+    expect(result.current.buffer).toBe('')
+    expect(onSaved).toHaveBeenCalledTimes(1) // view refreshes to the new content
+  })
+
   it('cancel() clears editing without writing', () => {
     const { result } = setup()
     act(() => result.current.enter(1))

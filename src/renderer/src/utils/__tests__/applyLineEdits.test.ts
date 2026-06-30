@@ -23,3 +23,18 @@ describe('applyLineEdits', () => {
     ).toBe('A\nb\nC\n')
   })
 })
+
+describe('applyLineEdits — CRLF preservation', () => {
+  it('keeps CRLF when editing a single line seeded without \\r', () => {
+    expect(applyLineEdits('a\r\nb\r\nc\r\n', [{ startLine: 2, endLine: 2, text: 'B' }])).toBe('a\r\nB\r\nc\r\n')
+  })
+  it('keeps CRLF throughout a multi-line expand', () => {
+    expect(applyLineEdits('a\r\nb\r\nc\r\n', [{ startLine: 2, endLine: 2, text: 'X\nY' }])).toBe('a\r\nX\r\nY\r\nc\r\n')
+  })
+  it('strips a stray \\r in the edit text and re-emits CRLF', () => {
+    expect(applyLineEdits('a\r\nb\r\nc\r\n', [{ startLine: 2, endLine: 2, text: 'B\r' }])).toBe('a\r\nB\r\nc\r\n')
+  })
+  it('leaves an LF file untouched (no \\r introduced)', () => {
+    expect(applyLineEdits('a\nb\nc\n', [{ startLine: 2, endLine: 2, text: 'B' }])).toBe('a\nB\nc\n')
+  })
+})

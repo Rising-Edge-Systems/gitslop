@@ -1,3 +1,6 @@
+import React, { Fragment } from 'react'
+import { renderTextWithWhitespace } from './whitespaceMarkers'
+
 export interface HighlightRange {
   lineIndex: number
   start: number
@@ -70,9 +73,6 @@ export function mergeColumnMatches(left: HighlightRange[], right: HighlightRange
 }
 
 // ─── Segment splitter + renderWithHighlights ─────────────────────────────────
-
-import React, { Fragment } from 'react'
-import { renderTextWithWhitespace } from './whitespaceMarkers'
 
 export interface SyntaxToken {
   text: string

@@ -1391,7 +1391,7 @@ function InlineVirtualRow(props: {
           />
         ) : (
           <>
-            {wordDiffInfo ? (
+            {wordDiffInfo && inlineRanges.length === 0 ? (
               <WordDiffContent
                 segments={line.type === 'removed' ? wordDiffInfo.oldSegments : wordDiffInfo.newSegments}
                 lineType={line.type}

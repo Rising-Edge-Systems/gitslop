@@ -26,13 +26,14 @@ export function FindWidget(props: FindWidgetProps): React.JSX.Element {
   }
 
   return (
-    <div className={styles.widget} onKeyDown={onKeyDown}>
+    <div className={styles.widget}>
       <input
         ref={inputRef}
         className={styles.input}
         placeholder="Find"
         value={props.query}
         onChange={(e) => props.onQueryChange(e.target.value)}
+        onKeyDown={onKeyDown}
       />
       <button
         className={`${styles.toggle} ${props.caseSensitive ? styles.toggleActive : ''}`}

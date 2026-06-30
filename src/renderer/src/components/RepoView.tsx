@@ -515,7 +515,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
       identityChanged: workingTreeIdentity !== fileIdentityRef.current,
       hasCurrentContent: fileContentRef.current !== null
     })
-    if (showSpinner) setFileLoading(true)
+    if (showSpinner) { setFileLoading(true); pendingFileScrollRef.current = null }
     else pendingFileScrollRef.current = fileViewScrollRef.current?.scrollTop ?? null
     setFileError(null)
 
