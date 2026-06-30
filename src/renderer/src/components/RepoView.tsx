@@ -14,6 +14,7 @@ import { Columns } from 'lucide-react'
 import { CodeEditor, openFileInEditor } from './CodeEditor'
 import { defineShortcut, useKeyboardShortcuts, useShortcutHandler } from '../hooks/useKeyboardShortcuts'
 import { FindWidget } from './FindWidget'
+import { FullFileEditableView } from './FullFileEditableView'
 import { useFindController } from '../hooks/useFindController'
 import { useSelectionHighlight } from '../hooks/useSelectionHighlight'
 import { type HighlightRange } from '../utils/textHighlight'
@@ -1046,16 +1047,16 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                           onClose={() => setFindOpen(false)}
                         />
                       )}
-                      <pre className={styles.fullFilePre}>
-                        <code>{fileContent.split('\n').map((line, i) => (
-                          <div key={i} data-find-line={i} className={styles.fullFileLine}>
-                            <span className={styles.fullFileLineNum}>{i + 1}</span>
-                            <span className={styles.fullFileLineContent}>
-                              <RangeHighlightedContent text={line} language={workingTreeFileLanguage} ranges={findOpen ? (fileRangesByLine.get(i) ?? []) : (fileSelByLine.get(i) ?? [])} baseClass={findOpen ? 'findMatch' : 'selectionHighlight'} />
-                            </span>
-                          </div>
-                        ))}</code>
-                      </pre>
+                      <FullFileEditableView
+                        fileContent={fileContent}
+                        language={workingTreeFileLanguage}
+                        absPath={`${repoPath}/${workingTreeFile.path}`}
+                        editable={!workingTreeFile.staged}
+                        onSaved={handleEditorFileSaved}
+                        findOpen={findOpen}
+                        rangesByLine={fileRangesByLine}
+                        selByLine={fileSelByLine}
+                      />
                     </div>
                   )}
                 </div>
