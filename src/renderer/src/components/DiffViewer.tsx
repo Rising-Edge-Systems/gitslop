@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { List, useListCallbackRef } from 'react-window'
-import { Package, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Package, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import styles from './DiffViewer.module.css'
 import { renderTextWithWhitespace } from '../utils/whitespaceMarkers'
 import { renderWithHighlights, computeFindMarks, computeMatches, mergeColumnMatches, type HighlightRange, type FindMark } from '../utils/textHighlight'
 import { FindWidget } from './FindWidget'
 import { useFindController } from '../hooks/useFindController'
 import { useSelectionHighlight } from '../hooks/useSelectionHighlight'
+import { buildEditableTargets } from '../utils/inlineEditNav'
+import { useInlineLineEdit, type UseInlineLineEdit } from './useInlineLineEdit'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -571,6 +573,12 @@ export interface DiffViewerProps {
   findOpen?: boolean
   /** Close the Find widget (Esc / close button). */
   onCloseFind?: () => void
+  /**
+   * When present, enables in-place single-line editing in the inline view
+   * (working-tree files only). Absent for commit/index/blame diffs, which
+   * stay read-only (no pencil, no input).
+   */
+  inlineEdit?: { absPath: string; onSaved: () => void }
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────────
@@ -601,7 +609,8 @@ export function DiffViewer({
   onDiscardHunk,
   stagingMode,
   findOpen,
-  onCloseFind
+  onCloseFind,
+  inlineEdit
 }: DiffViewerProps): React.JSX.Element {
   const [mode, setMode] = useState<DiffViewMode>(initialMode)
 
@@ -714,6 +723,7 @@ export function DiffViewer({
           hunkActions={hunkActions}
           findOpen={!!findOpen}
           onCloseFind={onCloseFind ?? ((): void => {})}
+          inlineEdit={inlineEdit}
         />
       ) : (
         <SideBySideDiffView
@@ -1176,6 +1186,14 @@ interface InlineVirtualRowProps {
   rangesByLine: Map<number, HighlightRange[]>
   selByLine: Map<number, HighlightRange[]>
   findOpen: boolean
+  /**
+   * In-place editing (working-tree inline diff only). Undefined ⇒ read-only
+   * (commit/index/blame diffs): no pencil, no input.
+   */
+  edit?: {
+    controller: UseInlineLineEdit
+    editableLines: Set<number> // new-side fileLines that may show a pencil
+  }
 }
 
 function InlineVirtualRow(props: {
@@ -1183,7 +1201,7 @@ function InlineVirtualRow(props: {
   index: number
   style: React.CSSProperties
 } & InlineVirtualRowProps): React.ReactElement {
-  const { index, style, items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine, selByLine, findOpen } = props
+  const { index, style, items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine, selByLine, findOpen, edit } = props
   const item = items[index]
   if (!item) return <div style={style} />
 
@@ -1238,6 +1256,16 @@ function InlineVirtualRow(props: {
 
   const inlineRanges = findOpen ? (rangesByLine.get(index) ?? []) : (selByLine.get(index) ?? [])
 
+  // In-place editing (working-tree inline diff only). A row is editable when it
+  // carries a new-side line number (context + added rows); removed rows and
+  // hunk headers never qualify, matching buildEditableTargets. The pencil shows
+  // for every editable row; the input replaces the content only on the row that
+  // currently has edit focus (so all other rows render byte-identically).
+  const isEditing =
+    !!edit && !!edit.controller.editing && line.newLineNum != null &&
+    edit.controller.editing.focusLine === line.newLineNum
+  const showPencil = !!edit && line.newLineNum != null && edit.editableLines.has(line.newLineNum)
+
   return (
     <div
       style={style}
@@ -1261,13 +1289,58 @@ function InlineVirtualRow(props: {
       <span className={styles.lineNum}>{line.newLineNum ?? ''}</span>
       <span className={styles.linePrefix}>{prefix}</span>
       <span className={styles.lineContent}>
-        {wordDiffInfo ? (
-          <WordDiffContent
-            segments={line.type === 'removed' ? wordDiffInfo.oldSegments : wordDiffInfo.newSegments}
-            lineType={line.type}
+        {isEditing && edit ? (
+          <input
+            className={styles.inlineEditInput}
+            autoFocus
+            value={edit.controller.buffer}
+            onChange={(e) => edit.controller.setBuffer(e.target.value)}
+            onKeyDown={(e) => {
+              // Handle locally and stop the event before it reaches the
+              // window-level keydown listeners (close file/diff, close find).
+              const c = edit.controller
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                e.stopPropagation()
+                void c.moveDown()
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                e.stopPropagation()
+                c.cancel()
+              } else if (e.key === 'ArrowUp' && e.currentTarget.selectionStart === 0) {
+                e.preventDefault()
+                e.stopPropagation()
+                void c.moveUp()
+              } else if (
+                e.key === 'ArrowDown' &&
+                e.currentTarget.selectionStart === e.currentTarget.value.length
+              ) {
+                e.preventDefault()
+                e.stopPropagation()
+                void c.moveDown()
+              }
+            }}
           />
         ) : (
-          <RangeHighlightedContent text={line.content} language={language} ranges={inlineRanges} baseClass={findOpen ? 'findMatch' : 'selectionHighlight'} />
+          <>
+            {wordDiffInfo ? (
+              <WordDiffContent
+                segments={line.type === 'removed' ? wordDiffInfo.oldSegments : wordDiffInfo.newSegments}
+                lineType={line.type}
+              />
+            ) : (
+              <RangeHighlightedContent text={line.content} language={language} ranges={inlineRanges} baseClass={findOpen ? 'findMatch' : 'selectionHighlight'} />
+            )}
+            {showPencil && edit && (
+              <button
+                className={styles.editPencil}
+                title="Edit this line"
+                onClick={() => edit.controller.enter(line.newLineNum as number)}
+              >
+                <Pencil size={11} />
+              </button>
+            )}
+          </>
         )}
       </span>
     </div>
@@ -1279,13 +1352,15 @@ function InlineDiffView({
   language,
   hunkActions,
   findOpen,
-  onCloseFind
+  onCloseFind,
+  inlineEdit
 }: {
   hunks: DiffHunk[]
   language: string | null
   hunkActions: HunkActionsConfig | null
   findOpen: boolean
   onCloseFind: () => void
+  inlineEdit?: { absPath: string; onSaved: () => void }
 }): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const [listRef, setListRef] = useListCallbackRef()
@@ -1332,6 +1407,36 @@ function InlineDiffView({
     }
     return flat
   }, [hunks])
+
+  // ─── In-place line editing (working-tree inline diff only) ────────────────
+  // Targets are the editable rows (context + added) in DISPLAY order, so arrow
+  // navigation crosses hunk boundaries: arrowing past a hunk's last editable
+  // row lands on the next hunk's first editable row (nextEditable walks the
+  // flat list, not raw file-line numbers). The controller state lives here,
+  // above the virtualized List, so it survives row unmount/remount on scroll.
+  const editTargets = useMemo(() => buildEditableTargets(items), [items])
+  const editLineText = useMemo(() => {
+    const m = new Map<number, string>()
+    for (const it of items) {
+      if (it.type === 'line' && it.line && it.line.type !== 'removed' && it.line.newLineNum != null) {
+        m.set(it.line.newLineNum, it.line.content)
+      }
+    }
+    return m
+  }, [items])
+  const editController = useInlineLineEdit({
+    absPath: inlineEdit?.absPath ?? '',
+    targets: editTargets,
+    lineText: editLineText,
+    onSaved: inlineEdit?.onSaved ?? ((): void => {})
+  })
+  const editForRows = useMemo(
+    () =>
+      inlineEdit
+        ? { controller: editController, editableLines: new Set(editTargets.map((t) => t.fileLine)) }
+        : undefined,
+    [inlineEdit, editController, editTargets]
+  )
 
   // ─── Find (Ctrl+F) ────────────────────────────────────────────────────────
   const [findQuery, setFindQuery] = useState('')
@@ -1412,8 +1517,9 @@ function InlineDiffView({
     clearHunkSelection,
     rangesByLine,
     selByLine,
-    findOpen
-  }), [items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine, selByLine, findOpen])
+    findOpen,
+    edit: editForRows
+  }), [items, language, hunkActions, wordDiffCache, getHunkSelection, toggleLineSelection, clearHunkSelection, rangesByLine, selByLine, findOpen, editForRows])
 
   // Variable row height: hunk headers are taller than data rows so their
   // padding + border fit without overflowing into the line below.
