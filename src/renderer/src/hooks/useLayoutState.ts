@@ -195,7 +195,7 @@ declare global {
         start: (repoPath: string) => Promise<{ success: boolean; error?: string }>
         stop: () => Promise<{ success: boolean }>
       }
-      onRepoChanged: (callback: () => void) => () => void
+      onRepoChanged: (callback: (changedPaths: string[] | null) => void) => () => void
       repos: {
         getRecent: () => Promise<RecentRepo[]>
         addRecent: (repoPath: string, repoName: string) => Promise<RecentRepo[]>

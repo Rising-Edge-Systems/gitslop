@@ -390,9 +390,9 @@ const electronAPI = {
       ipcRenderer.invoke('watcher:start', repoPath),
     stop: (): Promise<{ success: boolean }> => ipcRenderer.invoke('watcher:stop')
   },
-  onRepoChanged: (callback: () => void): (() => void) => {
-    const handler = (): void => {
-      callback()
+  onRepoChanged: (callback: (changedPaths: string[] | null) => void): (() => void) => {
+    const handler = (_e: unknown, changedPaths?: string[] | null): void => {
+      callback(changedPaths ?? null)
     }
     ipcRenderer.on('repo:changed', handler)
     return () => {

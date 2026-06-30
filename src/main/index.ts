@@ -23,7 +23,9 @@ import {
   gitOperationStarted as _gitOperationStarted,
   gitOperationFinished as _gitOperationFinished,
   isWatcherSuppressed as _isWatcherSuppressed,
-  shouldIgnorePath
+  shouldIgnorePath,
+  recordChangedPath,
+  drainChangedPaths
 } from './watcher-utils'
 
 const isDev = !app.isPackaged
@@ -2116,28 +2118,28 @@ export function sendRepoChangedForced(): void {
   setTimeout(() => {
     const win = BrowserWindow.getAllWindows()[0]
     if (win && !win.isDestroyed()) {
-      win.webContents.send('repo:changed')
+      win.webContents.send('repo:changed', null)
     }
   }, 150)
 }
 
-function sendRepoChanged(): void {
-  // Drop events while git operations are in progress or during suppression window
+function sendRepoChanged(changedPath?: string): void {
+  // Accumulate the path even while suppressed; it drains on the next real send.
+  recordChangedPath(watcherState, changedPath, watchedRepoPath)
   if (_isWatcherSuppressed(watcherState)) {
     return
   }
-
   if (watcherState.debounceTimer) {
     clearTimeout(watcherState.debounceTimer)
   }
   watcherState.debounceTimer = setTimeout(() => {
-    // Re-check suppression at send time (operation may have started during debounce)
     if (_isWatcherSuppressed(watcherState)) {
       return
     }
+    const payload = drainChangedPaths(watcherState)
     const win = BrowserWindow.getAllWindows()[0]
     if (win && !win.isDestroyed()) {
-      win.webContents.send('repo:changed')
+      win.webContents.send('repo:changed', payload)
     }
   }, 500)
 }
@@ -2214,9 +2216,9 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
       })
     }
 
-    activeWatcher.on('add', () => sendRepoChanged())
-    activeWatcher.on('change', () => sendRepoChanged())
-    activeWatcher.on('unlink', () => sendRepoChanged())
+    activeWatcher.on('add', (p: string) => sendRepoChanged(p))
+    activeWatcher.on('change', (p: string) => sendRepoChanged(p))
+    activeWatcher.on('unlink', (p: string) => sendRepoChanged(p))
     activeWatcher.on('addDir', () => sendRepoChanged())
     activeWatcher.on('unlinkDir', () => sendRepoChanged())
     // Don't let transient readdirp errors (e.g. traversing into .asar archives,
@@ -2243,7 +2245,7 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
       })
 
       const handleRootEvent = (changedPath: string): void => {
-        sendRepoChanged()
+        sendRepoChanged(changedPath)
         // When .gitignore changes, restart the watcher so the set of
         // watched directories is recalculated to include newly-relevant paths.
         const base = changedPath.split('/').pop() || changedPath.split('\\').pop() || ''
