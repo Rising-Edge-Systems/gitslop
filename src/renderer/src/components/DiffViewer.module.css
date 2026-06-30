@@ -507,6 +507,37 @@
   font-style: italic;
 }
 
+/* ─── Inline line editing (working-tree only) ─────────────────────────── */
+.editPencil {
+  opacity: 0;
+  cursor: pointer;
+  padding: 0 4px;
+  color: var(--text-secondary, #888);
+  background: none;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+}
+.line:hover .editPencil { opacity: 1; }
+.editPencil:hover { color: var(--accent, #4aa3ff); }
+
+.inlineEditInput,
+.inlineEditTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: inherit;
+  color: var(--text-primary, #ddd);
+  background: var(--bg-editable, rgba(74, 163, 255, 0.10));
+  border: 1px solid var(--accent, #4aa3ff);
+  border-radius: 2px;
+  padding: 0 2px;
+  margin: 0;
+  outline: none;
+  resize: none;
+}
+.inlineEditTextarea { overflow: hidden; white-space: pre; }
+
 /* ─── Word-Level Diff Highlights ────────────────────────────────────────── */
 
 .wordAdded {
