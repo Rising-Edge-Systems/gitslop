@@ -47,3 +47,26 @@ export function prevEditable(currentFileLine: number, targets: EditableTarget[])
   if (idx <= 0) return null
   return targets[idx - 1]
 }
+
+/**
+ * Grow/shrink a multi-line edit by one row in display order. Returns the new
+ * {anchorFileLine, focusFileLine}, or null if the step is not allowed.
+ *
+ * Extension is permitted only onto an *adjacent* file line (focus ± 1), so
+ * the spanned rows always map to a contiguous block of file lines — which
+ * keeps the textarea content exactly equal to file lines [min..max].
+ */
+export function extendSelection(
+  anchorFileLine: number,
+  focusFileLine: number,
+  dir: 'up' | 'down',
+  targets: EditableTarget[]
+): { anchorFileLine: number; focusFileLine: number } | null {
+  const next = dir === 'down'
+    ? nextEditable(focusFileLine, targets)
+    : prevEditable(focusFileLine, targets)
+  if (!next) return null
+  const expected = dir === 'down' ? focusFileLine + 1 : focusFileLine - 1
+  if (next.fileLine !== expected) return null
+  return { anchorFileLine, focusFileLine: next.fileLine }
+}

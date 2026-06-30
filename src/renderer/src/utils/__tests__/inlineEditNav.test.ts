@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildEditableTargets, nextEditable, prevEditable, NavItem } from '../inlineEditNav'
+import { buildEditableTargets, nextEditable, prevEditable, extendSelection, NavItem } from '../inlineEditNav'
 
 // Hunk 1: header, context@10, removed(old), added@11, added@12
 // Hunk 2: header, context@50, added@51
@@ -23,6 +23,22 @@ describe('buildEditableTargets', () => {
       { displayIndex: 6, fileLine: 50 },
       { displayIndex: 7, fileLine: 51 }
     ])
+  })
+})
+
+describe('extendSelection', () => {
+  const t = buildEditableTargets(items) // from the top-of-file fixture
+  it('extends down onto the adjacent file line', () => {
+    expect(extendSelection(11, 11, 'down', t)).toEqual({ anchorFileLine: 11, focusFileLine: 12 })
+  })
+  it('extends up onto the adjacent file line', () => {
+    expect(extendSelection(12, 12, 'up', t)).toEqual({ anchorFileLine: 12, focusFileLine: 11 })
+  })
+  it('refuses to extend across a non-contiguous gap (hunk boundary: 12 -> 50)', () => {
+    expect(extendSelection(12, 12, 'down', t)).toBeNull()
+  })
+  it('refuses to extend past the ends', () => {
+    expect(extendSelection(51, 51, 'down', t)).toBeNull()
   })
 })
 
