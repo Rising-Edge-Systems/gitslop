@@ -23,9 +23,21 @@ export function useFindController(lines: { text: string }[], query: string, opts
     setCurrentIndex(0)
   }, [query, opts.caseSensitive, opts.wholeWord])
 
+  // Clamp currentIndex when the match set shrinks (e.g. document reload with fewer matches).
+  // NOTE: 'lines' is intentionally NOT in the reset-effect deps above — position is preserved
+  // on document change. This effect only clamps; it does not reset to 0.
+  useEffect(() => {
+    setCurrentIndex((i) => (count > 0 ? Math.min(i, count - 1) : 0))
+  }, [count])
+
   const next = useCallback(() => setCurrentIndex((i) => (count ? (i + 1) % count : 0)), [count])
   const prev = useCallback(() => setCurrentIndex((i) => (count ? (i - 1 + count) % count : 0)), [count])
-  const goto = useCallback((i: number) => setCurrentIndex(i), [])
+
+  // Guard goto: clamp argument to [0, count-1]; no-op to 0 when count is 0.
+  const goto = useCallback(
+    (i: number) => setCurrentIndex(count > 0 ? Math.max(0, Math.min(i, count - 1)) : 0),
+    [count]
+  )
 
   return { matches, currentIndex, count, next, prev, goto }
 }
