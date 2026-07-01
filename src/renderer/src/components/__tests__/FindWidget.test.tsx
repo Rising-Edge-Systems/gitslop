@@ -53,4 +53,17 @@ describe('FindWidget', () => {
     expect(p.onToggleCase).toHaveBeenCalledOnce()
     expect(p.onToggleWholeWord).toHaveBeenCalledOnce()
   })
+  it('seeds the query from the selection on open and selects it', () => {
+    const p = setup({ query: '', seed: 'needle' })
+    expect(p.onQueryChange).toHaveBeenCalledWith('needle')
+    const input = screen.getByPlaceholderText('Find') as HTMLInputElement
+    expect(input.value).toBe('needle')
+    // Whole seeded value is selected so the user can type to replace it.
+    expect(input.selectionStart).toBe(0)
+    expect(input.selectionEnd).toBe('needle'.length)
+  })
+  it('does not seed (keeps previous query) when no text was selected', () => {
+    const p = setup({ query: 'prev', seed: '' })
+    expect(p.onQueryChange).not.toHaveBeenCalled()
+  })
 })

@@ -5,6 +5,13 @@ import styles from './FindWidget.module.css'
 export interface FindWidgetProps {
   query: string
   onQueryChange: (q: string) => void
+  /**
+   * Text to pre-fill the query with when the widget opens (the document
+   * selection captured at Ctrl+F). Applied once on mount; empty means keep
+   * whatever query was there before. The widget remounts on every open, so
+   * mount === open.
+   */
+  seed?: string
   caseSensitive: boolean
   wholeWord: boolean
   onToggleCase: () => void
@@ -18,7 +25,22 @@ export interface FindWidgetProps {
 
 export function FindWidget(props: FindWidgetProps): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null)
-  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select() }, [])
+  // On open: if text was selected at Ctrl+F, seed the query with it and select
+  // it (so the user can immediately type to replace). We set the DOM value
+  // directly before select() because onQueryChange only updates the controlled
+  // value on the next render — too late for select() to see it. Then focus +
+  // select whatever is in the input (seeded or the previous query).
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    if (props.seed) {
+      props.onQueryChange(props.seed)
+      el.value = props.seed
+    }
+    el.focus()
+    el.select()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter') { e.preventDefault(); e.shiftKey ? props.onPrev() : props.onNext() }

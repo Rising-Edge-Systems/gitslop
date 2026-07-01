@@ -240,7 +240,16 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   // mounted. Disabled while the Monaco editor is up (editingWorkingTree) so
   // Monaco keeps its own native Ctrl+F find.
   const [findOpen, setFindOpen] = useState(false)
-  const stableOpenFind = useShortcutHandler(() => setFindOpen(true))
+  // Text selected at the moment Ctrl+F was pressed, used to pre-fill the query.
+  // Captured synchronously in the keydown handler, before the Find input steals
+  // focus (which would collapse the DOM selection). Multi-line selections are
+  // ignored (a whole paragraph makes a poor search term).
+  const [findSeed, setFindSeed] = useState('')
+  const stableOpenFind = useShortcutHandler(() => {
+    const sel = window.getSelection()?.toString() ?? ''
+    setFindSeed(sel && !sel.includes('\n') ? sel : '')
+    setFindOpen(true)
+  })
   const findShortcuts = useMemo(
     () => [
       defineShortcut(
@@ -977,6 +986,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                       onUnstageHunk={handleUnstageHunk}
                       onDiscardHunk={handleDiscardHunk}
                       findOpen={findOpen}
+                      findSeed={findSeed}
                       onCloseFind={() => setFindOpen(false)}
                       inlineEdit={
                         workingTreeFile.staged
@@ -1018,6 +1028,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                       onUnstageHunk={handleUnstageHunk}
                       onDiscardHunk={handleDiscardHunk}
                       findOpen={findOpen}
+                      findSeed={findSeed}
                       onCloseFind={() => setFindOpen(false)}
                       inlineEdit={
                         workingTreeFile.staged
@@ -1046,6 +1057,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                         <FindWidget
                           query={fileViewFindQuery}
                           onQueryChange={setFileViewFindQuery}
+                          seed={findSeed}
                           caseSensitive={fileViewFindCase}
                           wholeWord={fileViewFindWord}
                           onToggleCase={() => setFileViewFindCase((v) => !v)}
@@ -1144,6 +1156,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                         fileCount={selectedCommit?.fileDetails.length}
                         onNavigateFile={onNavigateFile}
                         findOpen={findOpen}
+                        findSeed={findSeed}
                         onCloseFind={() => setFindOpen(false)}
                       />
                     )
@@ -1177,6 +1190,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                         fileStatus={fileDetail?.status}
                         oldPath={fileDetail?.oldPath}
                         findOpen={findOpen}
+                        findSeed={findSeed}
                         onCloseFind={() => setFindOpen(false)}
                       />
                     )
@@ -1201,6 +1215,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                         <FindWidget
                           query={fileViewFindQuery}
                           onQueryChange={setFileViewFindQuery}
+                          seed={findSeed}
                           caseSensitive={fileViewFindCase}
                           wholeWord={fileViewFindWord}
                           onToggleCase={() => setFileViewFindCase((v) => !v)}
@@ -1242,6 +1257,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
                 filePath={blameFilePath}
                 onClose={() => setBlameFilePath(null)}
                 findOpen={findOpen}
+                findSeed={findSeed}
                 onCloseFind={() => setFindOpen(false)}
                 onCommitClick={(hash) => {
                   // Dispatch event to scroll graph to this commit

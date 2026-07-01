@@ -1,6 +1,6 @@
 {
   "name": "gitslop",
-  "version": "1.2.32",
+  "version": "1.2.33",
   "description": "A free, open-source, cross-platform GUI git client",
   "main": "./out/main/index.js",
   "scripts": {

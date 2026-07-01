@@ -571,6 +571,8 @@ export interface DiffViewerProps {
   onNavigateFile?: (direction: 'prev' | 'next') => void
   /** Whether the Find widget is open (Ctrl+F). Owned by the parent (RepoView). */
   findOpen?: boolean
+  /** Text to pre-fill the Find query with when Find opens (selection at Ctrl+F). */
+  findSeed?: string
   /** Close the Find widget (Esc / close button). */
   onCloseFind?: () => void
   /**
@@ -609,6 +611,7 @@ export function DiffViewer({
   onDiscardHunk,
   stagingMode,
   findOpen,
+  findSeed,
   onCloseFind,
   inlineEdit
 }: DiffViewerProps): React.JSX.Element {
@@ -722,6 +725,7 @@ export function DiffViewer({
           language={language}
           hunkActions={hunkActions}
           findOpen={!!findOpen}
+          findSeed={findSeed ?? ''}
           onCloseFind={onCloseFind ?? ((): void => {})}
           inlineEdit={inlineEdit}
         />
@@ -731,6 +735,7 @@ export function DiffViewer({
           language={language}
           hunkActions={hunkActions}
           findOpen={!!findOpen}
+          findSeed={findSeed ?? ''}
           onCloseFind={onCloseFind ?? ((): void => {})}
           inlineEdit={inlineEdit}
         />
@@ -1425,6 +1430,7 @@ function InlineDiffView({
   language,
   hunkActions,
   findOpen,
+  findSeed,
   onCloseFind,
   inlineEdit
 }: {
@@ -1432,6 +1438,7 @@ function InlineDiffView({
   language: string | null
   hunkActions: HunkActionsConfig | null
   findOpen: boolean
+  findSeed: string
   onCloseFind: () => void
   inlineEdit?: { absPath: string; onSaved: () => void }
 }): React.JSX.Element {
@@ -1640,6 +1647,7 @@ function InlineDiffView({
         <FindWidget
           query={findQuery}
           onQueryChange={setFindQuery}
+          seed={findSeed}
           caseSensitive={findCase}
           wholeWord={findWord}
           onToggleCase={() => setFindCase((v) => !v)}
@@ -1943,6 +1951,7 @@ function SideBySideDiffView({
   language,
   hunkActions,
   findOpen,
+  findSeed,
   onCloseFind,
   inlineEdit
 }: {
@@ -1950,6 +1959,7 @@ function SideBySideDiffView({
   language: string | null
   hunkActions: HunkActionsConfig | null
   findOpen: boolean
+  findSeed: string
   onCloseFind: () => void
   inlineEdit?: { absPath: string; onSaved: () => void }
 }): React.JSX.Element {
@@ -2238,6 +2248,7 @@ function SideBySideDiffView({
         <FindWidget
           query={findQuery}
           onQueryChange={setFindQuery}
+          seed={findSeed}
           caseSensitive={findCase}
           wholeWord={findWord}
           onToggleCase={() => setFindCase((v) => !v)}
@@ -2313,6 +2324,8 @@ interface FullDiffViewProps {
   onDiscardHunk?: (patch: string) => void | Promise<void>
   /** Whether the Find widget is open (Ctrl+F). Owned by the parent (RepoView). */
   findOpen?: boolean
+  /** Text to pre-fill the Find query with when Find opens (selection at Ctrl+F). */
+  findSeed?: string
   /** Close the Find widget (Esc / close button). */
   onCloseFind?: () => void
   /**
@@ -2695,6 +2708,7 @@ export function FullDiffView({
   onUnstageHunk,
   onDiscardHunk,
   findOpen = false,
+  findSeed = '',
   onCloseFind = (): void => {},
   inlineEdit
 }: FullDiffViewProps): React.JSX.Element {
@@ -3055,6 +3069,7 @@ export function FullDiffView({
           <FindWidget
             query={findQuery}
             onQueryChange={setFindQuery}
+            seed={findSeed}
             caseSensitive={findCase}
             wholeWord={findWord}
             onToggleCase={() => setFindCase((v) => !v)}

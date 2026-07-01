@@ -26,6 +26,8 @@ interface BlameViewProps {
   onClose: () => void
   onCommitClick?: (hash: string) => void
   findOpen?: boolean
+  /** Text to pre-fill the Find query with when Find opens (selection at Ctrl+F). */
+  findSeed?: string
   onCloseFind?: () => void
 }
 
@@ -69,6 +71,7 @@ export function BlameView({
   onClose,
   onCommitClick,
   findOpen = false,
+  findSeed = '',
   onCloseFind
 }: BlameViewProps): React.JSX.Element {
   const [blameLines, setBlameLines] = useState<BlameLine[]>([])
@@ -269,6 +272,7 @@ export function BlameView({
           <FindWidget
             query={findQuery}
             onQueryChange={setFindQuery}
+            seed={findSeed}
             caseSensitive={findCase}
             wholeWord={findWord}
             onToggleCase={() => setFindCase((v) => !v)}
