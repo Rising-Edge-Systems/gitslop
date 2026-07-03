@@ -255,6 +255,8 @@ const electronAPI = {
       opts?: { noFastForward?: boolean; fastForwardOnly?: boolean; squash?: boolean }
     ): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:merge', repoPath, branchName, opts),
+    mergeContinue: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:mergeContinue', repoPath),
     mergeAbort: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:mergeAbort', repoPath),
     isMerging: (repoPath: string): Promise<GitServiceResult> =>
@@ -332,6 +334,8 @@ const electronAPI = {
       ipcRenderer.invoke('git:resolveConflictFileWith', repoPath, filePath, choice),
     getActiveOperation: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getActiveOperation', repoPath),
+    getConflictSides: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getConflictSides', repoPath),
     blame: (repoPath: string, filePath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:blame', repoPath, filePath),
     autoFetch: (repoPath: string): Promise<GitServiceResult> =>

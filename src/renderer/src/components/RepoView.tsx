@@ -95,6 +95,11 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
   const [error, setError] = useState<string | null>(null)
   const [showConflictResolver, setShowConflictResolver] = useState(false)
   const [hasConflicts, setHasConflicts] = useState(false)
+  // Whether a merge/rebase/cherry-pick/revert is mid-flight. Tracked separately
+  // from hasConflicts: after the last file is staged there are no unmerged
+  // files left, but the operation is still open (awaiting the Continue commit),
+  // so the resolver/banner must stay reachable until this clears.
+  const [midOperation, setMidOperation] = useState(false)
   const [blameFilePath, setBlameFilePath] = useState<string | null>(null)
   const [commitFilters, setCommitFilters] = useState<CommitFilters>(EMPTY_FILTERS)
   const [fileHistoryPath, setFileHistoryPath] = useState<string | undefined>(undefined)
@@ -701,13 +706,20 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
         )
       }
 
-      // Check for conflicts
-      const conflictsResult = await window.electronAPI.git.getConflictedFiles(repoPath)
-      if (conflictsResult.success && Array.isArray(conflictsResult.data) && conflictsResult.data.length > 0) {
-        setHasConflicts(true)
+      // Check for conflicts / an in-progress merge|rebase|cherry-pick|revert.
+      const [conflictsResult, opResult] = await Promise.all([
+        window.electronAPI.git.getConflictedFiles(repoPath),
+        window.electronAPI.git.getActiveOperation(repoPath)
+      ])
+      const conflictCount =
+        conflictsResult.success && Array.isArray(conflictsResult.data)
+          ? conflictsResult.data.length
+          : 0
+      const activeOp = opResult.success ? opResult.data : null
+      setHasConflicts(conflictCount > 0)
+      setMidOperation(!!activeOp)
+      if (conflictCount > 0) {
         setShowConflictResolver(true)
-      } else {
-        setHasConflicts(false)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load repository data')
@@ -730,12 +742,20 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
 
   useEffect(() => {
     const cleanup = window.electronAPI.onRepoChanged?.((changedPaths) => {
-      window.electronAPI.git.getConflictedFiles(repoPath).then((result) => {
-        if (result.success && Array.isArray(result.data)) {
-          const nowHasConflicts = result.data.length > 0
-          setHasConflicts(nowHasConflicts)
-          if (!nowHasConflicts) setShowConflictResolver(false)
-        }
+      Promise.all([
+        window.electronAPI.git.getConflictedFiles(repoPath),
+        window.electronAPI.git.getActiveOperation(repoPath)
+      ]).then(([confRes, opRes]) => {
+        const nowHasConflicts =
+          confRes.success && Array.isArray(confRes.data) && confRes.data.length > 0
+        const activeOp = opRes.success ? opRes.data : null
+        setHasConflicts(nowHasConflicts)
+        setMidOperation(!!activeOp)
+        // Only tear down the resolver once the whole operation has concluded
+        // (no MERGE_HEAD / rebase dir / etc). Zero *unmerged* files just means
+        // everything is staged and awaiting the Continue commit — the user
+        // still needs the resolver's Continue button, so keep it mounted.
+        if (!nowHasConflicts && !activeOp) setShowConflictResolver(false)
       })
       // Path-aware center refresh: only re-run the working-tree loaders when the
       // file open in the center view actually changed (or scope is unknown).
@@ -833,16 +853,22 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
 
       {!loading && !error && (
         <div className={styles.repoViewContent}>
-          {/* Conflict Banner */}
-          {hasConflicts && !showConflictResolver && (
+          {/* Conflict Banner — shown while conflicts remain OR an operation is
+              still mid-flight (staged, awaiting Continue) and the resolver is
+              closed, so the user can always get back to finish/abort it. */}
+          {(hasConflicts || midOperation) && !showConflictResolver && (
             <div className={conflictStyles.conflictBanner}>
               <span className={conflictStyles.conflictBannerIcon}><AlertTriangle size={16} /></span>
-              <span>Merge conflicts detected. Resolve them to continue.</span>
+              <span>
+                {hasConflicts
+                  ? 'Merge conflicts detected. Resolve them to continue.'
+                  : 'An operation is in progress. Finish or abort it to continue.'}
+              </span>
               <button
                 className={conflictStyles.conflictBannerBtn}
                 onClick={() => setShowConflictResolver(true)}
               >
-                Open Conflict Resolver
+                {hasConflicts ? 'Open Conflict Resolver' : 'Resume'}
               </button>
             </div>
           )}
@@ -854,6 +880,7 @@ export function RepoView({ repoPath, onCommitSelect, onTwoCommitSelect, onRepoLo
               onResolved={() => {
                 setShowConflictResolver(false)
                 setHasConflicts(false)
+                setMidOperation(false)
                 loadRepoData()
               }}
               onClose={() => setShowConflictResolver(false)}

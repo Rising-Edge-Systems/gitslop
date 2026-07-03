@@ -1819,6 +1819,36 @@ export class GitService {
   }
 
   /**
+   * Conclude a conflicted merge after all files are resolved and staged.
+   *
+   * Uses git's prepared MERGE_MSG (`--no-edit`) so the resulting commit keeps
+   * the canonical "Merge branch 'x'" subject, and `--cleanup=strip` so the
+   * "# Conflicts:" comment lines git adds to MERGE_MSG don't leak into the
+   * commit body. GIT_EDITOR:'true' is a belt-and-suspenders guard so no editor
+   * can ever be spawned in the GUI context (matches rebaseContinue).
+   *
+   * NOTE: do NOT implement this as `commit(repoPath, '')` — `git commit -m ""`
+   * is rejected by git ("Aborting commit due to empty commit message") and
+   * would also throw away the prepared merge summary.
+   */
+  async mergeContinue(
+    repoPath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<{ success: boolean; message: string; hash: string }> {
+    const result = await this.exec(
+      ['commit', '--no-edit', '--cleanup=strip'],
+      repoPath,
+      { signal: options?.signal, env: { GIT_EDITOR: 'true' } }
+    )
+    const match = result.stdout.match(/\[[\w/.-]+ ([a-f0-9]+)\]/)
+    return {
+      success: true,
+      message: (result.stdout + '\n' + result.stderr).trim() || 'Merge completed',
+      hash: match ? match[1] : ''
+    }
+  }
+
+  /**
    * Check if a merge is currently in progress.
    */
   async isMerging(repoPath: string): Promise<boolean> {
@@ -3237,6 +3267,114 @@ export class GitService {
     if (cherryPicking) return 'cherry-pick'
     if (reverting) return 'revert'
     return null
+  }
+
+  /**
+   * Describe the two sides of the in-progress conflict in the user's terms.
+   *
+   * Conflict markers/stages are fixed by git (stage 2 = `<<<<<<< HEAD` = "ours",
+   * stage 3 = ">>>>>>>" = "theirs"), but which side is the *user's own work*
+   * depends on the operation. For merge / cherry-pick / revert, HEAD is the
+   * user's branch, so `ours` is theirs. For a REBASE the sides are swapped:
+   * git rebases your commits ONTO the target, so during conflict resolution
+   * `ours` is the target being rebased onto and `theirs` is the user's own
+   * commit being replayed. Labeling both the same way is exactly the bug that
+   * made "Accept ours" silently discard the user's work during a rebase, so the
+   * UI must drive its labels/actions off `yours`.
+   */
+  async getConflictSides(
+    repoPath: string
+  ): Promise<{
+    operation: 'merge' | 'rebase' | 'cherry-pick' | 'revert' | null
+    ours: { label: string; ref: string | null }
+    theirs: { label: string; ref: string | null }
+    yours: 'ours' | 'theirs'
+  }> {
+    const operation = await this.getActiveOperation(repoPath)
+
+    const currentBranch = async (): Promise<string | null> => {
+      try {
+        const r = await this.exec(['symbolic-ref', '--short', '-q', 'HEAD'], repoPath)
+        return r.stdout.trim() || null
+      } catch {
+        return null
+      }
+    }
+
+    const nameRev = async (hash: string): Promise<string | null> => {
+      try {
+        const r = await this.exec(['name-rev', '--name-only', '--always', hash], repoPath)
+        const name = r.stdout.trim()
+        // Strip disambiguating suffixes like "feature~2" / "remotes/origin/x".
+        return name ? name.replace(/[~^].*$/, '').replace(/^remotes\//, '') || name : null
+      } catch {
+        return null
+      }
+    }
+
+    const readGitFile = async (relPath: string): Promise<string | null> => {
+      try {
+        const { readFileSync } = await import('fs')
+        const p = (await this.exec(['rev-parse', '--git-path', relPath], repoPath)).stdout.trim()
+        const abs = (await import('path')).isAbsolute(p) ? p : (await import('path')).join(repoPath, p)
+        return readFileSync(abs, 'utf-8').trim() || null
+      } catch {
+        return null
+      }
+    }
+
+    if (operation === 'rebase') {
+      // Default (merge) backend uses rebase-merge/; the apply backend uses rebase-apply/.
+      const headNameRaw =
+        (await readGitFile('rebase-merge/head-name')) ||
+        (await readGitFile('rebase-apply/head-name'))
+      const headName = headNameRaw ? headNameRaw.replace(/^refs\/heads\//, '') : null
+      const ontoHash =
+        (await readGitFile('rebase-merge/onto')) ||
+        (await readGitFile('rebase-apply/onto'))
+      const ontoName = ontoHash ? await nameRev(ontoHash) : null
+      return {
+        operation,
+        ours: {
+          label: ontoName ? `${ontoName} (rebasing onto)` : 'Rebase target',
+          ref: ontoName
+        },
+        theirs: {
+          label: headName ? `${headName} (your commit)` : 'Your commit',
+          ref: headName
+        },
+        yours: 'theirs'
+      }
+    }
+
+    // merge / cherry-pick / revert / none: HEAD is the user's branch = ours.
+    const branch = await currentBranch()
+    let theirsRef: string | null = null
+    if (operation === 'merge') {
+      const mergeHead = await readGitFile('MERGE_HEAD')
+      theirsRef = mergeHead ? await nameRev(mergeHead.split('\n')[0]) : null
+      if (!theirsRef) {
+        const msg = await readGitFile('MERGE_MSG')
+        const m = msg?.match(/Merge branch '([^']+)'/)
+        theirsRef = m ? m[1] : null
+      }
+    } else if (operation === 'cherry-pick') {
+      const h = await readGitFile('CHERRY_PICK_HEAD')
+      theirsRef = h ? await nameRev(h) : null
+    } else if (operation === 'revert') {
+      const h = await readGitFile('REVERT_HEAD')
+      theirsRef = h ? await nameRev(h) : null
+    }
+
+    return {
+      operation,
+      ours: { label: branch || 'Current branch', ref: branch },
+      theirs: {
+        label: theirsRef || 'Incoming',
+        ref: theirsRef
+      },
+      yours: 'ours'
+    }
   }
 
   /**

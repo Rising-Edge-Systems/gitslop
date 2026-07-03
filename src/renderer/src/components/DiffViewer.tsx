@@ -47,12 +47,12 @@ interface SideBySidePair {
 
 // ─── Word-level diff ────────────────────────────────────────────────────────
 
-interface WordDiffSegment {
+export interface WordDiffSegment {
   text: string
   type: 'common' | 'added' | 'removed'
 }
 
-function computeWordDiff(oldText: string, newText: string): { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] } {
+export function computeWordDiff(oldText: string, newText: string): { oldSegments: WordDiffSegment[]; newSegments: WordDiffSegment[] } {
   // Tokenize into words (keeping whitespace as separate tokens)
   const tokenize = (s: string): string[] => {
     const tokens: string[] = []

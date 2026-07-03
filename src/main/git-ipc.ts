@@ -991,6 +991,20 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Merge Continue ─────────────────────────────────────────────────────────
+
+  ipcMain.handle(
+    'git:mergeContinue',
+    async (_event, repoPath: string) => {
+      try {
+        const result = await withWatcherSuppression(() => gitService.mergeContinue(repoPath))
+        return { success: result.success, data: result }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Merge Abort ────────────────────────────────────────────────────────────
 
   ipcMain.handle(
@@ -1379,6 +1393,18 @@ export function registerGitIpcHandlers(): void {
     async (_event, repoPath: string) => {
       try {
         const data = await gitService.getActiveOperation(repoPath)
+        return { success: true, data }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:getConflictSides',
+    async (_event, repoPath: string) => {
+      try {
+        const data = await gitService.getConflictSides(repoPath)
         return { success: true, data }
       } catch (err) {
         return { success: false, ...formatError(err) }

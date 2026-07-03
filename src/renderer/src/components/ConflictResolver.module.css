@@ -1,8 +1,9 @@
 /* =============================================================================
-   ConflictResolver — CSS Module
+   ConflictResolver — GitKraken-style 3-pane merge editor
+   (ours | theirs full-file panes on top, live editable output below)
    ============================================================================= */
 
-/* ─── Conflict Banner ───────────────────────────────────────────────── */
+/* ─── Conflict banner (rendered by RepoView) ─────────────────────────────── */
 
 .conflictBanner {
   display: flex;
@@ -16,11 +17,7 @@
   font-size: var(--font-md);
   margin-bottom: var(--space-sm);
 }
-
-.conflictBannerIcon {
-  font-size: var(--font-lg);
-}
-
+.conflictBannerIcon { display: inline-flex; color: var(--error); }
 .conflictBannerBtn {
   margin-left: auto;
   padding: var(--space-xs) var(--space-md);
@@ -32,29 +29,22 @@
   font-size: var(--font-sm);
   font-weight: 600;
 }
+.conflictBannerBtn:hover { background: var(--btn-danger-hover); }
 
-.conflictBannerBtn:hover {
-  background: var(--btn-danger-hover);
-}
+/* ─── Overlay + shell ────────────────────────────────────────────────────── */
 
-/* ─── Conflict Resolver Overlay ─────────────────────────────────────── */
-
-.conflictResolverOverlay {
+.mgOverlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(0, 0, 0, 0.7);
   z-index: 4000;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
-.conflictResolver {
-  width: 95vw;
-  height: 90vh;
+.mgRoot {
+  width: 96vw;
+  height: 94vh;
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -64,51 +54,32 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
-/* ─── Header ────────────────────────────────────────────────────────── */
+/* ─── Header ─────────────────────────────────────────────────────────────── */
 
-.conflictResolverHeader {
+.mgHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--space-md) var(--space-lg);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
-
-.conflictResolverTitle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.conflictResolverIcon {
-  font-size: 20px;
-  color: var(--error);
-}
-
-.conflictResolverTitle h3 {
-  font-size: var(--font-lg);
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.conflictResolverFileCount {
+.mgTitle { display: flex; align-items: center; gap: 10px; }
+.mgTitleIcon { display: inline-flex; color: var(--error); }
+.mgTitle h3 { font-size: var(--font-lg); font-weight: 600; color: var(--text-primary); }
+.mgFileCount {
   font-size: var(--font-sm);
   color: var(--text-secondary);
   padding: 2px var(--space-sm);
   background: rgba(137, 180, 250, 0.15);
   border-radius: 10px;
 }
+.mgHeaderActions { display: flex; gap: var(--space-sm); align-items: center; }
 
-.conflictResolverHeaderActions {
-  display: flex;
-  gap: var(--space-sm);
-  align-items: center;
-}
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
 
-/* ─── Resolver Buttons ──────────────────────────────────────────────── */
-
-.conflictResolverBtn {
+.mgBtn {
   padding: 6px 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
@@ -117,54 +88,41 @@
   font-weight: 500;
   color: var(--text-primary);
   background: var(--bg-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-
-.conflictResolverBtn:hover:not(:disabled) {
-  background: var(--border);
-}
-
-.conflictResolverBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.conflictResolverBtnAbort {
+.mgBtn:hover:not(:disabled) { background: var(--border); }
+.mgBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mgBtnAbort {
   background: rgba(243, 139, 168, 0.15);
   border-color: rgba(243, 139, 168, 0.3);
   color: var(--error);
 }
-
-.conflictResolverBtnAbort:hover:not(:disabled) {
-  background: rgba(243, 139, 168, 0.25);
-}
-
-.conflictResolverBtnClose {
-  background: none;
-  border: none;
-  font-size: var(--font-xl);
+.mgBtnAbort:hover:not(:disabled) { background: rgba(243, 139, 168, 0.25); }
+.mgBtnClose {
+  background: none; border: none;
   padding: var(--space-xs) var(--space-sm);
-  color: var(--text-secondary);
+  color: var(--text-secondary); cursor: pointer; display: inline-flex;
 }
-
-.conflictResolverBtnClose:hover {
-  color: var(--text-primary);
+.mgBtnClose:hover { color: var(--text-primary); }
+.mgBtnSkip {
+  background: rgba(249, 226, 175, 0.18);
+  border-color: rgba(249, 226, 175, 0.4);
+  color: var(--warning);
 }
-
-.conflictResolverBtnContinue {
+.mgBtnContinue {
   background: var(--success);
   color: var(--btn-primary-text);
   border-color: var(--success);
   font-weight: 600;
   padding: var(--space-sm) 20px;
 }
+.mgBtnContinue:hover:not(:disabled) { filter: brightness(1.05); }
 
-.conflictResolverBtnContinue:hover:not(:disabled) {
-  background: var(--success);
-}
+/* ─── Error bar ──────────────────────────────────────────────────────────── */
 
-/* ─── Error Bar ─────────────────────────────────────────────────────── */
-
-.conflictResolverError {
+.mgError {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -173,46 +131,35 @@
   color: var(--error);
   font-size: var(--font-sm);
   border-bottom: 1px solid rgba(243, 139, 168, 0.2);
+  flex-shrink: 0;
 }
+.mgErrorText { flex: 1; }
+.mgErrorClose { background: none; border: none; color: var(--error); cursor: pointer; display: inline-flex; }
 
-.conflictResolverError button {
-  margin-left: auto;
-  background: none;
-  border: none;
-  color: var(--error);
-  cursor: pointer;
-  font-size: 14px;
-}
+/* ─── Body layout ────────────────────────────────────────────────────────── */
 
-/* ─── Body Layout ───────────────────────────────────────────────────── */
+.mgBody { flex: 1; display: flex; min-height: 0; overflow: hidden; }
 
-.conflictResolverBody {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-  overflow: hidden;
-}
+/* ─── File list ──────────────────────────────────────────────────────────── */
 
-/* ─── File List Sidebar ─────────────────────────────────────────────── */
-
-.conflictResolverFileList {
-  width: 220px;
-  min-width: 180px;
+.mgFileList {
+  width: 210px;
+  min-width: 170px;
   border-right: 1px solid var(--border);
   background: var(--bg-secondary);
   overflow-y: auto;
+  flex-shrink: 0;
 }
-
-.conflictResolverFileListHeader {
+.mgFileListHeader {
   padding: var(--space-sm) var(--space-md);
   font-size: var(--font-xs);
   font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
 }
-
-.conflictResolverFileItem {
+.mgFileItem {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -225,553 +172,297 @@
   cursor: pointer;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  border-left: 2px solid transparent;
 }
+.mgFileItem:hover { background: rgba(137, 180, 250, 0.08); }
+.mgFileItem.mgActive { background: rgba(137, 180, 250, 0.15); border-left-color: var(--accent); }
+.mgFileItem.mgFileResolved { opacity: 0.65; }
+.mgFileStatus { display: inline-flex; flex-shrink: 0; }
+.mgFileStatus.mgResolved { color: var(--success); }
+.mgFileStatus.mgUnresolved { color: var(--error); }
+.mgFileName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.conflictResolverFileItem:hover {
-  background: rgba(137, 180, 250, 0.08);
-}
+/* ─── Content column ─────────────────────────────────────────────────────── */
 
-.conflictResolverFileItem.active {
-  background: rgba(137, 180, 250, 0.15);
-  border-left: 2px solid var(--accent);
-}
+.mgContent { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 
-.conflictResolverFileItem.resolved {
-  opacity: 0.6;
-}
+/* ─── Toolbar ────────────────────────────────────────────────────────────── */
 
-.conflictFileStatus {
-  font-size: 10px;
-  flex-shrink: 0;
-}
-
-.conflictFileStatus.resolved {
-  color: var(--success);
-}
-
-.conflictFileStatus.unresolved {
-  color: var(--error);
-}
-
-.conflictFileName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ─── Content Area ──────────────────────────────────────────────────── */
-
-.conflictResolverContent {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
-}
-
-/* ─── Navigation Bar ────────────────────────────────────────────────── */
-
-.conflictResolverNav {
+.mgToolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
-}
-
-.conflictNavInfo {
-  font-size: var(--font-sm);
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.conflictNavButtons {
-  display: flex;
-  gap: var(--space-xs);
-}
-
-.conflictNavBtn {
-  padding: 3px 10px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--text-primary);
-  font-size: var(--font-xs);
-  cursor: pointer;
-}
-
-.conflictNavBtn:hover:not(:disabled) {
-  background: var(--border);
-}
-
-.conflictNavBtn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.conflictNavResolveBtns {
-  display: flex;
-  gap: var(--space-xs);
-  margin-left: auto;
-}
-
-.conflictAcceptOurs {
-  background: rgba(137, 180, 250, 0.15);
-  border-color: rgba(137, 180, 250, 0.3);
-  color: var(--accent);
-}
-
-.conflictAcceptOurs:hover:not(:disabled) {
-  background: rgba(137, 180, 250, 0.25);
-}
-
-.conflictAcceptTheirs {
-  background: rgba(166, 227, 161, 0.15);
-  border-color: rgba(166, 227, 161, 0.3);
-  color: var(--success);
-}
-
-.conflictAcceptTheirs:hover:not(:disabled) {
-  background: rgba(166, 227, 161, 0.25);
-}
-
-.conflictAcceptBoth {
-  background: rgba(249, 226, 175, 0.15);
-  border-color: rgba(249, 226, 175, 0.3);
-  color: var(--warning);
-}
-
-.conflictAcceptBoth:hover:not(:disabled) {
-  background: rgba(249, 226, 175, 0.25);
-}
-
-/* ─── 3-Pane Layout ─────────────────────────────────────────────────── */
-
-.conflictPanes {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.conflictPane {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.conflictPaneOurs,
-.conflictPaneTheirs {
-  flex: 1;
-  border-right: 1px solid var(--border);
-}
-
-.conflictPaneTheirs {
-  border-right: none;
-}
-
-.conflictPaneResult {
-  height: 35%;
-  min-height: 120px;
-  border-top: 2px solid var(--accent);
-}
-
-.conflictPaneHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-
-.conflictPaneLabel {
-  font-size: var(--font-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-}
-
-.conflictMarkersWarning {
-  color: var(--warning);
-  text-transform: none;
-  font-weight: 400;
-}
-
-.conflictPaneAction {
-  padding: 2px var(--space-sm);
-  background: var(--bg-secondary);
+.mgNav { display: flex; align-items: center; gap: var(--space-sm); }
+.mgNavBtn {
+  display: inline-flex; align-items: center;
+  padding: 3px 6px;
+  background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--text-secondary);
-  font-size: 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
   cursor: pointer;
 }
-
-.conflictPaneAction:hover:not(:disabled) {
+.mgNavBtn:hover:not(:disabled) { background: var(--border); }
+.mgNavBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+.mgNavCount { font-size: var(--font-sm); color: var(--text-secondary); font-weight: 500; min-width: 210px; text-align: center; }
+.mgAcceptAll { display: flex; gap: var(--space-xs); }
+.mgChip {
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg-tertiary);
   color: var(--text-primary);
-  background: var(--border);
 }
+.mgChip:disabled { opacity: 0.4; cursor: not-allowed; }
+.mgChipOurs { background: rgba(243, 139, 168, 0.12); border-color: rgba(243, 139, 168, 0.35); color: rgb(243, 139, 168); }
+.mgChipOurs:hover:not(:disabled) { background: rgba(243, 139, 168, 0.22); }
+.mgChipTheirs { background: rgba(166, 227, 161, 0.12); border-color: rgba(166, 227, 161, 0.35); color: rgb(166, 227, 161); }
+.mgChipTheirs:hover:not(:disabled) { background: rgba(166, 227, 161, 0.22); }
 
-.conflictPaneAction:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+/* ─── Two synced full-file panes ─────────────────────────────────────────── */
 
-.conflictMarkResolved {
-  color: var(--success);
-  border-color: rgba(166, 227, 161, 0.3);
-  background: rgba(166, 227, 161, 0.1);
-}
+.mgPanes { flex: 1; display: flex; min-height: 0; overflow: hidden; border-bottom: 1px solid var(--border); }
+.mgPanesEmpty { padding: 20px; color: var(--text-muted); font-style: italic; font-size: var(--font-sm); }
 
-.conflictMarkResolved:hover:not(:disabled) {
-  background: rgba(166, 227, 161, 0.2);
-  color: var(--success);
-}
-
-.conflictPaneContent {
+.mgPane {
   flex: 1;
+  min-width: 0;
   overflow: auto;
-  background: var(--bg-primary);
-}
-
-.conflictPaneCode {
-  margin: 0;
-  padding: 0;
+  position: relative;
   font-family: var(--font-mono);
   font-size: var(--font-sm);
   line-height: 1.5;
-  white-space: pre;
 }
+.mgPane + .mgPane { border-left: 1px solid var(--border); }
 
-.conflictCodeLine {
+.mgPaneHeader {
+  position: sticky;
+  top: 0;
+  z-index: 3;
   display: flex;
-  min-height: 18px;
-}
-
-.conflictLineNum {
-  display: inline-block;
-  width: 40px;
-  padding-right: var(--space-sm);
-  text-align: right;
-  color: var(--text-muted);
-  user-select: none;
-  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--space-sm);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-sans);
   font-size: var(--font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
 }
-
-.conflictLineText {
-  flex: 1;
-  padding: 0 var(--space-xs);
-}
-
-.conflictLineOurs {
-  background: rgba(137, 180, 250, 0.05);
-}
-
-.conflictLineTheirs {
-  background: rgba(166, 227, 161, 0.05);
-}
-
-.conflictPaneEmpty {
-  padding: 20px;
-  color: var(--text-muted);
-  font-style: italic;
-  font-size: var(--font-sm);
-}
-
-/* ─── Per-conflict diff view ─────────────────────────────────────────── */
-
-.conflictDiff {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.conflictDiffHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
-  font-size: var(--font-sm);
-  font-weight: 600;
-}
-
-/* ─── Conflict hunk cards ─────────────────────────────────────────────── */
-
-.conflictHunks {
-  flex: 1;
-  overflow: auto;
-  padding: var(--space-sm);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.conflictHunk {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg-primary);
-  overflow: hidden;
-}
-
-.conflictHunkHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  font-size: var(--font-sm);
-  font-weight: 600;
-}
-
-.conflictHunkTitle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.conflictHunkLine {
+.mgPaneDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.mgDotOurs { background: rgb(243, 139, 168); }
+.mgDotTheirs { background: rgb(166, 227, 161); }
+.mgPaneRole { font-weight: 700; color: var(--text-primary); }
+.mgPaneBranch {
   color: var(--text-muted);
   font-weight: 400;
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.mgPaneBody { width: max-content; min-width: 100%; }
+
+.mgRow { display: flex; width: max-content; min-width: 100%; min-height: 1.5em; }
+.mgLineNo {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  flex: 0 0 46px;
+  text-align: right;
+  padding: 0 var(--space-sm) 0 0;
+  color: var(--text-muted);
   font-size: var(--font-xs);
+  user-select: none;
+  background: var(--bg-primary);
+  align-self: stretch;
 }
+.mgCell { flex: 1; white-space: pre; padding: 0 var(--space-sm); }
 
-.conflictHunkActions {
-  display: flex;
-  gap: var(--space-xs);
+.mgRowOurs { background: rgba(243, 139, 168, 0.10); }
+.mgRowOurs .mgLineNo { background: rgba(243, 139, 168, 0.10); }
+.mgRowTheirs { background: rgba(166, 227, 161, 0.10); }
+.mgRowTheirs .mgLineNo { background: rgba(166, 227, 161, 0.10); }
+.mgRowBlank {
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(255,255,255,0.02) 0, rgba(255,255,255,0.02) 6px,
+      transparent 6px, transparent 12px);
 }
+.mgRowBlank .mgLineNo { background: var(--bg-primary); }
 
-.conflictHunkBody {
+.mgWordRemoved { background: rgba(243, 139, 168, 0.42); border-radius: 2px; }
+.mgWordAdded { background: rgba(166, 227, 161, 0.42); border-radius: 2px; }
+
+/* Conflict region header row (carries the include checkbox) */
+.mgChead {
+  align-items: center;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-sans);
+}
+.mgCheadOn { background: rgba(137, 180, 250, 0.08); }
+.mgCheckGutter {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  flex: 0 0 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  align-self: stretch;
+}
+.mgCheck {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--text-muted);
+  border-radius: 3px;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+.mgCheck:hover { border-color: var(--accent); }
+.mgCheckOn { color: var(--btn-primary-text); }
+.mgCheckOn.mgCheckOurs { background: rgb(243, 139, 168); border-color: rgb(243, 139, 168); }
+.mgCheckOn.mgCheckTheirs { background: rgb(166, 227, 161); border-color: rgb(166, 227, 161); }
+.mgCheadLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px var(--space-sm);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.mgCheadCount { color: var(--text-muted); font-weight: 400; }
+
+/* ─── Output pane ────────────────────────────────────────────────────────── */
+
+.mgOutput {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
+  background: var(--bg-primary);
+  min-height: 0;
+}
+.mgOutputOpen { flex: 0 0 36%; }
+
+.mgOutputHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--bg-secondary);
+  border-top: 2px solid var(--accent);
+  flex-shrink: 0;
+}
+.mgOutputToggle {
+  display: flex; align-items: center; gap: var(--space-xs);
+  padding: 2px var(--space-xs);
+  background: transparent; border: none;
+  color: var(--text-secondary); font-size: var(--font-sm); font-weight: 600; cursor: pointer;
+}
+.mgOutputToggle:hover { color: var(--text-primary); }
+.mgOutputWarn { color: var(--warning); font-weight: 400; }
+.mgOutputActions { display: flex; gap: var(--space-xs); align-items: center; }
+.mgOutputEditToggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  cursor: pointer;
+}
+.mgOutputEditToggle:hover { color: var(--text-primary); background: var(--border); }
+.mgMarkResolved {
+  color: var(--success);
+  border-color: rgba(166, 227, 161, 0.35);
+  background: rgba(166, 227, 161, 0.12);
+  padding: 4px 12px;
+}
+.mgMarkResolved:hover:not(:disabled) { background: rgba(166, 227, 161, 0.22); }
+
+.mgOutputView {
+  flex: 1;
+  overflow: auto; /* one scrollbar scrolls the whole view, not per-line */
   font-family: var(--font-mono);
   font-size: var(--font-sm);
   line-height: 1.5;
   padding: var(--space-xs) 0;
 }
-
-.conflictHunkChangeGroup {
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  margin: 2px 0;
+.mgOutputRow { display: flex; width: max-content; min-width: 100%; min-height: 1.5em; }
+.mgOutputLineNum {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: 0 0 46px;
+  text-align: right;
+  padding-right: var(--space-sm);
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+  user-select: none;
+  align-self: stretch;
+  background: var(--bg-primary);
 }
+.mgOutputText { flex: 1; white-space: pre; padding-right: var(--space-md); }
 
-.conflictHunkChangeLabel {
-  padding: 2px var(--space-sm);
+/* Provenance tint so it's obvious which lines came from a chosen side vs the
+   unconflicted context (a colored left edge marks a resolved line). */
+.mgOutOurs { background: rgba(243, 139, 168, 0.07); }
+.mgOutOurs .mgOutputLineNum { background: rgba(243, 139, 168, 0.07); box-shadow: inset 2px 0 rgb(243, 139, 168); }
+.mgOutTheirs { background: rgba(166, 227, 161, 0.07); }
+.mgOutTheirs .mgOutputLineNum { background: rgba(166, 227, 161, 0.07); box-shadow: inset 2px 0 rgb(166, 227, 161); }
+
+/* Placeholder shown in the output for a not-yet-resolved conflict, instead of
+   dumping raw <<<<<<< / ======= / >>>>>>> markers. Click to jump to it. */
+.mgOutUnresolved {
+  position: sticky;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 100%;
+  width: max-content;
+  padding: 3px var(--space-md);
+  border-top: 1px solid rgba(249, 226, 175, 0.3);
+  border-bottom: 1px solid rgba(249, 226, 175, 0.3);
+  background: rgba(249, 226, 175, 0.12);
+  color: var(--warning);
+  font-family: var(--font-sans);
   font-size: var(--font-xs);
   font-weight: 600;
-  color: rgb(243, 139, 168);
-  background: rgba(243, 139, 168, 0.08);
-  font-family: var(--font-sans);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.conflictHunkChangeLabelTheirs {
-  color: rgb(166, 227, 161);
-  background: rgba(166, 227, 161, 0.08);
-  border-top: 1px dashed var(--border);
-}
-
-.conflictHunkLineRow {
-  display: flex;
-  padding: 0 var(--space-xs);
-  white-space: pre;
-}
-
-.conflictHunkLineContext {
-  color: var(--text-muted);
-}
-
-.conflictHunkLineOurs {
-  background: rgba(243, 139, 168, 0.18);
-}
-
-.conflictHunkLineTheirs {
-  background: rgba(166, 227, 161, 0.18);
-}
-
-.conflictHunkLineNum {
-  flex: 0 0 44px;
-  text-align: right;
-  padding-right: var(--space-xs);
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-  user-select: none;
-  align-self: center;
-}
-
-.conflictHunkMark {
-  flex: 0 0 14px;
-  text-align: center;
-  user-select: none;
-  color: var(--text-muted);
-}
-
-.conflictHunkLineOurs .conflictHunkMark {
-  color: rgb(243, 139, 168);
-}
-
-.conflictHunkLineTheirs .conflictHunkMark {
-  color: rgb(166, 227, 161);
-}
-
-.conflictHunkText {
-  flex: 1;
-  white-space: pre;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.conflictHunkEmpty {
-  padding: var(--space-xs) var(--space-sm);
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-/* ─── Collapsible result section ──────────────────────────────────────── */
-
-.conflictResultSection {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
-  border-top: 1px solid var(--border);
-  background: var(--bg-secondary);
-}
-
-.conflictResultToggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: 2px var(--space-xs);
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: var(--font-sm);
+  text-align: left;
   cursor: pointer;
 }
-
-.conflictResultToggle:hover {
-  color: var(--text-primary);
-}
-
-.conflictDiffTitle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.conflictDiffArrow {
-  color: var(--text-muted);
-  font-weight: 400;
-}
-
-.conflictDiffFileActions {
-  display: flex;
-  gap: var(--space-xs);
-}
-
-.conflictDiffSideOurs {
-  color: rgb(243, 139, 168);
-}
-
-.conflictDiffSideTheirs {
-  color: rgb(166, 227, 161);
-}
-
-.conflictDiffBody {
+.mgOutUnresolved:hover { background: rgba(249, 226, 175, 0.22); }
+.mgOutputEditor {
   flex: 1;
-  overflow: auto;
-  font-family: var(--font-mono);
-  font-size: var(--font-sm);
-  line-height: 1.5;
-}
-
-.conflictDiffRow {
-  display: flex;
-  min-height: 18px;
-}
-
-.conflictDiffCell {
-  flex: 1;
-  display: flex;
-  padding: 0 var(--space-xs);
-  white-space: pre;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.conflictDiffCell + .conflictDiffCell {
-  border-left: 1px solid var(--border);
-}
-
-.conflictDiffMark {
-  flex: 0 0 14px;
-  color: var(--text-muted);
-  user-select: none;
-  text-align: center;
-}
-
-.conflictDiffText {
-  flex: 1;
-  white-space: pre;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.conflictDiffEqual {
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.conflictDiffRemoved {
-  background: rgba(243, 139, 168, 0.18);
-  color: var(--text-primary);
-}
-
-.conflictDiffRemoved .conflictDiffMark {
-  color: rgb(243, 139, 168);
-}
-
-.conflictDiffAdded {
-  background: rgba(166, 227, 161, 0.18);
-  color: var(--text-primary);
-}
-
-.conflictDiffAdded .conflictDiffMark {
-  color: rgb(166, 227, 161);
-}
-
-.conflictDiffEmpty {
-  background:
-    repeating-linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.02) 0,
-      rgba(255, 255, 255, 0.02) 6px,
-      transparent 6px,
-      transparent 12px
-    );
-}
-
-/* ─── Result Editor ─────────────────────────────────────────────────── */
-
-.conflictResultEditor {
   width: 100%;
-  flex: 1;
   border: none;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -783,35 +474,28 @@
   outline: none;
   tab-size: 4;
 }
+.mgOutputEditor:focus { box-shadow: inset 0 0 0 1px rgba(137, 180, 250, 0.3); }
 
-.conflictResultEditor:focus {
-  box-shadow: inset 0 0 0 1px rgba(137, 180, 250, 0.3);
-}
+/* ─── Loading + footer ───────────────────────────────────────────────────── */
 
-/* ─── Footer ────────────────────────────────────────────────────────── */
-
-.conflictResolverFooter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md) var(--space-lg);
-  background: rgba(166, 227, 161, 0.08);
-  border-top: 1px solid rgba(166, 227, 161, 0.2);
-}
-
-.conflictResolverFooterMsg {
-  font-size: var(--font-md);
-  color: var(--success);
-  font-weight: 500;
-}
-
-/* ─── Loading ───────────────────────────────────────────────────────── */
-
-.conflictResolverLoading {
+.mgLoading {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
   font-size: var(--font-md);
+}
+.mgFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  background: rgba(166, 227, 161, 0.08);
+  border-top: 1px solid rgba(166, 227, 161, 0.2);
+  flex-shrink: 0;
+}
+.mgFooterMsg {
+  display: flex; align-items: center; gap: var(--space-sm);
+  font-size: var(--font-md); color: var(--success); font-weight: 500;
 }

@@ -124,8 +124,9 @@ declare global {
         merge: (
           repoPath: string,
           branchName: string,
-          opts?: { noFastForward?: boolean; fastForwardOnly?: boolean }
+          opts?: { noFastForward?: boolean; fastForwardOnly?: boolean; squash?: boolean }
         ) => Promise<GitServiceResult>
+        mergeContinue: (repoPath: string) => Promise<GitServiceResult>
         mergeAbort: (repoPath: string) => Promise<GitServiceResult>
         isMerging: (repoPath: string) => Promise<GitServiceResult>
         getConflictedFiles: (repoPath: string) => Promise<GitServiceResult>
@@ -171,6 +172,7 @@ declare global {
         resolveConflictFile: (repoPath: string, filePath: string, content: string) => Promise<GitServiceResult>
         resolveConflictFileWith: (repoPath: string, filePath: string, choice: 'ours' | 'theirs') => Promise<GitServiceResult>
         getActiveOperation: (repoPath: string) => Promise<GitServiceResult>
+        getConflictSides: (repoPath: string) => Promise<GitServiceResult>
         blame: (repoPath: string, filePath: string) => Promise<GitServiceResult>
         autoFetch: (repoPath: string) => Promise<GitServiceResult>
         discardFiles: (repoPath: string, filePaths: string[], opts?: { untracked?: boolean }) => Promise<GitServiceResult>
