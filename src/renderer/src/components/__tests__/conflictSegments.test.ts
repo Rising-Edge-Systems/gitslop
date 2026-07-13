@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseSegments, composeOutput, type Segment } from '../ConflictResolver'
+import { parseSegments, composeOutput, composeLines, lkey, type Segment } from '../ConflictResolver'
 
 // A standard 2-way conflict with surrounding context and a trailing newline.
 const TWO_WAY = [
@@ -91,5 +91,51 @@ describe('conflict segment parse/compose', () => {
     expect(conflict.ours).toEqual(['ours'])
     expect(conflict.base).toEqual(['original'])
     expect(conflict.theirs).toEqual(['theirs'])
+  })
+})
+
+// The line-level model that actually writes the resolved file (`composeLines`).
+describe('line-level compose', () => {
+  const MULTI = [
+    'top',
+    '<<<<<<< HEAD',
+    'o1',
+    'o2',
+    '=======',
+    't1',
+    't2',
+    '>>>>>>> feature',
+    'bottom',
+    ''
+  ].join('\n')
+
+  const id0 = (): number =>
+    (parseSegments(MULTI).find((s) => s.kind === 'conflict') as Extract<Segment, { kind: 'conflict' }>).id
+
+  it('re-emits raw markers for an untouched (undefined) conflict', () => {
+    const segs = parseSegments(MULTI)
+    expect(composeLines(segs, {})).toBe(MULTI)
+  })
+
+  it('emits only the checked lines, ours block before theirs block', () => {
+    const segs = parseSegments(MULTI)
+    const id = id0()
+    // pick ours[1] ("o2") and theirs[0] ("t1")
+    const sel = { [id]: new Set([lkey('ours', 1), lkey('theirs', 0)]) }
+    expect(composeLines(segs, sel)).toBe('top\no2\nt1\nbottom\n')
+  })
+
+  it('take-all-ours reproduces the whole ours side', () => {
+    const segs = parseSegments(MULTI)
+    const id = id0()
+    const sel = { [id]: new Set([lkey('ours', 0), lkey('ours', 1)]) }
+    expect(composeLines(segs, sel)).toBe('top\no1\no2\nbottom\n')
+  })
+
+  it('an empty (but defined) selection means "take neither" — the conflict is dropped', () => {
+    const segs = parseSegments(MULTI)
+    const id = id0()
+    const sel = { [id]: new Set<string>() }
+    expect(composeLines(segs, sel)).toBe('top\nbottom\n')
   })
 })

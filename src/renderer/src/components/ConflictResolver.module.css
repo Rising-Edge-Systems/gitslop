@@ -180,7 +180,10 @@
 .mgFileStatus { display: inline-flex; flex-shrink: 0; }
 .mgFileStatus.mgResolved { color: var(--success); }
 .mgFileStatus.mgUnresolved { color: var(--error); }
-.mgFileName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mgFileName { flex: 1; min-width: 0; display: flex; align-items: baseline; overflow: hidden; }
+/* Directory prefix shrinks and ellipsises; the file name is always kept whole. */
+.mgFileDir { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.mgFileBase { white-space: nowrap; flex-shrink: 0; }
 
 /* ─── Content column ─────────────────────────────────────────────────────── */
 
@@ -213,6 +216,8 @@
 .mgNavBtn:disabled { opacity: 0.35; cursor: not-allowed; }
 .mgNavCount { font-size: var(--font-sm); color: var(--text-secondary); font-weight: 500; min-width: 210px; text-align: center; }
 .mgAcceptAll { display: flex; gap: var(--space-xs); }
+.mgToolbarHint { font-size: var(--font-xs); color: var(--text-muted); }
+.mgToolbarHint strong { color: var(--text-secondary); font-weight: 600; }
 .mgChip {
   padding: 4px 10px;
   border-radius: var(--radius-sm);
@@ -224,10 +229,12 @@
   color: var(--text-primary);
 }
 .mgChip:disabled { opacity: 0.4; cursor: not-allowed; }
-.mgChipOurs { background: rgba(243, 139, 168, 0.12); border-color: rgba(243, 139, 168, 0.35); color: rgb(243, 139, 168); }
-.mgChipOurs:hover:not(:disabled) { background: rgba(243, 139, 168, 0.22); }
-.mgChipTheirs { background: rgba(166, 227, 161, 0.12); border-color: rgba(166, 227, 161, 0.35); color: rgb(166, 227, 161); }
-.mgChipTheirs:hover:not(:disabled) { background: rgba(166, 227, 161, 0.22); }
+/* Local/Remote IDENTITY is blue/mauve — never red/green, which are reserved
+   for add/remove (diff) and destructive actions everywhere in this view. */
+.mgChipOurs { background: rgba(137, 180, 250, 0.12); border-color: rgba(137, 180, 250, 0.35); color: rgb(137, 180, 250); }
+.mgChipOurs:hover:not(:disabled) { background: rgba(137, 180, 250, 0.22); }
+.mgChipTheirs { background: rgba(203, 166, 247, 0.12); border-color: rgba(203, 166, 247, 0.35); color: rgb(203, 166, 247); }
+.mgChipTheirs:hover:not(:disabled) { background: rgba(203, 166, 247, 0.22); }
 
 /* ─── Two synced full-file panes ─────────────────────────────────────────── */
 
@@ -263,8 +270,33 @@
   color: var(--text-secondary);
 }
 .mgPaneDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.mgDotOurs { background: rgb(243, 139, 168); }
-.mgDotTheirs { background: rgb(166, 227, 161); }
+.mgDotOurs { background: rgb(137, 180, 250); }
+.mgDotTheirs { background: rgb(203, 166, 247); }
+
+/* Pane-header checkbox: take that whole side across every conflict in the file.
+   Carries the side's identity colour (blue = Local, mauve = Remote). */
+.mgPaneCheck {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1.5px solid var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.mgPaneCheck:hover { filter: brightness(1.2); }
+.mgPaneCheckOurs { border-color: rgb(137, 180, 250); color: rgb(137, 180, 250); }
+.mgPaneCheckTheirs { border-color: rgb(203, 166, 247); color: rgb(203, 166, 247); }
+.mgPaneCheckOn { color: var(--btn-primary-text); }
+.mgPaneCheckOn.mgPaneCheckOurs { background: rgb(137, 180, 250); }
+.mgPaneCheckOn.mgPaneCheckTheirs { background: rgb(203, 166, 247); }
 .mgPaneRole { font-weight: 700; color: var(--text-primary); }
 .mgPaneBranch {
   color: var(--text-muted);
@@ -292,20 +324,13 @@
 }
 .mgCell { flex: 1; white-space: pre; padding: 0 var(--space-sm); }
 
-.mgRowOurs { background: rgba(243, 139, 168, 0.10); }
-.mgRowOurs .mgLineNo { background: rgba(243, 139, 168, 0.10); }
-.mgRowTheirs { background: rgba(166, 227, 161, 0.10); }
-.mgRowTheirs .mgLineNo { background: rgba(166, 227, 161, 0.10); }
+/* Blank padding row (one side of the conflict is shorter than the other). */
 .mgRowBlank {
   background:
     repeating-linear-gradient(135deg,
       rgba(255,255,255,0.02) 0, rgba(255,255,255,0.02) 6px,
       transparent 6px, transparent 12px);
 }
-.mgRowBlank .mgLineNo { background: var(--bg-primary); }
-
-.mgWordRemoved { background: rgba(243, 139, 168, 0.42); border-radius: 2px; }
-.mgWordAdded { background: rgba(166, 227, 161, 0.42); border-radius: 2px; }
 
 /* Conflict region header row (carries the include checkbox) */
 .mgChead {
@@ -344,8 +369,8 @@
 }
 .mgCheck:hover { border-color: var(--accent); }
 .mgCheckOn { color: var(--btn-primary-text); }
-.mgCheckOn.mgCheckOurs { background: rgb(243, 139, 168); border-color: rgb(243, 139, 168); }
-.mgCheckOn.mgCheckTheirs { background: rgb(166, 227, 161); border-color: rgb(166, 227, 161); }
+.mgCheckOn.mgCheckOurs { background: rgb(137, 180, 250); border-color: rgb(137, 180, 250); }
+.mgCheckOn.mgCheckTheirs { background: rgb(203, 166, 247); border-color: rgb(203, 166, 247); }
 .mgCheadLabel {
   display: inline-flex;
   align-items: center;
@@ -386,7 +411,27 @@
   color: var(--text-secondary); font-size: var(--font-sm); font-weight: 600; cursor: pointer;
 }
 .mgOutputToggle:hover { color: var(--text-primary); }
-.mgOutputWarn { color: var(--warning); font-weight: 400; }
+.mgOutputHeaderLeft { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; }
+/* Clickable "N unresolved" — jumps to the next unresolved conflict. */
+.mgOutputWarn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(249, 226, 175, 0.45);
+  background: rgba(249, 226, 175, 0.14);
+  color: var(--warning);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mgOutputWarn:hover { background: rgba(249, 226, 175, 0.26); }
+.mgOutputWarnStatic {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--warning); font-size: var(--font-xs); font-weight: 500; white-space: nowrap;
+}
 .mgOutputActions { display: flex; gap: var(--space-xs); align-items: center; }
 .mgOutputEditToggle {
   display: inline-flex; align-items: center; gap: 5px;
@@ -433,10 +478,10 @@
 
 /* Provenance tint so it's obvious which lines came from a chosen side vs the
    unconflicted context (a colored left edge marks a resolved line). */
-.mgOutOurs { background: rgba(243, 139, 168, 0.07); }
-.mgOutOurs .mgOutputLineNum { background: rgba(243, 139, 168, 0.07); box-shadow: inset 2px 0 rgb(243, 139, 168); }
-.mgOutTheirs { background: rgba(166, 227, 161, 0.07); }
-.mgOutTheirs .mgOutputLineNum { background: rgba(166, 227, 161, 0.07); box-shadow: inset 2px 0 rgb(166, 227, 161); }
+.mgOutOurs { background: rgba(137, 180, 250, 0.08); }
+.mgOutOurs .mgOutputLineNum { background: rgba(137, 180, 250, 0.08); box-shadow: inset 2px 0 rgb(137, 180, 250); }
+.mgOutTheirs { background: rgba(203, 166, 247, 0.08); }
+.mgOutTheirs .mgOutputLineNum { background: rgba(203, 166, 247, 0.08); box-shadow: inset 2px 0 rgb(203, 166, 247); }
 
 /* Placeholder shown in the output for a not-yet-resolved conflict, instead of
    dumping raw <<<<<<< / ======= / >>>>>>> markers. Click to jump to it. */
@@ -499,3 +544,156 @@
   display: flex; align-items: center; gap: var(--space-sm);
   font-size: var(--font-md); color: var(--success); font-weight: 500;
 }
+
+/* =============================================================================
+   Line-level selection, base-relative colouring, folding, resize, chooser
+   ============================================================================= */
+
+/* ─── Combined sticky gutter: [checkbox][line number] ────────────────────────── */
+.mgGutter {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  flex: 0 0 64px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 var(--space-sm) 0 3px;
+  background: var(--bg-primary);
+  align-self: stretch;
+  user-select: none;
+}
+.mgCheckSpacer { flex: 0 0 16px; }
+.mgGutterNum {
+  flex: 1;
+  text-align: right;
+  color: var(--text-muted);
+  font-size: var(--font-xs);
+}
+.mgCheckLine {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--text-muted);
+  border-radius: 3px;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.mgCheckLine:hover { border-color: var(--accent); }
+.mgCheckLineOn { color: var(--btn-primary-text); }
+.mgCheckLineOn.mgCheckOurs { background: rgb(137, 180, 250); border-color: rgb(137, 180, 250); }
+.mgCheckLineOn.mgCheckTheirs { background: rgb(203, 166, 247); border-color: rgb(203, 166, 247); }
+.mgCheckSome { color: var(--text-secondary); background: var(--bg-tertiary); }
+
+.mgChead .mgGutter { background: var(--bg-secondary); }
+
+/* ─── Base-relative line tones (both panes: green add, red remove, neutral) ──── */
+.mgToneAdd { background: rgba(166, 227, 161, 0.13); }
+.mgToneAdd .mgGutter { background: rgba(166, 227, 161, 0.13); }
+.mgToneDel { background: rgba(243, 139, 168, 0.08); }
+.mgToneDel .mgGutter { background: rgba(243, 139, 168, 0.08); }
+.mgRowBlank .mgGutter { background: var(--bg-primary); }
+.mgGhostText { color: var(--text-muted); text-decoration: line-through; opacity: 0.75; }
+.mgRowPicked .mgGutter { box-shadow: inset 2px 0 var(--accent); }
+
+/* ─── Folded context ─────────────────────────────────────────────────────────── */
+.mgFoldRow {
+  position: sticky;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  min-width: 100%;
+  padding: 2px var(--space-md);
+  background: rgba(137, 180, 250, 0.06);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--font-xs);
+  cursor: pointer;
+  text-align: left;
+}
+.mgFoldRow:hover { background: rgba(137, 180, 250, 0.15); color: var(--text-secondary); }
+
+/* ─── Resize handles ─────────────────────────────────────────────────────────── */
+.mgResizerH {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: var(--border);
+  align-self: stretch;
+}
+.mgResizerH:hover { background: var(--accent); }
+.mgResizerV {
+  height: 6px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  background: var(--border);
+}
+.mgResizerV:hover { background: var(--accent); }
+
+/* ─── Tree-conflict chooser (modify/delete, binary) ──────────────────────────── */
+.mgChooser {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px;
+  text-align: center;
+}
+.mgChooserIcon { color: var(--warning); }
+.mgChooserTitle { font-size: var(--font-lg); font-weight: 600; color: var(--text-primary); }
+.mgChooserBody { max-width: 480px; color: var(--text-secondary); font-size: var(--font-sm); line-height: 1.5; }
+.mgChooserActions { display: flex; gap: var(--space-md); margin-top: 8px; flex-wrap: wrap; justify-content: center; }
+.mgChooserBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.mgChooserBtn:hover:not(:disabled) { background: var(--border); }
+.mgChooserBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Binary "take a whole side" — blue/mauve identity, matching the panes. */
+.mgChooserOurs { background: rgba(137, 180, 250, 0.12); border-color: rgba(137, 180, 250, 0.35); color: rgb(137, 180, 250); }
+.mgChooserOurs:hover:not(:disabled) { background: rgba(137, 180, 250, 0.22); }
+.mgChooserTheirs { background: rgba(203, 166, 247, 0.12); border-color: rgba(203, 166, 247, 0.35); color: rgb(203, 166, 247); }
+.mgChooserTheirs:hover:not(:disabled) { background: rgba(203, 166, 247, 0.22); }
+/* Keep vs Delete is an ACTION choice, not a side: Keep is the neutral, prominent
+   default; Delete is the only red (destructive) button so it can't be mistaken
+   for "keep my side". */
+.mgChooserKeep { background: var(--bg-tertiary); border-color: var(--text-secondary); color: var(--text-primary); font-weight: 700; }
+.mgChooserKeep:hover:not(:disabled) { background: var(--border); }
+.mgChooserDelete { background: transparent; color: var(--error); border-color: rgba(243, 139, 168, 0.5); }
+.mgChooserDelete:hover:not(:disabled) { background: rgba(243, 139, 168, 0.15); }
+
+/* ─── Editable output with a scroll-synced line-number gutter ─────────────────── */
+.mgEditWrap { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+.mgEditGutter {
+  flex: 0 0 48px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  padding: var(--space-xs) 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+  user-select: none;
+}
+.mgEditGutterNum { height: 1.5em; padding: 0 8px; text-align: right; }

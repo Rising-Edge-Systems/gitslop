@@ -1389,6 +1389,18 @@ export function registerGitIpcHandlers(): void {
   )
 
   ipcMain.handle(
+    'git:resolveConflictChoice',
+    async (_event, repoPath: string, filePath: string, choice: 'ours' | 'theirs' | 'keep' | 'delete') => {
+      try {
+        await withWatcherSuppression(() => gitService.resolveConflictChoice(repoPath, filePath, choice))
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
     'git:getActiveOperation',
     async (_event, repoPath: string) => {
       try {

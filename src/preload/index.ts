@@ -332,6 +332,8 @@ const electronAPI = {
       ipcRenderer.invoke('git:resolveConflictFile', repoPath, filePath, content),
     resolveConflictFileWith: (repoPath: string, filePath: string, choice: 'ours' | 'theirs'): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:resolveConflictFileWith', repoPath, filePath, choice),
+    resolveConflictChoice: (repoPath: string, filePath: string, choice: 'ours' | 'theirs' | 'keep' | 'delete'): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:resolveConflictChoice', repoPath, filePath, choice),
     getActiveOperation: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getActiveOperation', repoPath),
     getConflictSides: (repoPath: string): Promise<GitServiceResult> =>

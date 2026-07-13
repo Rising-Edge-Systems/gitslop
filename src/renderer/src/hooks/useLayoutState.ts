@@ -171,6 +171,7 @@ declare global {
         getConflictContent: (repoPath: string, filePath: string) => Promise<GitServiceResult>
         resolveConflictFile: (repoPath: string, filePath: string, content: string) => Promise<GitServiceResult>
         resolveConflictFileWith: (repoPath: string, filePath: string, choice: 'ours' | 'theirs') => Promise<GitServiceResult>
+        resolveConflictChoice: (repoPath: string, filePath: string, choice: 'ours' | 'theirs' | 'keep' | 'delete') => Promise<GitServiceResult>
         getActiveOperation: (repoPath: string) => Promise<GitServiceResult>
         getConflictSides: (repoPath: string) => Promise<GitServiceResult>
         blame: (repoPath: string, filePath: string) => Promise<GitServiceResult>

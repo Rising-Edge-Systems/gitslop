@@ -46,6 +46,25 @@ export interface GitVersion {
 
 export type SignatureStatus = 'good' | 'bad' | 'untrusted' | 'expired' | 'expired-key' | 'revoked' | 'error' | 'none'
 
+/**
+ * How git left an unmerged path. Only `content`/`add-add` carry inline
+ * `<<<<<<<` markers; the rest are tree-level conflicts (a whole-file choice)
+ * the marker-based editor can't show, so the UI offers a chooser instead.
+ *   - content:       both sides modified a common file → textual markers
+ *   - add-add:       both sides added the file (no base) → textual markers
+ *   - modify-delete: ours modified, theirs deleted → keep-or-delete
+ *   - delete-modify: ours deleted, theirs modified → keep-or-delete
+ *   - binary:        at least one side is binary → take-ours-or-theirs
+ *   - unknown:       stages didn't match a known shape
+ */
+export type ConflictType =
+  | 'content'
+  | 'add-add'
+  | 'modify-delete'
+  | 'delete-modify'
+  | 'binary'
+  | 'unknown'
+
 export interface GitCommit {
   hash: string
   shortHash: string
@@ -234,7 +253,12 @@ export class GitService {
           cwd: repoPath,
           maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large repos
           timeout: 120_000, // 2 minute timeout
-          ...(options?.env ? { env: { ...process.env, ...options.env } } : {})
+          // GIT_OPTIONAL_LOCKS=0 stops read commands (status/diff) from taking the
+          // index.lock to refresh the stat cache. Without it, a slow status refresh
+          // on a big repo races the next write and fails with "index.lock: File
+          // exists". Required locks (add/commit/checkout) are unaffected. Standard
+          // for git GUIs. Callers' env still wins if they override it.
+          env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', ...(options?.env ?? {}) }
         }
 
         const child = execFile('git', args, execOpts, (error, stdout, stderr) => {
@@ -3193,6 +3217,13 @@ export class GitService {
     ours: string | null
     theirs: string | null
     merged: string
+    /** Diff3-style render (with `|||||||` base sections) so the UI can colour
+     *  each side relative to the common ancestor. Null for binary/marker-less
+     *  cases or when regeneration fails. */
+    merged3: string | null
+    /** How git left this path unmerged, so the UI can offer the right actions
+     *  even when there are no textual `<<<<<<<` markers to edit. */
+    conflictType: ConflictType
   }> {
     const { readFileSync } = await import('fs')
     const { join } = await import('path')
@@ -3206,6 +3237,7 @@ export class GitService {
     }
 
     // Get content from git object store for each stage
+    // (stage 1 = base/ancestor, 2 = ours/HEAD, 3 = theirs/incoming).
     const getStage = async (stage: number): Promise<string | null> => {
       try {
         const result = await this.exec(['show', `:${stage}:${filePath}`], repoPath)
@@ -3221,7 +3253,89 @@ export class GitService {
       getStage(3)
     ])
 
-    return { base, ours, theirs, merged }
+    const isBinary = (s: string | null): boolean => s !== null && s.includes(String.fromCharCode(0))
+    const binary = isBinary(base) || isBinary(ours) || isBinary(theirs)
+
+    // Which stages are present tells us the structural conflict type. Only
+    // "content" (all three sides are text) has inline markers to resolve; the
+    // rest are tree-level conflicts git leaves without markers.
+    let conflictType: ConflictType
+    if (binary) conflictType = 'binary'
+    else if (ours !== null && theirs !== null) conflictType = base !== null ? 'content' : 'add-add'
+    else if (ours !== null && theirs === null) conflictType = 'modify-delete' // theirs deleted
+    else if (ours === null && theirs !== null) conflictType = 'delete-modify' // ours deleted
+    else conflictType = 'unknown'
+
+    // Regenerate a diff3 render from the three blobs so the UI always has base
+    // sections for colouring, regardless of the user's merge.conflictStyle.
+    let merged3: string | null = null
+    if (!binary && ours !== null && theirs !== null) {
+      merged3 = await this.renderDiff3(ours, base ?? '', theirs).catch(() => null)
+    }
+
+    return { base, ours, theirs, merged, merged3, conflictType }
+  }
+
+  /**
+   * Produce a diff3-style 3-way render of the given blobs WITHOUT touching the
+   * working tree (unlike `git checkout --conflict=diff3`, which would clobber
+   * the user's edits). Uses `git merge-file -p`, which prints to stdout and
+   * exits non-zero on conflicts — so we run it raw and keep stdout regardless
+   * of exit code. Returns null on any failure.
+   */
+  private async renderDiff3(ours: string, base: string, theirs: string): Promise<string | null> {
+    const { mkdtempSync, writeFileSync, rmSync } = await import('fs')
+    const { join } = await import('path')
+    const { tmpdir } = await import('os')
+    const { execFile: execFileCb } = await import('child_process')
+
+    const dir = mkdtempSync(join(tmpdir(), 'gitslop-diff3-'))
+    const oursF = join(dir, 'ours')
+    const baseF = join(dir, 'base')
+    const theirsF = join(dir, 'theirs')
+    try {
+      writeFileSync(oursF, ours)
+      writeFileSync(baseF, base)
+      writeFileSync(theirsF, theirs)
+      return await new Promise<string | null>((resolve) => {
+        execFileCb(
+          'git',
+          ['merge-file', '-p', '--diff3', '--marker-size=7', oursF, baseF, theirsF],
+          { maxBuffer: 50 * 1024 * 1024, timeout: 30_000 },
+          // merge-file exits with the conflict count; stdout still holds the render.
+          (_error, stdout) => resolve(stdout ? stdout.toString() : null)
+        )
+      })
+    } catch {
+      return null
+    } finally {
+      try {
+        rmSync(dir, { recursive: true, force: true })
+      } catch {
+        /* best-effort cleanup */
+      }
+    }
+  }
+
+  /**
+   * Retry a git write when it loses the `.git/index.lock` race with a concurrent
+   * process (a status/diff refresh, the watcher, another resolution). Only the
+   * transient lock error is retried; every other failure propagates immediately.
+   * The git commands here (add/rm/checkout) are idempotent, so re-running is safe.
+   */
+  private async withLockRetry<T>(fn: () => Promise<T>, tries = 8, delayMs = 125): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await fn()
+      } catch (err) {
+        const msg = (
+          (err as GitError)?.stderr || (err as Error)?.message || ''
+        ).toLowerCase()
+        const locked = msg.includes('index.lock') || msg.includes('unable to create')
+        if (!locked || attempt >= tries - 1) throw err
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+      }
+    }
   }
 
   /**
@@ -3235,7 +3349,7 @@ export class GitService {
     writeFileSync(join(repoPath, filePath), content, 'utf-8')
 
     // Stage the file (marks it as resolved)
-    await this.exec(['add', filePath], repoPath)
+    await this.withLockRetry(() => this.exec(['add', '-f', '--', filePath], repoPath))
   }
 
   /**
@@ -3247,7 +3361,38 @@ export class GitService {
     choice: 'ours' | 'theirs'
   ): Promise<void> {
     await this.exec(['checkout', `--${choice}`, filePath], repoPath)
-    await this.exec(['add', filePath], repoPath)
+    // -f: a resolved conflict path may match .gitignore (e.g. nbproject/); staging
+    // it here is the user's explicit choice, so bypass the ignore refusal.
+    await this.exec(['add', '-f', '--', filePath], repoPath)
+  }
+
+  /**
+   * Resolve a marker-less (tree-level) conflict by whole-file choice. Powers the
+   * chooser shown for modify/delete, delete/modify, and binary conflicts:
+   *   - ours/theirs → take that side's full blob (`checkout --ours/--theirs`)
+   *   - keep        → keep whatever is in the working tree and stage it
+   *                   (for modify/delete git already left the surviving edited
+   *                    version on disk, so a plain `add` accepts it)
+   *   - delete      → accept the deletion (`git rm`)
+   * Each ends with the path staged, i.e. no longer unmerged.
+   */
+  async resolveConflictChoice(
+    repoPath: string,
+    filePath: string,
+    choice: 'ours' | 'theirs' | 'keep' | 'delete'
+  ): Promise<void> {
+    if (choice === 'delete') {
+      // -f because the path is unmerged (and may have working-tree content);
+      // the user has explicitly chosen to drop the file.
+      await this.withLockRetry(() => this.exec(['rm', '-f', '--', filePath], repoPath))
+      return
+    }
+    if (choice === 'keep') {
+      await this.withLockRetry(() => this.exec(['add', '-f', '--', filePath], repoPath))
+      return
+    }
+    await this.withLockRetry(() => this.exec(['checkout', `--${choice}`, '--', filePath], repoPath))
+    await this.withLockRetry(() => this.exec(['add', '-f', '--', filePath], repoPath))
   }
 
   /**
