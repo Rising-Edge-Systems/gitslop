@@ -359,7 +359,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
       if (result.success) {
         const data = result.data as { autoStashed?: boolean; stashPopConflict?: boolean } | undefined
         if (data?.stashPopConflict) {
-          showNotification('error', 'Pull completed, but reapplying your local changes caused conflicts. Resolve them in the working tree and drop the auto-stash manually.')
+          showNotification('error', 'Pull succeeded, but your local changes conflict with it, so they were kept in a stash ("gitslop: auto-stash before pull"). Reapply them from the Stashes panel when ready.')
         } else if (data?.autoStashed) {
           showNotification('success', 'Pull completed. Local changes were auto-stashed and reapplied.')
         } else {
@@ -394,7 +394,7 @@ export function Toolbar({ currentRepo, onRepoOpen, onOpenSettings, onNotify }: T
         const data = result.data as { autoStashed?: boolean; stashPopConflict?: boolean } | undefined
         const mode = pullDialog.useRebase ? 'rebase' : 'merge'
         if (data?.stashPopConflict) {
-          showNotification('error', `Pull (${mode}) completed, but reapplying your local changes caused conflicts. Resolve them in the working tree and drop the auto-stash manually.`)
+          showNotification('error', `Pull (${mode}) succeeded, but your local changes conflict with it, so they were kept in a stash ("gitslop: auto-stash before pull"). Reapply them from the Stashes panel when ready.`)
         } else if (data?.autoStashed) {
           showNotification('success', `Pull (${mode}) completed. Local changes were auto-stashed and reapplied.`)
         } else {

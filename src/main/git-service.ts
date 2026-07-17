@@ -1637,10 +1637,13 @@ export class GitService {
   /**
    * Pull from remote with configurable strategy (merge or rebase).
    *
-   * When `autoStash` is enabled, stashes local changes (including untracked
-   * files) before pulling and pops the stash afterwards so a dirty working
-   * tree doesn't block the pull. If the pop produces conflicts, the stash is
-   * left in place for the user to resolve manually.
+   * When `autoStash` is enabled and there are TRACKED changes, stashes them
+   * before pulling and pops the stash afterwards so a dirty working tree doesn't
+   * block the pull. Untracked files are deliberately NOT stashed — reapplying
+   * them across a history that restructured their paths (e.g. a folder becoming a
+   * submodule) produced floods of phantom conflicts. If the pop conflicts, the
+   * half-applied pop is aborted and the stash is kept intact for the user to
+   * reapply manually (surfaced via `stashPopConflict`).
    */
   async pull(
     repoPath: string,
@@ -1657,10 +1660,17 @@ export class GitService {
     let autoStashed = false
     if (options?.autoStash) {
       const statusResult = await this.exec(['status', '--porcelain'], repoPath, { signal })
-      const isDirty = statusResult.stdout.trim().length > 0
-      if (isDirty) {
+      // Only auto-stash TRACKED changes. Untracked files (`??` lines) are left in
+      // place: the old `--include-untracked` behaviour swept them into the stash,
+      // and when the pull restructured those paths — e.g. a folder becoming a
+      // submodule — the pop could not reapply them, producing a flood of phantom
+      // "conflicts" on files the user never edited.
+      const hasTrackedChanges = statusResult.stdout
+        .split('\n')
+        .some((line) => line.trim().length > 0 && !line.startsWith('??'))
+      if (hasTrackedChanges) {
         await this.exec(
-          ['stash', 'push', '--include-untracked', '-m', 'gitslop: auto-stash before pull'],
+          ['stash', 'push', '-m', 'gitslop: auto-stash before pull'],
           repoPath,
           { signal }
         )
@@ -1689,7 +1699,18 @@ export class GitService {
       try {
         await this.exec(['stash', 'pop'], repoPath, { signal })
       } catch {
+        // The pop hit conflicts. Rather than drop the user into the merge conflict
+        // resolver for what is really a stash re-apply (there is no merge in
+        // progress), undo the half-applied pop and leave their changes safely in
+        // the stash. Git keeps the stash on a conflicted pop, so nothing is lost —
+        // the user can reapply it deliberately from the Stashes panel.
         stashPopConflict = true
+        try {
+          await this.exec(['reset', '--hard', 'HEAD'], repoPath, { signal })
+        } catch {
+          // If the abort itself fails, leave the tree as-is; the caller still
+          // reports stashPopConflict so the user is informed.
+        }
       }
     }
 
