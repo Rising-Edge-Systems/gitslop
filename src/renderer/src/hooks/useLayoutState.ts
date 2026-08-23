@@ -265,6 +265,10 @@ declare global {
         onUpdateError: (callback: (error: { message: string }) => void) => () => void
         setAutoCheck: (enabled: boolean) => Promise<void>
       }
+      clipboard: {
+        readText: () => Promise<string>
+        writeText: (text: string) => Promise<{ success: boolean }>
+      }
       terminal: {
         create: (opts: { cwd?: string; id?: string }) => Promise<{ success: boolean; data?: { id: string }; error?: string }>
         write: (opts: { id: string; data: string }) => Promise<{ success: boolean; error?: string }>

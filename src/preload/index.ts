@@ -555,6 +555,11 @@ const electronAPI = {
     setAutoCheck: (enabled: boolean): Promise<void> =>
       ipcRenderer.invoke('updates:setAutoCheck', enabled)
   },
+  clipboard: {
+    readText: (): Promise<string> => ipcRenderer.invoke('clipboard:readText'),
+    writeText: (text: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('clipboard:writeText', text)
+  },
   terminal: {
     create: (opts: { cwd?: string; id?: string }): Promise<{ success: boolean; data?: { id: string }; error?: string }> =>
       ipcRenderer.invoke('terminal:create', opts),

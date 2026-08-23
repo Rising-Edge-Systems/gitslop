@@ -463,6 +463,16 @@ ipcMain.handle('sshkeys:copyToClipboard', (_event, text: string) => {
   return { success: true }
 })
 
+// Clipboard access for the renderer. navigator.clipboard.readText() is gated by
+// Electron's permission model and silently rejects in the packaged app, so reads
+// go through the main process, which has unrestricted access.
+ipcMain.handle('clipboard:readText', () => clipboard.readText())
+
+ipcMain.handle('clipboard:writeText', (_event, text: string) => {
+  clipboard.writeText(text)
+  return { success: true }
+})
+
 ipcMain.handle(
   'sshkeys:generate',
   async (

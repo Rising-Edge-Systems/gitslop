@@ -4,6 +4,7 @@ import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import styles from './BottomPanel.module.css'
+import { terminalRightClick } from '../utils/terminalClipboard'
 
 interface TerminalTab {
   id: string
@@ -269,6 +270,18 @@ export function TerminalPanel({ currentRepo, onToggle }: TerminalPanelProps): Re
     })
   }, [])
 
+  // Right-click copies the selection when there is one and pastes otherwise —
+  // the convention in PuTTY, Windows Terminal and most Linux terminal emulators.
+  // Without this there is no way to paste into the terminal at all (issue #7).
+  const handleContextMenu = useCallback(async (e: React.MouseEvent): Promise<void> => {
+    e.preventDefault()
+    const tab = tabsRef.current.find(t => t.id === activeTabIdRef.current)
+    if (!tab || tab.disposed) return
+
+    await terminalRightClick(tab.terminal, window.electronAPI.clipboard)
+    tab.terminal.focus()
+  }, [])
+
   // Change cwd when repo changes for existing terminals
   useEffect(() => {
     if (!currentRepo) return
@@ -317,7 +330,11 @@ export function TerminalPanel({ currentRepo, onToggle }: TerminalPanelProps): Re
           <X size={14} />
         </button>
       </div>
-      <div className={`${styles.bottomPanelContent} ${styles.terminalContent}`} ref={termContainerRef}>
+      <div
+        className={`${styles.bottomPanelContent} ${styles.terminalContent}`}
+        ref={termContainerRef}
+        onContextMenu={handleContextMenu}
+      >
         {tabs.length === 0 && !currentRepo && (
           <div className={styles.terminalPlaceholder}>
             <span>Open a repository to use the terminal</span>
