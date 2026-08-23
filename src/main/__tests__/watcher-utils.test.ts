@@ -7,11 +7,36 @@ import {
   isWatcherSuppressed,
   debouncedSend,
   shouldIgnorePath,
+  shouldUsePolling,
   toRepoRelativePath,
   recordChangedPath,
   drainChangedPaths,
   type WatcherState
 } from '../watcher-utils'
+
+// ─── shouldUsePolling ─────────────────────────────────────────────────────────
+
+describe('shouldUsePolling', () => {
+  it('polls on Windows, where ReadDirectoryChangesW would lock watched dirs', () => {
+    expect(shouldUsePolling('win32')).toBe(true)
+  })
+
+  // Regression: polling was previously unconditional. On Linux that meant a full
+  // recursive stat() sweep of the watched tree every 250ms — on a large repo,
+  // ~150k stat() calls/sec, which pegged the main process and left the window
+  // mapped but never painted (visible in the taskbar, blank and unresponsive).
+  it('does not poll on Linux — inotify holds no directory handles', () => {
+    expect(shouldUsePolling('linux')).toBe(false)
+  })
+
+  it('does not poll on macOS — FSEvents holds no directory handles', () => {
+    expect(shouldUsePolling('darwin')).toBe(false)
+  })
+
+  it('defaults to the running platform', () => {
+    expect(shouldUsePolling()).toBe(process.platform === 'win32')
+  })
+})
 
 // ─── shouldIgnorePath ─────────────────────────────────────────────────────────
 

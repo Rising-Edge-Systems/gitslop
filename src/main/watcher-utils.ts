@@ -100,6 +100,25 @@ const ignoredDirPattern = new RegExp(
   IGNORED_DIRS.map(d => `(?:^|[\\\\/])${d.replace('.', '\\.')}(?:[\\\\/]|$)`).join('|')
 )
 
+/**
+ * Whether the file watcher should poll instead of using native OS change events.
+ *
+ * Polling exists solely to work around Windows' ReadDirectoryChangesW, which holds
+ * an open handle on every watched directory and so blocks the user from deleting or
+ * renaming those folders while GitSlop is open.
+ *
+ * inotify (Linux) and FSEvents (macOS) hold no such handles, so polling buys nothing
+ * there while costing a full recursive stat() sweep of the watched tree every
+ * `interval` ms. On a large repo that is ruinous: a tree of ~38k files under the
+ * tracked directories works out to ~150k stat() calls/sec at interval=250, which
+ * saturates the libuv threadpool and starves the main process event loop badly
+ * enough that the window never paints. It still maps, so it appears in the taskbar,
+ * but stays blank and does not respond to activation.
+ */
+export function shouldUsePolling(platform: NodeJS.Platform = process.platform): boolean {
+  return platform === 'win32'
+}
+
 export function shouldIgnorePath(path: string): boolean {
   if (ignoredDirPattern.test(path)) return true
   // Electron .asar archives appear as directories to fs but crash readdirp

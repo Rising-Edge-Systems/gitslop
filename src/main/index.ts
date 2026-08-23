@@ -25,7 +25,8 @@ import {
   isWatcherSuppressed as _isWatcherSuppressed,
   shouldIgnorePath,
   recordChangedPath,
-  drainChangedPaths
+  drainChangedPaths,
+  shouldUsePolling
 } from './watcher-utils'
 
 const isDev = !app.isPackaged
@@ -2189,11 +2190,10 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
         ignored: (path: string) => shouldIgnorePath(path),
         ignoreInitial: true,
         persistent: true,
-        // Poll instead of using native ReadDirectoryChangesW. The native API
-        // holds an open handle on every watched directory, which on Windows
-        // blocks the user from deleting/renaming those folders while GitSlop
-        // is open. Polling uses fs.stat and holds no handles.
-        usePolling: true,
+        // Poll on Windows only, to avoid ReadDirectoryChangesW holding handles
+        // on watched directories. See shouldUsePolling() for why polling must
+        // not be used on Linux/macOS.
+        usePolling: shouldUsePolling(),
         interval: 250,
         awaitWriteFinish: {
           stabilityThreshold: 300,
@@ -2207,7 +2207,7 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
         ignoreInitial: true,
         persistent: true,
         depth: 0,
-        usePolling: true,
+        usePolling: shouldUsePolling(),
         interval: 250,
         awaitWriteFinish: {
           stabilityThreshold: 300,
@@ -2236,7 +2236,7 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
         ignoreInitial: true,
         persistent: true,
         depth: 1,
-        usePolling: true,
+        usePolling: shouldUsePolling(),
         interval: 250,
         awaitWriteFinish: {
           stabilityThreshold: 300,
@@ -2282,9 +2282,9 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
         ignoreInitial: true,
         persistent: true,
         depth: 5,
-        // Poll so we don't hold a handle on .git, which would block the user
-        // from deleting the repo folder while GitSlop is open.
-        usePolling: true,
+        // Poll on Windows only, so we don't hold a handle on .git there.
+        // See shouldUsePolling().
+        usePolling: shouldUsePolling(),
         interval: 250
       }
     )
