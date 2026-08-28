@@ -59,6 +59,28 @@ export const LANE_COLORS = [
 
 // ─── Ref Parsing ─────────────────────────────────────────────────────────────
 
+/**
+ * Strip the `refs/heads/`, `refs/remotes/` or `refs/tags/` prefix that
+ * `--decorate=full` emits, leaving the short name the UI renders and the
+ * checkout/merge/rebase commands pass to git.
+ */
+function stripRefPrefix(ref: string): string {
+  for (const prefix of ['refs/heads/', 'refs/remotes/', 'refs/tags/']) {
+    if (ref.startsWith(prefix)) return ref.slice(prefix.length)
+  }
+  return ref
+}
+
+/**
+ * Parse a `%D` decoration line into typed refs.
+ *
+ * Callers ask git for `--decorate=full`, because the short form is ambiguous:
+ * a local branch in a namespace (`work/iforest-embedded`) and a remote branch
+ * (`origin/main`) are the same `a/b` shape. Classifying every slashed ref as
+ * remote made a double-click on a namespaced local branch run
+ * `git checkout -b iforest-embedded work/iforest-embedded`, silently creating a
+ * duplicate top-level branch. The `refs/...` prefixes settle it.
+ */
 export function parseRefs(refString: string): ParsedRef[] {
   if (!refString || !refString.trim()) return []
 
@@ -68,19 +90,32 @@ export function parseRefs(refString: string): ParsedRef[] {
     .filter(Boolean)
     .map((ref) => {
       if (ref.startsWith('HEAD -> ')) {
-        return { name: ref.replace('HEAD -> ', ''), type: 'head' as const }
+        return { name: stripRefPrefix(ref.slice('HEAD -> '.length)), type: 'head' as const }
       }
       if (ref === 'HEAD') {
         return { name: 'HEAD', type: 'head' as const }
       }
       if (ref.startsWith('tag: ')) {
-        return { name: ref.replace('tag: ', ''), type: 'tag' as const }
+        return { name: stripRefPrefix(ref.slice('tag: '.length)), type: 'tag' as const }
       }
       // Stashes appear as `refs/stash` (sometimes with a `stash@{N}` suffix
       // from git reflog). Match before the generic `/` remote check.
       if (ref === 'refs/stash' || ref === 'stash' || ref.startsWith('stash@')) {
         return { name: ref, type: 'stash' as const }
       }
+      if (ref.startsWith('refs/remotes/')) {
+        return { name: ref.slice('refs/remotes/'.length), type: 'remote' as const }
+      }
+      if (ref.startsWith('refs/heads/')) {
+        return { name: ref.slice('refs/heads/'.length), type: 'branch' as const }
+      }
+      if (ref.startsWith('refs/tags/')) {
+        return { name: ref.slice('refs/tags/'.length), type: 'tag' as const }
+      }
+      // Short decoration form (no --decorate=full): `a/b` is genuinely
+      // ambiguous, so fall back to the historical guess. Real data reaches us
+      // fully qualified; the checkout guard in git-service is what stops a
+      // wrong guess here from creating a branch.
       if (ref.includes('/')) {
         return { name: ref, type: 'remote' as const }
       }

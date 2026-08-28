@@ -290,6 +290,56 @@ describe('GitService', () => {
         expect(diff).toContain('diff --git')
       })
     })
+
+    // ─── Namespaced local branches ─────────────────────────────────────
+    //
+    // In short decoration output a namespaced local branch (`work/x`) and a
+    // remote branch (`origin/x`) are the same `a/b` shape. Reading the first
+    // as the second made a graph double-click run `git checkout -b x work/x`,
+    // silently forking a duplicate top-level branch that then got published.
+
+    describe('namespaced branches', () => {
+      it('decorates log refs with their full ref path', async () => {
+        execFileSync('git', ['branch', 'work/iforest-embedded'], { cwd: repoDir })
+
+        const commits = await service.log(repoDir, { all: true })
+
+        expect(commits[0].refs).toContain('refs/heads/work/iforest-embedded')
+        // The ambiguous bare form must never be what reaches the ref parser.
+        expect(commits[0].refs).not.toMatch(/(^|,\s*)work\/iforest-embedded/)
+      })
+
+      it('refuses to check out a namespaced local branch as a remote one', async () => {
+        execFileSync('git', ['branch', 'work/iforest-embedded'], { cwd: repoDir })
+
+        await expect(
+          service.checkoutRemoteBranch(repoDir, 'work', 'iforest-embedded')
+        ).rejects.toThrow(/not a remote-tracking branch/)
+
+        const names = (await service.getBranches(repoDir)).map((b) => b.name)
+        expect(names).toContain('work/iforest-embedded')
+        expect(names).not.toContain('iforest-embedded')
+      })
+
+      it('still checks out a genuinely namespaced remote branch', async () => {
+        const remoteDir = mkdtempSync(join(tmpdir(), 'gitslop-remote-'))
+        try {
+          execFileSync('git', ['init', '--bare'], { cwd: remoteDir })
+          execFileSync('git', ['remote', 'add', 'origin', remoteDir], { cwd: repoDir })
+          execFileSync('git', ['branch', 'work/iforest-embedded'], { cwd: repoDir })
+          execFileSync('git', ['push', 'origin', 'work/iforest-embedded'], { cwd: repoDir })
+          execFileSync('git', ['branch', '-D', 'work/iforest-embedded'], { cwd: repoDir })
+
+          await service.checkoutRemoteBranch(repoDir, 'origin', 'work/iforest-embedded')
+
+          const names = (await service.getBranches(repoDir)).map((b) => b.name)
+          expect(names).toContain('work/iforest-embedded')
+          expect(names).not.toContain('iforest-embedded')
+        } finally {
+          rmSync(remoteDir, { recursive: true, force: true })
+        }
+      })
+    })
   })
 
   // ─── Error Handling ────────────────────────────────────────────────────

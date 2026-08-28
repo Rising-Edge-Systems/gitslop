@@ -60,6 +60,61 @@ describe('parseRefs', () => {
     expect(result[1]).toEqual({ name: 'origin/main', type: 'remote' })
     expect(result[2]).toEqual({ name: 'v2.0', type: 'tag' })
   })
+
+  // ─── Fully-qualified refs (git log --decorate=full) ──────────────────────
+  //
+  // The short decoration form is ambiguous: a local branch in a `work/`
+  // namespace and a remote branch have the identical `a/b` shape. Treating
+  // every slashed ref as remote made a double-click on `work/iforest-embedded`
+  // run `git checkout -b iforest-embedded work/iforest-embedded`, silently
+  // creating a duplicate top-level branch. We now ask git for --decorate=full.
+
+  it('parses a namespaced local branch as a branch, not a remote', () => {
+    const result = parseRefs('refs/heads/work/iforest-embedded')
+    expect(result).toEqual([{ name: 'work/iforest-embedded', type: 'branch' }])
+  })
+
+  it('parses a fully-qualified remote branch', () => {
+    const result = parseRefs('refs/remotes/origin/main')
+    expect(result).toEqual([{ name: 'origin/main', type: 'remote' }])
+  })
+
+  it('parses a namespaced remote branch', () => {
+    const result = parseRefs('refs/remotes/origin/work/iforest-embedded')
+    expect(result).toEqual([{ name: 'origin/work/iforest-embedded', type: 'remote' }])
+  })
+
+  it('parses HEAD pointing at a namespaced branch', () => {
+    const result = parseRefs('HEAD -> refs/heads/work/iforest-embedded')
+    expect(result).toEqual([{ name: 'work/iforest-embedded', type: 'head' }])
+  })
+
+  it('parses a fully-qualified tag', () => {
+    const result = parseRefs('tag: refs/tags/v1.0.0')
+    expect(result).toEqual([{ name: 'v1.0.0', type: 'tag' }])
+  })
+
+  it('parses a fully-qualified namespaced tag', () => {
+    const result = parseRefs('tag: refs/tags/release/v1.0.0')
+    expect(result).toEqual([{ name: 'release/v1.0.0', type: 'tag' }])
+  })
+
+  it('parses a mixed fully-qualified decoration line', () => {
+    const result = parseRefs(
+      'HEAD -> refs/heads/chore/firmware-consolidation, refs/heads/firmware-consolidation, refs/remotes/origin/main, tag: refs/tags/v1.2.36'
+    )
+    expect(result).toEqual([
+      { name: 'chore/firmware-consolidation', type: 'head' },
+      { name: 'firmware-consolidation', type: 'branch' },
+      { name: 'origin/main', type: 'remote' },
+      { name: 'v1.2.36', type: 'tag' },
+    ])
+  })
+
+  it('still recognises stash refs under full decoration', () => {
+    expect(parseRefs('refs/stash')).toEqual([{ name: 'refs/stash', type: 'stash' }])
+    expect(parseRefs('stash@{2}')).toEqual([{ name: 'stash@{2}', type: 'stash' }])
+  })
 })
 
 // ─── assignLanes ─────────────────────────────────────────────────────────────

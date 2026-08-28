@@ -403,7 +403,10 @@ export class GitService {
       '%GK'    // signing key
     ].join(SEPARATOR)
 
-    const args = ['log', `--format=${format}${RECORD_END}`]
+    // --decorate=full so %D emits `refs/heads/...` / `refs/remotes/...`.
+    // Without it a namespaced local branch (`work/x`) is indistinguishable
+    // from a remote branch (`origin/x`) — see parseRefs in laneAssignment.ts.
+    const args = ['log', '--decorate=full', `--format=${format}${RECORD_END}`]
     if (options?.all) args.push('--all')
     if (options?.maxCount) args.push(`-n`, `${options.maxCount}`)
     if (options?.skip) args.push(`--skip=${options.skip}`)
@@ -725,7 +728,7 @@ export class GitService {
 
     // Run show with --stat for basic file list
     const result = await this.exec(
-      ['show', '--format=' + format, '--stat', '--stat-width=200', ...firstParentFlag, hash],
+      ['show', '--decorate=full', '--format=' + format, '--stat', '--stat-width=200', ...firstParentFlag, hash],
       repoPath,
       { signal: options?.signal }
     )
@@ -1453,6 +1456,25 @@ export class GitService {
     branchName: string,
     options?: { signal?: AbortSignal }
   ): Promise<void> {
+    // Callers derive <remote>/<branch> by splitting a decoration ref on its
+    // first slash, so a namespaced LOCAL branch (`work/iforest-embedded`)
+    // arrives here as remote="work", branch="iforest-embedded". Creating a
+    // branch from that runs `git checkout -b iforest-embedded
+    // work/iforest-embedded` and silently forks a duplicate top-level branch.
+    // Only proceed when the tracking ref genuinely exists.
+    const trackingRef = `refs/remotes/${remoteName}/${branchName}`
+    try {
+      await this.exec(['rev-parse', '--verify', '--quiet', trackingRef], repoPath, {
+        signal: options?.signal
+      })
+    } catch {
+      throw new Error(
+        `${remoteName}/${branchName} is not a remote-tracking branch, so there is ` +
+          `nothing to check out. Refusing to create a local branch named ` +
+          `"${branchName}".`
+      )
+    }
+
     // git checkout -b <branch> <remote>/<branch>  (creates local tracking branch)
     await this.exec(
       ['checkout', '-b', branchName, `${remoteName}/${branchName}`],
@@ -3687,6 +3709,7 @@ export class GitService {
     const result = await this.exec(
       [
         'log',
+        '--decorate=full',
         `--max-count=${maxCount}`,
         '--format=%H%x00%h%x00%P%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%b%x00%D%x00%G?%x00%GS%x00%GK',
         '--',
