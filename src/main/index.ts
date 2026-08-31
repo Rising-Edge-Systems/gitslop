@@ -110,6 +110,10 @@ function resetZoom(): void {
   applyZoomLevel(0)
 }
 
+// If neither 'ready-to-show' nor 'did-finish-load' has shown the window by now,
+// show it anyway rather than leaving the user with an invisible running app.
+const FALLBACK_SHOW_DELAY_MS = 10_000
+
 function createWindow(): void {
   // Resolve the icon path. In dev, __dirname = <project>/out/main so the
   // relative climbs back up to the project root `resources/`. In production
@@ -151,8 +155,46 @@ function createWindow(): void {
     mainWindow.setIcon(appIcon)
   }
 
+  // Showing the window is deliberately belt-and-braces. `ready-to-show` is the
+  // documented signal (it fires once the renderer has painted its first frame,
+  // which avoids the white flash the `show: false` above exists to prevent),
+  // but it depends on that frame actually reaching the compositor. On Linux —
+  // Wayland sessions in particular, and anywhere the GPU process falls back to
+  // SwiftShader — the first frame can never be submitted, the event never
+  // fires, and the app sits running forever with no window on screen.
+  //
+  // So: show on `ready-to-show` when it arrives, otherwise fall back to
+  // `did-finish-load`, and finally to a timer for the case where even the load
+  // event is lost. Every path goes through showMainWindow(), which is
+  // idempotent, so the window is shown exactly once by whichever fires first.
+  let hasShown = false
+  let fallbackShowTimer: NodeJS.Timeout | null = null
+
+  const showMainWindow = (reason: string): void => {
+    if (hasShown) return
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    hasShown = true
+    if (fallbackShowTimer) {
+      clearTimeout(fallbackShowTimer)
+      fallbackShowTimer = null
+    }
+    if (reason !== 'ready-to-show') {
+      console.warn(`[gitslop] 'ready-to-show' did not fire; showing window via ${reason}`)
+    }
+    mainWindow.show()
+  }
+
+  fallbackShowTimer = setTimeout(() => showMainWindow('timeout'), FALLBACK_SHOW_DELAY_MS)
+
   mainWindow.on('ready-to-show', () => {
-    mainWindow?.show()
+    showMainWindow('ready-to-show')
+  })
+
+  mainWindow.on('closed', () => {
+    if (fallbackShowTimer) {
+      clearTimeout(fallbackShowTimer)
+      fallbackShowTimer = null
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -163,6 +205,7 @@ function createWindow(): void {
   // Restore the persisted zoom level on every load (also re-applied after dev HMR reloads)
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow?.webContents.setZoomLevel(store.get('zoomLevel', 0))
+    showMainWindow('did-finish-load')
   })
 
   // VSCode-style zoom keys. The View-menu accelerators only bind the main `+`/`-`/`0`
