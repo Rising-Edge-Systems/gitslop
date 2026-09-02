@@ -34,7 +34,10 @@ import {
   PanelLeftOpen,
   GitPullRequestArrow,
   Gitlab,
-  MessageSquare
+  MessageSquare,
+  FolderGit2,
+  Lock,
+  LockOpen
 } from 'lucide-react'
 import { MergeDialog } from './MergeDialog'
 import { RebaseDialog } from './RebaseDialog'
@@ -55,6 +58,16 @@ interface GitBranch {
   ahead: number
   behind: number
   hash: string
+}
+
+interface GitWorktree {
+  path: string
+  head: string
+  branch: string | null
+  isMain: boolean
+  locked: boolean
+  lockReason: string
+  prunable: boolean
 }
 
 type NotifyType = 'success' | 'error' | 'warning' | 'info'
@@ -168,6 +181,8 @@ function SidebarSection({
 function buildBranchContextMenuItems(
   branch: GitBranch,
   currentBranch: string,
+  /** Path of the other worktree this branch is checked out in, if any. */
+  otherWorktreePath: string | null,
   callbacks: {
     onCheckout: (name: string) => void
     onRename: (name: string) => void
@@ -175,13 +190,22 @@ function buildBranchContextMenuItems(
     onMerge: (name: string) => void
     onRebase: (name: string) => void
     onPush: (name: string) => void
+    onCreateWorktree: (name: string) => void
+    onOpenWorktree: (path: string) => void
   }
 ): ContextMenuEntry[] {
   const isCurrent = branch.name === currentBranch
   const items: ContextMenuEntry[] = []
 
-  if (!isCurrent) {
+  if (!isCurrent && otherWorktreePath) {
+    // git refuses to check out a branch that's active in another worktree —
+    // offer to open that worktree instead
+    items.push({ key: 'openWorktree', label: 'Open Worktree', icon: <FolderGit2 size={14} />, onClick: () => callbacks.onOpenWorktree(otherWorktreePath) })
+  } else if (!isCurrent) {
     items.push({ key: 'checkout', label: 'Checkout', icon: <ArrowRightLeft size={14} />, onClick: () => callbacks.onCheckout(branch.name) })
+  }
+  if (!otherWorktreePath && !isCurrent) {
+    items.push({ key: 'createWorktree', label: 'Create Worktree', icon: <FolderGit2 size={14} />, onClick: () => callbacks.onCreateWorktree(branch.name) })
   }
   items.push({ key: 'rename', label: 'Rename', icon: <Pencil size={14} />, onClick: () => callbacks.onRename(branch.name) })
   if (!isCurrent) {
@@ -3510,7 +3534,7 @@ function IssuesSection({ currentRepo }: IssuesSectionProps): React.JSX.Element |
 
 // ─── Icon Rail Section Definitions ──────────────────────────────────────────
 
-type RailSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'submodules' | 'files' | 'pullrequests' | 'mergerequests' | 'issues'
+type RailSection = 'branches' | 'remotes' | 'tags' | 'stashes' | 'worktrees' | 'submodules' | 'files' | 'pullrequests' | 'mergerequests' | 'issues'
 
 interface RailSectionDef {
   id: RailSection
@@ -3524,11 +3548,420 @@ const RAIL_SECTIONS: RailSectionDef[] = [
   { id: 'remotes', label: 'Remotes', icon: <Globe size={20} /> },
   { id: 'tags', label: 'Tags', icon: <Tag size={20} /> },
   { id: 'stashes', label: 'Stashes', icon: <Archive size={20} /> },
+  { id: 'worktrees', label: 'Worktrees', icon: <FolderGit2 size={20} /> },
   { id: 'submodules', label: 'Submodules', icon: <Package size={20} /> },
   { id: 'pullrequests', label: 'Pull Requests', icon: <GitPullRequestArrow size={20} /> },
   { id: 'mergerequests', label: 'Merge Requests', icon: <Gitlab size={20} /> },
   { id: 'issues', label: 'Issues', icon: <CircleDot size={20} /> }
 ]
+
+// ─── Worktrees ──────────────────────────────────────────────────────────────
+
+/** Separator- and case-insensitive path equality for UI hints (which row is
+ * the open repo). Git prints forward slashes even on Windows. */
+function normalizeFsPath(p: string): string {
+  return p.replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase()
+}
+
+function worktreeDisplayName(p: string): string {
+  return p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p
+}
+
+/** Suggested location for a new worktree: a sibling `<repo>-worktrees/<branch>`
+ * folder, so worktrees stay grouped without polluting the repo itself. */
+function defaultWorktreePath(repoPath: string, branch: string): string {
+  const sep = repoPath.includes('\\') ? '\\' : '/'
+  const trimmed = repoPath.replace(/[\\/]+$/, '')
+  const idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
+  if (idx <= 0) return ''
+  const parent = trimmed.slice(0, idx)
+  const repoName = trimmed.slice(idx + 1)
+  const safeBranch = branch.replace(/[\\/:*?"<>|\s]+/g, '-') || 'worktree'
+  return `${parent}${sep}${repoName}-worktrees${sep}${safeBranch}`
+}
+
+interface AddWorktreeDialogState {
+  open: boolean
+  mode: 'existing' | 'new'
+  branch: string
+  newBranchName: string
+  baseRef: string
+  path: string
+  pathTouched: boolean
+  error: string | null
+  loading: boolean
+}
+
+const CLOSED_ADD_WORKTREE_DIALOG: AddWorktreeDialogState = {
+  open: false,
+  mode: 'existing',
+  branch: '',
+  newBranchName: '',
+  baseRef: '',
+  path: '',
+  pathTouched: false,
+  error: null,
+  loading: false
+}
+
+interface AddWorktreeDialogProps {
+  state: AddWorktreeDialogState
+  branches: GitBranch[]
+  /** Branch names already checked out in some worktree (not selectable). */
+  takenBranches: Set<string>
+  onClose: () => void
+  onChange: (updates: Partial<AddWorktreeDialogState>) => void
+  onSubmit: () => void
+}
+
+function AddWorktreeDialog({
+  state,
+  branches,
+  takenBranches,
+  onClose,
+  onChange,
+  onSubmit
+}: AddWorktreeDialogProps): React.JSX.Element {
+  const availableBranches = branches.filter((b) => !takenBranches.has(b.name))
+  const canSubmit =
+    state.path.trim() !== '' &&
+    (state.mode === 'existing' ? state.branch !== '' : state.newBranchName.trim() !== '')
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    },
+    [onClose]
+  )
+
+  const handleBrowse = useCallback(async () => {
+    const dir = await window.electronAPI.dialog.openDirectory()
+    if (dir) onChange({ path: dir, pathTouched: true })
+  }, [onChange])
+
+  return (
+    <div className="branch-dialog-overlay" onClick={onClose}>
+      <div className="branch-dialog" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
+        <div className="branch-dialog-header">
+          <h3 className="branch-dialog-title">New Worktree</h3>
+          <button className="branch-dialog-close" onClick={onClose}>
+            <X size={14} />
+          </button>
+        </div>
+        <div className="branch-dialog-body">
+          <div className="branch-dialog-field">
+            <label className="branch-dialog-label">Branch</label>
+            <select
+              className="branch-dialog-select"
+              value={state.mode === 'new' ? '<new>' : state.branch}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v === '<new>') {
+                  onChange({ mode: 'new' })
+                } else {
+                  onChange({ mode: 'existing', branch: v })
+                }
+              }}
+              disabled={state.loading}
+            >
+              <option value="">Select branch…</option>
+              {availableBranches.map((b) => (
+                <option key={b.name} value={b.name}>
+                  {b.name}
+                </option>
+              ))}
+              <option value="<new>">+ New branch…</option>
+            </select>
+          </div>
+          {state.mode === 'new' && (
+            <>
+              <div className="branch-dialog-field">
+                <label className="branch-dialog-label">New Branch Name</label>
+                <input
+                  type="text"
+                  className="branch-dialog-input"
+                  placeholder="feature/my-branch"
+                  value={state.newBranchName}
+                  onChange={(e) => onChange({ newBranchName: e.target.value })}
+                  disabled={state.loading}
+                  autoFocus
+                />
+              </div>
+              <div className="branch-dialog-field">
+                <label className="branch-dialog-label">Base Branch / Commit</label>
+                <select
+                  className="branch-dialog-select"
+                  value={state.baseRef}
+                  onChange={(e) => onChange({ baseRef: e.target.value })}
+                  disabled={state.loading}
+                >
+                  <option value="">HEAD (current)</option>
+                  {branches.map((b) => (
+                    <option key={b.name} value={b.name}>
+                      {b.name}
+                      {b.current ? ' (current)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+          <div className="branch-dialog-field">
+            <label className="branch-dialog-label">Location</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                type="text"
+                className="branch-dialog-input"
+                style={{ flex: 1, minWidth: 0 }}
+                placeholder="Folder for the worktree"
+                value={state.path}
+                onChange={(e) => onChange({ path: e.target.value, pathTouched: true })}
+                disabled={state.loading}
+              />
+              <button
+                className="branch-dialog-btn branch-dialog-btn-cancel"
+                onClick={handleBrowse}
+                disabled={state.loading}
+              >
+                Browse…
+              </button>
+            </div>
+          </div>
+          {state.error && (
+            <div className="branch-dialog-error">
+              <AlertTriangle size={14} /> {state.error}
+            </div>
+          )}
+        </div>
+        <div className="branch-dialog-footer">
+          <button className="branch-dialog-btn branch-dialog-btn-cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="branch-dialog-btn branch-dialog-btn-create"
+            disabled={!canSubmit || state.loading}
+            onClick={onSubmit}
+          >
+            {state.loading ? 'Creating...' : 'Create Worktree'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface WorktreeContextMenuState {
+  x: number
+  y: number
+  worktree: GitWorktree
+}
+
+interface WorktreesSectionProps {
+  currentRepo: string | null
+  worktrees: GitWorktree[]
+  onReload: () => void
+  onOpenWorktree: (path: string) => void
+  onAddWorktree: () => void
+  onNotify: NotifyFn
+}
+
+function WorktreesSection({
+  currentRepo,
+  worktrees,
+  onReload,
+  onOpenWorktree,
+  onAddWorktree,
+  onNotify
+}: WorktreesSectionProps): React.JSX.Element {
+  const [contextMenu, setContextMenu] = useState<WorktreeContextMenuState | null>(null)
+
+  const currentNorm = currentRepo ? normalizeFsPath(currentRepo) : ''
+
+  const handleRemove = useCallback(
+    async (wt: GitWorktree, deleteBranch: boolean) => {
+      if (!currentRepo) return
+      const label = worktreeDisplayName(wt.path)
+      // eslint-disable-next-line no-restricted-globals
+      if (!confirm(`Remove worktree "${label}"?\n\n${wt.path}`)) return
+
+      let result = await window.electronAPI.git.removeWorktree(currentRepo, wt.path)
+      if (!result.success && /modified or untracked|use --force/i.test(result.error || '')) {
+        // eslint-disable-next-line no-restricted-globals
+        const forceConfirmed = confirm(
+          `Worktree "${label}" has uncommitted changes that will be LOST.\n\nRemove anyway?`
+        )
+        if (!forceConfirmed) return
+        result = await window.electronAPI.git.removeWorktree(currentRepo, wt.path, { force: true })
+      }
+      if (!result.success) {
+        onNotify('error', `Failed to remove worktree "${label}"`, result.error)
+        return
+      }
+
+      if (deleteBranch && wt.branch) {
+        let del = await window.electronAPI.git.deleteBranch(currentRepo, wt.branch)
+        if (!del.success) {
+          // eslint-disable-next-line no-restricted-globals
+          const forceDel = confirm(
+            `Branch "${wt.branch}" is not fully merged.\n\nForce delete?`
+          )
+          if (forceDel) {
+            del = await window.electronAPI.git.deleteBranch(currentRepo, wt.branch, { force: true })
+          }
+        }
+        if (del.success) {
+          onNotify('success', `Removed worktree and deleted branch "${wt.branch}"`)
+        } else {
+          onNotify('warning', `Removed worktree, but branch "${wt.branch}" was kept`, del.error)
+        }
+      } else {
+        onNotify('success', `Removed worktree "${label}"`)
+      }
+      onReload()
+    },
+    [currentRepo, onNotify, onReload]
+  )
+
+  const handleToggleLock = useCallback(
+    async (wt: GitWorktree) => {
+      if (!currentRepo) return
+      const result = wt.locked
+        ? await window.electronAPI.git.unlockWorktree(currentRepo, wt.path)
+        : await window.electronAPI.git.lockWorktree(currentRepo, wt.path)
+      if (!result.success) {
+        onNotify('error', `Failed to ${wt.locked ? 'unlock' : 'lock'} worktree`, result.error)
+      }
+      onReload()
+    },
+    [currentRepo, onNotify, onReload]
+  )
+
+  const buildMenuItems = useCallback(
+    (wt: GitWorktree): ContextMenuEntry[] => {
+      const isCurrent = normalizeFsPath(wt.path) === currentNorm
+      const items: ContextMenuEntry[] = []
+      if (!isCurrent) {
+        items.push({
+          key: 'open',
+          label: 'Open in New Tab',
+          icon: <ExternalLink size={14} />,
+          onClick: () => onOpenWorktree(wt.path)
+        })
+      }
+      if (!wt.isMain) {
+        items.push({
+          key: 'lock',
+          label: wt.locked ? 'Unlock' : 'Lock',
+          icon: wt.locked ? <LockOpen size={14} /> : <Lock size={14} />,
+          onClick: () => handleToggleLock(wt)
+        })
+        if (!isCurrent) {
+          items.push({ key: 'sep1', separator: true })
+          items.push({
+            key: 'remove',
+            label: 'Remove Worktree',
+            icon: <Trash2 size={14} />,
+            danger: true,
+            onClick: () => handleRemove(wt, false)
+          })
+          if (wt.branch) {
+            items.push({
+              key: 'removeAndDelete',
+              label: `Remove and Delete "${wt.branch}"`,
+              icon: <Trash2 size={14} />,
+              danger: true,
+              onClick: () => handleRemove(wt, true)
+            })
+          }
+        }
+      }
+      return items
+    },
+    [currentNorm, onOpenWorktree, handleToggleLock, handleRemove]
+  )
+
+  return (
+    <>
+      <SidebarSection
+        title="Worktrees"
+        icon={<FolderGit2 size={16} />}
+        defaultOpen={false}
+        count={worktrees.length > 1 ? worktrees.length : undefined}
+        headerAction={
+          currentRepo ? (
+            <button
+              className={styles.sectionActionBtn}
+              title="New Worktree"
+              onClick={(e) => {
+                e.stopPropagation()
+                onAddWorktree()
+              }}
+            >
+              +
+            </button>
+          ) : undefined
+        }
+      >
+        {!currentRepo ? (
+          <div className={styles.placeholder}>No repository open</div>
+        ) : worktrees.length === 0 ? (
+          <div className={styles.placeholder}>No worktrees</div>
+        ) : (
+          <div className={styles.stashList}>
+            {worktrees.map((wt) => {
+              const isCurrent = normalizeFsPath(wt.path) === currentNorm
+              return (
+                <div
+                  key={wt.path}
+                  className={`${styles.stashItem} ${isCurrent ? styles.stashItemSelected : ''}`}
+                  onDoubleClick={() => {
+                    if (!isCurrent) onOpenWorktree(wt.path)
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setContextMenu({ x: e.clientX, y: e.clientY, worktree: wt })
+                  }}
+                  title={`${wt.path}${wt.isMain ? ' (main worktree)' : ''}${wt.locked ? `\nLocked${wt.lockReason ? `: ${wt.lockReason}` : ''}` : ''}\nDouble-click to open`}
+                >
+                  <span className={styles.stashIcon}>
+                    {isCurrent ? <CircleDot size={14} /> : <FolderGit2 size={14} />}
+                  </span>
+                  <div className={styles.stashInfo}>
+                    <span className={styles.stashMessage}>
+                      {worktreeDisplayName(wt.path)}
+                      {wt.isMain ? ' (main)' : ''}
+                    </span>
+                    <span className={styles.stashDate}>
+                      {wt.branch ?? `detached @ ${wt.head.slice(0, 7)}`}
+                    </span>
+                  </div>
+                  {wt.locked && (
+                    <span
+                      className={styles.stashIcon}
+                      title={wt.lockReason ? `Locked: ${wt.lockReason}` : 'Locked'}
+                    >
+                      <Lock size={12} />
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </SidebarSection>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={buildMenuItems(contextMenu.worktree)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+    </>
+  )
+}
 
 export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: SidebarProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<SidebarTab>(() => {
@@ -3554,6 +3987,10 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
     loading: false
   })
   const [renameTarget, setRenameTarget] = useState<string | null>(null)
+  const [worktrees, setWorktrees] = useState<GitWorktree[]>([])
+  const [addWorktreeDialog, setAddWorktreeDialog] = useState<AddWorktreeDialogState>(
+    CLOSED_ADD_WORKTREE_DIALOG
+  )
   const [loading, setLoading] = useState(false)
   const [mergeBranch, setMergeBranch] = useState<string | null>(null)
   const [rebaseBranch, setRebaseBranch] = useState<string | null>(null)
@@ -3567,19 +4004,24 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
     if (!currentRepo) {
       setBranches([])
       setSidebarRemoteBranches([])
+      setWorktrees([])
       return
     }
     setLoading(true)
     try {
-      const [branchRes, remoteBranchRes] = await Promise.all([
+      const [branchRes, remoteBranchRes, worktreeRes] = await Promise.all([
         window.electronAPI.git.getBranches(currentRepo),
-        window.electronAPI.git.getRemoteBranches(currentRepo)
+        window.electronAPI.git.getRemoteBranches(currentRepo),
+        window.electronAPI.git.getWorktrees(currentRepo)
       ])
       if (branchRes.success && Array.isArray(branchRes.data)) {
         setBranches(branchRes.data as GitBranch[])
       }
       if (remoteBranchRes.success && Array.isArray(remoteBranchRes.data)) {
         setSidebarRemoteBranches(remoteBranchRes.data as RemoteBranch[])
+      }
+      if (worktreeRes.success && Array.isArray(worktreeRes.data)) {
+        setWorktrees(worktreeRes.data as GitWorktree[])
       }
     } catch {
       // Ignore errors — branches stay empty
@@ -3619,6 +4061,21 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
 
   const currentBranch = branches.find((b) => b.current)?.name || ''
 
+  // Branch name → path of the OTHER worktree it's checked out in (excludes the
+  // open repo itself). Such branches can't be checked out here — git refuses —
+  // so the UI offers to open that worktree instead.
+  const otherWorktreeByBranch = useMemo(() => {
+    const map = new Map<string, string>()
+    if (!currentRepo) return map
+    const currentNorm = normalizeFsPath(currentRepo)
+    for (const wt of worktrees) {
+      if (wt.branch && normalizeFsPath(wt.path) !== currentNorm) {
+        map.set(wt.branch, wt.path)
+      }
+    }
+    return map
+  }, [worktrees, currentRepo])
+
   // Sort: current branch pinned to top, rest alphabetical
   const sortedBranches = [...branches].sort((a, b) => {
     if (a.current) return -1
@@ -3655,12 +4112,76 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
     [currentRepo, branches, loadBranches, onNotify]
   )
 
+  const handleOpenWorktree = useCallback((path: string) => {
+    window.dispatchEvent(new CustomEvent('open-repo', { detail: { path } }))
+  }, [])
+
+  const openAddWorktreeDialog = useCallback(
+    (prefillBranch?: string) => {
+      if (!currentRepo) return
+      const branch = prefillBranch ?? ''
+      setAddWorktreeDialog({
+        ...CLOSED_ADD_WORKTREE_DIALOG,
+        open: true,
+        branch,
+        path: branch ? defaultWorktreePath(currentRepo, branch) : ''
+      })
+    },
+    [currentRepo]
+  )
+
+  const handleAddWorktreeChange = useCallback(
+    (updates: Partial<AddWorktreeDialogState>) => {
+      setAddWorktreeDialog((prev) => {
+        const next = { ...prev, ...updates, error: null }
+        // Track the chosen branch in the suggested location until the user
+        // edits the path themselves
+        if (!next.pathTouched && currentRepo) {
+          const branchForPath = next.mode === 'new' ? next.newBranchName : next.branch
+          next.path = branchForPath ? defaultWorktreePath(currentRepo, branchForPath) : ''
+        }
+        return next
+      })
+    },
+    [currentRepo]
+  )
+
+  const handleAddWorktreeSubmit = useCallback(async () => {
+    if (!currentRepo) return
+    const d = addWorktreeDialog
+    const path = d.path.trim()
+    setAddWorktreeDialog((prev) => ({ ...prev, loading: true, error: null }))
+    const opts =
+      d.mode === 'new'
+        ? { newBranch: d.newBranchName.trim(), baseRef: d.baseRef || undefined }
+        : { branch: d.branch }
+    const result = await window.electronAPI.git.addWorktree(currentRepo, path, opts)
+    if (!result.success) {
+      setAddWorktreeDialog((prev) => ({
+        ...prev,
+        loading: false,
+        error: result.error || 'Failed to create worktree'
+      }))
+      return
+    }
+    setAddWorktreeDialog(CLOSED_ADD_WORKTREE_DIALOG)
+    const branchLabel = d.mode === 'new' ? d.newBranchName.trim() : d.branch
+    onNotify('success', `Created worktree for ${branchLabel}`, path)
+    await loadBranches()
+  }, [currentRepo, addWorktreeDialog, onNotify, loadBranches])
+
   const handleDoubleClick = useCallback(
     (branch: GitBranch) => {
       if (branch.current) return
+      // Checked out in another worktree — git refuses checkout, open it instead
+      const otherPath = otherWorktreeByBranch.get(branch.name)
+      if (otherPath) {
+        handleOpenWorktree(otherPath)
+        return
+      }
       handleCheckout(branch.name)
     },
-    [handleCheckout]
+    [handleCheckout, otherWorktreeByBranch, handleOpenWorktree]
   )
 
   // Single-click: scroll the graph to where the branch's upstream tracking
@@ -3985,6 +4506,16 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
               {railOverlaySection === 'stashes' && (
                 <StashesSection currentRepo={currentRepo} />
               )}
+              {railOverlaySection === 'worktrees' && (
+                <WorktreesSection
+                  currentRepo={currentRepo}
+                  worktrees={worktrees}
+                  onReload={loadBranches}
+                  onOpenWorktree={handleOpenWorktree}
+                  onAddWorktree={() => openAddWorktreeDialog()}
+                  onNotify={onNotify}
+                />
+              )}
               {railOverlaySection === 'submodules' && (
                 <SubmodulesSection currentRepo={currentRepo} />
               )}
@@ -4016,14 +4547,21 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
           <ContextMenu
             x={contextMenu.x}
             y={contextMenu.y}
-            items={buildBranchContextMenuItems(contextMenu.branch, currentBranch, {
-              onCheckout: handleCheckout,
-              onRename: (name) => setRenameTarget(name),
-              onDelete: handleDelete,
-              onMerge: handleMerge,
-              onRebase: handleRebase,
-              onPush: handlePush,
-            })}
+            items={buildBranchContextMenuItems(
+              contextMenu.branch,
+              currentBranch,
+              otherWorktreeByBranch.get(contextMenu.branch.name) ?? null,
+              {
+                onCheckout: handleCheckout,
+                onRename: (name) => setRenameTarget(name),
+                onDelete: handleDelete,
+                onMerge: handleMerge,
+                onRebase: handleRebase,
+                onPush: handlePush,
+                onCreateWorktree: (name) => openAddWorktreeDialog(name),
+                onOpenWorktree: handleOpenWorktree
+              }
+            )}
             onClose={() => setContextMenu(null)}
           />
         )}
@@ -4193,6 +4731,14 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
                       {branch.current ? <CircleDot size={12} /> : ''}
                     </span>
                     <span className={styles.branchName}>{branch.name}</span>
+                    {otherWorktreeByBranch.has(branch.name) && (
+                      <span
+                        className={styles.branchIndicator}
+                        title={`Checked out in worktree: ${otherWorktreeByBranch.get(branch.name)}`}
+                      >
+                        <FolderGit2 size={11} />
+                      </span>
+                    )}
                     {(branch.ahead > 0 || branch.behind > 0) && branch.upstream && (
                       <span className={styles.branchTracking}>
                         {branch.ahead > 0 && (
@@ -4221,6 +4767,15 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
 
       <StashesSection currentRepo={currentRepo} />
 
+      <WorktreesSection
+        currentRepo={currentRepo}
+        worktrees={worktrees}
+        onReload={loadBranches}
+        onOpenWorktree={handleOpenWorktree}
+        onAddWorktree={() => openAddWorktreeDialog()}
+        onNotify={onNotify}
+      />
+
       <SubmodulesSection currentRepo={currentRepo} />
 
       <PullRequestsSection currentRepo={currentRepo} />
@@ -4237,14 +4792,21 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          items={buildBranchContextMenuItems(contextMenu.branch, currentBranch, {
-            onCheckout: handleCheckout,
-            onRename: (name) => setRenameTarget(name),
-            onDelete: handleDelete,
-            onMerge: handleMerge,
-            onRebase: handleRebase,
-            onPush: handlePush,
-          })}
+          items={buildBranchContextMenuItems(
+            contextMenu.branch,
+            currentBranch,
+            otherWorktreeByBranch.get(contextMenu.branch.name) ?? null,
+            {
+              onCheckout: handleCheckout,
+              onRename: (name) => setRenameTarget(name),
+              onDelete: handleDelete,
+              onMerge: handleMerge,
+              onRebase: handleRebase,
+              onPush: handlePush,
+              onCreateWorktree: (name) => openAddWorktreeDialog(name),
+              onOpenWorktree: handleOpenWorktree
+            }
+          )}
           onClose={() => setContextMenu(null)}
         />
       )}
@@ -4257,6 +4819,18 @@ export function Sidebar({ currentRepo, collapsed, onToggleCollapse, onNotify }: 
           onClose={closeNewBranchDialog}
           onChange={(updates) => setNewBranchDialog((prev) => ({ ...prev, ...updates }))}
           onSubmit={handleNewBranchSubmit}
+        />
+      )}
+
+      {/* Add Worktree Dialog */}
+      {addWorktreeDialog.open && (
+        <AddWorktreeDialog
+          state={addWorktreeDialog}
+          branches={branches}
+          takenBranches={new Set(worktrees.map((w) => w.branch).filter((b): b is string => !!b))}
+          onClose={() => setAddWorktreeDialog(CLOSED_ADD_WORKTREE_DIALOG)}
+          onChange={handleAddWorktreeChange}
+          onSubmit={handleAddWorktreeSubmit}
         />
       )}
 

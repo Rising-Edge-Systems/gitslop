@@ -90,6 +90,24 @@ const electronAPI = {
       ipcRenderer.invoke('git:deleteTag', repoPath, name),
     pushTag: (repoPath: string, tagName: string, remoteName?: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:pushTag', repoPath, tagName, remoteName),
+    getWorktrees: (repoPath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:getWorktrees', repoPath),
+    addWorktree: (
+      repoPath: string,
+      worktreePath: string,
+      opts: { branch?: string; newBranch?: string; baseRef?: string }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:addWorktree', repoPath, worktreePath, opts),
+    removeWorktree: (
+      repoPath: string,
+      worktreePath: string,
+      opts?: { force?: boolean }
+    ): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:removeWorktree', repoPath, worktreePath, opts),
+    lockWorktree: (repoPath: string, worktreePath: string, reason?: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:lockWorktree', repoPath, worktreePath, reason),
+    unlockWorktree: (repoPath: string, worktreePath: string): Promise<GitServiceResult> =>
+      ipcRenderer.invoke('git:unlockWorktree', repoPath, worktreePath),
     getStashes: (repoPath: string): Promise<GitServiceResult> =>
       ipcRenderer.invoke('git:getStashes', repoPath),
     stashSave: (

@@ -1,5 +1,5 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, shell } from 'electron'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { readFile, writeFile, readdir, stat, accessSync, constants as fsConstants, existsSync, readFileSync, writeFileSync } from 'fs'
 import * as https from 'https'
 import { exec, spawn } from 'child_process'
@@ -2328,9 +2328,31 @@ async function startWatcher(repoPath: string): Promise<{ success: boolean; error
       await gitRefWatcher.close()
       gitRefWatcher = null
     }
-    const gitDir = join(repoPath, '.git')
+    // In a linked worktree `.git` is a file pointing at
+    // `<main>/.git/worktrees/<name>/`, where that worktree's HEAD lives, while
+    // shared refs stay in the common dir. Resolve both through git instead of
+    // assuming `<repo>/.git`.
+    let gitDir = join(repoPath, '.git')
+    let commonDir = gitDir
+    try {
+      const dirs = await gitService.exec(
+        ['rev-parse', '--absolute-git-dir', '--git-common-dir'],
+        repoPath,
+        { noQueue: true }
+      )
+      const [rawGitDir, rawCommonDir] = dirs.stdout.split(/\r?\n/)
+      if (rawGitDir?.trim()) gitDir = resolve(repoPath, rawGitDir.trim())
+      if (rawCommonDir?.trim()) commonDir = resolve(repoPath, rawCommonDir.trim())
+    } catch {
+      // Not a repo or git missing — fall back to <repo>/.git as before
+    }
     gitRefWatcher = chokidarWatch(
-      [join(gitDir, 'HEAD'), join(gitDir, 'refs')],
+      [
+        join(gitDir, 'HEAD'),
+        join(commonDir, 'refs'),
+        // Worktree registry — fires when worktrees are added/removed externally
+        join(commonDir, 'worktrees')
+      ],
       {
         ignoreInitial: true,
         persistent: true,

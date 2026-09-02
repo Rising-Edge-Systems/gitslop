@@ -259,6 +259,70 @@ export function registerGitIpcHandlers(): void {
     }
   )
 
+  // ─── Worktrees ───────────────────────────────────────────────────────────
+
+  ipcMain.handle('git:getWorktrees', async (_event, repoPath: string) => {
+    try {
+      const worktrees = await gitService.getWorktrees(repoPath)
+      return { success: true, data: worktrees }
+    } catch (err) {
+      return { success: false, ...formatError(err) }
+    }
+  })
+
+  ipcMain.handle(
+    'git:addWorktree',
+    async (
+      _event,
+      repoPath: string,
+      worktreePath: string,
+      opts: { branch?: string; newBranch?: string; baseRef?: string }
+    ) => {
+      try {
+        await withWatcherSuppression(() => gitService.addWorktree(repoPath, worktreePath, opts))
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:removeWorktree',
+    async (_event, repoPath: string, worktreePath: string, opts?: { force?: boolean }) => {
+      try {
+        await withWatcherSuppression(() => gitService.removeWorktree(repoPath, worktreePath, opts))
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:lockWorktree',
+    async (_event, repoPath: string, worktreePath: string, reason?: string) => {
+      try {
+        await gitService.lockWorktree(repoPath, worktreePath, reason)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'git:unlockWorktree',
+    async (_event, repoPath: string, worktreePath: string) => {
+      try {
+        await gitService.unlockWorktree(repoPath, worktreePath)
+        return { success: true }
+      } catch (err) {
+        return { success: false, ...formatError(err) }
+      }
+    }
+  )
+
   // ─── Stashes ─────────────────────────────────────────────────────────────
 
   ipcMain.handle('git:getStashes', async (_event, repoPath: string) => {

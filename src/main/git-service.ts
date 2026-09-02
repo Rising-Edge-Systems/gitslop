@@ -11,6 +11,7 @@
  */
 
 import { execFile, ExecFileOptions, spawn } from 'child_process'
+import { resolve as resolvePath } from 'path'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,18 @@ export interface GitStash {
   message: string
   hash: string
   date: string
+}
+
+export interface GitWorktree {
+  /** Absolute path to the worktree root, native separators. */
+  path: string
+  head: string
+  /** Checked-out branch (short name), or null when detached. */
+  branch: string | null
+  isMain: boolean
+  locked: boolean
+  lockReason: string
+  prunable: boolean
 }
 
 export interface GitFileStatus {
@@ -1346,6 +1359,124 @@ export class GitService {
     options?: { signal?: AbortSignal }
   ): Promise<void> {
     await this.exec(['branch', '-m', oldName, newName], repoPath, { signal: options?.signal })
+  }
+
+  /**
+   * List all worktrees of the repository (the main worktree is always first
+   * in `git worktree list` output).
+   */
+  async getWorktrees(repoPath: string, options?: { signal?: AbortSignal }): Promise<GitWorktree[]> {
+    try {
+      const result = await this.exec(
+        ['worktree', 'list', '--porcelain'],
+        repoPath,
+        { signal: options?.signal }
+      )
+
+      const worktrees: GitWorktree[] = []
+      // Porcelain output: one attribute per line, blank line between entries.
+      for (const block of result.stdout.split(/\r?\n\r?\n/)) {
+        const lines = block.split(/\r?\n/).filter((l) => l.length > 0)
+        if (lines.length === 0) continue
+
+        const wt: GitWorktree = {
+          path: '',
+          head: '',
+          branch: null,
+          isMain: worktrees.length === 0,
+          locked: false,
+          lockReason: '',
+          prunable: false
+        }
+        for (const line of lines) {
+          if (line.startsWith('worktree ')) {
+            // git prints forward slashes even on Windows — normalize to native
+            wt.path = resolvePath(line.slice('worktree '.length))
+          } else if (line.startsWith('HEAD ')) {
+            wt.head = line.slice('HEAD '.length)
+          } else if (line.startsWith('branch ')) {
+            wt.branch = line.slice('branch '.length).replace(/^refs\/heads\//, '')
+          } else if (line === 'locked' || line.startsWith('locked ')) {
+            wt.locked = true
+            wt.lockReason = line.slice('locked'.length).trim()
+          } else if (line === 'prunable' || line.startsWith('prunable ')) {
+            wt.prunable = true
+          }
+          // 'detached' and 'bare' need no handling: branch stays null,
+          // and a bare main entry still lists as the main worktree.
+        }
+        if (wt.path) worktrees.push(wt)
+      }
+      return worktrees
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Add a worktree at `worktreePath`, either checking out an existing branch
+   * or creating a new one from `baseRef` (defaults to HEAD).
+   */
+  async addWorktree(
+    repoPath: string,
+    worktreePath: string,
+    opts: { branch?: string; newBranch?: string; baseRef?: string },
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    const args = ['worktree', 'add']
+    if (opts.newBranch) {
+      args.push('-b', opts.newBranch, worktreePath)
+      if (opts.baseRef) args.push(opts.baseRef)
+    } else {
+      args.push(worktreePath)
+      if (opts.branch) args.push(opts.branch)
+    }
+    await this.exec(args, repoPath, { signal: options?.signal, noQueue: true })
+  }
+
+  /**
+   * Remove a worktree. Without `force` git refuses if the worktree is dirty;
+   * the caller surfaces that error and may retry with force after confirming.
+   */
+  async removeWorktree(
+    repoPath: string,
+    worktreePath: string,
+    opts?: { force?: boolean },
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    const args = ['worktree', 'remove']
+    if (opts?.force) args.push('--force')
+    args.push(worktreePath)
+    await this.exec(args, repoPath, { signal: options?.signal, noQueue: true })
+  }
+
+  /**
+   * Lock a worktree so git won't prune or move it.
+   */
+  async lockWorktree(
+    repoPath: string,
+    worktreePath: string,
+    reason?: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    const args = ['worktree', 'lock']
+    if (reason) args.push('--reason', reason)
+    args.push(worktreePath)
+    await this.exec(args, repoPath, { signal: options?.signal, noQueue: true })
+  }
+
+  /**
+   * Unlock a previously locked worktree.
+   */
+  async unlockWorktree(
+    repoPath: string,
+    worktreePath: string,
+    options?: { signal?: AbortSignal }
+  ): Promise<void> {
+    await this.exec(['worktree', 'unlock', worktreePath], repoPath, {
+      signal: options?.signal,
+      noQueue: true
+    })
   }
 
   /**

@@ -49,6 +49,19 @@ declare global {
         ) => Promise<GitServiceResult>
         deleteTag: (repoPath: string, name: string) => Promise<GitServiceResult>
         pushTag: (repoPath: string, tagName: string, remoteName?: string) => Promise<GitServiceResult>
+        getWorktrees: (repoPath: string) => Promise<GitServiceResult>
+        addWorktree: (
+          repoPath: string,
+          worktreePath: string,
+          opts: { branch?: string; newBranch?: string; baseRef?: string }
+        ) => Promise<GitServiceResult>
+        removeWorktree: (
+          repoPath: string,
+          worktreePath: string,
+          opts?: { force?: boolean }
+        ) => Promise<GitServiceResult>
+        lockWorktree: (repoPath: string, worktreePath: string, reason?: string) => Promise<GitServiceResult>
+        unlockWorktree: (repoPath: string, worktreePath: string) => Promise<GitServiceResult>
         getStashes: (repoPath: string) => Promise<GitServiceResult>
         stashSave: (
           repoPath: string,
